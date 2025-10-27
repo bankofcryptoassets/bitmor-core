@@ -25,9 +25,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
   /**
    * @notice Initializes the Loan contract with protocol addresses and configuration
-   * @param _aavePool Aave V3 pool address for flash loans
-   * @param _bonzoPool Bonzo lending pool address
-   * @param _bonzoAddressesProvider Bonzo addresses provider
+   * @param _aaveV3Pool Aave V3 pool address for flash loans
+   * @param _aaveV2Pool Aave V2 lending pool address for BTC/USDC reserves
+   * @param _aaveAddressesProvider Aave V2 addresses provider
    * @param _collateralAsset WBTC address
    * @param _debtAsset USDC address
    * @param _loanVaultFactory LoanVaultFactory address for creating LSAs
@@ -36,16 +36,16 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param _maxLoanAmount Maximum loan amount allowed (6 decimals for USDC)
    */
   constructor(
-    address _aavePool,
-    address _bonzoPool,
-    address _bonzoAddressesProvider,
+    address _aaveV3Pool,
+    address _aaveV2Pool,
+    address _aaveAddressesProvider,
     address _collateralAsset,
     address _debtAsset,
     address _loanVaultFactory,
     address _escrow,
     address _swapAdapter,
     uint256 _maxLoanAmount
-  ) public LoanStorage(_aavePool, _bonzoPool, _bonzoAddressesProvider) {
+  ) public LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider) {
     require(_collateralAsset != address(0), 'Loan: invalid collateral asset');
     require(_debtAsset != address(0), 'Loan: invalid debt asset');
     require(_loanVaultFactory != address(0), 'Loan: invalid factory');
@@ -85,11 +85,11 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     // Transfer deposit from user to contract
     IERC20(_debtAsset).safeTransferFrom(msg.sender, address(this), depositAmount);
 
-    // Calculate loan details by fetching current Bonzo interest rate
+    // Calculate loan details by fetching current Aave V2 interest rate
     (uint256 loanAmount, uint256 monthlyPayment, uint256 interestRate) = LoanLogic
       .executeLoanInitilization(
-        AAVE_RESERVE,
-        ILendingPoolAddressesProvider(BONZO_ADDRESSES_PROVIDER),
+        AAVE_V2_POOL,
+        ILendingPoolAddressesProvider(AAVE_ADDRESSES_PROVIDER),
         _collateralAsset,
         _debtAsset,
         depositAmount,

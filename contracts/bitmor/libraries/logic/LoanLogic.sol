@@ -12,16 +12,16 @@ import {LoanMath} from './LoanMath.sol';
 /**
  * @title LoanLogic
  * @notice Library for loan calculation logic
- * @dev Handles fetching prices and interest rates from Bonzo, delegates math to LoanMath
+ * @dev Handles fetching prices and interest rates from Aave V2, delegates math to LoanMath
  */
 library LoanLogic {
   using SafeMath for uint256;
 
   /**
-   * @notice Calculates loan amount and monthly payment by fetching current rates from Bonzo
-   * @dev Fetches oracle prices and current variable borrow rate from Bonzo USDC reserve
-   * @param bonzoPool Bonzo lending pool address
-   * @param addressesProvider Bonzo addresses provider for oracle access
+   * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
+   * @dev Fetches oracle prices and current variable borrow rate from Aave V2 USDC reserve
+   * @param aaveV2Pool Aave V2 lending pool address
+   * @param addressesProvider Aave V2 addresses provider for oracle access
    * @param collateralAsset WBTC address
    * @param debtAsset USDC address
    * @param depositAmount User's USDC deposit (6 decimals)
@@ -30,10 +30,10 @@ library LoanLogic {
    * @param duration Loan duration in months
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)
-   * @return interestRate Current Bonzo variable borrow rate (27 decimals - ray)
+   * @return interestRate Current Aave V2 variable borrow rate (27 decimals - ray)
    */
   function executeLoanInitilization(
-    address bonzoPool,
+    address aaveV2Pool,
     ILendingPoolAddressesProvider addressesProvider,
     address collateralAsset,
     address debtAsset,
@@ -47,8 +47,8 @@ library LoanLogic {
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
     uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
 
-    // Fetch current variable borrow rate from Bonzo USDC reserve
-    DataTypes.ReserveData memory reserveData = ILendingPool(bonzoPool).getReserveData(debtAsset);
+    // Fetch current variable borrow rate from Aave V2 USDC reserve
+    DataTypes.ReserveData memory reserveData = ILendingPool(aaveV2Pool).getReserveData(debtAsset);
     interestRate = reserveData.currentVariableBorrowRate;
 
     require(interestRate > 0, 'LoanLogic: invalid interest rate');

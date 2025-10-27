@@ -13,11 +13,11 @@ contract LoanStorage {
   /// @notice Aave V3 pool address for flash loan operations
   address public immutable AAVE_V3_POOL;
 
-  /// @notice Bonzo lending pool address for collateral deposits and debt borrowing
-  address public immutable AAVE_RESERVE;
+  /// @notice Aave V2 lending pool address for collateral deposits and debt borrowing
+  address public immutable AAVE_V2_POOL;
 
-  /// @notice Bonzo addresses provider for accessing protocol contracts (oracle, etc.)
-  address public immutable BONZO_ADDRESSES_PROVIDER;
+  /// @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
+  address public immutable AAVE_ADDRESSES_PROVIDER;
 
   // ============ Protocol Contract Addresses ============
 
@@ -127,17 +127,17 @@ contract LoanStorage {
 
   /**
    * @notice Initializes the storage contract with immutable protocol addresses
-   * @param _aavePool Aave V3 pool address
-   * @param _bonzoPool Bonzo lending pool address
-   * @param _bonzoAddressesProvider Bonzo addresses provider address
+   * @param _aaveV3Pool Aave V3 pool address (for flash loans)
+   * @param _aaveV2Pool Aave V2 lending pool address (for BTC/USDC reserves)
+   * @param _aaveAddressesProvider Aave V2 addresses provider address
    */
-  constructor(address _aavePool, address _bonzoPool, address _bonzoAddressesProvider) public {
-    require(_aavePool != address(0), 'Invalid Aave pool');
-    require(_bonzoPool != address(0), 'Invalid Bonzo pool');
-    require(_bonzoAddressesProvider != address(0), 'Invalid addresses provider');
+  constructor(address _aaveV3Pool, address _aaveV2Pool, address _aaveAddressesProvider) public {
+    require(_aaveV3Pool != address(0), 'Invalid Aave V3 pool');
+    require(_aaveV2Pool != address(0), 'Invalid Aave V2 pool');
+    require(_aaveAddressesProvider != address(0), 'Invalid addresses provider');
 
-    AAVE_V3_POOL = _aavePool;
-    AAVE_RESERVE = _bonzoPool;
-    BONZO_ADDRESSES_PROVIDER = _bonzoAddressesProvider;
+    AAVE_V3_POOL = _aaveV3Pool;
+    AAVE_V2_POOL = _aaveV2Pool;
+    AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
   }
 }
