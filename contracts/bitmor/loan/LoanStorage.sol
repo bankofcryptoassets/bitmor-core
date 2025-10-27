@@ -11,10 +11,10 @@ contract LoanStorage {
   // ============ Immutable Protocol Addresses ============
 
   /// @notice Aave V3 pool address for flash loan operations
-  address public immutable AAVE_V3_POOL; // @dev: TODO: Change POOL to RESERVE and BONZO to AAVE
+  address public immutable AAVE_V3_POOL;
 
   /// @notice Bonzo lending pool address for collateral deposits and debt borrowing
-  address public immutable BONZO_POOL;
+  address public immutable AAVE_RESERVE;
 
   /// @notice Bonzo addresses provider for accessing protocol contracts (oracle, etc.)
   address public immutable BONZO_ADDRESSES_PROVIDER;
@@ -44,7 +44,7 @@ contract LoanStorage {
    * @notice Represents the current state of a loan
    * @dev Active: Loan is ongoing and being repaid
    * @dev Completed: Loan has been fully repaid
-   * @dev Liquidated: Loan was liquidated due to insufficient collateral
+   * @dev Liquidated: Loan was liquidated due to insufficient collateral or other reasons
    */
   enum LoanStatus {
     Active,
@@ -64,8 +64,10 @@ contract LoanStorage {
    * @param interestRateAtCreation Bonzo's variable borrow rate snapshot at loan creation (27 decimals - ray)
    * @param duration Loan term length in months
    * @param createdAt Unix timestamp when loan was created
+   * @param insuranceID Insurance/Order ID for tracking this loan
+   * @param nextDueTimestamp Unix timestamp of the next payment due date (updated during repayments)
+   * @param lastDueTimestamp Unix timestamp of the last payment due date (updated during repayments)
    * @param status Current lifecycle status of the loan
-   * @dev TODO: Add insurance ID = this is equla to order ID, Add nextDueTimestamp - (will be edited when repayment occurs), last DueTimestamp - (will be edited when repayment occurs)
    */
   struct LoanData {
     address borrower;
@@ -76,6 +78,9 @@ contract LoanStorage {
     uint256 interestRateAtCreation;
     uint256 duration;
     uint256 createdAt;
+    uint256 insuranceID;
+    uint256 nextDueTimestamp;
+    uint256 lastDueTimestamp;
     LoanStatus status;
   }
 
@@ -132,7 +137,7 @@ contract LoanStorage {
     require(_bonzoAddressesProvider != address(0), 'Invalid addresses provider');
 
     AAVE_V3_POOL = _aavePool;
-    BONZO_POOL = _bonzoPool;
+    AAVE_RESERVE = _bonzoPool;
     BONZO_ADDRESSES_PROVIDER = _bonzoAddressesProvider;
   }
 }

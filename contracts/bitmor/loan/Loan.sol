@@ -69,7 +69,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param depositAmount USDC deposit amount (6 decimals)
    * @param collateralAmount target/goal cbBTC amount user wants to achieve
    * @param duration Loan duration in months
-   * @param insuranceID Insurance identifier for future insurance integration
+   * @param insuranceID Insurance/Order ID for tracking this loan
    * @return lsa Address of the created Loan Specific Address
    */
   function initializeLoan(
@@ -88,7 +88,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     // Calculate loan details by fetching current Bonzo interest rate
     (uint256 loanAmount, uint256 monthlyPayment, uint256 interestRate) = LoanLogic
       .executeLoanInitilization(
-        BONZO_POOL,
+        AAVE_RESERVE,
         ILendingPoolAddressesProvider(BONZO_ADDRESSES_PROVIDER),
         _collateralAsset,
         _debtAsset,
@@ -101,6 +101,10 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     // Create LSA via factory using CREATE2 for deterministic address
     lsa = ILoanVaultFactory(loanVaultFactory).createLoanVault(msg.sender, block.timestamp);
 
+    // Calculate payment timestamps (30 days = 1 month)
+    uint256 firstPaymentDue = block.timestamp.add(30 days);
+    uint256 finalPaymentDue = block.timestamp.add(duration.mul(30 days));
+
     // Store loan data on-chain
     _loansByLSA[lsa] = LoanData({
       borrower: msg.sender,
@@ -111,6 +115,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
       interestRateAtCreation: interestRate,
       duration: duration,
       createdAt: block.timestamp,
+      insuranceID: insuranceID,
+      nextDueTimestamp: firstPaymentDue,
+      lastDueTimestamp: finalPaymentDue,
       status: LoanStatus.Active
     });
 
