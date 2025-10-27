@@ -19,14 +19,14 @@ library LoanLogic {
 
   /**
    * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
-   * @dev Fetches oracle prices and current variable borrow rate from Aave V2 USDC reserve
+   * @dev Fetch oracle price for the assets
    * @param aaveV2Pool Aave V2 lending pool address
    * @param addressesProvider Aave V2 addresses provider for oracle access
-   * @param collateralAsset WBTC address
+   * @param collateralAsset cbBTC address
    * @param debtAsset USDC address
    * @param depositAmount User's USDC deposit (6 decimals)
    * @param maxLoanAmount Maximum allowed loan amount (6 decimals)
-   * @param collateralAmount Desired WBTC collateral (8 decimals)
+   * @param collateralAmount Desired cbBTC collateral (8 decimals)
    * @param duration Loan duration in months
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)

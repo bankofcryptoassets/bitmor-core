@@ -32,7 +32,7 @@ contract LoanStorage {
 
   // ============ Asset Configuration ============
 
-  /// @notice Collateral asset address (WBTC)
+  /// @notice Collateral asset address (cbBTC)
   address internal _collateralAsset;
 
   /// @notice Debt asset address (USDC)
@@ -59,9 +59,8 @@ contract LoanStorage {
    * @param borrower The address that created and owns this loan
    * @param depositAmount Initial USDC deposit amount (6 decimals)
    * @param loanAmount Total amount borrowed via flash loan (6 decimals)
-   * @param collateralAmount WBTC amount user wants to achieve (8 decimals)
+   * @param collateralAmount cbBTC amount user wants to achieve (8 decimals)
    * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals)
-   * @param interestRateAtCreation Bonzo's variable borrow rate snapshot at loan creation (27 decimals - ray)
    * @param duration Loan term length in months
    * @param createdAt Unix timestamp when loan was created
    * @param insuranceID Insurance/Order ID for tracking this loan
@@ -75,7 +74,6 @@ contract LoanStorage {
     uint256 loanAmount;
     uint256 collateralAmount;
     uint256 estimatedMonthlyPayment;
-    uint256 interestRateAtCreation;
     uint256 duration;
     uint256 createdAt;
     uint256 insuranceID;

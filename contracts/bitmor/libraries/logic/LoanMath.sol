@@ -19,7 +19,7 @@ library LoanMath {
    * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
    * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
    * @param maxLoanAmount Maximum acceptable loan amount in USDC (6 decimals)
-   * @param interestRate Interest rate from Bonzo reserve (27 decimals - ray)
+   * @param interestRate Interest rate from Aave V2 reserve (27 decimals - ray)
    * @param duration Loan duration in months
    * @return loanAmount The calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)

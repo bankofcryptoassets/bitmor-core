@@ -6,9 +6,9 @@ import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol
 
 /**
  * @title LoanVault
- * @notice Loan Specific Address (LSA) that holds the Bonzo position
+ * @notice Loan Specific Address (LSA) that holds the Aave V2 position
  * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses
- * Each loan gets its own LSA which holds aBTC collateral and vdtUSDC debt
+ * Each loan gets its own LSA which holds acbBTC collateral and vdtUSDC debt
  */
 contract LoanVault {
   using SafeERC20 for IERC20;
@@ -65,7 +65,7 @@ contract LoanVault {
 
   /**
    * @notice Approves a spender to use tokens held by this vault
-   * @dev Used to approve escrow for transferring aBTC for operations
+   * @dev Used to approve escrow for transferring acbBTC for operations
    * @param token The token to approve
    * @param spender The address to approve
    * @param amount The amount to approve

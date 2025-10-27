@@ -28,7 +28,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param _aaveV3Pool Aave V3 pool address for flash loans
    * @param _aaveV2Pool Aave V2 lending pool address for BTC/USDC reserves
    * @param _aaveAddressesProvider Aave V2 addresses provider
-   * @param _collateralAsset WBTC address
+   * @param _collateralAsset cbBTC address
    * @param _debtAsset USDC address
    * @param _loanVaultFactory LoanVaultFactory address for creating LSAs
    * @param _escrow Escrow contract address for collateral locking
@@ -112,7 +112,6 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
       loanAmount: loanAmount,
       collateralAmount: collateralAmount,
       estimatedMonthlyPayment: monthlyPayment,
-      interestRateAtCreation: interestRate,
       duration: duration,
       createdAt: block.timestamp,
       insuranceID: insuranceID,
@@ -157,7 +156,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     require(initiator == address(this), 'Loan: invalid initiator');
 
     // Flash loan execution logic will be implemented here
-    // Flow: Swap USDC → WBTC → Deposit to Bonzo → Borrow from Bonzo → Repay flash loan
+    // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
 
     return true;
   }
@@ -213,7 +212,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
   /**
    * @notice Gets the collateral asset address
-   * @return WBTC address
+   * @return cbBTC address
    */
   function getCollateralAsset() external view returns (address) {
     return _collateralAsset;
