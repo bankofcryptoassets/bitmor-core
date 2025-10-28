@@ -32,7 +32,7 @@ library LoanLogic {
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)
    * @return interestRate Current Aave V2 variable borrow rate (27 decimals - ray)
    */
-  function executeLoanInitilization(
+  function calculateLoanAmountAndMonthlyPayment(
     address aaveV2Pool,
     ILendingPoolAddressesProvider addressesProvider,
     address collateralAsset,

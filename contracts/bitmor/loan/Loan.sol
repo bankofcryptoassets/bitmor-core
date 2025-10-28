@@ -87,7 +87,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
     // Calculate loan details by fetching current Aave V2 interest rate
     (uint256 loanAmount, uint256 monthlyPayment, uint256 interestRate) = LoanLogic
-      .executeLoanInitilization(
+      .calculateLoanAmountAndMonthlyPayment(
         AAVE_V2_POOL,
         ILendingPoolAddressesProvider(AAVE_ADDRESSES_PROVIDER),
         _collateralAsset,
