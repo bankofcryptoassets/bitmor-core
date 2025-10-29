@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 /**
  * @title ILoanVaultFactory
  * @notice Interface for LoanVaultFactory contract
- * @dev Used by Loan contract to create new LSAs (Loan Specific Accounts)
+ * @dev Used by Loan contract to create new LSAs (Loan Specific Addresses)
  */
 interface ILoanVaultFactory {
   /**

@@ -30,6 +30,9 @@ contract LoanStorage {
   /// @notice Swap adapter contract for executing token swaps
   address public swapAdapter;
 
+  /// @notice zQuoter contract for price quotation (Aerodrome DEX)
+  address public zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
+
   // ============ Asset Configuration ============
 
   /// @notice Collateral asset address (cbBTC)
@@ -120,6 +123,9 @@ contract LoanStorage {
 
   /// @notice Basis points denominator for percentage calculations (10000 = 100%)
   uint256 internal constant BASIS_POINTS = 10000;
+
+  /// @notice Maximum slippage tolerance in basis points (5 = 0.05%)
+  uint256 public constant MAX_SLIPPAGE_BPS = 5;
 
   // ============ Constructor ============
 

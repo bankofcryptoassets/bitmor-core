@@ -10,7 +10,9 @@ import {SafeMath} from '../../dependencies/openzeppelin/contracts/SafeMath.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
+import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
+import {SwapLogic} from '../libraries/logic/SwapLogic.sol';
 
 /**
  * @title Loan
@@ -33,6 +35,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param _loanVaultFactory LoanVaultFactory address for creating LSAs
    * @param _escrow Escrow contract address for collateral locking
    * @param _swapAdapter SwapAdapter contract address for token swaps
+   * @param _zQuoter zQuoter contract address for Aerodrome price quotes
    * @param _maxLoanAmount Maximum loan amount allowed (6 decimals for USDC)
    */
   constructor(
@@ -44,6 +47,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     address _loanVaultFactory,
     address _escrow,
     address _swapAdapter,
+    address _zQuoter,
     uint256 _maxLoanAmount
   ) public LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider) {
     require(_collateralAsset != address(0), 'Loan: invalid collateral asset');
@@ -51,6 +55,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     require(_loanVaultFactory != address(0), 'Loan: invalid factory');
     require(_escrow != address(0), 'Loan: invalid escrow');
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
+    require(_zQuoter != address(0), 'Loan: invalid zQuoter');
     require(_maxLoanAmount > 0, 'Loan: invalid max loan amount');
 
     _collateralAsset = _collateralAsset;
@@ -58,6 +63,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     loanVaultFactory = _loanVaultFactory;
     escrow = _escrow;
     swapAdapter = _swapAdapter;
+    zQuoter = _zQuoter;
     maxLoanAmount = _maxLoanAmount;
   }
 
@@ -85,9 +91,12 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     // Transfer deposit from user to contract
     IERC20(_debtAsset).safeTransferFrom(msg.sender, address(this), depositAmount);
 
-    // Calculate loan details by fetching current Aave V2 interest rate
-    (uint256 loanAmount, uint256 monthlyPayment, uint256 interestRate) = LoanLogic
-      .calculateLoanAmountAndMonthlyPayment(
+    uint256 loanAmount;
+    // Calculate loan details and store data
+    {
+      uint256 monthlyPayment;
+      uint256 interestRate;
+      (loanAmount, monthlyPayment, interestRate) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
         AAVE_V2_POOL,
         ILendingPoolAddressesProvider(AAVE_ADDRESSES_PROVIDER),
         _collateralAsset,
@@ -98,37 +107,60 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
         duration
       );
 
-    // Create LSA via factory using CREATE2 for deterministic address
-    lsa = ILoanVaultFactory(loanVaultFactory).createLoanVault(msg.sender, block.timestamp);
+      // Create LSA via factory using CREATE2 for deterministic address
+      lsa = ILoanVaultFactory(loanVaultFactory).createLoanVault(msg.sender, block.timestamp);
 
-    // Calculate payment timestamps (30 days = 1 month)
-    uint256 firstPaymentDue = block.timestamp.add(30 days);
-    uint256 finalPaymentDue = block.timestamp.add(duration.mul(30 days));
+      // Calculate payment timestamps (30 days = 1 month)
+      uint256 firstPaymentDue = block.timestamp.add(30 days);
+      uint256 finalPaymentDue = block.timestamp.add(duration.mul(30 days));
 
-    // Store loan data on-chain
-    _loansByLSA[lsa] = LoanData({
-      borrower: msg.sender,
-      depositAmount: depositAmount,
-      loanAmount: loanAmount,
-      collateralAmount: collateralAmount,
-      estimatedMonthlyPayment: monthlyPayment,
-      duration: duration,
-      createdAt: block.timestamp,
-      insuranceID: insuranceID,
-      nextDueTimestamp: firstPaymentDue,
-      lastDueTimestamp: finalPaymentDue,
-      status: LoanStatus.Active
-    });
+      // Store loan data on-chain
+      _loansByLSA[lsa] = LoanData({
+        borrower: msg.sender,
+        depositAmount: depositAmount,
+        loanAmount: loanAmount,
+        collateralAmount: collateralAmount,
+        estimatedMonthlyPayment: monthlyPayment,
+        duration: duration,
+        createdAt: block.timestamp,
+        insuranceID: insuranceID,
+        nextDueTimestamp: firstPaymentDue,
+        lastDueTimestamp: finalPaymentDue,
+        status: LoanStatus.Active
+      });
 
-    // Update user loan indexing for multi-loan support
-    uint256 loanIndex = userLoanCount[msg.sender];
-    userLoanAtIndex[msg.sender][loanIndex] = lsa;
-    userLoanCount[msg.sender] = loanIndex.add(1);
+      // Update user loan indexing for multi-loan support
+      uint256 loanIndex = userLoanCount[msg.sender];
+      userLoanAtIndex[msg.sender][loanIndex] = lsa;
+      userLoanCount[msg.sender] = loanIndex.add(1);
 
-    // Emit loan creation event
-    emit LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
+      // Emit loan creation event
+      emit LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
+    }
 
-    // Note: Flash loan execution flow will be implemented here
+    // Flash loan execution flow
+    {
+      address[] memory assets = new address[](1);
+      assets[0] = _debtAsset;
+
+      uint256[] memory amounts = new uint256[](1);
+      amounts[0] = loanAmount;
+
+      uint256[] memory modes = new uint256[](1);
+      modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
+
+      bytes memory params = abi.encode(lsa, collateralAmount);
+
+      ILendingPool(AAVE_V3_POOL).flashLoan(
+        address(this), // receiver address
+        assets, // assets to borrow
+        amounts, // amounts to borrow the assets
+        modes, // modes of the debt to open if the flash loan is not returned
+        lsa, // onbehalf of address
+        params, // params to pass to the receiver
+        uint16(0) // referral code
+      );
+    }
 
     return lsa;
   }
@@ -157,6 +189,25 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
     // Flash loan execution logic will be implemented here
     // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
+
+    (address lsa, uint256 collateralAmount) = abi.decode(params, (address, uint256));
+
+    // Retrieve loan data from storage
+    LoanData storage loan = _loansByLSA[lsa];
+
+    uint256 flashLoanAmount = amounts[0];
+    uint256 flashLoanPremium = premiums[0];
+    uint256 totalSwapAmount = loan.depositAmount.add(flashLoanAmount);
+
+    uint256 wbtcReceived = SwapLogic.executeSwap(
+      swapAdapter,
+      zQuoter,
+      _debtAsset, // tokenIn
+      _collateralAsset, // tokenOut
+      totalSwapAmount, // amountIn
+      collateralAmount,
+      MAX_SLIPPAGE_BPS
+    );
 
     return true;
   }
@@ -264,6 +315,15 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
   function setSwapAdapter(address newSwapAdapter) external onlyOwner {
     require(newSwapAdapter != address(0), 'Loan: invalid swap adapter');
     swapAdapter = newSwapAdapter;
+  }
+
+  /**
+   * @notice Updates the zQuoter contract address
+   * @param newZQuoter New zQuoter address
+   */
+  function setZQuoter(address newZQuoter) external onlyOwner {
+    require(newZQuoter != address(0), 'Loan: invalid zQuoter');
+    zQuoter = newZQuoter;
   }
 
   /**
