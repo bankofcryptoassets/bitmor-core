@@ -7,7 +7,8 @@ pragma solidity 0.6.12;
  * - Acting also as factory of proxies and admin of those, so with right to change its implementations
  * - Owned by the Aave Governance
  * @author Aave
- **/
+ *
+ */
 interface ILendingPoolAddressesProvider {
   event MarketIdSet(string newMarketId);
   event LendingPoolUpdated(address indexed newAddress);
@@ -16,6 +17,7 @@ interface ILendingPoolAddressesProvider {
   event LendingPoolConfiguratorUpdated(address indexed newAddress);
   event LendingPoolCollateralManagerUpdated(address indexed newAddress);
   event PriceOracleUpdated(address indexed newAddress);
+  event BitmorLoanUpdated(address indexed bitmorLoan);
   event LendingRateOracleUpdated(address indexed newAddress);
   event ProxyCreated(bytes32 id, address indexed newAddress);
   event AddressSet(bytes32 id, address indexed newAddress, bool hasProxy);
@@ -57,4 +59,8 @@ interface ILendingPoolAddressesProvider {
   function getLendingRateOracle() external view returns (address);
 
   function setLendingRateOracle(address lendingRateOracle) external;
+
+  function getBitmorLoan() external view returns (address);
+
+  function setBitmorLoan(address bitmorLoan) external;
 }

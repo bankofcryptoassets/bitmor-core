@@ -5,7 +5,8 @@ import {Ownable} from '../../dependencies/openzeppelin/contracts/Ownable.sol';
 
 // Prettier ignore to prevent buidler flatter bug
 // prettier-ignore
-import {InitializableImmutableAdminUpgradeabilityProxy} from '../libraries/aave-upgradeability/InitializableImmutableAdminUpgradeabilityProxy.sol';
+import {InitializableImmutableAdminUpgradeabilityProxy} from
+    "../libraries/aave-upgradeability/InitializableImmutableAdminUpgradeabilityProxy.sol";
 
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 
@@ -15,7 +16,8 @@ import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddres
  * - Acting also as factory of proxies and admin of those, so with right to change its implementations
  * - Owned by the Aave Governance
  * @author Aave
- **/
+ *
+ */
 contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider {
   string private _marketId;
   mapping(bytes32 => address) private _addresses;
@@ -27,6 +29,7 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   bytes32 private constant LENDING_POOL_COLLATERAL_MANAGER = 'COLLATERAL_MANAGER';
   bytes32 private constant PRICE_ORACLE = 'PRICE_ORACLE';
   bytes32 private constant LENDING_RATE_ORACLE = 'LENDING_RATE_ORACLE';
+  bytes32 private constant BITMOR_LOAN = 'BITMOR_LOAN';
 
   constructor(string memory marketId) public {
     _setMarketId(marketId);
@@ -35,7 +38,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   /**
    * @dev Returns the id of the Aave market to which this contracts points to
    * @return The market id
-   **/
+   *
+   */
   function getMarketId() external view override returns (string memory) {
     return _marketId;
   }
@@ -57,11 +61,10 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
    * @param id The id
    * @param implementationAddress The address of the new implementation
    */
-  function setAddressAsProxy(bytes32 id, address implementationAddress)
-    external
-    override
-    onlyOwner
-  {
+  function setAddressAsProxy(
+    bytes32 id,
+    address implementationAddress
+  ) external override onlyOwner {
     _updateImpl(id, implementationAddress);
     emit AddressSet(id, implementationAddress, true);
   }
@@ -88,7 +91,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   /**
    * @dev Returns the address of the LendingPool proxy
    * @return The LendingPool proxy address
-   **/
+   *
+   */
   function getLendingPool() external view override returns (address) {
     return getAddress(LENDING_POOL);
   }
@@ -97,7 +101,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
    * @dev Updates the implementation of the LendingPool, or creates the proxy
    * setting the new `pool` implementation on the first time calling it
    * @param pool The new LendingPool implementation
-   **/
+   *
+   */
   function setLendingPoolImpl(address pool) external override onlyOwner {
     _updateImpl(LENDING_POOL, pool);
     emit LendingPoolUpdated(pool);
@@ -106,7 +111,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   /**
    * @dev Returns the address of the LendingPoolConfigurator proxy
    * @return The LendingPoolConfigurator proxy address
-   **/
+   *
+   */
   function getLendingPoolConfigurator() external view override returns (address) {
     return getAddress(LENDING_POOL_CONFIGURATOR);
   }
@@ -115,7 +121,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
    * @dev Updates the implementation of the LendingPoolConfigurator, or creates the proxy
    * setting the new `configurator` implementation on the first time calling it
    * @param configurator The new LendingPoolConfigurator implementation
-   **/
+   *
+   */
   function setLendingPoolConfiguratorImpl(address configurator) external override onlyOwner {
     _updateImpl(LENDING_POOL_CONFIGURATOR, configurator);
     emit LendingPoolConfiguratorUpdated(configurator);
@@ -126,8 +133,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
    * through delegateCall within the LendingPool contract, the proxy contract pattern does not work properly hence
    * the addresses are changed directly
    * @return The address of the LendingPoolCollateralManager
-   **/
-
+   *
+   */
   function getLendingPoolCollateralManager() external view override returns (address) {
     return getAddress(LENDING_POOL_COLLATERAL_MANAGER);
   }
@@ -135,7 +142,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   /**
    * @dev Updates the address of the LendingPoolCollateralManager
    * @param manager The new LendingPoolCollateralManager address
-   **/
+   *
+   */
   function setLendingPoolCollateralManager(address manager) external override onlyOwner {
     _addresses[LENDING_POOL_COLLATERAL_MANAGER] = manager;
     emit LendingPoolCollateralManagerUpdated(manager);
@@ -144,8 +152,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
   /**
    * @dev The functions below are getters/setters of addresses that are outside the context
    * of the protocol hence the upgradable proxy pattern is not used
-   **/
-
+   *
+   */
   function getPoolAdmin() external view override returns (address) {
     return getAddress(POOL_ADMIN);
   }
@@ -182,6 +190,15 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
     emit LendingRateOracleUpdated(lendingRateOracle);
   }
 
+  function getBitmorLoan() external view override returns (address) {
+    return getAddress(BITMOR_LOAN);
+  }
+
+  function setBitmorLoan(address bitmorLoan) external override onlyOwner {
+    _addresses[BITMOR_LOAN] = bitmorLoan;
+    emit BitmorLoanUpdated(bitmorLoan);
+  }
+
   /**
    * @dev Internal function to update the implementation of a specific proxied component of the protocol
    * - If there is no proxy registered in the given `id`, it creates the proxy setting `newAdress`
@@ -190,12 +207,14 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
    *   calls the initialize() function via upgradeToAndCall() in the proxy
    * @param id The id of the proxy to be updated
    * @param newAddress The address of the new implementation
-   **/
+   *
+   */
   function _updateImpl(bytes32 id, address newAddress) internal {
     address payable proxyAddress = payable(_addresses[id]);
 
-    InitializableImmutableAdminUpgradeabilityProxy proxy =
-      InitializableImmutableAdminUpgradeabilityProxy(proxyAddress);
+    InitializableImmutableAdminUpgradeabilityProxy proxy = InitializableImmutableAdminUpgradeabilityProxy(
+        proxyAddress
+      );
     bytes memory params = abi.encodeWithSignature('initialize(address)', address(this));
 
     if (proxyAddress == address(0)) {
