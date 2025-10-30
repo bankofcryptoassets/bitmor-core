@@ -2,6 +2,7 @@
 import { HardhatNetworkForkingUserConfig, HardhatUserConfig } from 'hardhat/types';
 import {
   eAvalancheNetwork,
+  eBaseNetwork,
   eEthereumNetwork,
   ePolygonNetwork,
   eXDaiNetwork,
@@ -12,6 +13,8 @@ require('dotenv').config();
 
 const INFURA_KEY = process.env.INFURA_KEY || '';
 const ALCHEMY_KEY = process.env.ALCHEMY_KEY || '';
+const BASE_RPC_URL = process.env.BASE_RPC_URL || '';
+const BASE_SEPOLIA_RPC_URL = process.env.BASE_SEPOLIA_RPC_URL || '';
 const TENDERLY_FORK_ID = process.env.TENDERLY_FORK_ID || '';
 const FORK = process.env.FORK || '';
 const FORK_BLOCK_NUMBER = process.env.FORK_BLOCK_NUMBER
@@ -56,6 +59,8 @@ export const NETWORKS_RPC_URL: iParamsPerNetwork<string> = {
   [eAvalancheNetwork.avalanche]: 'https://api.avax.network/ext/bc/C/rpc',
   [eAvalancheNetwork.fuji]: 'https://api.avax-test.network/ext/bc/C/rpc',
   [eEthereumNetwork.goerli]: `https://eth-goerli.g.alchemy.com/v2/${ALCHEMY_KEY}`,
+  [eBaseNetwork.base]: BASE_RPC_URL || `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`,
+  [eBaseNetwork.sepolia]: BASE_SEPOLIA_RPC_URL || `https://base-sepolia.g.alchemy.com/v2/${ALCHEMY_KEY}`,
 };
 
 export const NETWORKS_DEFAULT_GAS: iParamsPerNetwork<number> = {
@@ -72,6 +77,8 @@ export const NETWORKS_DEFAULT_GAS: iParamsPerNetwork<number> = {
   [eAvalancheNetwork.avalanche]: 225 * GWEI,
   [eAvalancheNetwork.fuji]: 85 * GWEI,
   [eEthereumNetwork.goerli]: 2 * GWEI,
+  [eBaseNetwork.base]: 1 * GWEI,
+  [eBaseNetwork.sepolia]: 1 * GWEI,
 };
 
 export const BLOCK_TO_FORK: iParamsPerNetwork<number | undefined> = {
@@ -88,4 +95,6 @@ export const BLOCK_TO_FORK: iParamsPerNetwork<number | undefined> = {
   [eAvalancheNetwork.avalanche]: undefined,
   [eAvalancheNetwork.fuji]: undefined,
   [eEthereumNetwork.goerli]: undefined,
+  [eBaseNetwork.base]: undefined,
+  [eBaseNetwork.sepolia]: undefined,
 };

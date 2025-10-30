@@ -5,6 +5,7 @@ import { HardhatUserConfig } from 'hardhat/types';
 import { accounts } from './test-wallets.js';
 import {
   eAvalancheNetwork,
+  eBaseNetwork,
   eEthereumNetwork,
   eNetwork,
   ePolygonNetwork,
@@ -92,7 +93,27 @@ const buidlerConfig: HardhatUserConfig = {
       mainnet: process.env.ETHERSCAN_KEY || '',
       polygon: process.env.ETHERSCAN_POLYGON_KEY || '',
       avalanche: process.env.ETHERSCAN_SNOWTRACE_KEY || '',
+      base: process.env.ETHERSCAN_KEY || '',
+      'base-sepolia': process.env.ETHERSCAN_KEY || '',
     },
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org"
+        }
+      },
+      {
+        network: "base-sepolia",
+        chainId: 84532,
+        urls: {
+          apiURL: "https://api-sepolia.basescan.org/api",
+          browserURL: "https://sepolia.basescan.org"
+        }
+      }
+    ]
   },
 
   mocha: {
@@ -118,6 +139,8 @@ const buidlerConfig: HardhatUserConfig = {
     avalanche: getCommonNetworkConfig(eAvalancheNetwork.avalanche, 43114),
     fuji: getCommonNetworkConfig(eAvalancheNetwork.fuji, 43113),
     goerli: getCommonNetworkConfig(eEthereumNetwork.goerli, 5),
+    base: getCommonNetworkConfig(eBaseNetwork.base, 8453),
+    sepolia: getCommonNetworkConfig(eBaseNetwork.sepolia, 84532),
     hardhat: {
       hardfork: 'berlin',
       blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,

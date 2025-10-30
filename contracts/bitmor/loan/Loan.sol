@@ -302,6 +302,34 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     return _debtAsset;
   }
 
+  /**
+   * @notice Calculates strike price for options based on loan parameters
+   * @dev Formula: strike_price = btc_in_usd * loan_amount/(loan_amount + deposit) * 1.1
+   * @param loanAmount The loan amount in USDC (6 decimals)
+   * @param deposit The deposit amount in USDC (6 decimals)
+   * @return strikePrice The calculated strike price in USD (8 decimals)
+   */
+  function calculateStrikePrice(
+    uint256 loanAmount,
+    uint256 deposit
+  ) external view returns (uint256 strikePrice) {
+    require(loanAmount > 0, 'Loan: invalid loan amount');
+    require(deposit > 0, 'Loan: invalid deposit');
+
+    IPriceOracleGetter oracle = IPriceOracleGetter(
+      ILendingPoolAddressesProvider(AAVE_ADDRESSES_PROVIDER).getPriceOracle()
+    );
+
+    uint256 btcPriceUSD = oracle.getAssetPrice(_collateralAsset);
+    require(btcPriceUSD > 0, 'Loan: invalid BTC price');
+
+    uint256 totalAmount = loanAmount.add(deposit);
+
+    strikePrice = btcPriceUSD.mul(loanAmount).div(totalAmount).mul(110).div(100);
+
+    return strikePrice;
+  }
+
   // ============ Admin Functions ============
 
   /**
