@@ -11,11 +11,14 @@ import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
+import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
 import {SwapLogic} from '../libraries/logic/SwapLogic.sol';
 import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.sol';
 import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {EscrowLogic} from '../libraries/logic/EscrowLogic.sol';
+import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
+import {IEscrow} from '../interfaces/IEscrow.sol';
 
 /**
  * @title Loan
@@ -330,6 +333,44 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     return strikePrice;
   }
 
+  // ============ Withdrawal Function ============
+
+  /**
+   * @notice Allows borrower to withdraw collateral from their LSA
+   * @param lsa The Loan Specific Address
+   * @param amount Amount of cbBTC to withdraw
+   * @return amountWithdrawn Actual amount withdrawn
+   */
+  function withdrawCollateral(
+    address lsa,
+    uint256 amount
+  ) external nonReentrant returns (uint256 amountWithdrawn) {
+    LoanData storage loan = _loansByLSA[lsa];
+
+    require(loan.borrower != address(0), 'Loan: loan does not exist');
+    require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
+    require(loan.status == LoanStatus.Active, 'Loan: loan is not active');
+    require(amount > 0, 'Loan: invalid withdrawal amount');
+
+    // Check locked amount in Escrow
+    uint256 lockedAmount = IEscrow(escrow).getLockedAmount(lsa);
+    require(lockedAmount > 0, 'Loan: no collateral in escrow');
+    require(amount <= lockedAmount, 'Loan: insufficient locked collateral');
+
+    amountWithdrawn = WithdrawalLogic.withdrawCollateral(
+      lsa,
+      AAVE_V2_POOL,
+      escrow,
+      _collateralAsset,
+      amount,
+      msg.sender // Send cbBTC to borrower
+    );
+
+    emit CollateralWithdrawn(lsa, msg.sender, amountWithdrawn, block.timestamp);
+
+    return amountWithdrawn;
+  }
+
   // ============ Admin Functions ============
 
   /**
@@ -349,7 +390,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    */
   function setLoanVaultFactory(address newFactory) external onlyOwner {
     require(newFactory != address(0), 'Loan: invalid factory');
+    address oldFactory = loanVaultFactory;
     loanVaultFactory = newFactory;
+    emit LoanVaultFactoryUpdated(oldFactory, newFactory);
   }
 
   /**
@@ -358,7 +401,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    */
   function setEscrow(address newEscrow) external onlyOwner {
     require(newEscrow != address(0), 'Loan: invalid escrow');
+    address oldEscrow = escrow;
     escrow = newEscrow;
+    emit EscrowUpdated(oldEscrow, newEscrow);
   }
 
   /**
@@ -367,7 +412,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    */
   function setSwapAdapter(address newSwapAdapter) external onlyOwner {
     require(newSwapAdapter != address(0), 'Loan: invalid swap adapter');
+    address oldSwapAdapter = swapAdapter;
     swapAdapter = newSwapAdapter;
+    emit SwapAdapterUpdated(oldSwapAdapter, newSwapAdapter);
   }
 
   /**
@@ -376,7 +423,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    */
   function setZQuoter(address newZQuoter) external onlyOwner {
     require(newZQuoter != address(0), 'Loan: invalid zQuoter');
+    address oldZQuoter = zQuoter;
     zQuoter = newZQuoter;
+    emit ZQuoterUpdated(oldZQuoter, newZQuoter);
   }
 
   /**

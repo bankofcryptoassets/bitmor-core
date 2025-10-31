@@ -119,6 +119,21 @@ contract LoanStorage {
 
   event MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
 
+  event CollateralWithdrawn(
+    address indexed lsa,
+    address indexed borrower,
+    uint256 amount,
+    uint256 timestamp
+  );
+
+  event LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
+
+  event EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
+
+  event SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
+
+  event ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
+
   // ============ Constants ============
 
   /// @notice Basis points denominator for percentage calculations (10000 = 100%)
