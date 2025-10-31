@@ -1,0 +1,9 @@
+{
+  "network": "sepolia",
+  "address": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
+  "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+  "timestamp": "2025-10-31T19:01:54.115Z",
+  "decimals": 8,
+  "symbol": "cbBTC",
+  "name": "Coinbase Wrapped BTC"
+}

@@ -1,0 +1,96 @@
+{
+  "network": "sepolia",
+  "chainId": 84532,
+  "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+  "timestamp": "2025-10-31",
+  "marketName": "Bitmor Lending Market",
+  "contracts": {
+    "core": {
+      "LendingPoolAddressesProvider": "0x9ed5DF1411881913C64c19B70b67a53041A4F8C1",
+      "LendingPool": "0x86f97dA0AC9f00362A333D864eddE5f5655fc7a1",
+      "LendingPoolConfigurator": "0xe4b50D398fb726Fb6672bEc166599eee8aC8c75A",
+      "LendingPoolCollateralManager": "0x1D594E4f63D6965c0088B325Cb4972B9CC44eaA5"
+    },
+    "oracles": {
+      "AaveOracle": "0x506C51591b0102cEba019424eca95bF0B3a39D6e",
+      "LendingRateOracle": "0x1F5760C8591f909d40a1D8F0F49218229184D277"
+    },
+    "dataProvider": {
+      "AaveProtocolDataProvider": "0xC7fcD6abFb33C12162671D7B7C8696Fc52B871aa"
+    },
+    "libraries": {
+      "ReserveLogic": "0xCd67F5355BdAc73d8Af764bA81FDD7CA455258Ea",
+      "GenericLogic": "0x53a4043f7bf9a4f734D3D8Da30735315C5Fe9fDd",
+      "ValidationLogic": "0xe760B88D3E31AbDA03F7d7674D82C8b0866521ED"
+    },
+    "helpers": {
+      "StableAndVariableTokensHelper": "0xB7Cc35e5E1A8abD6649935D7BAebB6803C39e5C8",
+      "ATokensAndRatesHelper": "0x56D18cf11DA5c19C0572fC9480bEC0baC992746d",
+      "WalletBalanceProvider": "0x0086bF0e50f571086A5eee3D741D92431be15094"
+    },
+    "tokenImplementations": {
+      "AToken": "0x5a4D8375765451A21510B52558652B1A31E0F4cC",
+      "StableDebtToken": "0x7159D3437F1632A8f36c5ACe6ECa7e6075274685",
+      "VariableDebtToken": "0x7a66E3fBF9F7Ac774b1b168602CECED6d9D0ccBA"
+    },
+    "interestRateStrategies": {
+      "USDC": "0x315957f98ED2B929CDd07AEe64270511B02Ca4c6",
+      "cbBTC": "0x880E6a1F7FEAe01239AD1FF6569d1b44332a0cea"
+    }
+  },
+  "reserves": {
+    "USDC": {
+      "underlyingAsset": "0x562937072309F8c929206a58e72732dFCA5b67D6",
+      "decimals": 6,
+      "interestRateStrategy": "0x315957f98ED2B929CDd07AEe64270511B02Ca4c6",
+      "configuration": {
+        "baseLTVAsCollateral": "8000",
+        "liquidationThreshold": "8500",
+        "liquidationBonus": "10500",
+        "reserveFactor": "1000",
+        "borrowingEnabled": true,
+        "stableBorrowRateEnabled": false
+      },
+      "rateParams": {
+        "optimalUtilizationRate": "90%",
+        "baseVariableBorrowRate": "0%",
+        "variableRateSlope1": "4%",
+        "variableRateSlope2": "60%"
+      }
+    },
+    "cbBTC": {
+      "underlyingAsset": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
+      "decimals": 8,
+      "interestRateStrategy": "0x880E6a1F7FEAe01239AD1FF6569d1b44332a0cea",
+      "configuration": {
+        "baseLTVAsCollateral": "7000",
+        "liquidationThreshold": "7500",
+        "liquidationBonus": "11000",
+        "reserveFactor": "2000",
+        "borrowingEnabled": true,
+        "stableBorrowRateEnabled": false
+      },
+      "rateParams": {
+        "optimalUtilizationRate": "65%",
+        "baseVariableBorrowRate": "0%",
+        "variableRateSlope1": "8%",
+        "variableRateSlope2": "300%"
+      }
+    }
+  },
+  "admins": {
+    "poolAdmin": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+    "emergencyAdmin": "0x0F59C959855C1C3256e4AdB8C3CF3A6350D63604"
+  },
+  "gasUsed": {
+    "total": "~37,000,000",
+    "costInETH": "~0.037"
+  },
+  "status": "DEPLOYED_SUCCESSFULLY",
+  "explorerLinks": {
+    "addressesProvider": "https://sepolia.basescan.org/address/0x9ed5DF1411881913C64c19B70b67a53041A4F8C1",
+    "lendingPool": "https://sepolia.basescan.org/address/0x86f97dA0AC9f00362A333D864eddE5f5655fc7a1",
+    "aaveOracle": "https://sepolia.basescan.org/address/0x506C51591b0102cEba019424eca95bF0B3a39D6e",
+    "dataProvider": "https://sepolia.basescan.org/address/0xC7fcD6abFb33C12162671D7B7C8696Fc52B871aa"
+  }
+}

@@ -104,9 +104,18 @@ task('full:initialize-lending-pool', 'Initialize lending pool configuration.')
 
       let gateWay = getParamPerNetwork(WethGateway, network);
       if (!notFalsyOrZeroAddress(gateWay)) {
-        gateWay = (await getWETHGateway()).address;
+        try {
+          const wethGateway = await getWETHGateway();
+          if (wethGateway) {
+            gateWay = wethGateway.address;
+          }
+        } catch (e) {
+          console.log('No WETH Gateway found, skipping authorization');
+        }
       }
-      await authorizeWETHGateway(gateWay, lendingPoolAddress);
+      if (notFalsyOrZeroAddress(gateWay)) {
+        await authorizeWETHGateway(gateWay, lendingPoolAddress);
+      }
     } catch (err) {
       console.error(err);
       exit(1);
