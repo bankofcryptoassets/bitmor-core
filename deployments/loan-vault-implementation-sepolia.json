@@ -1,0 +1,12 @@
+{
+  "network": "Base Sepolia",
+  "chainId": 84532,
+  "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+  "timestamp": "2025-11-03T16:49:17.247Z",
+  "contracts": {
+    "LoanVaultImplementation": {
+      "address": "0x66C3152AD8A89C131D48080E8F3CaEbeC605d221",
+      "note": "This is the implementation contract for LoanVault clones"
+    }
+  }
+}

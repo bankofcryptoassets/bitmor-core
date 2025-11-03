@@ -1,0 +1,12 @@
+{
+  "network": "Base Sepolia",
+  "chainId": 84532,
+  "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+  "timestamp": "2025-11-03T16:39:35.617Z",
+  "contracts": {
+    "UniswapV4SwapAdapterWrapper": {
+      "address": "0x5fe96Ac9DdA67D3D9847431b479743Ca1205dE8E",
+      "uniswapAdapter": "0x96C69Cd797a62C33FF805905dd241703A37F0020"
+    }
+  }
+}

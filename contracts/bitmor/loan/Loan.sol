@@ -19,6 +19,7 @@ import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {EscrowLogic} from '../libraries/logic/EscrowLogic.sol';
 import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
+import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 
 /**
  * @title Loan
@@ -41,7 +42,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param _loanVaultFactory LoanVaultFactory address for creating LSAs
    * @param _escrow Escrow contract address for collateral locking
    * @param _swapAdapter SwapAdapter contract address for token swaps
-   * @param _zQuoter zQuoter contract address for Aerodrome price quotes
+   * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
    * @param _maxLoanAmount Maximum loan amount allowed (6 decimals for USDC)
    */
   constructor(
@@ -61,7 +62,6 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     require(_loanVaultFactory != address(0), 'Loan: invalid factory');
     require(_escrow != address(0), 'Loan: invalid escrow');
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
-    require(_zQuoter != address(0), 'Loan: invalid zQuoter');
     require(_maxLoanAmount > 0, 'Loan: invalid max loan amount');
 
     _collateralAsset = _collateralAsset;
@@ -205,17 +205,33 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     uint256 flashLoanPremium = premiums[0];
     uint256 totalSwapAmount = loan.depositAmount.add(flashLoanAmount);
 
+    uint256 minCbBtcOut;
+
+    if (zQuoter != address(0)) {
+      // Base Mainnet: Use user's desired collateral amount
+      minCbBtcOut = collateralAmount;
+    } else {
+      // Base Sepolia: Calculate minimum based on current pool price
+      uint256 estimatedOut = IUniswapV4SwapAdapter(swapAdapter).estimateOutput(
+        _debtAsset,
+        totalSwapAmount
+      );
+
+      // Set minimum to 98% of estimated (2% slippage tolerance)
+      minCbBtcOut = estimatedOut.mul(98).div(100);
+    }
+
     uint256 wbtcReceived = SwapLogic.executeSwap(
       swapAdapter,
       zQuoter,
       _debtAsset, // tokenIn
       _collateralAsset, // tokenOut
       totalSwapAmount, // amountIn
-      collateralAmount,
+      minCbBtcOut, // Use calculated minimum
       MAX_SLIPPAGE_BPS
     );
 
-    require(wbtcReceived >= collateralAmount, 'Loan: insufficient cbBTC received');
+    require(wbtcReceived >= minCbBtcOut, 'Loan: insufficient cbBTC received');
 
     uint256 borrowAmount = flashLoanAmount.add(flashLoanPremium);
 

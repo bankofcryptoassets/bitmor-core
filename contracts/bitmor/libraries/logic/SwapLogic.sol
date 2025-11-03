@@ -10,8 +10,8 @@ import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
 
 /**
  * @title SwapLogic
- * @notice Library for executing token swaps with zQuoter price validation
- * @dev Uses zQuoter to get Aerodrome DEX quotes before executing swaps
+ * @notice Library for executing token swaps with optional zQuoter price validation
+ * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter)
  */
 library SwapLogic {
   using SafeMath for uint256;
@@ -20,15 +20,15 @@ library SwapLogic {
   uint256 private constant BASIS_POINTS = 10000;
 
   /**
-   * @notice Execute swap via SwapAdaptor with zQuoter
-   * @dev Gets Aerodrome quote from zQuoter, then executes swap
+   * @notice Execute swap via SwapAdaptor with optional zQuoter validation
+   * @dev If zQuoter is address(0), skips price validation (testnet mode)
    * @param swapAdaptor SwapAdaptor contract address
-   * @param zQuoter zQuoter contract address for Aerodrome quotes
+   * @param zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
    * @param tokenIn Input token (e.g., USDC)
    * @param tokenOut Output token (e.g., cbBTC)
    * @param amountIn Amount of input tokens
    * @param minAmountOut Minimum output amount
-   * @param maxSlippageBps Max slippage in basis points (5 = 0.05%)
+   * @param maxSlippageBps Max slippage in basis points (used only when zQuoter is set)
    * @return amountOut Actual output amount received
    */
   function executeSwap(
@@ -44,22 +44,28 @@ library SwapLogic {
     require(minAmountOut > 0, 'SwapLogic: invalid minAmountOut');
     require(maxSlippageBps <= BASIS_POINTS, 'SwapLogic: invalid slippage');
 
-    // Get Aerodrome quote from zQuoter
-    (, uint256 expectedOut) = IzQuoter(zQuoter).quoteV2(
-      false, // exactOut = false (we have exact input)
-      tokenIn, // USDC
-      tokenOut, // cbBTC
-      amountIn, // Amount to swap
-      false // sushi = false (Aerodrome is V2-style, not Sushi)
-    );
+    uint256 minAcceptable;
 
-    require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
+    if (zQuoter != address(0)) {
+      // Base Mainnet: Use zQuoter for Aerodrome price validation
+      (, uint256 expectedOut) = IzQuoter(zQuoter).quoteV2(
+        false, // exactOut = false (we have exact input)
+        tokenIn, // USDC
+        tokenOut, // cbBTC
+        amountIn, // Amount to swap
+        false // sushi = false (Aerodrome is V2-style, not Sushi)
+      );
 
-    // Calculate protocol's minimum acceptable output with slippage protection
-    uint256 minAcceptable = expectedOut.mul(BASIS_POINTS.sub(maxSlippageBps)).div(BASIS_POINTS);
+      require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
 
-    // Validate user's expectation is reasonable (not exceeding the quote)
-    require(minAmountOut <= expectedOut, 'SwapLogic: minAmountOut exceeds zQuoter quote');
+      // Calculate protocol's minimum acceptable output with slippage protection
+      minAcceptable = expectedOut.mul(BASIS_POINTS.sub(maxSlippageBps)).div(BASIS_POINTS);
+
+      require(minAmountOut <= expectedOut, 'SwapLogic: minAmountOut exceeds quote');
+    } else {
+      // Base Sepolia: No quoter, use minAmountOut directly (Uniswap V4)
+      minAcceptable = minAmountOut;
+    }
 
     // Approve SwapAdaptor to spend tokens
     IERC20(tokenIn).safeApprove(swapAdaptor, amountIn);
@@ -67,15 +73,13 @@ library SwapLogic {
     // Get balance before swap
     uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
 
-    // Execute swap via SwapAdaptor (which calls zRouter.swapAero for Aerodrome)
-    // Use protocol's calculated minimum (minAcceptable), not user's minAmountOut
-    // USDC/cbBTC is a volatile pair, so stable = false
+    // Execute swap via SwapAdaptor
     amountOut = ISwapAdaptor(swapAdaptor).swapExactTokensForTokens(
       tokenIn,
       tokenOut,
       amountIn,
-      minAcceptable, // Use protocol's calculated minimum with slippage protection
-      false // stable = false for USDC/cbBTC volatile pair
+      minAcceptable,
+      false
     );
 
     // Verify balance increased by expected amount
