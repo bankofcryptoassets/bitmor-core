@@ -68,7 +68,12 @@ export const advanceTimeAndBlock = async function (forwardTime: number) {
   await DRE.ethers.provider.send('evm_mine', []);
 };
 
-export const waitForTx = async (tx: ContractTransaction) => await tx.wait(1);
+export const waitForTx = async (tx: ContractTransaction) => {
+  const network = DRE.network.name;
+  // Use 5 confirmations for Base Sepolia due to fast block times and RPC indexing delays
+  const confirmations = network === 'sepolia' ? 5 : 1;
+  return await tx.wait(confirmations);
+};
 
 export const filterMapBy = (raw: { [key: string]: any }, fn: (key: string) => boolean) =>
   Object.keys(raw)

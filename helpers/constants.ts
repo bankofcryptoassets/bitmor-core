@@ -88,6 +88,7 @@ export const chainlinkAggregatorProxy = {
   arbitrum: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
   rinkeby: '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e',
   goerli: '0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e',
+  sepolia: '0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165',
 };
 
 export const chainlinkEthUsdAggregatorProxy = {
@@ -102,4 +103,5 @@ export const chainlinkEthUsdAggregatorProxy = {
   arbitrum: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
   rinkeby: '0x8A753747A1Fa494EC906cE90E9f37563A8AF630e',
   goerli: '0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e',
+  sepolia: '0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1',
 };

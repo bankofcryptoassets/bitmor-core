@@ -9,7 +9,7 @@ task('bitmor:mainnet', 'Deploy Bitmor lending pool')
   .addFlag('verify', 'Verify contracts at Etherscan')
   .addFlag('skipRegistry', 'Skip addresses provider registration at Addresses Provider Registry')
   .setAction(async ({ verify, skipRegistry }, DRE) => {
-    const POOL_NAME = ConfigNames.Aave;
+    const POOL_NAME = ConfigNames.Bitmor;
     await DRE.run('set-DRE');
 
     // Prevent loss of gas verifying all the needed ENVs for Etherscan verification
@@ -33,6 +33,9 @@ task('bitmor:mainnet', 'Deploy Bitmor lending pool')
 
     console.log('4. Deploy Data Provider');
     await DRE.run('full:data-provider', { pool: POOL_NAME });
+
+    console.log('5. Deploy WETH Gateway');
+    await DRE.run('full-deploy-weth-gateway', { pool: POOL_NAME });
 
     console.log('6. Initialize lending pool');
     await DRE.run('full:initialize-lending-pool', { pool: POOL_NAME });
