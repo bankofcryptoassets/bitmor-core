@@ -2,11 +2,11 @@
   "network": "Base Sepolia",
   "chainId": 84532,
   "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-  "timestamp": "2025-11-03T16:59:34.483Z",
+  "timestamp": "2025-11-04T05:47:56.290Z",
   "contracts": {
     "LoanVaultFactory": {
-      "address": "0xf4c0Dc9DF87C471Dd2E4c9bA554485474b6b600C",
-      "implementation": "0x66C3152AD8A89C131D48080E8F3CaEbeC605d221",
+      "address": "0x611d925E0362EE9f9C524ba08f869AC8118B3a88",
+      "implementation": "0xB3cD0CF165De28682268615A8C54542122f27188",
       "note": "Loan contract not set yet - will be set after Loan deployment"
     }
   }

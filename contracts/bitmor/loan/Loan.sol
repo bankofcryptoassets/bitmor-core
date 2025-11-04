@@ -37,8 +37,8 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param _aaveV3Pool Aave V3 pool address for flash loans
    * @param _aaveV2Pool Aave V2 lending pool address for BTC/USDC reserves
    * @param _aaveAddressesProvider Aave V2 addresses provider
-   * @param _collateralAsset cbBTC address
-   * @param _debtAsset USDC address
+   * @param collateralAsset_ cbBTC address
+   * @param debtAsset_ USDC address
    * @param _loanVaultFactory LoanVaultFactory address for creating LSAs
    * @param _escrow Escrow contract address for collateral locking
    * @param _swapAdapter SwapAdapter contract address for token swaps
@@ -49,23 +49,23 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     address _aaveV3Pool,
     address _aaveV2Pool,
     address _aaveAddressesProvider,
-    address _collateralAsset,
-    address _debtAsset,
+    address collateralAsset_,
+    address debtAsset_,
     address _loanVaultFactory,
     address _escrow,
     address _swapAdapter,
     address _zQuoter,
     uint256 _maxLoanAmount
   ) public LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider) {
-    require(_collateralAsset != address(0), 'Loan: invalid collateral asset');
-    require(_debtAsset != address(0), 'Loan: invalid debt asset');
+    require(collateralAsset_ != address(0), 'Loan: invalid collateral asset');
+    require(debtAsset_ != address(0), 'Loan: invalid debt asset');
     require(_loanVaultFactory != address(0), 'Loan: invalid factory');
     require(_escrow != address(0), 'Loan: invalid escrow');
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
     require(_maxLoanAmount > 0, 'Loan: invalid max loan amount');
 
-    _collateralAsset = _collateralAsset;
-    _debtAsset = _debtAsset;
+    _collateralAsset = collateralAsset_;
+    _debtAsset = debtAsset_;
     loanVaultFactory = _loanVaultFactory;
     escrow = _escrow;
     swapAdapter = _swapAdapter;
