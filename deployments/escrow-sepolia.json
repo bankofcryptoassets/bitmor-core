@@ -2,12 +2,12 @@
   "network": "Base Sepolia",
   "chainId": 84532,
   "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-  "timestamp": "2025-11-05T07:20:55.231Z",
+  "timestamp": "2025-11-05T09:06:10.723Z",
   "contracts": {
     "Escrow": {
-      "address": "0xc1f672DAbe22b19A52e14A424Af2Ae551A771C14",
+      "address": "0xED4cf66b5D3b9A0b9Ba65B6eb6916098ad8fcE87",
       "acbBTC": "0xb53dE131d5d4d4761126b7a5796df482C7E0a832",
-      "note": "Loan contract not set yet - will be set after Loan deployment"
+      "loanContract": "0xe5DA7ed24f1ec9b39143A3631D25ECE60aB5Ea9A"
     }
   }
 }

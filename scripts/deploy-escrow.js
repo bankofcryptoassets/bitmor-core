@@ -21,14 +21,23 @@ async function main() {
   // Base Sepolia addresses - acbBTC is the AToken for cbBTC
   const AC_CBBTC = deployedContracts.AToken.sepolia.address;
 
+  // Load Loan deployment to get Loan contract address
+  const loanPath = path.join(__dirname, "../deployments/loan-sepolia.json");
+  if (!fs.existsSync(loanPath)) {
+    throw new Error("Loan contract not deployed. Run deploy-loan.js first");
+  }
+  const loanDeployment = JSON.parse(fs.readFileSync(loanPath, "utf8"));
+  const LOAN_CONTRACT = loanDeployment.contracts.Loan.address;
+
   console.log("Configuration:");
   console.log("  acbBTC (AToken):", AC_CBBTC);
+  console.log("  Loan Contract:", LOAN_CONTRACT);
   console.log();
 
-  // Deploy Escrow
+  // Deploy Escrow with Loan contract address
   console.log("Deploying Escrow...");
   const Escrow = await hre.ethers.getContractFactory("Escrow");
-  const escrow = await Escrow.deploy(AC_CBBTC);
+  const escrow = await Escrow.deploy(AC_CBBTC, LOAN_CONTRACT);
   await escrow.deployed();
 
   console.log("Escrow deployed at:", escrow.address);
@@ -44,7 +53,7 @@ async function main() {
       Escrow: {
         address: escrow.address,
         acbBTC: AC_CBBTC,
-        note: "Loan contract not set yet - will be set after Loan deployment",
+        loanContract: LOAN_CONTRACT,
       },
     },
   };

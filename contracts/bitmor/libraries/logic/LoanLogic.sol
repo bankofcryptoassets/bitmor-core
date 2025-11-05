@@ -51,8 +51,6 @@ library LoanLogic {
     DataTypes.ReserveData memory reserveData = ILendingPool(aaveV2Pool).getReserveData(debtAsset);
     interestRate = reserveData.currentVariableBorrowRate;
 
-    require(interestRate > 0, 'LoanLogic: invalid interest rate');
-
     // Calculate loan amount and monthly payment using fetched rate
     (exactLoanAmt, monthlyPayAmt) = LoanMath.calculateLoanAmt(
       depositAmount,

@@ -42,26 +42,13 @@ contract LoanVaultFactory {
   /**
    * @notice Initializes the factory with implementation
    * @param implementation The LoanVault implementation address to clone
-   */
-  constructor(address implementation) public {
-    require(implementation != address(0), 'LoanVaultFactory: invalid implementation');
-
-    IMPLEMENTATION = implementation;
-  }
-
-  /**
-   * @notice Sets the Loan contract address
-   * @dev Can only be called once when loanContract is not set
    * @param _loanContract The Loan contract address authorized to create vaults
    */
-  function setLoanContract(address _loanContract) external {
-    require(loanContract == address(0), 'LoanVaultFactory: loan contract already set');
+  constructor(address implementation, address _loanContract) public {
+    require(implementation != address(0), 'LoanVaultFactory: invalid implementation');
     require(_loanContract != address(0), 'LoanVaultFactory: invalid loan contract');
-
-    address oldContract = loanContract;
+    IMPLEMENTATION = implementation;
     loanContract = _loanContract;
-
-    emit LoanContractUpdated(oldContract, _loanContract);
   }
 
   // ============ Public Functions ============

@@ -20,14 +20,23 @@ async function main() {
   const implDeployment = JSON.parse(fs.readFileSync(implPath, "utf8"));
   const LOAN_VAULT_IMPLEMENTATION = implDeployment.contracts.LoanVaultImplementation.address;
 
+  // Load Loan deployment to get Loan contract address
+  const loanPath = path.join(__dirname, "../deployments/loan-sepolia.json");
+  if (!fs.existsSync(loanPath)) {
+    throw new Error("Loan contract not deployed. Run deploy-loan.js first");
+  }
+  const loanDeployment = JSON.parse(fs.readFileSync(loanPath, "utf8"));
+  const LOAN_CONTRACT = loanDeployment.contracts.Loan.address;
+
   console.log("Configuration:");
   console.log("  LoanVault Implementation:", LOAN_VAULT_IMPLEMENTATION);
+  console.log("  Loan Contract:", LOAN_CONTRACT);
   console.log();
 
-  // Deploy LoanVaultFactory
+  // Deploy LoanVaultFactory with Loan contract address
   console.log("Deploying LoanVaultFactory...");
   const Factory = await hre.ethers.getContractFactory("LoanVaultFactory");
-  const factory = await Factory.deploy(LOAN_VAULT_IMPLEMENTATION);
+  const factory = await Factory.deploy(LOAN_VAULT_IMPLEMENTATION, LOAN_CONTRACT);
   await factory.deployed();
 
   console.log("LoanVaultFactory deployed at:", factory.address);
@@ -43,7 +52,7 @@ async function main() {
       LoanVaultFactory: {
         address: factory.address,
         implementation: LOAN_VAULT_IMPLEMENTATION,
-        note: "Loan contract not set yet - will be set after Loan deployment",
+        loanContract: LOAN_CONTRACT,
       },
     },
   };

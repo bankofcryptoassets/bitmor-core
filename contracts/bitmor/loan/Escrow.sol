@@ -64,21 +64,16 @@ contract Escrow is IEscrow {
 
   // ============ Constructor ============
 
-  constructor(address _acbBTC) public {
-    require(_acbBTC != address(0), 'Escrow: invalid acbBTC');
-    acbBTC = _acbBTC;
-  }
-
   /**
-   * @notice Sets the Loan contract address
-   * @dev Can only be called once when loanContract is not set
-   * @param _loanContract The Loan contract address
+   * @notice Initializes the Escrow contract with acbBTC and loan contract addresses
+   * @param _acbBTC acbBTC token address
+   * @param _loanContract Loan contract address authorized to lock/unlock collateral
    */
-  function setLoanContract(address _loanContract) external {
-    require(loanContract == address(0), 'Escrow: loan contract already set');
+  constructor(address _acbBTC, address _loanContract) public {
+    require(_acbBTC != address(0), 'Escrow: invalid acbBTC');
     require(_loanContract != address(0), 'Escrow: invalid loan contract');
+    acbBTC = _acbBTC;
     loanContract = _loanContract;
-    emit LoanContractSet(_loanContract);
   }
 
   // ============ Core Functions ============
