@@ -203,14 +203,8 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
       // Base Mainnet: Use user's desired collateral amount
       minCbBtcOut = collateralAmount;
     } else {
-      // Base Sepolia: Calculate minimum based on current pool price
-      uint256 estimatedOut = IUniswapV4SwapAdapter(swapAdapter).estimateOutput(
-        _debtAsset,
-        totalSwapAmount
-      );
-
       // Set minimum to 98% of estimated (2% slippage tolerance)
-      minCbBtcOut = estimatedOut.mul(98).div(100);
+      minCbBtcOut = collateralAmount.mul(98).div(100);
     }
 
     uint256 wbtcReceived = SwapLogic.executeSwap(
