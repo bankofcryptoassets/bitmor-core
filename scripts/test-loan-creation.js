@@ -13,19 +13,21 @@ async function main() {
 
   // Load deployment files
   const loanPath = path.join(__dirname, "../deployments/loan-sepolia.json");
-  const aaveV2Path = path.join(__dirname, "../deployments/sepolia-aave-v2-FINAL.json");
+  const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
 
   const loanDeployment = JSON.parse(fs.readFileSync(loanPath, "utf8"));
-  const aaveV2 = JSON.parse(fs.readFileSync(aaveV2Path, "utf8"));
+  const usdcDeployment = JSON.parse(fs.readFileSync(usdcPath, "utf8"));
 
   const LOAN_ADDRESS = loanDeployment.contracts.Loan.address;
-  const USDC_ADDRESS = aaveV2.reserves.USDC.underlyingAsset;
+  const USDC_ADDRESS = usdcDeployment.address;
 
   // Test parameters
-  const DEPOSIT_AMOUNT = ethers.utils.parseUnits("100", 6); // 100 USDC
-  const COLLATERAL_AMOUNT = ethers.utils.parseUnits("0.001", 8); // 0.001 cbBTC
+  const DEPOSIT_AMOUNT = ethers.utils.parseUnits("40000", 6); // 40,000 USDC (user's deposit)
+  const COLLATERAL_AMOUNT = ethers.utils.parseUnits("1", 8); // 1 cbBTC (target collateral goal)
   const DURATION = 12; // 12 months
   const INSURANCE_ID = 1;
+
+  // Note: The rest of the USDC needed will be flash loaned from Aave V3
 
   console.log("Test Parameters:");
   console.log("  Loan Contract:", LOAN_ADDRESS);
@@ -87,8 +89,11 @@ async function main() {
     console.log();
 
   } catch (error) {
-    console.log("Transaction failed (expected due to dummy Aave V3 Pool)");
+    console.log("Transaction failed!");
     console.log("Error:", error.message);
+    if (error.error && error.error.data) {
+      console.log("Error data:", error.error.data);
+    }
     console.log();
   }
 

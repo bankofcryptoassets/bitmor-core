@@ -11,8 +11,15 @@ async function main() {
   console.log("Deployer address:", deployer.address);
   console.log("Deployer balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
+  // Load deployed contracts to get acbBTC address
+  const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
+  if (!fs.existsSync(deployedContractsPath)) {
+    throw new Error("deployed-contracts.json not found");
+  }
+  const deployedContracts = JSON.parse(fs.readFileSync(deployedContractsPath, "utf8"));
+
   // Base Sepolia addresses - acbBTC is the AToken for cbBTC
-  const AC_CBBTC = "0x5a4D8375765451A21510B52558652B1A31E0F4cC"; // AToken from deployed-contracts.json
+  const AC_CBBTC = deployedContracts.AToken.sepolia.address;
 
   console.log("Configuration:");
   console.log("  acbBTC (AToken):", AC_CBBTC);

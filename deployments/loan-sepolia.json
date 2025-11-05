@@ -2,18 +2,18 @@
   "network": "Base Sepolia",
   "chainId": 84532,
   "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-  "timestamp": "2025-11-04T05:52:11.127Z",
+  "timestamp": "2025-11-05T07:25:24.522Z",
   "contracts": {
     "Loan": {
-      "address": "0x820d8B8132aA7Eb88E130Ef3277c3f0726e2B1e2",
+      "address": "0x20C9c3c092cfebeb21417E39A69dd6ffDA381c48",
       "constructorArgs": {
-        "aaveV3Pool": "0x0000000000000000000000000000000000000001",
-        "aaveV2Pool": "0x86f97dA0AC9f00362A333D864eddE5f5655fc7a1",
-        "aaveAddressesProvider": "0x9ed5DF1411881913C64c19B70b67a53041A4F8C1",
+        "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
+        "aaveV2Pool": "0x64688EAa8cBC3029D303b61D7e77f986E34742b3",
+        "aaveAddressesProvider": "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9",
         "collateralAsset": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
         "debtAsset": "0x562937072309F8c929206a58e72732dFCA5b67D6",
-        "loanVaultFactory": "0x611d925E0362EE9f9C524ba08f869AC8118B3a88",
-        "escrow": "0xba0757294d466a0001515040F3cCE3564dE0F163",
+        "loanVaultFactory": "0x24876A7A42D46B8ca0c2dC2E7fAAAab63E56CDa9",
+        "escrow": "0xc1f672DAbe22b19A52e14A424Af2Ae551A771C14",
         "swapAdapter": "0x5fe96Ac9DdA67D3D9847431b479743Ca1205dE8E",
         "zQuoter": "0x0000000000000000000000000000000000000000",
         "maxLoanAmount": "1000000000000"
@@ -24,5 +24,5 @@
     "factorySetLoanContract": true,
     "escrowSetLoanContract": true
   },
-  "notes": "Flash loans will fail until Aave V3 Pool address is updated. Update via Loan.setAaveV3Pool() when available."
+  "notes": "Loan contract deployed and configured. Ready for testing. SwapAdapter mints cbBTC for testing purposes."
 }

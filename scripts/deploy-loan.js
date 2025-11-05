@@ -12,7 +12,7 @@ async function main() {
   console.log("Deployer balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
   // Load deployment files
-  const aaveV2Path = path.join(__dirname, "../deployments/sepolia-aave-v2-FINAL.json");
+  const aaveV2Path = path.join(__dirname, "../deployed-contracts.json");
   const factoryPath = path.join(__dirname, "../deployments/loan-vault-factory-sepolia.json");
   const escrowPath = path.join(__dirname, "../deployments/escrow-sepolia.json");
   const swapAdapterPath = path.join(__dirname, "../deployments/uniswap-v4-swap-adapter-wrapper-sepolia.json");
@@ -35,20 +35,34 @@ async function main() {
   const escrowDeployment = JSON.parse(fs.readFileSync(escrowPath, "utf8"));
   const swapAdapterDeployment = JSON.parse(fs.readFileSync(swapAdapterPath, "utf8"));
 
+  // Load token addresses
+  const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
+  const cbbtcPath = path.join(__dirname, "../deployments/sepolia-cbbtc.json");
+
+  if (!fs.existsSync(usdcPath)) {
+    throw new Error("USDC deployment not found");
+  }
+  if (!fs.existsSync(cbbtcPath)) {
+    throw new Error("cbBTC deployment not found");
+  }
+
+  const usdcDeployment = JSON.parse(fs.readFileSync(usdcPath, "utf8"));
+  const cbbtcDeployment = JSON.parse(fs.readFileSync(cbbtcPath, "utf8"));
+
   // Configuration
-  const AAVE_V3_POOL = "0x0000000000000000000000000000000000000001"; // Dummy address - flash loans will not work
-  const AAVE_V2_POOL = aaveV2.contracts.core.LendingPool;
-  const AAVE_ADDRESSES_PROVIDER = aaveV2.contracts.core.LendingPoolAddressesProvider;
-  const COLLATERAL_ASSET = aaveV2.reserves.cbBTC.underlyingAsset;
-  const DEBT_ASSET = aaveV2.reserves.USDC.underlyingAsset;
+  const AAVE_V3_POOL = "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B"; // Aave V3 Pool Proxy
+  const AAVE_V2_POOL = "0x64688EAa8cBC3029D303b61D7e77f986E34742b3"; // From deployed-contracts.json
+  const AAVE_ADDRESSES_PROVIDER = "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9"; // From deployed-contracts.json
+  const COLLATERAL_ASSET = cbbtcDeployment.address; // cbBTC
+  const DEBT_ASSET = usdcDeployment.address; // USDC
   const LOAN_VAULT_FACTORY = factoryDeployment.contracts.LoanVaultFactory.address;
   const ESCROW = escrowDeployment.contracts.Escrow.address;
   const SWAP_ADAPTER = swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address;
-  const Z_QUOTER = "0x0000000000000000000000000000000000000000";
-  const MAX_LOAN_AMOUNT = "1000000000000"; // 1,000,000 USDC
+  const Z_QUOTER = "0x0000000000000000000000000000000000000000"; // Not used on Base Sepolia
+  const MAX_LOAN_AMOUNT = "1000000000000"; // 1,000,000 USDC (6 decimals)
 
   console.log("Configuration:");
-  console.log("  Aave V3 Pool:", AAVE_V3_POOL, "(dummy)");
+  console.log("  Aave V3 Pool:", AAVE_V3_POOL);
   console.log("  Aave V2 Pool:", AAVE_V2_POOL);
   console.log("  Aave Addresses Provider:", AAVE_ADDRESSES_PROVIDER);
   console.log("  Collateral Asset (cbBTC):", COLLATERAL_ASSET);
@@ -123,7 +137,7 @@ async function main() {
       factorySetLoanContract: true,
       escrowSetLoanContract: true,
     },
-    notes: "Flash loans will fail until Aave V3 Pool address is updated. Update via Loan.setAaveV3Pool() when available.",
+    notes: "Loan contract deployed and configured. Ready for testing. SwapAdapter mints cbBTC for testing purposes.",
   };
 
   const outputPath = path.join(__dirname, "../deployments/loan-sepolia.json");

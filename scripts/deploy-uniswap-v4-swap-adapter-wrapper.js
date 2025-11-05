@@ -12,7 +12,7 @@ async function main() {
   console.log("Deployer balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
   // Base Sepolia addresses
-  const UNISWAP_V4_ADAPTER = "0x96C69Cd797a62C33FF805905dd241703A37F0020";
+  const UNISWAP_V4_ADAPTER = "0x28f81B3f1B8Cb36931221Ea13969F9215d9B2b78";
 
   console.log("Configuration:");
   console.log("  Uniswap V4 Adapter:", UNISWAP_V4_ADAPTER);
