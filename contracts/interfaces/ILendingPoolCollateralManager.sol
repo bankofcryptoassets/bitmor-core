@@ -30,6 +30,27 @@ interface ILendingPoolCollateralManager {
   );
 
   /**
+   * @dev Emitted when a borrower is microliquidated.
+   * @param collateral The address of the collateral being liquidated
+   * @param principal The address of the reserve
+   * @param user The address of the user being liquidated
+   * @param debtToCover The total amount liquidated
+   * @param liquidatedCollateralAmount The amount of collateral being liquidated
+   * @param liquidator The address of the liquidator
+   * @param receiveAToken true if the liquidator wants to receive aTokens, false otherwise
+   *
+   */
+  event MicroLiquidationCall(
+    address indexed collateral,
+    address indexed principal,
+    address indexed user,
+    uint256 debtToCover,
+    uint256 liquidatedCollateralAmount,
+    address liquidator,
+    bool receiveAToken
+  );
+
+  /**
    * @dev Emitted when a reserve is disabled as collateral for an user
    * @param reserve The address of the reserve
    * @param user The address of the user
@@ -61,5 +82,18 @@ interface ILendingPoolCollateralManager {
     address user,
     uint256 debtToCover,
     bool receiveAToken
+  ) external returns (uint256, string memory);
+
+  /**
+   * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
+   * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
+   * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation.
+   * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
+   * @param user the address of the borrower's LSA getting liquidated
+   */
+  function microLiquidationCall(
+    address collateralAsset,
+    address debtAsset,
+    address user
   ) external returns (uint256, string memory);
 }

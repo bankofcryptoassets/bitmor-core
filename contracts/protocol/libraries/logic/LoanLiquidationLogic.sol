@@ -9,6 +9,8 @@ import {DataTypes} from '../types/DataTypes.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {GenericLogic} from './GenericLogic.sol';
+import {ILoan} from '../../../bitmor/interfaces/ILoan.sol';
+import {DataTypes as BitmorDataTypes} from '../../../bitmor/libraries/types/DataTypes.sol';
 
 library LoanLiquidationLogic {
   using SafeMath for uint256;
@@ -53,21 +55,7 @@ library LoanLiquidationLogic {
     address oracle,
     address bitmorLoan
   ) internal view returns (uint256) {
-    // TODO: Have IBitmorLoan implemented.
-    // DataTypes.LoanData memory loanData = bitmorLoan.getLoanByLSA(user);
-    DataTypes.LoanData memory loanData = DataTypes.LoanData({
-      borrower: address(0),
-      depositAmount: 0,
-      loanAmount: 0,
-      collateralAmount: 0,
-      estimatedMonthlyPayment: 0,
-      duration: 0,
-      createdAt: 0,
-      insuranceID: 1,
-      nextDueTimestamp: 0,
-      lastDueTimestamp: 0,
-      status: DataTypes.LoanStatus.Active
-    });
+    BitmorDataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
     // TODO: Implement this function in the Loan Provider
     // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
@@ -79,7 +67,10 @@ library LoanLiquidationLogic {
     }
 
     // If the EMI is not overdue → no liquidation
-    if (!(loanData.nextDueTimestamp < block.timestamp)) {
+    if (
+      (loanData.nextDueTimestamp >= block.timestamp) &&
+      (loanData.status != BitmorDataTypes.LoanStatus.Active)
+    ) {
       return 0;
     }
 
@@ -87,7 +78,7 @@ library LoanLiquidationLogic {
     LiquidationVars memory v;
 
     // reserves
-    // TODO: Implement a constant variable to have the cbBTC reserve.
+    // TODO!: Implement a constant variable to have the cbBTC reserve.
     (v.cbBTCDecimals, v.usdcDecimals, v.usdcVariableDebtTokenAddress) = _getDecimals(
       reservesData,
       reserves[0],
@@ -95,7 +86,6 @@ library LoanLiquidationLogic {
     );
 
     // TODO: confirm if the IPriceOracleGetter returns with the reserve address or the underlying asset address.
-    // TODO: IPriceOracleGetter currently provides price in ETH we will require in USD.
     v.cbBTCUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(reserves[0]);
     v.usdcUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(reserves[1]);
 

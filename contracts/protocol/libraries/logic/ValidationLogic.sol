@@ -15,6 +15,7 @@ import {Errors} from '../helpers/Errors.sol';
 import {Helpers} from '../helpers/Helpers.sol';
 import {IReserveInterestRateStrategy} from '../../../interfaces/IReserveInterestRateStrategy.sol';
 import {DataTypes} from '../types/DataTypes.sol';
+import {LoanLiquidationLogic} from './LoanLiquidationLogic.sol';
 
 /**
  * @title ReserveLogic library
@@ -417,6 +418,61 @@ library ValidationLogic {
       return (
         uint256(Errors.CollateralManagerErrors.HEALTH_FACTOR_ABOVE_THRESHOLD),
         Errors.LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD
+      );
+    }
+
+    bool isCollateralEnabled = collateralReserve.configuration.getLiquidationThreshold() > 0 &&
+      userConfig.isUsingAsCollateral(collateralReserve.id);
+
+    //if collateral isn't enabled as collateral by user, it cannot be liquidated
+    if (!isCollateralEnabled) {
+      return (
+        uint256(Errors.CollateralManagerErrors.COLLATERAL_CANNOT_BE_LIQUIDATED),
+        Errors.LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED
+      );
+    }
+
+    if (userStableDebt == 0 && userVariableDebt == 0) {
+      return (
+        uint256(Errors.CollateralManagerErrors.CURRRENCY_NOT_BORROWED),
+        Errors.LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER
+      );
+    }
+
+    return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
+  }
+
+  /**
+   * @dev Validates the micro liquidation action
+   * @param collateralReserve The reserve data of the collateral
+   * @param principalReserve The reserve data of the principal
+   * @param userConfig The user configuration
+   * @param typeOfLiquidation The type of liquidateion
+   * @param userStableDebt Total stable debt balance of the user
+   * @param userVariableDebt Total variable debt balance of the user
+   *
+   */
+  function validateMicroLiquidationCall(
+    DataTypes.ReserveData storage collateralReserve,
+    DataTypes.ReserveData storage principalReserve,
+    DataTypes.UserConfigurationMap storage userConfig,
+    uint256 typeOfLiquidation,
+    uint256 userStableDebt,
+    uint256 userVariableDebt
+  ) internal view returns (uint256, string memory) {
+    if (
+      !collateralReserve.configuration.getActive() || !principalReserve.configuration.getActive()
+    ) {
+      return (
+        uint256(Errors.CollateralManagerErrors.NO_ACTIVE_RESERVE),
+        Errors.VL_NO_ACTIVE_RESERVE
+      );
+    }
+
+    if (typeOfLiquidation != 2) {
+      return (
+        uint256(Errors.CollateralManagerErrors.CANNOT_MICRO_LIQUIDATE),
+        Errors.LPCM_CANNOT_MICRO_LIQUIDATE
       );
     }
 
