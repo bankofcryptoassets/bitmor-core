@@ -15,7 +15,8 @@ interface ICreditDelegationToken {
    * @param amount the maximum amount being delegated. Delegation will still
    * respect the liquidation constraints (even if delegated, a delegatee cannot
    * force a delegator HF to go below 1)
-   **/
+   *
+   */
   function approveDelegation(address delegatee, uint256 amount) external;
 
   /**
@@ -23,6 +24,7 @@ interface ICreditDelegationToken {
    * @param fromUser The user to giving allowance
    * @param toUser The user to give allowance to
    * @return the current allowance of toUser
-   **/
+   *
+   */
   function borrowAllowance(address fromUser, address toUser) external view returns (uint256);
 }

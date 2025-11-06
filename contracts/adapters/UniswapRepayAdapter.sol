@@ -12,7 +12,8 @@ import {DataTypes} from '../protocol/libraries/types/DataTypes.sol';
  * @title UniswapRepayAdapter
  * @notice Uniswap V2 Adapter to perform a repay of a debt with collateral.
  * @author Aave
- **/
+ *
+ */
 contract UniswapRepayAdapter is BaseUniswapAdapter {
   struct RepayParams {
     address collateralAsset;
@@ -86,7 +87,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
    * @param debtRateMode Rate mode of the debt to be repaid
    * @param permitSignature struct containing the permit signature
    * @param useEthPath struct containing the permit signature
-
+   *
    */
   function swapAndRepay(
     address collateralAsset,
@@ -100,10 +101,10 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
     DataTypes.ReserveData memory collateralReserveData = _getReserveData(collateralAsset);
     DataTypes.ReserveData memory debtReserveData = _getReserveData(debtAsset);
 
-    address debtToken =
-      DataTypes.InterestRateMode(debtRateMode) == DataTypes.InterestRateMode.STABLE
-        ? debtReserveData.stableDebtTokenAddress
-        : debtReserveData.variableDebtTokenAddress;
+    address debtToken = DataTypes.InterestRateMode(debtRateMode) ==
+      DataTypes.InterestRateMode.STABLE
+      ? debtReserveData.stableDebtTokenAddress
+      : debtReserveData.variableDebtTokenAddress;
 
     uint256 currentDebt = IERC20(debtToken).balanceOf(msg.sender);
     uint256 amountToRepay = debtRepayAmount <= currentDebt ? debtRepayAmount : currentDebt;
@@ -115,8 +116,12 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
       }
 
       // Get exact collateral needed for the swap to avoid leftovers
-      uint256[] memory amounts =
-        _getAmountsIn(collateralAsset, debtAsset, amountToRepay, useEthPath);
+      uint256[] memory amounts = _getAmountsIn(
+        collateralAsset,
+        debtAsset,
+        amountToRepay,
+        useEthPath
+      );
       require(amounts[0] <= maxCollateralToSwap, 'slippage too high');
 
       // Pull aTokens from user
@@ -186,8 +191,12 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
       }
 
       uint256 neededForFlashLoanDebt = repaidAmount.add(premium);
-      uint256[] memory amounts =
-        _getAmountsIn(collateralAsset, debtAsset, neededForFlashLoanDebt, useEthPath);
+      uint256[] memory amounts = _getAmountsIn(
+        collateralAsset,
+        debtAsset,
+        neededForFlashLoanDebt,
+        useEthPath
+      );
       require(amounts[0] <= maxCollateralToSwap, 'slippage too high');
 
       // Pull aTokens from user
@@ -248,8 +257,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
       bytes32 r,
       bytes32 s,
       bool useEthPath
-    ) =
-      abi.decode(
+    ) = abi.decode(
         params,
         (address, uint256, uint256, uint256, uint256, uint8, bytes32, bytes32, bool)
       );

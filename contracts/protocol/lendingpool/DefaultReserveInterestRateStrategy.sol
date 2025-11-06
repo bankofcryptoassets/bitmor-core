@@ -17,7 +17,8 @@ import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
  * - An instance of this same contract, can't be used across different Aave markets, due to the caching
  *   of the LendingPoolAddressesProvider
  * @author Aave
- **/
+ *
+ */
 contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
   using WadRayMath for uint256;
   using SafeMath for uint256;
@@ -26,14 +27,16 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
   /**
    * @dev this constant represents the utilization rate at which the pool aims to obtain most competitive borrow rates.
    * Expressed in ray
-   **/
+   *
+   */
   uint256 public immutable OPTIMAL_UTILIZATION_RATE;
 
   /**
    * @dev This constant represents the excess utilization rate above the optimal. It's always equal to
    * 1-optimal utilization rate. Added as a constant here for gas optimizations.
    * Expressed in ray
-   **/
+   *
+   */
 
   uint256 public immutable EXCESS_UTILIZATION_RATE;
 
@@ -107,7 +110,8 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
    * @param averageStableBorrowRate The weighted average of all the stable rate loans
    * @param reserveFactor The reserve portion of the interest that goes to the treasury of the market
    * @return The liquidity rate, the stable borrow rate and the variable borrow rate
-   **/
+   *
+   */
   function calculateInterestRates(
     address reserve,
     address aToken,
@@ -117,16 +121,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     uint256 totalVariableDebt,
     uint256 averageStableBorrowRate,
     uint256 reserveFactor
-  )
-    external
-    view
-    override
-    returns (
-      uint256,
-      uint256,
-      uint256
-    )
-  {
+  ) external view override returns (uint256, uint256, uint256) {
     uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
     //avoid stack too deep
     availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
@@ -161,7 +156,8 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
    * @param averageStableBorrowRate The weighted average of all the stable rate loans
    * @param reserveFactor The reserve portion of the interest that goes to the treasury of the market
    * @return The liquidity rate, the stable borrow rate and the variable borrow rate
-   **/
+   *
+   */
   function calculateInterestRates(
     address reserve,
     uint256 availableLiquidity,
@@ -169,16 +165,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     uint256 totalVariableDebt,
     uint256 averageStableBorrowRate,
     uint256 reserveFactor
-  )
-    public
-    view
-    override
-    returns (
-      uint256,
-      uint256,
-      uint256
-    )
-  {
+  ) public view override returns (uint256, uint256, uint256) {
     CalcInterestRatesLocalVars memory vars;
 
     vars.totalDebt = totalStableDebt.add(totalVariableDebt);
@@ -194,8 +181,10 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
       .getMarketBorrowRate(reserve);
 
     if (vars.utilizationRate > OPTIMAL_UTILIZATION_RATE) {
-      uint256 excessUtilizationRateRatio =
-        vars.utilizationRate.sub(OPTIMAL_UTILIZATION_RATE).rayDiv(EXCESS_UTILIZATION_RATE);
+      uint256 excessUtilizationRateRatio = vars
+        .utilizationRate
+        .sub(OPTIMAL_UTILIZATION_RATE)
+        .rayDiv(EXCESS_UTILIZATION_RATE);
 
       vars.currentStableBorrowRate = vars.currentStableBorrowRate.add(_stableRateSlope1).add(
         _stableRateSlope2.rayMul(excessUtilizationRateRatio)
@@ -216,12 +205,9 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     vars.currentLiquidityRate = _getOverallBorrowRate(
       totalStableDebt,
       totalVariableDebt,
-      vars
-        .currentVariableBorrowRate,
+      vars.currentVariableBorrowRate,
       averageStableBorrowRate
-    )
-      .rayMul(vars.utilizationRate)
-      .percentMul(PercentageMath.PERCENTAGE_FACTOR.sub(reserveFactor));
+    ).rayMul(vars.utilizationRate).percentMul(PercentageMath.PERCENTAGE_FACTOR.sub(reserveFactor));
 
     return (
       vars.currentLiquidityRate,
@@ -237,7 +223,8 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
    * @param currentVariableBorrowRate The current variable borrow rate of the reserve
    * @param currentAverageStableBorrowRate The current weighted average of all the stable rate loans
    * @return The weighted averaged borrow rate
-   **/
+   *
+   */
   function _getOverallBorrowRate(
     uint256 totalStableDebt,
     uint256 totalVariableDebt,
@@ -252,8 +239,9 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
     uint256 weightedStableRate = totalStableDebt.wadToRay().rayMul(currentAverageStableBorrowRate);
 
-    uint256 overallBorrowRate =
-      weightedVariableRate.add(weightedStableRate).rayDiv(totalDebt.wadToRay());
+    uint256 overallBorrowRate = weightedVariableRate.add(weightedStableRate).rayDiv(
+      totalDebt.wadToRay()
+    );
 
     return overallBorrowRate;
   }

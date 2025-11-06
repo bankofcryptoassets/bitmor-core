@@ -1,0 +1,21 @@
+[profile.default]
+src = "contracts"
+out = "forge-out"
+libs = ["node_modules"]
+solc_version = "0.6.12"
+optimizer = true
+optimizer_runs = 200
+evm_version = "istanbul"
+
+[profile.default.model_checker]
+contracts = {}
+engine = 'chc'
+timeout = 10000
+targets = ['assert', 'underflow', 'overflow', 'divByZero', 'constantCondition', 'popEmptyArray',
+'outOfBounds']
+
+# Network configurations
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+base = "${BASE_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"

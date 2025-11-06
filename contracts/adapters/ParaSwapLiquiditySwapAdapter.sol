@@ -63,14 +63,10 @@ contract ParaSwapLiquiditySwapAdapter is BaseParaSwapSellAdapter, ReentrancyGuar
       bytes memory swapCalldata,
       IParaSwapAugustus augustus,
       PermitSignature memory permitParams
-    ) = abi.decode(params, (
-      IERC20Detailed,
-      uint256,
-      uint256,
-      bytes,
-      IParaSwapAugustus,
-      PermitSignature
-    ));
+    ) = abi.decode(
+        params,
+        (IERC20Detailed, uint256, uint256, bytes, IParaSwapAugustus, PermitSignature)
+      );
 
     _swapLiquidity(
       swapAllBalanceOffset,
@@ -111,8 +107,9 @@ contract ParaSwapLiquiditySwapAdapter is BaseParaSwapSellAdapter, ReentrancyGuar
     IParaSwapAugustus augustus,
     PermitSignature calldata permitParams
   ) external nonReentrant {
-    IERC20WithPermit aToken =
-      IERC20WithPermit(_getReserveData(address(assetToSwapFrom)).aTokenAddress);
+    IERC20WithPermit aToken = IERC20WithPermit(
+      _getReserveData(address(assetToSwapFrom)).aTokenAddress
+    );
 
     if (swapAllBalanceOffset != 0) {
       uint256 balance = aToken.balanceOf(msg.sender);
@@ -156,7 +153,7 @@ contract ParaSwapLiquiditySwapAdapter is BaseParaSwapSellAdapter, ReentrancyGuar
    * @param assetToSwapTo Address of the underlying asset to be swapped to and deposited
    * @param minAmountToReceive Min amount to be received from the swap
    */
-  function _swapLiquidity (
+  function _swapLiquidity(
     uint256 swapAllBalanceOffset,
     bytes memory swapCalldata,
     IParaSwapAugustus augustus,
@@ -168,8 +165,9 @@ contract ParaSwapLiquiditySwapAdapter is BaseParaSwapSellAdapter, ReentrancyGuar
     IERC20Detailed assetToSwapTo,
     uint256 minAmountToReceive
   ) internal {
-    IERC20WithPermit aToken =
-      IERC20WithPermit(_getReserveData(address(assetToSwapFrom)).aTokenAddress);
+    IERC20WithPermit aToken = IERC20WithPermit(
+      _getReserveData(address(assetToSwapFrom)).aTokenAddress
+    );
     uint256 amountToSwap = flashLoanAmount;
 
     uint256 balance = aToken.balanceOf(initiator);

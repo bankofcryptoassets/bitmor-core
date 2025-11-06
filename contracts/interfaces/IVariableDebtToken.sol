@@ -9,7 +9,8 @@ import {IAaveIncentivesController} from './IAaveIncentivesController.sol';
  * @title IVariableDebtToken
  * @author Aave
  * @notice Defines the basic interface for a variable debt token.
- **/
+ *
+ */
 interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
   /**
    * @dev Emitted after the mint action
@@ -17,7 +18,8 @@ interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
    * @param onBehalfOf The address of the user on which behalf minting has been performed
    * @param value The amount to be minted
    * @param index The last index of the reserve
-   **/
+   *
+   */
   event Mint(address indexed from, address indexed onBehalfOf, uint256 value, uint256 index);
 
   /**
@@ -28,7 +30,8 @@ interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
    * @param amount The amount of debt being minted
    * @param index The variable debt index of the reserve
    * @return `true` if the the previous balance of the user is 0
-   **/
+   *
+   */
   function mint(
     address user,
     address onBehalfOf,
@@ -41,22 +44,21 @@ interface IVariableDebtToken is IScaledBalanceToken, IInitializableDebtToken {
    * @param user The user which debt has been burned
    * @param amount The amount of debt being burned
    * @param index The index of the user
-   **/
+   *
+   */
   event Burn(address indexed user, uint256 amount, uint256 index);
 
   /**
    * @dev Burns user variable debt
    * @param user The user which debt is burnt
    * @param index The variable debt index of the reserve
-   **/
-  function burn(
-    address user,
-    uint256 amount,
-    uint256 index
-  ) external;
+   *
+   */
+  function burn(address user, uint256 amount, uint256 index) external;
 
   /**
    * @dev Returns the address of the incentives controller contract
-   **/
+   *
+   */
   function getIncentivesController() external view returns (IAaveIncentivesController);
 }
