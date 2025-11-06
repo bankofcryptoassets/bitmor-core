@@ -2,6 +2,8 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
+import {DataTypes} from '../libraries/types/DataTypes.sol';
+
 /**
  * @title LoanStorage
  * @notice Storage layout for Bitmor Protocol loan management
@@ -41,55 +43,11 @@ contract LoanStorage {
   /// @notice Debt asset address (USDC)
   address internal _debtAsset;
 
-  // ============ Loan Status ============
-
-  /**
-   * @notice Represents the current state of a loan
-   * @dev Active: Loan is ongoing and being repaid
-   * @dev Completed: Loan has been fully repaid
-   * @dev Liquidated: Loan was liquidated due to insufficient collateral or other reasons
-   */
-  enum LoanStatus {
-    Active,
-    Completed,
-    Liquidated
-  }
-
-  // ============ Loan Data Structure ============
-
-  /**
-   * @notice Complete loan information stored per LSA
-   * @param borrower The address that created and owns this loan
-   * @param depositAmount Initial USDC deposit amount (6 decimals)
-   * @param loanAmount Total amount borrowed via flash loan (6 decimals)
-   * @param collateralAmount cbBTC amount user wants to achieve (8 decimals)
-   * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals)
-   * @param duration Loan term length in months
-   * @param createdAt Unix timestamp when loan was created
-   * @param insuranceID Insurance/Order ID for tracking this loan
-   * @param nextDueTimestamp Unix timestamp of the next payment due date (updated during repayments)
-   * @param lastDueTimestamp Unix timestamp of the last payment due date (updated during repayments)
-   * @param status Current lifecycle status of the loan
-   */
-  struct LoanData {
-    address borrower;
-    uint256 depositAmount;
-    uint256 loanAmount;
-    uint256 collateralAmount;
-    uint256 estimatedMonthlyPayment;
-    uint256 duration;
-    uint256 createdAt;
-    uint256 insuranceID;
-    uint256 nextDueTimestamp;
-    uint256 lastDueTimestamp;
-    LoanStatus status;
-  }
-
   // ============ Storage Mappings ============
 
   /// @notice Maps LSA addresses to their loan data
   /// @dev Primary storage for all loan information
-  mapping(address => LoanData) internal _loansByLSA;
+  mapping(address => DataTypes.LoanData) internal _loansByLSA;
 
   /// @notice Tracks the total number of loans created by each user
   /// @dev Used to index and iterate through user's loans
@@ -104,35 +62,6 @@ contract LoanStorage {
   /// @notice Maximum loan amount allowed per loan (6 decimals for USDC)
   /// @dev Can be updated by admin to manage protocol risk
   uint256 public maxLoanAmount;
-
-  // ============ Events ============
-
-  event LoanCreated(
-    address indexed borrower,
-    address indexed lsa,
-    uint256 loanAmount,
-    uint256 collateralAmount,
-    uint256 createdAt
-  );
-
-  event LoanStatusUpdated(address indexed lsa, LoanStatus oldStatus, LoanStatus newStatus);
-
-  event MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
-
-  event CollateralWithdrawn(
-    address indexed lsa,
-    address indexed borrower,
-    uint256 amount,
-    uint256 timestamp
-  );
-
-  event LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
-
-  event EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
-
-  event SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
-
-  event ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
 
   // ============ Constants ============
 

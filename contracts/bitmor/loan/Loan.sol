@@ -18,6 +18,8 @@ import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.
 import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
+import {ILoan} from '../interfaces/ILoan.sol';
+import {DataTypes} from '../libraries/types/DataTypes.sol';
 
 /**
  * Constants=>  VARIABLE
@@ -32,7 +34,7 @@ import {IEscrow} from '../interfaces/IEscrow.sol';
  * @notice Main contract for Bitmor Protocol loan creation and management
  * @dev Handles loan initialization, LSA creation, and data storage
  */
-contract Loan is LoanStorage, Ownable, ReentrancyGuard {
+contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
 
@@ -87,7 +89,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     uint256 collateralAmount,
     uint256 duration,
     uint256 insuranceID
-  ) external nonReentrant returns (address lsa) {
+  ) external override nonReentrant returns (address lsa) {
     require(depositAmount > 0, 'Loan: invalid deposit amount');
     require(collateralAmount > 0, 'Loan: invalid collateral amount');
     require(duration > 0, 'Loan: invalid duration');
@@ -119,7 +121,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
       uint256 finalPaymentDue = block.timestamp.add(duration.mul(30 days));
 
       // Store loan data on-chain
-      _loansByLSA[lsa] = LoanData({
+      _loansByLSA[lsa] = DataTypes.LoanData({
         borrower: msg.sender,
         depositAmount: depositAmount,
         loanAmount: loanAmount,
@@ -130,7 +132,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
         insuranceID: insuranceID,
         nextDueTimestamp: firstPaymentDue,
         lastDueTimestamp: finalPaymentDue,
-        status: LoanStatus.Active
+        status: DataTypes.LoanStatus.Active
       });
 
       // Update user loan indexing for multi-loan support
@@ -187,7 +189,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     uint256[] calldata premiums,
     address initiator,
     bytes calldata params
-  ) external returns (bool) {
+  ) external override returns (bool) {
     require(msg.sender == AAVE_V3_POOL, 'Loan: caller not Aave pool');
     require(initiator == address(this), 'Loan: invalid initiator');
 
@@ -197,7 +199,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
     (address lsa, uint256 collateralAmount) = abi.decode(params, (address, uint256));
 
     // Retrieve loan data from storage
-    LoanData storage loan = _loansByLSA[lsa];
+    DataTypes.LoanData storage loan = _loansByLSA[lsa];
 
     uint256 flashLoanAmount = amounts[0];
     uint256 flashLoanPremium = premiums[0];
@@ -251,7 +253,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param lsa The LSA address
    * @return Loan data struct
    */
-  function getLoanByLSA(address lsa) external view returns (LoanData memory) {
+  function getLoanByLSA(address lsa) external view override returns (DataTypes.LoanData memory) {
     require(_loansByLSA[lsa].borrower != address(0), 'Loan: loan does not exist');
     return _loansByLSA[lsa];
   }
@@ -261,7 +263,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param user The user address
    * @return Total loan count
    */
-  function getUserLoanCount(address user) external view returns (uint256) {
+  function getUserLoanCount(address user) external view override returns (uint256) {
     return userLoanCount[user];
   }
 
@@ -271,7 +273,10 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param index Loan index (0-based)
    * @return LSA address
    */
-  function getUserLoanAtIndex(address user, uint256 index) external view returns (address) {
+  function getUserLoanAtIndex(
+    address user,
+    uint256 index
+  ) external view override returns (address) {
     require(index < userLoanCount[user], 'Loan: index out of bounds');
     return userLoanAtIndex[user][index];
   }
@@ -281,9 +286,11 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param user The user address
    * @return Array of loan data structs
    */
-  function getUserAllLoans(address user) external view returns (LoanData[] memory) {
+  function getUserAllLoans(
+    address user
+  ) external view override returns (DataTypes.LoanData[] memory) {
     uint256 count = userLoanCount[user];
-    LoanData[] memory loans = new LoanData[](count);
+    DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
     for (uint256 i = 0; i < count; i++) {
       address lsa = userLoanAtIndex[user][i];
@@ -297,7 +304,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Gets the collateral asset address
    * @return cbBTC address
    */
-  function getCollateralAsset() external view returns (address) {
+  function getCollateralAsset() external view override returns (address) {
     return _collateralAsset;
   }
 
@@ -305,7 +312,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Gets the debt asset address
    * @return USDC address
    */
-  function getDebtAsset() external view returns (address) {
+  function getDebtAsset() external view override returns (address) {
     return _debtAsset;
   }
 
@@ -319,7 +326,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
   function calculateStrikePrice(
     uint256 loanAmount,
     uint256 deposit
-  ) external view returns (uint256 strikePrice) {
+  ) external view override returns (uint256 strikePrice) {
     require(loanAmount > 0, 'Loan: invalid loan amount');
     require(deposit > 0, 'Loan: invalid deposit');
 
@@ -348,12 +355,12 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
   function withdrawCollateral(
     address lsa,
     uint256 amount
-  ) external nonReentrant returns (uint256 amountWithdrawn) {
-    LoanData storage loan = _loansByLSA[lsa];
+  ) external override nonReentrant returns (uint256 amountWithdrawn) {
+    DataTypes.LoanData storage loan = _loansByLSA[lsa];
 
     require(loan.borrower != address(0), 'Loan: loan does not exist');
     require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
-    require(loan.status == LoanStatus.Active, 'Loan: loan is not active');
+    require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
     require(amount > 0, 'Loan: invalid withdrawal amount');
 
     // Check locked amount in Escrow
@@ -381,7 +388,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Updates the maximum loan amount
    * @param newMaxLoanAmount New maximum loan amount (6 decimals)
    */
-  function setMaxLoanAmount(uint256 newMaxLoanAmount) external onlyOwner {
+  function setMaxLoanAmount(uint256 newMaxLoanAmount) external override onlyOwner {
     require(newMaxLoanAmount > 0, 'Loan: invalid max loan amount');
     uint256 oldAmount = maxLoanAmount;
     maxLoanAmount = newMaxLoanAmount;
@@ -392,7 +399,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Updates the loan vault factory address
    * @param newFactory New factory address
    */
-  function setLoanVaultFactory(address newFactory) external onlyOwner {
+  function setLoanVaultFactory(address newFactory) external override onlyOwner {
     require(newFactory != address(0), 'Loan: invalid factory');
     address oldFactory = loanVaultFactory;
     loanVaultFactory = newFactory;
@@ -403,7 +410,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Updates the escrow contract address
    * @param newEscrow New escrow address
    */
-  function setEscrow(address newEscrow) external onlyOwner {
+  function setEscrow(address newEscrow) external override onlyOwner {
     require(newEscrow != address(0), 'Loan: invalid escrow');
     address oldEscrow = escrow;
     escrow = newEscrow;
@@ -414,7 +421,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Updates the swap adapter contract address
    * @param newSwapAdapter New swap adapter address
    */
-  function setSwapAdapter(address newSwapAdapter) external onlyOwner {
+  function setSwapAdapter(address newSwapAdapter) external override onlyOwner {
     require(newSwapAdapter != address(0), 'Loan: invalid swap adapter');
     address oldSwapAdapter = swapAdapter;
     swapAdapter = newSwapAdapter;
@@ -425,7 +432,7 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @notice Updates the zQuoter contract address
    * @param newZQuoter New zQuoter address
    */
-  function setZQuoter(address newZQuoter) external onlyOwner {
+  function setZQuoter(address newZQuoter) external override onlyOwner {
     require(newZQuoter != address(0), 'Loan: invalid zQuoter');
     address oldZQuoter = zQuoter;
     zQuoter = newZQuoter;
@@ -438,10 +445,24 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
    * @param lsa The LSA address
    * @param newStatus The new loan status
    */
-  function updateLoanStatus(address lsa, LoanStatus newStatus) external onlyOwner {
+  function updateLoanStatus(
+    address lsa,
+    DataTypes.LoanStatus newStatus
+  ) external override onlyOwner {
     require(_loansByLSA[lsa].borrower != address(0), 'Loan: loan does not exist');
-    LoanStatus oldStatus = _loansByLSA[lsa].status;
+    DataTypes.LoanStatus oldStatus = _loansByLSA[lsa].status;
     _loansByLSA[lsa].status = newStatus;
     emit LoanStatusUpdated(lsa, oldStatus, newStatus);
+  }
+
+  /**
+   * @notice Update the LoanData for an LSA.
+   * @param _data The update LoanData
+   * @param _lsa The Loan specific address
+   */
+  function updateLoanData(bytes calldata _data, address _lsa) external override {
+    // TODO!: Implement Access Role restriction
+    DataTypes.LoanData memory data = abi.decode(_data, (DataTypes.LoanData));
+    _loansByLSA[_lsa] = data;
   }
 }
