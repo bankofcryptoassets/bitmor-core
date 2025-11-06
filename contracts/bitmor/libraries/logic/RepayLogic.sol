@@ -34,10 +34,19 @@ library RepayLogic {
     // Advance schedule only if loan remains active
     if (afterDebt == 0) {
       // Fully repaid
-      nextDueTimestamp = loanData.nextDueTimestamp; // keep as-is (or could set 0 by design)
+      nextDueTimestamp = loanData.nextDueTimestamp;
       loanData.status = DataTypes.LoanStatus.Completed;
     } else {
-      nextDueTimestamp = loanData.nextDueTimestamp.add(30 days);
+      uint256 emp = loanData.estimatedMonthlyPayment;
+      uint256 periods = 1;
+      if (emp > 0) {
+        // ceilDiv: (a + b - 1) / b
+        periods = finalAmountRepaid.add(emp).sub(1).div(emp);
+        if (periods == 0) {
+          periods = 1;
+        }
+      }
+      nextDueTimestamp = loanData.nextDueTimestamp.add(periods.mul(30 days));
       loanData.nextDueTimestamp = nextDueTimestamp;
     }
 
