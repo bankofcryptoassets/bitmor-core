@@ -19,7 +19,6 @@ import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {EscrowLogic} from '../libraries/logic/EscrowLogic.sol';
 import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
-import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 
 /**
  * @title Loan
@@ -203,14 +202,8 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
       // Base Mainnet: Use user's desired collateral amount
       minCbBtcOut = collateralAmount;
     } else {
-      // Base Sepolia: Calculate minimum based on current pool price
-      uint256 estimatedOut = IUniswapV4SwapAdapter(swapAdapter).estimateOutput(
-        _debtAsset,
-        totalSwapAmount
-      );
-
       // Set minimum to 98% of estimated (2% slippage tolerance)
-      minCbBtcOut = estimatedOut.mul(98).div(100);
+      minCbBtcOut = collateralAmount.mul(98).div(100);
     }
 
     uint256 wbtcReceived = SwapLogic.executeSwap(
@@ -239,9 +232,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
     AaveV2InteractionLogic.borrowDebt(AAVE_V2_POOL, _debtAsset, borrowAmount, lsa);
 
-    address acbBTC = AaveV2InteractionLogic.getATokenAddress(AAVE_V2_POOL, _collateralAsset);
+    // address acbBTC = AaveV2InteractionLogic.getATokenAddress(AAVE_V2_POOL, _collateralAsset);
 
-    EscrowLogic.lockCollateral(lsa, escrow, acbBTC, wbtcReceived);
+    // EscrowLogic.lockCollateral(lsa, escrow, acbBTC, wbtcReceived);
 
     IERC20(_debtAsset).safeApprove(AAVE_V3_POOL, borrowAmount);
 
