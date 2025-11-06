@@ -8,11 +8,7 @@ interface IWETHGateway {
     uint16 referralCode
   ) external payable;
 
-  function withdrawETH(
-    address lendingPool,
-    uint256 amount,
-    address onBehalfOf
-  ) external;
+  function withdrawETH(address lendingPool, uint256 amount, address onBehalfOf) external;
 
   function repayETH(
     address lendingPool,

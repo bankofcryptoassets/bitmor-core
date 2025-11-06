@@ -9,7 +9,8 @@ import {ILendingPool} from '../../interfaces/ILendingPool.sol';
  * @notice Interface for the Aave fee IFlashLoanReceiver.
  * @author Aave
  * @dev implement this interface to develop a flashloan-compatible flashLoanReceiver contract
- **/
+ *
+ */
 interface IFlashLoanReceiver {
   function executeOperation(
     address[] calldata assets,

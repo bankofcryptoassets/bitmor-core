@@ -34,7 +34,8 @@ library ReserveLogic {
    * @param variableBorrowRate The new variable borrow rate
    * @param liquidityIndex The new liquidity index
    * @param variableBorrowIndex The new variable borrow index
-   **/
+   *
+   */
   event ReserveDataUpdated(
     address indexed asset,
     uint256 liquidityRate,
@@ -53,12 +54,11 @@ library ReserveLogic {
    * A value of 2*1e27 means for each unit of asset one unit of income has been accrued
    * @param reserve The reserve object
    * @return the normalized income. expressed in ray
-   **/
-  function getNormalizedIncome(DataTypes.ReserveData storage reserve)
-    internal
-    view
-    returns (uint256)
-  {
+   *
+   */
+  function getNormalizedIncome(
+    DataTypes.ReserveData storage reserve
+  ) internal view returns (uint256) {
     uint40 timestamp = reserve.lastUpdateTimestamp;
 
     //solium-disable-next-line
@@ -67,10 +67,9 @@ library ReserveLogic {
       return reserve.liquidityIndex;
     }
 
-    uint256 cumulated =
-      MathUtils.calculateLinearInterest(reserve.currentLiquidityRate, timestamp).rayMul(
-        reserve.liquidityIndex
-      );
+    uint256 cumulated = MathUtils
+      .calculateLinearInterest(reserve.currentLiquidityRate, timestamp)
+      .rayMul(reserve.liquidityIndex);
 
     return cumulated;
   }
@@ -81,12 +80,11 @@ library ReserveLogic {
    * A value of 2*1e27 means that for each unit of debt, one unit worth of interest has been accumulated
    * @param reserve The reserve object
    * @return The normalized variable debt. expressed in ray
-   **/
-  function getNormalizedDebt(DataTypes.ReserveData storage reserve)
-    internal
-    view
-    returns (uint256)
-  {
+   *
+   */
+  function getNormalizedDebt(
+    DataTypes.ReserveData storage reserve
+  ) internal view returns (uint256) {
     uint40 timestamp = reserve.lastUpdateTimestamp;
 
     //solium-disable-next-line
@@ -95,10 +93,9 @@ library ReserveLogic {
       return reserve.variableBorrowIndex;
     }
 
-    uint256 cumulated =
-      MathUtils.calculateCompoundedInterest(reserve.currentVariableBorrowRate, timestamp).rayMul(
-        reserve.variableBorrowIndex
-      );
+    uint256 cumulated = MathUtils
+      .calculateCompoundedInterest(reserve.currentVariableBorrowRate, timestamp)
+      .rayMul(reserve.variableBorrowIndex);
 
     return cumulated;
   }
@@ -106,22 +103,22 @@ library ReserveLogic {
   /**
    * @dev Updates the liquidity cumulative index and the variable borrow index.
    * @param reserve the reserve object
-   **/
+   *
+   */
   function updateState(DataTypes.ReserveData storage reserve) internal {
-    uint256 scaledVariableDebt =
-      IVariableDebtToken(reserve.variableDebtTokenAddress).scaledTotalSupply();
+    uint256 scaledVariableDebt = IVariableDebtToken(reserve.variableDebtTokenAddress)
+      .scaledTotalSupply();
     uint256 previousVariableBorrowIndex = reserve.variableBorrowIndex;
     uint256 previousLiquidityIndex = reserve.liquidityIndex;
     uint40 lastUpdatedTimestamp = reserve.lastUpdateTimestamp;
 
-    (uint256 newLiquidityIndex, uint256 newVariableBorrowIndex) =
-      _updateIndexes(
-        reserve,
-        scaledVariableDebt,
-        previousLiquidityIndex,
-        previousVariableBorrowIndex,
-        lastUpdatedTimestamp
-      );
+    (uint256 newLiquidityIndex, uint256 newVariableBorrowIndex) = _updateIndexes(
+      reserve,
+      scaledVariableDebt,
+      previousLiquidityIndex,
+      previousVariableBorrowIndex,
+      lastUpdatedTimestamp
+    );
 
     _mintToTreasury(
       reserve,
@@ -139,7 +136,8 @@ library ReserveLogic {
    * @param reserve The reserve object
    * @param totalLiquidity The total liquidity available in the reserve
    * @param amount The amount to accomulate
-   **/
+   *
+   */
   function cumulateToLiquidityIndex(
     DataTypes.ReserveData storage reserve,
     uint256 totalLiquidity,
@@ -160,7 +158,8 @@ library ReserveLogic {
    * @param reserve The reserve object
    * @param aTokenAddress The address of the overlying atoken contract
    * @param interestRateStrategyAddress The address of the interest rate strategy contract
-   **/
+   *
+   */
   function init(
     DataTypes.ReserveData storage reserve,
     address aTokenAddress,
@@ -194,7 +193,8 @@ library ReserveLogic {
    * @param reserve The address of the reserve to be updated
    * @param liquidityAdded The amount of liquidity added to the protocol (deposit or repay) in the previous action
    * @param liquidityTaken The amount of liquidity taken from the protocol (redeem or borrow)
-   **/
+   *
+   */
   function updateInterestRates(
     DataTypes.ReserveData storage reserve,
     address reserveAddress,
@@ -270,7 +270,8 @@ library ReserveLogic {
    * @param previousVariableBorrowIndex The variable borrow index before the last accumulation of the interest
    * @param newLiquidityIndex The new liquidity index
    * @param newVariableBorrowIndex The variable borrow index after the last accumulation of the interest
-   **/
+   *
+   */
   function _mintToTreasury(
     DataTypes.ReserveData storage reserve,
     uint256 scaledVariableDebt,
@@ -330,7 +331,8 @@ library ReserveLogic {
    * @param scaledVariableDebt The scaled variable debt
    * @param liquidityIndex The last stored liquidity index
    * @param variableBorrowIndex The last stored variable borrow index
-   **/
+   *
+   */
   function _updateIndexes(
     DataTypes.ReserveData storage reserve,
     uint256 scaledVariableDebt,
@@ -345,8 +347,10 @@ library ReserveLogic {
 
     //only cumulating if there is any income being produced
     if (currentLiquidityRate > 0) {
-      uint256 cumulatedLiquidityInterest =
-        MathUtils.calculateLinearInterest(currentLiquidityRate, timestamp);
+      uint256 cumulatedLiquidityInterest = MathUtils.calculateLinearInterest(
+        currentLiquidityRate,
+        timestamp
+      );
       newLiquidityIndex = cumulatedLiquidityInterest.rayMul(liquidityIndex);
       require(newLiquidityIndex <= type(uint128).max, Errors.RL_LIQUIDITY_INDEX_OVERFLOW);
 
@@ -355,8 +359,10 @@ library ReserveLogic {
       //as the liquidity rate might come only from stable rate loans, we need to ensure
       //that there is actual variable debt before accumulating
       if (scaledVariableDebt != 0) {
-        uint256 cumulatedVariableBorrowInterest =
-          MathUtils.calculateCompoundedInterest(reserve.currentVariableBorrowRate, timestamp);
+        uint256 cumulatedVariableBorrowInterest = MathUtils.calculateCompoundedInterest(
+          reserve.currentVariableBorrowRate,
+          timestamp
+        );
         newVariableBorrowIndex = cumulatedVariableBorrowInterest.rayMul(variableBorrowIndex);
         require(
           newVariableBorrowIndex <= type(uint128).max,

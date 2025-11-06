@@ -10,11 +10,7 @@ import {ERC20} from '../../dependencies/openzeppelin/contracts/ERC20.sol';
 contract MintableDelegationERC20 is ERC20 {
   address public delegatee;
 
-  constructor(
-    string memory name,
-    string memory symbol,
-    uint8 decimals
-  ) public ERC20(name, symbol) {
+  constructor(string memory name, string memory symbol, uint8 decimals) public ERC20(name, symbol) {
     _setupDecimals(decimals);
   }
 

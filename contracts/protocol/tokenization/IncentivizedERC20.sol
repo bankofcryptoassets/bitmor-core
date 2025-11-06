@@ -11,7 +11,8 @@ import {IAaveIncentivesController} from '../../interfaces/IAaveIncentivesControl
  * @title ERC20
  * @notice Basic ERC20 implementation
  * @author Aave, inspired by the Openzeppelin ERC20 implementation
- **/
+ *
+ */
 abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
   using SafeMath for uint256;
 
@@ -23,11 +24,7 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
   string private _symbol;
   uint8 private _decimals;
 
-  constructor(
-    string memory name,
-    string memory symbol,
-    uint8 decimals
-  ) public {
+  constructor(string memory name, string memory symbol, uint8 decimals) public {
     _name = name;
     _symbol = symbol;
     _decimals = decimals;
@@ -35,51 +32,58 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
 
   /**
    * @return The name of the token
-   **/
+   *
+   */
   function name() public view override returns (string memory) {
     return _name;
   }
 
   /**
    * @return The symbol of the token
-   **/
+   *
+   */
   function symbol() public view override returns (string memory) {
     return _symbol;
   }
 
   /**
    * @return The decimals of the token
-   **/
+   *
+   */
   function decimals() public view override returns (uint8) {
     return _decimals;
   }
 
   /**
    * @return The total supply of the token
-   **/
+   *
+   */
   function totalSupply() public view virtual override returns (uint256) {
     return _totalSupply;
   }
 
   /**
    * @return The balance of the token
-   **/
+   *
+   */
   function balanceOf(address account) public view virtual override returns (uint256) {
     return _balances[account];
   }
 
   /**
-   * @return Abstract function implemented by the child aToken/debtToken. 
+   * @return Abstract function implemented by the child aToken/debtToken.
    * Done this way in order to not break compatibility with previous versions of aTokens/debtTokens
-   **/
-  function _getIncentivesController() internal view virtual returns(IAaveIncentivesController);
+   *
+   */
+  function _getIncentivesController() internal view virtual returns (IAaveIncentivesController);
 
   /**
    * @dev Executes a transfer of tokens from _msgSender() to recipient
    * @param recipient The recipient of the tokens
    * @param amount The amount of tokens being transferred
    * @return `true` if the transfer succeeds, `false` otherwise
-   **/
+   *
+   */
   function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
     _transfer(_msgSender(), recipient, amount);
     emit Transfer(_msgSender(), recipient, amount);
@@ -91,14 +95,12 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
    * @param owner The owner of the tokens
    * @param spender The user allowed to spend the owner's tokens
    * @return The amount of owner's tokens spender is allowed to spend
-   **/
-  function allowance(address owner, address spender)
-    public
-    view
-    virtual
-    override
-    returns (uint256)
-  {
+   *
+   */
+  function allowance(
+    address owner,
+    address spender
+  ) public view virtual override returns (uint256) {
     return _allowances[owner][spender];
   }
 
@@ -106,7 +108,8 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
    * @dev Allows `spender` to spend the tokens owned by _msgSender()
    * @param spender The user allowed to spend _msgSender() tokens
    * @return `true`
-   **/
+   *
+   */
   function approve(address spender, uint256 amount) public virtual override returns (bool) {
     _approve(_msgSender(), spender, amount);
     return true;
@@ -118,7 +121,8 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
    * @param recipient The recipient of the tokens
    * @param amount The amount of tokens being transferred
    * @return `true` if the transfer succeeds, `false` otherwise
-   **/
+   *
+   */
   function transferFrom(
     address sender,
     address recipient,
@@ -139,7 +143,8 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
    * @param spender The user allowed to spend on behalf of _msgSender()
    * @param addedValue The amount being added to the allowance
    * @return `true`
-   **/
+   *
+   */
   function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
     _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
     return true;
@@ -150,12 +155,12 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
    * @param spender The user allowed to spend on behalf of _msgSender()
    * @param subtractedValue The amount being subtracted to the allowance
    * @return `true`
-   **/
-  function decreaseAllowance(address spender, uint256 subtractedValue)
-    public
-    virtual
-    returns (bool)
-  {
+   *
+   */
+  function decreaseAllowance(
+    address spender,
+    uint256 subtractedValue
+  ) public virtual returns (bool) {
     _approve(
       _msgSender(),
       spender,
@@ -167,11 +172,7 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
     return true;
   }
 
-  function _transfer(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) internal virtual {
+  function _transfer(address sender, address recipient, uint256 amount) internal virtual {
     require(sender != address(0), 'ERC20: transfer from the zero address');
     require(recipient != address(0), 'ERC20: transfer to the zero address');
 
@@ -223,11 +224,7 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
     }
   }
 
-  function _approve(
-    address owner,
-    address spender,
-    uint256 amount
-  ) internal virtual {
+  function _approve(address owner, address spender, uint256 amount) internal virtual {
     require(owner != address(0), 'ERC20: approve from the zero address');
     require(spender != address(0), 'ERC20: approve to the zero address');
 
@@ -247,9 +244,5 @@ abstract contract IncentivizedERC20 is Context, IERC20, IERC20Detailed {
     _decimals = newDecimals;
   }
 
-  function _beforeTokenTransfer(
-    address from,
-    address to,
-    uint256 amount
-  ) internal virtual {}
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual {}
 }

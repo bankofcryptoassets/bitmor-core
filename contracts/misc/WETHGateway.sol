@@ -22,7 +22,8 @@ contract WETHGateway is IWETHGateway, Ownable {
   /**
    * @dev Sets the WETH address and the LendingPoolAddressesProvider address. Infinite approves lending pool.
    * @param weth Address of the Wrapped Ether contract
-   **/
+   *
+   */
   constructor(address weth) public {
     WETH = IWETH(weth);
   }
@@ -37,7 +38,8 @@ contract WETHGateway is IWETHGateway, Ownable {
    * @param lendingPool address of the targeted underlying lending pool
    * @param onBehalfOf address of the user who will receive the aTokens representing the deposit
    * @param referralCode integrators are assigned a referral code and can potentially receive rewards.
-   **/
+   *
+   */
   function depositETH(
     address lendingPool,
     address onBehalfOf,
@@ -53,11 +55,7 @@ contract WETHGateway is IWETHGateway, Ownable {
    * @param amount amount of aWETH to withdraw and receive native ETH
    * @param to address of the user who will receive native ETH
    */
-  function withdrawETH(
-    address lendingPool,
-    uint256 amount,
-    address to
-  ) external override {
+  function withdrawETH(address lendingPool, uint256 amount, address to) external override {
     IAToken aWETH = IAToken(ILendingPool(lendingPool).getReserveData(address(WETH)).aTokenAddress);
     uint256 userBalance = aWETH.balanceOf(msg.sender);
     uint256 amountToWithdraw = amount;
@@ -85,16 +83,15 @@ contract WETHGateway is IWETHGateway, Ownable {
     uint256 rateMode,
     address onBehalfOf
   ) external payable override {
-    (uint256 stableDebt, uint256 variableDebt) =
-      Helpers.getUserCurrentDebtMemory(
-        onBehalfOf,
-        ILendingPool(lendingPool).getReserveData(address(WETH))
-      );
+    (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebtMemory(
+      onBehalfOf,
+      ILendingPool(lendingPool).getReserveData(address(WETH))
+    );
 
-    uint256 paybackAmount =
-      DataTypes.InterestRateMode(rateMode) == DataTypes.InterestRateMode.STABLE
-        ? stableDebt
-        : variableDebt;
+    uint256 paybackAmount = DataTypes.InterestRateMode(rateMode) ==
+      DataTypes.InterestRateMode.STABLE
+      ? stableDebt
+      : variableDebt;
 
     if (amount < paybackAmount) {
       paybackAmount = amount;
@@ -148,11 +145,7 @@ contract WETHGateway is IWETHGateway, Ownable {
    * @param to recipient of the transfer
    * @param amount amount to send
    */
-  function emergencyTokenTransfer(
-    address token,
-    address to,
-    uint256 amount
-  ) external onlyOwner {
+  function emergencyTokenTransfer(address token, address to, uint256 amount) external onlyOwner {
     IERC20(token).transfer(to, amount);
   }
 

@@ -51,7 +51,8 @@ library GenericLogic {
    * @param reserves The list of all the active reserves
    * @param oracle The address of the oracle contract
    * @return true if the decrease of the balance is allowed
-   **/
+   *
+   */
   function balanceDecreaseAllowed(
     address asset,
     address user,
@@ -89,7 +90,7 @@ library GenericLogic {
     }
 
     vars.amountToDecreaseInETH = IPriceOracleGetter(oracle).getAssetPrice(asset).mul(amount).div(
-      10**vars.decimals
+      10 ** vars.decimals
     );
 
     vars.collateralBalanceAfterDecrease = vars.totalCollateralInETH.sub(vars.amountToDecreaseInETH);
@@ -105,12 +106,11 @@ library GenericLogic {
       .sub(vars.amountToDecreaseInETH.mul(vars.liquidationThreshold))
       .div(vars.collateralBalanceAfterDecrease);
 
-    uint256 healthFactorAfterDecrease =
-      calculateHealthFactorFromBalances(
-        vars.collateralBalanceAfterDecrease,
-        vars.totalDebtInETH,
-        vars.liquidationThresholdAfterDecrease
-      );
+    uint256 healthFactorAfterDecrease = calculateHealthFactorFromBalances(
+      vars.collateralBalanceAfterDecrease,
+      vars.totalDebtInETH,
+      vars.liquidationThresholdAfterDecrease
+    );
 
     return healthFactorAfterDecrease >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD;
   }
@@ -146,7 +146,8 @@ library GenericLogic {
    * @param reserves The list of the available reserves
    * @param oracle The price oracle address
    * @return The total collateral and total debt of the user in ETH, the avg ltv, liquidation threshold and the HF
-   **/
+   *
+   */
   function calculateUserAccountData(
     address user,
     mapping(address => DataTypes.ReserveData) storage reservesData,
@@ -154,17 +155,7 @@ library GenericLogic {
     mapping(uint256 => address) storage reserves,
     uint256 reservesCount,
     address oracle
-  )
-    internal
-    view
-    returns (
-      uint256,
-      uint256,
-      uint256,
-      uint256,
-      uint256
-    )
-  {
+  ) internal view returns (uint256, uint256, uint256, uint256, uint256) {
     CalculateUserAccountDataVars memory vars;
 
     if (userConfig.isEmpty()) {
@@ -182,14 +173,16 @@ library GenericLogic {
         .configuration
         .getParams();
 
-      vars.tokenUnit = 10**vars.decimals;
+      vars.tokenUnit = 10 ** vars.decimals;
       vars.reserveUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(vars.currentReserveAddress);
 
       if (vars.liquidationThreshold != 0 && userConfig.isUsingAsCollateral(vars.i)) {
         vars.compoundedLiquidityBalance = IERC20(currentReserve.aTokenAddress).balanceOf(user);
 
-        uint256 liquidityBalanceETH =
-          vars.reserveUnitPrice.mul(vars.compoundedLiquidityBalance).div(vars.tokenUnit);
+        uint256 liquidityBalanceETH = vars
+          .reserveUnitPrice
+          .mul(vars.compoundedLiquidityBalance)
+          .div(vars.tokenUnit);
 
         vars.totalCollateralInETH = vars.totalCollateralInETH.add(liquidityBalanceETH);
 
@@ -238,7 +231,8 @@ library GenericLogic {
    * @param totalDebtInETH The total debt in ETH
    * @param liquidationThreshold The avg liquidation threshold
    * @return The health factor calculated from the balances provided
-   **/
+   *
+   */
   function calculateHealthFactorFromBalances(
     uint256 totalCollateralInETH,
     uint256 totalDebtInETH,
@@ -256,7 +250,8 @@ library GenericLogic {
    * @param totalDebtInETH The total borrow balance
    * @param ltv The average loan to value
    * @return the amount available to borrow in ETH for the user
-   **/
+   *
+   */
 
   function calculateAvailableBorrowsETH(
     uint256 totalCollateralInETH,

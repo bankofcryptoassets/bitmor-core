@@ -16,13 +16,13 @@ library MathUtils {
    * @param rate The interest rate, in ray
    * @param lastUpdateTimestamp The timestamp of the last update of the interest
    * @return The interest rate linearly accumulated during the timeDelta, in ray
-   **/
+   *
+   */
 
-  function calculateLinearInterest(uint256 rate, uint40 lastUpdateTimestamp)
-    internal
-    view
-    returns (uint256)
-  {
+  function calculateLinearInterest(
+    uint256 rate,
+    uint40 lastUpdateTimestamp
+  ) internal view returns (uint256) {
     //solium-disable-next-line
     uint256 timeDifference = block.timestamp.sub(uint256(lastUpdateTimestamp));
 
@@ -41,7 +41,8 @@ library MathUtils {
    * @param rate The interest rate, in ray
    * @param lastUpdateTimestamp The timestamp of the last update of the interest
    * @return The interest rate compounded during the timeDelta, in ray
-   **/
+   *
+   */
   function calculateCompoundedInterest(
     uint256 rate,
     uint40 lastUpdateTimestamp,
@@ -73,12 +74,12 @@ library MathUtils {
    * @dev Calculates the compounded interest between the timestamp of the last update and the current block timestamp
    * @param rate The interest rate (in ray)
    * @param lastUpdateTimestamp The timestamp from which the interest accumulation needs to be calculated
-   **/
-  function calculateCompoundedInterest(uint256 rate, uint40 lastUpdateTimestamp)
-    internal
-    view
-    returns (uint256)
-  {
+   *
+   */
+  function calculateCompoundedInterest(
+    uint256 rate,
+    uint40 lastUpdateTimestamp
+  ) internal view returns (uint256) {
     return calculateCompoundedInterest(rate, lastUpdateTimestamp, block.timestamp);
   }
 }

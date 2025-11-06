@@ -16,7 +16,8 @@ import {ReserveConfiguration} from '../protocol/libraries/configuration/ReserveC
  * @title UniswapLiquiditySwapAdapter
  * @notice Uniswap V2 Adapter to swap liquidity.
  * @author Aave
- **/
+ *
+ */
 contract FlashLiquidationAdapter is BaseUniswapAdapter {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
   uint256 internal constant LIQUIDATION_CLOSE_FACTOR_PERCENT = 5000;

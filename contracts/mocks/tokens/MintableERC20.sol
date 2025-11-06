@@ -8,11 +8,7 @@ import {ERC20} from '../../dependencies/openzeppelin/contracts/ERC20.sol';
  * @dev ERC20 minting logic
  */
 contract MintableERC20 is ERC20 {
-  constructor(
-    string memory name,
-    string memory symbol,
-    uint8 decimals
-  ) public ERC20(name, symbol) {
+  constructor(string memory name, string memory symbol, uint8 decimals) public ERC20(name, symbol) {
     _setupDecimals(decimals);
   }
 

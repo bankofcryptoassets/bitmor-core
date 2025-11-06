@@ -38,13 +38,13 @@ interface IUiIncentiveDataProviderV3 {
     UserIncentiveData vTokenIncentivesUserData;
     UserIncentiveData sTokenIncentivesUserData;
   }
-  
+
   struct UserIncentiveData {
     address tokenAddress;
     address incentiveControllerAddress;
     UserRewardInfo[] userRewardsInformation;
   }
-  
+
   struct UserRewardInfo {
     string rewardTokenSymbol;
     address rewardOracleAddress;
@@ -54,22 +54,23 @@ interface IUiIncentiveDataProviderV3 {
     int256 rewardPriceFeed;
     uint8 priceFeedDecimals;
     uint8 rewardTokenDecimals;
-
   }
 
-  function getReservesIncentivesData(ILendingPoolAddressesProvider provider)
-    external
-    view
-    returns (AggregatedReserveIncentiveData[] memory);
+  function getReservesIncentivesData(
+    ILendingPoolAddressesProvider provider
+  ) external view returns (AggregatedReserveIncentiveData[] memory);
 
-  function getUserReservesIncentivesData(ILendingPoolAddressesProvider provider, address user)
-    external
-    view
-    returns (UserReserveIncentiveData[] memory);
+  function getUserReservesIncentivesData(
+    ILendingPoolAddressesProvider provider,
+    address user
+  ) external view returns (UserReserveIncentiveData[] memory);
 
   // generic method with full data
-  function getFullReservesIncentiveData(ILendingPoolAddressesProvider provider, address user)
+  function getFullReservesIncentiveData(
+    ILendingPoolAddressesProvider provider,
+    address user
+  )
     external
     view
     returns (AggregatedReserveIncentiveData[] memory, UserReserveIncentiveData[] memory);
-} 
+}

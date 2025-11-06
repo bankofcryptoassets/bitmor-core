@@ -25,7 +25,8 @@ import {LendingPoolStorage} from './LendingPoolStorage.sol';
  * @dev Implements actions involving management of collateral in the protocol, the main one being the liquidations
  * IMPORTANT This contract will run always via DELEGATECALL, through the LendingPool, so the chain of inheritance
  * is the same as the LendingPool, to have compatible storage layouts
- **/
+ *
+ */
 contract LendingPoolCollateralManager is
   ILendingPoolCollateralManager,
   VersionedInitializable,
@@ -77,7 +78,8 @@ contract LendingPoolCollateralManager is
    * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
    * @param receiveAToken `true` if the liquidators wants to receive the collateral aTokens, `false` if he wants
    * to receive the underlying collateral asset directly
-   **/
+   *
+   */
   function liquidationCall(
     address collateralAsset,
     address debtAsset,
@@ -150,8 +152,9 @@ contract LendingPoolCollateralManager is
     // If the liquidator reclaims the underlying asset, we make sure there is enough available liquidity in the
     // collateral reserve
     if (!receiveAToken) {
-      uint256 currentAvailableCollateral =
-        IERC20(collateralAsset).balanceOf(address(vars.collateralAtoken));
+      uint256 currentAvailableCollateral = IERC20(collateralAsset).balanceOf(
+        address(vars.collateralAtoken)
+      );
       if (currentAvailableCollateral < vars.maxCollateralToLiquidate) {
         return (
           uint256(Errors.CollateralManagerErrors.NOT_ENOUGH_LIQUIDITY),
@@ -268,7 +271,8 @@ contract LendingPoolCollateralManager is
    * @return collateralAmount: The maximum amount that is possible to liquidate given all the liquidation constraints
    *                           (user balance, close factor)
    *         debtAmountNeeded: The amount to repay with the liquidation
-   **/
+   *
+   */
   function _calculateAvailableCollateralToLiquidate(
     DataTypes.ReserveData storage collateralReserve,
     DataTypes.ReserveData storage debtReserve,
@@ -296,17 +300,17 @@ contract LendingPoolCollateralManager is
     vars.maxAmountCollateralToLiquidate = vars
       .debtAssetPrice
       .mul(debtToCover)
-      .mul(10**vars.collateralDecimals)
+      .mul(10 ** vars.collateralDecimals)
       .percentMul(vars.liquidationBonus)
-      .div(vars.collateralPrice.mul(10**vars.debtAssetDecimals));
+      .div(vars.collateralPrice.mul(10 ** vars.debtAssetDecimals));
 
     if (vars.maxAmountCollateralToLiquidate > userCollateralBalance) {
       collateralAmount = userCollateralBalance;
       debtAmountNeeded = vars
         .collateralPrice
         .mul(collateralAmount)
-        .mul(10**vars.debtAssetDecimals)
-        .div(vars.debtAssetPrice.mul(10**vars.collateralDecimals))
+        .mul(10 ** vars.debtAssetDecimals)
+        .div(vars.debtAssetPrice.mul(10 ** vars.collateralDecimals))
         .percentDiv(vars.liquidationBonus);
     } else {
       collateralAmount = vars.maxAmountCollateralToLiquidate;
