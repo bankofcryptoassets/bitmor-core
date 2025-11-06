@@ -15,7 +15,6 @@ import {Errors} from '../helpers/Errors.sol';
 import {Helpers} from '../helpers/Helpers.sol';
 import {IReserveInterestRateStrategy} from '../../../interfaces/IReserveInterestRateStrategy.sol';
 import {DataTypes} from '../types/DataTypes.sol';
-import {LoanLiquidationLogic} from './LoanLiquidationLogic.sol';
 
 /**
  * @title ReserveLogic library
@@ -392,6 +391,7 @@ library ValidationLogic {
    * @param collateralReserve The reserve data of the collateral
    * @param principalReserve The reserve data of the principal
    * @param userConfig The user configuration
+   * @param typeOfLiquidation The type of liquidation
    * @param userHealthFactor The user's health factor
    * @param userStableDebt Total stable debt balance of the user
    * @param userVariableDebt Total variable debt balance of the user
@@ -401,6 +401,7 @@ library ValidationLogic {
     DataTypes.ReserveData storage collateralReserve,
     DataTypes.ReserveData storage principalReserve,
     DataTypes.UserConfigurationMap storage userConfig,
+    uint256 typeOfLiquidation,
     uint256 userHealthFactor,
     uint256 userStableDebt,
     uint256 userVariableDebt
@@ -411,6 +412,13 @@ library ValidationLogic {
       return (
         uint256(Errors.CollateralManagerErrors.NO_ACTIVE_RESERVE),
         Errors.VL_NO_ACTIVE_RESERVE
+      );
+    }
+
+    if (typeOfLiquidation != 1) {
+      return (
+        uint256(Errors.CollateralManagerErrors.CANNOT_FULL_LIQUIDATE),
+        Errors.LPCM_CANNOT_FULL_LIQUIDATE
       );
     }
 

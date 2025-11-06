@@ -105,6 +105,7 @@ library Errors {
   string public constant SDT_BURN_EXCEEDS_BALANCE = '80';
   string public constant LP_MICRO_LIQUIDATION_FAILED = '81';
   string public constant LPCM_CANNOT_MICRO_LIQUIDATE = '82';
+  string public constant LPCM_CANNOT_FULL_LIQUIDATE = '83';
 
   enum CollateralManagerErrors {
     NO_ERROR,
@@ -117,6 +118,7 @@ library Errors {
     HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD,
     INVALID_EQUAL_ASSETS_TO_SWAP,
     FROZEN_RESERVE,
-    CANNOT_MICRO_LIQUIDATE
+    CANNOT_MICRO_LIQUIDATE,
+    CANNOT_FULL_LIQUIDATE
   }
 }

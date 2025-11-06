@@ -108,10 +108,20 @@ contract LendingPoolCollateralManager is
 
     (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
 
+    uint256 typeOfLiquidation = LoanLiquidationLogic.checkTypeOfLiquidation(
+      user,
+      _reserves,
+      vars.healthFactor,
+      _reservesList,
+      _addressesProvider.getPriceOracle(),
+      _addressesProvider.getBitmorLoan()
+    );
+
     (vars.errorCode, vars.errorMsg) = ValidationLogic.validateLiquidationCall(
       collateralReserve,
       debtReserve,
       userConfig,
+      typeOfLiquidation,
       vars.healthFactor,
       vars.userStableDebt,
       vars.userVariableDebt
