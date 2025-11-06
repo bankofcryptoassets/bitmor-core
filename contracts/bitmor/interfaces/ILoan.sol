@@ -38,6 +38,8 @@ interface ILoan {
 
   event ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
 
+  event LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+
   function initializeLoan(
     uint256 depositAmount,
     uint256 collateralAmount,

@@ -20,6 +20,7 @@ import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
 import {ILoan} from '../interfaces/ILoan.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
 
 /**
  * Constants=>  VARIABLE
@@ -344,6 +345,46 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     return strikePrice;
   }
 
+  function repay(
+    address lsa,
+    uint256 amount
+  ) external nonReentrant returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
+    require(lsa != address(0), 'Loan: WRONG LSA ADDRESS');
+    require(amount > 0, 'Loan: invalid withdrawal amount');
+    DataTypes.LoanData storage loan = _loansByLSA[lsa];
+
+    require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
+    require(loan.borrower != address(0), 'Loan: loan does not exist');
+    require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
+
+    // Cap the requested amount to outstanding principal so we never custody more than needed
+    uint256 maxRepayableAmt = _min(amount, loan.loanAmount);
+
+    // Pull only what might be needed from the borrower
+    IERC20(_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
+
+    // Approve Aave V2 pool (the spender) to pull from THIS contract
+    IERC20(_debtAsset).safeApprove(AAVE_V2_POOL, 0);
+    IERC20(_debtAsset).safeApprove(AAVE_V2_POOL, maxRepayableAmt);
+
+    // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
+    (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeLoanRepayment(
+      loan,
+      AAVE_V2_POOL,
+      _debtAsset,
+      lsa,
+      maxRepayableAmt
+    );
+
+    // Refund any unspent amount to the payer
+    if (finalAmountRepaid < maxRepayableAmt) {
+      IERC20(_debtAsset).safeTransfer(msg.sender, maxRepayableAmt - finalAmountRepaid);
+    }
+
+    emit LoanRepaid(lsa, finalAmountRepaid, nextDueTimestamp);
+    return (finalAmountRepaid, nextDueTimestamp);
+  }
+
   // ============ Withdrawal Function ============
 
   /**
@@ -464,5 +505,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     // TODO!: Implement Access Role restriction
     DataTypes.LoanData memory data = abi.decode(_data, (DataTypes.LoanData));
     _loansByLSA[_lsa] = data;
+  }
+
+  function _min(uint256 a, uint256 b) private pure returns (uint256) {
+    return a < b ? a : b;
   }
 }
