@@ -8,6 +8,13 @@ pragma experimental ABIEncoderV2;
  * @dev Minimal interface for LoanVaultFactory to interact with LoanVault clones
  */
 interface ILoanVault {
+  // ============ Events ============
+
+  event VaultInitialized(address indexed owner, address indexed borrower);
+  event TokenApproved(address indexed token, address indexed spender, uint256 amount);
+  event TokenTransferred(address indexed token, address indexed to, uint256 amount);
+  event Executed(address indexed target, bytes data, bytes result);
+
   /**
    * @notice Initializes the LoanVault clone after deployment
    * @dev Called by LoanVaultFactory immediately after creating a clone
@@ -24,6 +31,15 @@ interface ILoanVault {
    * @param amount The amount to approve
    */
   function approveToken(address token, address spender, uint256 amount) external;
+
+  /**
+   * @notice Transfer token
+   * @dev Used to transfer aToken from LoanVault to `to`
+   * @param token The token to transfer
+   * @param to The receiver address
+   * @param amount The amount to transfer
+   */
+  function transferToken(address token, address to, uint256 amount) external;
 
   /**
    * @notice Executes an arbitrary call to another contract

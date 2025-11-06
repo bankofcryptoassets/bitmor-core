@@ -3,6 +3,7 @@ pragma solidity 0.6.12;
 
 import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
+import {ILoanVault} from '../interfaces/ILoanVault.sol';
 
 /**
  * @title LoanVault
@@ -10,25 +11,19 @@ import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol
  * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses
  * Each loan gets its own LSA which holds acbBTC collateral and vdtUSDC debt
  */
-contract LoanVault {
+contract LoanVault is ILoanVault {
   using SafeERC20 for IERC20;
 
   // ============ State Variables ============
 
   /// @notice The Loan contract that controls this vault
-  address public owner; // This will be our Loan.sol contract address
+  address public override owner; // This will be our Loan.sol contract address
 
   /// @notice The user who created this loan
-  address public borrower;
+  address public override borrower;
 
   /// @notice Prevents re-initialization
   bool private _initialized;
-
-  // ============ Events ============
-
-  event VaultInitialized(address indexed owner, address indexed borrower);
-  event TokenApproved(address indexed token, address indexed spender, uint256 amount);
-  event Executed(address indexed target, bytes data, bytes result);
 
   // ============ Modifiers ============
 
@@ -50,7 +45,7 @@ contract LoanVault {
    * @param _owner The Loan contract address that will control this vault
    * @param _borrower The user who created this loan
    */
-  function initialize(address _owner, address _borrower) external notInitialized {
+  function initialize(address _owner, address _borrower) external override notInitialized {
     require(_owner != address(0), 'LoanVault: invalid owner');
     require(_borrower != address(0), 'LoanVault: invalid borrower');
 
@@ -70,7 +65,11 @@ contract LoanVault {
    * @param spender The address to approve
    * @param amount The amount to approve
    */
-  function approveToken(address token, address spender, uint256 amount) external onlyOwner {
+  function approveToken(
+    address token,
+    address spender,
+    uint256 amount
+  ) external override onlyOwner {
     require(token != address(0), 'LoanVault: invalid token');
     require(spender != address(0), 'LoanVault: invalid spender');
 
@@ -78,6 +77,21 @@ contract LoanVault {
     IERC20(token).safeApprove(spender, amount);
 
     emit TokenApproved(token, spender, amount);
+  }
+
+  /**
+   * @notice Transfer token
+   * @dev Used to transfer aToken from LoanVault to `to`
+   * @param token The token to transfer
+   * @param to The receiver address
+   * @param amount The amount to transfer
+   */
+  function transferToken(address token, address to, uint256 amount) external override onlyOwner {
+    require(token != address(0), 'LoanVault: invalid token');
+    require(to != address(0), 'LoanVault: invalid to address');
+
+    IERC20(token).safeTransfer(to, amount);
+    emit TokenTransferred(token, to, amount);
   }
 
   // ============ Arbitrary Execution ============
@@ -92,7 +106,7 @@ contract LoanVault {
   function execute(
     address target,
     bytes calldata data
-  ) external onlyOwner returns (bytes memory result) {
+  ) external override onlyOwner returns (bytes memory result) {
     require(target != address(0), 'LoanVault: invalid target');
 
     (bool success, bytes memory returnData) = target.call(data);
@@ -109,7 +123,7 @@ contract LoanVault {
    * @notice Checks if the vault has been initialized
    * @return True if initialized, false otherwise
    */
-  function isInitialized() external view returns (bool) {
+  function isInitialized() external view override returns (bool) {
     return _initialized;
   }
 
@@ -118,7 +132,9 @@ contract LoanVault {
    * @param token The token address to check
    * @return The balance of the token
    */
-  function getTokenBalance(address token) external view returns (uint256) {
+  function getTokenBalance(address token) external view override returns (uint256) {
     return IERC20(token).balanceOf(address(this));
   }
+
+  receive() external payable {}
 }

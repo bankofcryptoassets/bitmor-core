@@ -19,7 +19,6 @@ import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {EscrowLogic} from '../libraries/logic/EscrowLogic.sol';
 import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
-import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 
 /**
  * @title Loan
@@ -233,9 +232,9 @@ contract Loan is LoanStorage, Ownable, ReentrancyGuard {
 
     AaveV2InteractionLogic.borrowDebt(AAVE_V2_POOL, _debtAsset, borrowAmount, lsa);
 
-    address acbBTC = AaveV2InteractionLogic.getATokenAddress(AAVE_V2_POOL, _collateralAsset);
+    // address acbBTC = AaveV2InteractionLogic.getATokenAddress(AAVE_V2_POOL, _collateralAsset);
 
-    EscrowLogic.lockCollateral(lsa, escrow, acbBTC, wbtcReceived);
+    // EscrowLogic.lockCollateral(lsa, escrow, acbBTC, wbtcReceived);
 
     IERC20(_debtAsset).safeApprove(AAVE_V3_POOL, borrowAmount);
 
