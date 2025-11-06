@@ -23,7 +23,7 @@ require('dotenv').config();
 
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
-import '@nomiclabs/hardhat-etherscan';
+import '@nomicfoundation/hardhat-verify';
 
 import 'hardhat-gas-reporter';
 import 'hardhat-typechain';
@@ -86,16 +86,7 @@ const buidlerConfig: HardhatUserConfig = {
     target: 'ethers-v5',
   },
   etherscan: {
-    apiKey: {
-      polygonMumbai: process.env.ETHERSCAN_POLYGON_KEY || '',
-      goerli: process.env.ETHERSCAN_KEY || '',
-      fuji: process.env.ETHERSCAN_SNOWTRACE_KEY || '',
-      mainnet: process.env.ETHERSCAN_KEY || '',
-      polygon: process.env.ETHERSCAN_POLYGON_KEY || '',
-      avalanche: process.env.ETHERSCAN_SNOWTRACE_KEY || '',
-      base: process.env.ETHERSCAN_KEY || '',
-      'base-sepolia': process.env.ETHERSCAN_KEY || '',
-    },
+    apiKey: process.env.ETHERSCAN_KEY || '',
     customChains: [
       {
         network: "base",
@@ -106,7 +97,7 @@ const buidlerConfig: HardhatUserConfig = {
         }
       },
       {
-        network: "base-sepolia",
+        network: "baseSepolia",
         chainId: 84532,
         urls: {
           apiURL: "https://api-sepolia.basescan.org/api",
@@ -114,6 +105,9 @@ const buidlerConfig: HardhatUserConfig = {
         }
       }
     ]
+  },
+  sourcify: {
+    enabled: false
   },
 
   mocha: {

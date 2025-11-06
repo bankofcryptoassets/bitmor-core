@@ -51,8 +51,8 @@ async function main() {
   console.log();
 
   // Check liquidity
-  const usdc = await hre.ethers.getContractAt("IERC20", USDC);
-  const aToken = await hre.ethers.getContractAt("IERC20", reserveData.aTokenAddress);
+  const usdc = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", USDC);
+  const aToken = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", reserveData.aTokenAddress);
   const totalLiquidity = await usdc.balanceOf(reserveData.aTokenAddress);
   console.log("Reserve Liquidity:", hre.ethers.utils.formatUnits(totalLiquidity, 6), "USDC");
   console.log();
