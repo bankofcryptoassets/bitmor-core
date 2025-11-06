@@ -8,7 +8,7 @@ contract MockAggregator {
 
   constructor(int256 _initialAnswer) public {
     _latestAnswer = _initialAnswer;
-    emit AnswerUpdated(_initialAnswer, 0, now);
+    emit AnswerUpdated(_initialAnswer, 0, block.timestamp);
   }
 
   function latestAnswer() external view returns (int256) {
