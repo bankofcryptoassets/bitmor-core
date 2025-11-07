@@ -9,7 +9,38 @@ library LoanMath {
 
   uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
   uint256 private constant USDC_DECIMALS = 1e6; // USDC has 6 decimals
-  uint256 private constant SECONDS_PER_MONTH = 30 days; // Average seconds per month
+  uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
+  uint256 private constant PERCENTAGE_FACTOR = 1e4; // For percentage calculations (100.00%)
+  uint256 private constant MONTHS_PER_YEAR = 12;
+
+  /**
+   * @notice Calculates power of a number with fixed-point precision using RAY
+   * @dev Implements exponentiation by squaring for (base)^exponent
+   * @param base The base number in RAY precision (27 decimals)
+   * @param exponent The exponent (whole number)
+   * @return result The result in RAY precision
+   */
+  function rayPow(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
+    result = RAY;
+
+    if (exponent == 0) {
+      return result;
+    }
+
+    uint256 tempBase = base;
+    uint256 tempExponent = exponent;
+
+    // Exponentiation by squaring
+    while (tempExponent > 0) {
+      if (tempExponent & 1 != 0) {
+        result = result.mul(tempBase).div(RAY);
+      }
+      tempBase = tempBase.mul(tempBase).div(RAY);
+      tempExponent >>= 1;
+    }
+
+    return result;
+  }
 
   /**
    * @notice Calculates the loan amount and monthly payment based on collateral and deposit
@@ -59,12 +90,37 @@ library LoanMath {
     // Ensure loan doesn't exceed maximum limit
     require(loanAmount <= maxLoanAmount, 'LoanMath: loan amount exceeds maximum');
 
-    // Calculate monthly payment
-    // monthlyPayAmt = loanAmount * (100 + interestRate) * SECONDS_PER_MONTH / (duration * 100)
+    // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
     require(duration > 0, 'LoanMath: invalid duration');
-    monthlyPayAmt = loanAmount.mul(uint256(100).add(interestRate)).mul(SECONDS_PER_MONTH).div(
-      duration.mul(100)
-    );
+
+    // Handle zero interest rate case (simple division)
+    if (interestRate == 0) {
+      monthlyPayAmt = loanAmount.div(duration);
+      return (loanAmount, monthlyPayAmt);
+    }
+
+    // Convert annual interest rate (ray) to monthly interest rate (ray)
+    // monthlyRate = interestRate / 12
+    uint256 monthlyRate = interestRate.div(MONTHS_PER_YEAR);
+
+    // Calculate (1 + r) in RAY precision
+    // onePlusRate = RAY + monthlyRate
+    uint256 onePlusRate = RAY.add(monthlyRate);
+
+    // Calculate (1 + r)^n using rayPow
+    uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
+
+    // Calculate numerator: P × r × (1 + r)^n
+    // First: loanAmount × monthlyRate (result in ray precision)
+    uint256 numerator = loanAmount.mul(monthlyRate).div(RAY);
+    // Then: multiply by (1 + r)^n
+    numerator = numerator.mul(onePlusRatePowN).div(RAY);
+
+    // Calculate denominator: (1 + r)^n - 1
+    uint256 denominator = onePlusRatePowN.sub(RAY);
+
+    // Calculate EMI: numerator / denominator
+    monthlyPayAmt = numerator.mul(RAY).div(denominator);
 
     return (loanAmount, monthlyPayAmt);
   }

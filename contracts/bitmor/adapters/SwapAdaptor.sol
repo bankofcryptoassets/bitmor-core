@@ -13,9 +13,9 @@ import {IzRouter} from '../interfaces/IzRouter.sol';
 contract SwapAdaptor {
   using SafeERC20 for IERC20;
 
-  IzRouter public immutable ZROUTER; //0x0000000000404FECAf36E6184245475eE1254835 on Base
+  IzRouter public immutable i_ZROUTER; //0x0000000000404FECAf36E6184245475eE1254835 on Base
 
-  event Swapped(
+  event SwapAdaptor__Swapped(
     address indexed tokenIn,
     address indexed tokenOut,
     uint256 amountIn,
@@ -24,7 +24,7 @@ contract SwapAdaptor {
 
   constructor(address _zRouter) public {
     require(_zRouter != address(0), 'SwapAdaptor: invalid zRouter');
-    ZROUTER = IzRouter(_zRouter);
+    i_ZROUTER = IzRouter(_zRouter);
   }
 
   /**
@@ -49,10 +49,10 @@ contract SwapAdaptor {
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
     // Approve zRouter
-    IERC20(tokenIn).safeApprove(address(ZROUTER), 0);
-    IERC20(tokenIn).safeApprove(address(ZROUTER), amountIn);
+    IERC20(tokenIn).safeApprove(address(i_ZROUTER), 0);
+    IERC20(tokenIn).safeApprove(address(i_ZROUTER), amountIn);
 
-    (, amountOut) = ZROUTER.swapAero(
+    (, amountOut) = i_ZROUTER.swapAero(
       msg.sender, // recipient
       stable,
       tokenIn,
@@ -64,7 +64,7 @@ contract SwapAdaptor {
 
     require(amountOut >= minAmountOut, 'SwapAdaptor: insufficient output');
 
-    emit Swapped(tokenIn, tokenOut, amountIn, amountOut);
+    emit SwapAdaptor__Swapped(tokenIn, tokenOut, amountIn, amountOut);
 
     return amountOut;
   }
@@ -89,10 +89,10 @@ contract SwapAdaptor {
 
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-    IERC20(tokenIn).safeApprove(address(ZROUTER), 0);
-    IERC20(tokenIn).safeApprove(address(ZROUTER), amountIn);
+    IERC20(tokenIn).safeApprove(address(i_ZROUTER), 0);
+    IERC20(tokenIn).safeApprove(address(i_ZROUTER), amountIn);
 
-    (, amountOut) = ZROUTER.swapAeroCL(
+    (, amountOut) = i_ZROUTER.swapAeroCL(
       msg.sender, // recipient
       false, // exactOut = false (we're doing exact input)
       tickSpacing,
@@ -105,7 +105,7 @@ contract SwapAdaptor {
 
     require(amountOut >= minAmountOut, 'SwapAdaptor: insufficient output');
 
-    emit Swapped(tokenIn, tokenOut, amountIn, amountOut);
+    emit SwapAdaptor__Swapped(tokenIn, tokenOut, amountIn, amountOut);
 
     return amountOut;
   }

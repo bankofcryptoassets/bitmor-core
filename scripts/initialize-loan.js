@@ -4,7 +4,7 @@ const path = require("path");
 
 async function main() {
   console.log("========================================");
-  console.log("  TESTING LOAN CREATION");
+  console.log("  INITIALIZE LOAN");
   console.log("========================================\n");
 
   const [deployer] = await ethers.getSigners();
@@ -12,13 +12,17 @@ async function main() {
   console.log("Caller balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
   // Load deployment files
-  const loanPath = path.join(__dirname, "../deployments/loan-sepolia.json");
+  const bitmorContractsPath = path.join(__dirname, "../bitmor-deployed-contracts.json");
   const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
 
-  const loanDeployment = JSON.parse(fs.readFileSync(loanPath, "utf8"));
+  if (!fs.existsSync(bitmorContractsPath)) {
+    throw new Error("Bitmor contracts not deployed. Run deploy-bitmor-loan-system.js first");
+  }
+
+  const bitmorContracts = JSON.parse(fs.readFileSync(bitmorContractsPath, "utf8"));
   const usdcDeployment = JSON.parse(fs.readFileSync(usdcPath, "utf8"));
 
-  const LOAN_ADDRESS = loanDeployment.contracts.Loan.address;
+  const LOAN_ADDRESS = bitmorContracts.Loan.sepolia.address;
   const USDC_ADDRESS = usdcDeployment.address;
 
   // Test parameters
@@ -27,7 +31,6 @@ async function main() {
   const DURATION = 12; // 12 months
   const INSURANCE_ID = 1;
 
-  // Note: The rest of the USDC needed will be flash loaned from Aave V3
 
   console.log("Test Parameters:");
   console.log("  Loan Contract:", LOAN_ADDRESS);
@@ -98,7 +101,7 @@ async function main() {
   }
 
   console.log("========================================");
-  console.log("  TEST COMPLETE");
+  console.log("  LOAN INITIALIZATION COMPLETE");
   console.log("========================================");
 }
 

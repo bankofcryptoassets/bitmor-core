@@ -14,9 +14,9 @@ import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 contract UniswapV4SwapAdapterWrapper {
   using SafeERC20 for IERC20;
 
-  IUniswapV4SwapAdapter public immutable UNISWAP_ADAPTER;
+  IUniswapV4SwapAdapter public immutable i_UNISWAP_ADAPTER;
 
-  event Swapped(
+  event UniswapV4SwapAdapterWrapper__Swapped(
     address indexed tokenIn,
     address indexed tokenOut,
     uint256 amountIn,
@@ -25,7 +25,7 @@ contract UniswapV4SwapAdapterWrapper {
 
   constructor(address _uniswapAdapter) public {
     require(_uniswapAdapter != address(0), 'Wrapper: invalid adapter');
-    UNISWAP_ADAPTER = IUniswapV4SwapAdapter(_uniswapAdapter);
+    i_UNISWAP_ADAPTER = IUniswapV4SwapAdapter(_uniswapAdapter);
   }
 
   /**
@@ -49,13 +49,18 @@ contract UniswapV4SwapAdapterWrapper {
 
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-    IERC20(tokenIn).safeApprove(address(UNISWAP_ADAPTER), amountIn);
+    IERC20(tokenIn).safeApprove(address(i_UNISWAP_ADAPTER), amountIn);
 
-    amountOut = UNISWAP_ADAPTER.swapExactTokensForTokens(tokenIn, tokenOut, amountIn, minAmountOut);
+    amountOut = i_UNISWAP_ADAPTER.swapExactTokensForTokens(
+      tokenIn,
+      tokenOut,
+      amountIn,
+      minAmountOut
+    );
 
     IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
 
-    emit Swapped(tokenIn, tokenOut, amountIn, amountOut);
+    emit UniswapV4SwapAdapterWrapper__Swapped(tokenIn, tokenOut, amountIn, amountOut);
 
     return amountOut;
   }

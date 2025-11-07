@@ -17,8 +17,6 @@ library SwapLogic {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
-  uint256 private constant BASIS_POINTS = 10000;
-
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
    * @dev If zQuoter is address(0), skips price validation (testnet mode)
@@ -28,7 +26,8 @@ library SwapLogic {
    * @param tokenOut Output token (e.g., cbBTC)
    * @param amountIn Amount of input tokens
    * @param minAmountOut Minimum output amount
-   * @param maxSlippageBps Max slippage in basis points (used only when zQuoter is set)
+   * @param maxSlippageBps Max slippage in basis points
+   * @param basisPoints Basis points denominator (10000 = 100%)
    * @return amountOut Actual output amount received
    */
   function executeSwap(
@@ -38,11 +37,11 @@ library SwapLogic {
     address tokenOut,
     uint256 amountIn,
     uint256 minAmountOut,
-    uint256 maxSlippageBps
+    uint256 maxSlippageBps,
+    uint256 basisPoints
   ) internal returns (uint256 amountOut) {
     require(amountIn > 0, 'SwapLogic: invalid amountIn');
     require(minAmountOut > 0, 'SwapLogic: invalid minAmountOut');
-    require(maxSlippageBps <= BASIS_POINTS, 'SwapLogic: invalid slippage');
 
     uint256 minAcceptable;
 
@@ -59,12 +58,12 @@ library SwapLogic {
       require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
 
       // Calculate protocol's minimum acceptable output with slippage protection
-      minAcceptable = expectedOut.mul(BASIS_POINTS.sub(maxSlippageBps)).div(BASIS_POINTS);
+      minAcceptable = expectedOut.mul(basisPoints.sub(maxSlippageBps)).div(basisPoints);
 
       require(minAmountOut <= expectedOut, 'SwapLogic: minAmountOut exceeds quote');
     } else {
-      // Base Sepolia: No quoter, use minAmountOut directly (Uniswap V4)
-      minAcceptable = minAmountOut;
+      // minAcceptable = minAmountOut * (100% - slippage%) = minAmountOut * (10000 - 200) / 10000
+      minAcceptable = minAmountOut.mul(basisPoints.sub(maxSlippageBps)).div(basisPoints);
     }
 
     // Approve SwapAdaptor to spend tokens

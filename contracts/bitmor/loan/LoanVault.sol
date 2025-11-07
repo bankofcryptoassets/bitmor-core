@@ -17,23 +17,23 @@ contract LoanVault is ILoanVault {
   // ============ State Variables ============
 
   /// @notice The Loan contract that controls this vault
-  address public override owner; // This will be our Loan.sol contract address
+  address private s_owner; // This will be our Loan.sol contract address
 
   /// @notice The user who created this loan
-  address public override borrower;
+  address private s_borrower;
 
   /// @notice Prevents re-initialization
-  bool private _initialized;
+  bool private s_initialized;
 
   // ============ Modifiers ============
 
   modifier onlyOwner() {
-    require(msg.sender == owner, 'LoanVault: caller is not owner');
+    require(msg.sender == s_owner, 'LoanVault: caller is not owner');
     _;
   }
 
   modifier notInitialized() {
-    require(!_initialized, 'LoanVault: already initialized');
+    require(!s_initialized, 'LoanVault: already initialized');
     _;
   }
 
@@ -49,11 +49,11 @@ contract LoanVault is ILoanVault {
     require(_owner != address(0), 'LoanVault: invalid owner');
     require(_borrower != address(0), 'LoanVault: invalid borrower');
 
-    owner = _owner;
-    borrower = _borrower;
-    _initialized = true;
+    s_owner = _owner;
+    s_borrower = _borrower;
+    s_initialized = true;
 
-    emit VaultInitialized(_owner, _borrower);
+    emit LoanVault__VaultInitialized(_owner, _borrower);
   }
 
   // ============ Token Operations ============
@@ -76,7 +76,7 @@ contract LoanVault is ILoanVault {
     IERC20(token).safeApprove(spender, 0); // Reset first for tokens like USDT
     IERC20(token).safeApprove(spender, amount);
 
-    emit TokenApproved(token, spender, amount);
+    emit LoanVault__TokenApproved(token, spender, amount);
   }
 
   /**
@@ -91,7 +91,7 @@ contract LoanVault is ILoanVault {
     require(to != address(0), 'LoanVault: invalid to address');
 
     IERC20(token).safeTransfer(to, amount);
-    emit TokenTransferred(token, to, amount);
+    emit LoanVault__TokenTransferred(token, to, amount);
   }
 
   // ============ Arbitrary Execution ============
@@ -112,7 +112,7 @@ contract LoanVault is ILoanVault {
     (bool success, bytes memory returnData) = target.call(data);
     require(success, 'LoanVault: execution failed');
 
-    emit Executed(target, data, returnData);
+    emit LoanVault__Executed(target, data, returnData);
 
     return returnData;
   }
@@ -120,11 +120,27 @@ contract LoanVault is ILoanVault {
   // ============ View Functions ============
 
   /**
+   * @notice Gets the owner of this vault (Loan contract)
+   * @return The owner address
+   */
+  function owner() external view override returns (address) {
+    return s_owner;
+  }
+
+  /**
+   * @notice Gets the borrower who created this loan
+   * @return The borrower address
+   */
+  function borrower() external view override returns (address) {
+    return s_borrower;
+  }
+
+  /**
    * @notice Checks if the vault has been initialized
    * @return True if initialized, false otherwise
    */
   function isInitialized() external view override returns (bool) {
-    return _initialized;
+    return s_initialized;
   }
 
   /**

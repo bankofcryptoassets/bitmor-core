@@ -7,7 +7,7 @@ import {DataTypes} from '../libraries/types/DataTypes.sol';
 interface ILoan {
   // ============ Events ============
 
-  event LoanCreated(
+  event Loan__LoanCreated(
     address indexed borrower,
     address indexed lsa,
     uint256 loanAmount,
@@ -15,30 +15,32 @@ interface ILoan {
     uint256 createdAt
   );
 
-  event LoanStatusUpdated(
+  event Loan__LoanStatusUpdated(
     address indexed lsa,
     DataTypes.LoanStatus oldStatus,
     DataTypes.LoanStatus newStatus
   );
 
-  event MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
+  event Loan__MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
 
-  event CollateralWithdrawn(
+  event Loan__CollateralWithdrawn(
     address indexed lsa,
     address indexed borrower,
     uint256 amount,
     uint256 timestamp
   );
 
-  event LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
+  event Loan__LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
 
-  event EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
+  event Loan__EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
 
-  event SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
+  event Loan__SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
 
-  event ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
+  event Loan__ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
 
-  event LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+  event Loan__LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+
+  event Loan__LoanDataUpdated(address indexed lsa, uint256 timestamp);
 
   function initializeLoan(
     uint256 depositAmount,
