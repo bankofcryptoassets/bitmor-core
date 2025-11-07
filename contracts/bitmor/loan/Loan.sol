@@ -196,28 +196,18 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     uint256 flashLoanPremium = premiums[0];
     uint256 totalSwapAmount = loan.depositAmount.add(flashLoanAmount);
 
-    uint256 minCbBtcOut;
-
-    if (s_zQuoter != address(0)) {
-      // Base Mainnet: Use user's desired collateral amount
-      minCbBtcOut = collateralAmount;
-    } else {
-      // Set minimum using MAX_SLIPPAGE_BPS (2% slippage tolerance)
-      minCbBtcOut = collateralAmount.mul(BASIS_POINTS.sub(MAX_SLIPPAGE_BPS)).div(BASIS_POINTS);
-    }
-
     uint256 wbtcReceived = SwapLogic.executeSwap(
       s_swapAdapter,
       s_zQuoter,
       i_debtAsset, // tokenIn
       i_collateralAsset, // tokenOut
       totalSwapAmount, // amountIn
-      minCbBtcOut, // Use calculated minimum
+      collateralAmount,
       MAX_SLIPPAGE_BPS,
       BASIS_POINTS
     );
 
-    require(wbtcReceived >= minCbBtcOut, 'Loan: insufficient cbBTC received');
+    require(wbtcReceived >= collateralAmount, 'Loan: insufficient cbBTC received');
 
     uint256 borrowAmount = flashLoanAmount.add(flashLoanPremium);
 

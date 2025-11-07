@@ -1,7 +1,7 @@
 const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
-
+// Run this file using command: `npx hardhat run scripts/deploy-bitmor-loan-system.js --network sepolia`
 async function main() {
   console.log("\n========================================");
   console.log("  BITMOR LOAN SYSTEM DEPLOYMENT");

@@ -1,13 +1,13 @@
 {
   "LoanVaultImplementation": {
     "sepolia": {
-      "address": "0xD421b4C08A10139F0940052d830163DB1cb36832",
+      "address": "0xff3C5cd1ed25a65E03192071b790dCADAD6eD1F4",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "Loan": {
     "sepolia": {
-      "address": "0x6003FfCb9bC280Bc3632290d22877743e18EB5d6",
+      "address": "0xc36F345B49215DbDf1e3A0667faadccBCB756159",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
       "constructorArgs": {
         "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
@@ -15,7 +15,7 @@
         "aaveAddressesProvider": "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9",
         "collateralAsset": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
         "debtAsset": "0x562937072309F8c929206a58e72732dFCA5b67D6",
-        "swapAdapter": "0x5fe96Ac9DdA67D3D9847431b479743Ca1205dE8E",
+        "swapAdapter": "0x913336CecD657bB7dA46548bcb1a967EecBEAC62",
         "zQuoter": "0x0000000000000000000000000000000000000000",
         "maxLoanAmount": "1000000000000"
       }
@@ -23,10 +23,10 @@
   },
   "LoanVaultFactory": {
     "sepolia": {
-      "address": "0xE0B810FF08c875108B2425Ff11d1E45379b4b214",
+      "address": "0xE6BfdAc4C12634B58f21B8b81DC53243e5Be10B0",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-      "implementation": "0xD421b4C08A10139F0940052d830163DB1cb36832",
-      "loanContract": "0x6003FfCb9bC280Bc3632290d22877743e18EB5d6"
+      "implementation": "0xff3C5cd1ed25a65E03192071b790dCADAD6eD1F4",
+      "loanContract": "0xc36F345B49215DbDf1e3A0667faadccBCB756159"
     }
   }
 }
