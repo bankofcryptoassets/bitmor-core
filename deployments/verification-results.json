@@ -1,22 +1,21 @@
 {
-  "timestamp": "2025-11-07T11:16:33.139Z",
+  "timestamp": "2025-11-07T11:59:26.795Z",
   "network": "Base Sepolia",
   "results": [
     {
       "contract": "LoanVaultImplementation",
       "status": "success",
-      "address": "0x1897E6d186c5B2CB3bB150a3cED6cc81c6649897"
+      "address": "0x10B0A0538631011ff98b94236cf2BC6A5c22724f"
     },
     {
       "contract": "Loan",
-      "status": "failed",
-      "address": "0x7A53a2ea9Bfd4be7eB1a561771e157641C3fbb28",
-      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
+      "status": "success",
+      "address": "0xe0EC274D310f7eaadaE402990414062398E4890f"
     },
     {
       "contract": "LoanVaultFactory",
       "status": "success",
-      "address": "0xcC77d4E9B22709f57616b47b609F3EdB2a4ECA8B"
+      "address": "0x887e99D041bb7caaaaE12d7970C47239818Aa61a"
     },
     {
       "contract": "UniswapV4SwapAdapterWrapper",
@@ -37,7 +36,7 @@
       "contract": "GenericLogic",
       "status": "failed",
       "address": "0x2ea14B9F92E2bCC0243b3D5CeFDaF24032Da603E",
-      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
     },
     {
       "contract": "ValidationLogic",
@@ -122,8 +121,9 @@
     },
     {
       "contract": "DefaultReserveInterestRateStrategy (cbBTC)",
-      "status": "success",
-      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16"
+      "status": "failed",
+      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16",
+      "error": "A network request failed. This is an error from the block explorer, not Hardhat. Error: Headers Timeout Error"
     },
     {
       "contract": "LendingPoolCollateralManagerImpl",
@@ -140,7 +140,7 @@
       "contract": "UiPoolDataProvider",
       "status": "failed",
       "address": "0xA37FbE5A98EE167d5B711330Bec9efA57b5BEb27",
-      "error": "A network request failed. This is an error from the block explorer, not Hardhat. Error: Headers Timeout Error"
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
     },
     {
       "contract": "UiIncentiveDataProviderV2V3",
