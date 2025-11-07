@@ -6,9 +6,25 @@ import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.so
 import {ILendingPool} from '../../../interfaces/ILendingPool.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 
+/**
+ * @title RepayLogic
+ * @notice Library for handling loan repayment logic
+ * @dev Contains internal functions for executing loan repayments on Aave V2
+ */
 library RepayLogic {
   using SafeMath for uint256;
 
+  /**
+   * @notice Executes loan repayment on Aave V2 and updates loan state
+   * @dev Updates loanAmount, lastDueTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
+   * @param loanData Storage reference to the loan being repaid
+   * @param aaveV2Pool Aave V2 lending pool address
+   * @param debtAsset USDC token address (debt asset)
+   * @param lsa Loan Specific Address (the borrower address on Aave)
+   * @param amount Maximum amount to repay (actual repaid may be less if debt is smaller)
+   * @return finalAmountRepaid Actual amount repaid to Aave
+   * @return nextDueTimestamp Updated next payment due timestamp (or current if fully repaid)
+   */
   function executeLoanRepayment(
     DataTypes.LoanData storage loanData,
     address aaveV2Pool,

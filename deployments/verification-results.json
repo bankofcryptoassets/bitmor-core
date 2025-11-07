@@ -1,21 +1,22 @@
 {
-  "timestamp": "2025-11-07T11:59:26.795Z",
+  "timestamp": "2025-11-07T20:41:47.030Z",
   "network": "Base Sepolia",
   "results": [
     {
       "contract": "LoanVaultImplementation",
       "status": "success",
-      "address": "0x10B0A0538631011ff98b94236cf2BC6A5c22724f"
+      "address": "0xcE448542D98Be9B89bEcb70a51df3CCCb5cB48D0"
     },
     {
       "contract": "Loan",
-      "status": "success",
-      "address": "0xe0EC274D310f7eaadaE402990414062398E4890f"
+      "status": "failed",
+      "address": "0x4A3fA69358e4FA6Aa58f42D267CE83D8D9AFC7a7",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     },
     {
       "contract": "LoanVaultFactory",
       "status": "success",
-      "address": "0x887e99D041bb7caaaaE12d7970C47239818Aa61a"
+      "address": "0xAB6eeADE6d7168d9E1C0133f81eFAD86620D6f78"
     },
     {
       "contract": "UniswapV4SwapAdapterWrapper",
@@ -121,9 +122,8 @@
     },
     {
       "contract": "DefaultReserveInterestRateStrategy (cbBTC)",
-      "status": "failed",
-      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16",
-      "error": "A network request failed. This is an error from the block explorer, not Hardhat. Error: Headers Timeout Error"
+      "status": "success",
+      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16"
     },
     {
       "contract": "LendingPoolCollateralManagerImpl",

@@ -4,6 +4,11 @@ pragma experimental ABIEncoderV2;
 
 import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
 
+/**
+ * @title LoanMath
+ * @notice Library for loan calculation mathematics
+ * @dev Contains pure mathematical functions for interest rate calculations, loan amortization, and EMI computation using RAY precision (27 decimals)
+ */
 library LoanMath {
   using SafeMath for uint256;
 
