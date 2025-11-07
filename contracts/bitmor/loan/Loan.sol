@@ -196,8 +196,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     uint256 flashLoanPremium = premiums[0];
     uint256 totalSwapAmount = loan.depositAmount.add(flashLoanAmount);
 
-    uint256 wbtcReceived = SwapLogic.executeSwap(
-      s_swapAdapter,
+    uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
       s_zQuoter,
       i_debtAsset, // tokenIn
       i_collateralAsset, // tokenOut
@@ -207,7 +206,18 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       BASIS_POINTS
     );
 
-    require(wbtcReceived >= collateralAmount, 'Loan: insufficient cbBTC received');
+    // Approve SwapAdaptor to spend tokens
+    IERC20(i_debtAsset).safeApprove(s_swapAdapter, totalSwapAmount);
+
+    uint256 amountReceived = SwapLogic.executeSwap(
+      s_swapAdapter,
+      i_debtAsset,
+      i_collateralAsset,
+      totalSwapAmount,
+      minimumAcceptable
+    );
+
+    require(amountReceived >= minimumAcceptable, 'Loan: insufficient cbBTC received');
 
     uint256 borrowAmount = flashLoanAmount.add(flashLoanPremium);
 
@@ -219,7 +229,12 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       address(this) // Protocol is the delegatee
     );
 
-    AaveV2InteractionLogic.depositCollateral(i_AAVE_V2_POOL, i_collateralAsset, wbtcReceived, lsa);
+    AaveV2InteractionLogic.depositCollateral(
+      i_AAVE_V2_POOL,
+      i_collateralAsset,
+      amountReceived,
+      lsa
+    );
 
     AaveV2InteractionLogic.borrowDebt(i_AAVE_V2_POOL, i_debtAsset, borrowAmount, lsa);
 
