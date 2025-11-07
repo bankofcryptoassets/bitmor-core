@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
-import {ILendingPool} from '../../../interfaces/ILendingPool.sol';
+import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 
 library RepayLogic {
-  using SafeMath for uint256;
-
   function executeLoanRepayment(
     DataTypes.LoanData storage loanData,
     address aaveV2Pool,
@@ -27,7 +23,7 @@ library RepayLogic {
     finalAmountRepaid = ILendingPool(aaveV2Pool).repay(debtAsset, amount, RATE_MODE, lsa);
 
     // Update accounting
-    uint256 afterDebt = beforeDebt.sub(finalAmountRepaid);
+    uint256 afterDebt = beforeDebt - finalAmountRepaid;
     loanData.loanAmount = afterDebt;
     loanData.lastDueTimestamp = block.timestamp;
 
@@ -41,12 +37,12 @@ library RepayLogic {
       uint256 periods = 1;
       if (emp > 0) {
         // ceilDiv: (a + b - 1) / b
-        periods = finalAmountRepaid.add(emp).sub(1).div(emp);
+        periods = (finalAmountRepaid + emp - 1) / emp;
         if (periods == 0) {
           periods = 1;
         }
       }
-      nextDueTimestamp = loanData.nextDueTimestamp.add(periods.mul(30 days));
+      nextDueTimestamp = loanData.nextDueTimestamp + (periods * 30 days);
       loanData.nextDueTimestamp = nextDueTimestamp;
     }
 

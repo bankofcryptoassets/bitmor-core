@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
-
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
+pragma solidity 0.8.30;
 
 library LoanMath {
-  using SafeMath for uint256;
-
   uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
   uint256 private constant USDC_DECIMALS = 1e6; // USDC has 6 decimals
   uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
@@ -33,9 +28,9 @@ library LoanMath {
     // Exponentiation by squaring
     while (tempExponent > 0) {
       if (tempExponent & 1 != 0) {
-        result = result.mul(tempBase).div(RAY);
+        result = (result * tempBase) / (RAY);
       }
-      tempBase = tempBase.mul(tempBase).div(RAY);
+      tempBase = (tempBase * tempBase) / (RAY);
       tempExponent >>= 1;
     }
 
@@ -70,22 +65,22 @@ library LoanMath {
 
     // Convert collateral amount to USD value
     // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
-    uint256 collateralValueUSD = collateralAmount.mul(collateralPriceUSD).div(PRICE_PRECISION);
+    uint256 collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION;
 
     // Convert deposit amount to USD value
     // depositValueUSD = (depositAmount * debtPriceUSD) / USDC_DECIMALS
-    uint256 depositValueUSD = depositAmount.mul(debtPriceUSD).div(USDC_DECIMALS);
+    uint256 depositValueUSD = (depositAmount * debtPriceUSD) / USDC_DECIMALS;
 
     // Ensure collateral value exceeds deposit
     require(collateralValueUSD > depositValueUSD, 'LoanMath: insufficient collateral');
 
     // Calculate loan amount in USD
     // loanValueUSD = collateralValueUSD - depositValueUSD
-    uint256 loanValueUSD = collateralValueUSD.sub(depositValueUSD);
+    uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
     // Convert loan value back to USDC
     // loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD
-    loanAmount = loanValueUSD.mul(USDC_DECIMALS).div(debtPriceUSD);
+    loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD;
 
     // Ensure loan doesn't exceed maximum limit
     require(loanAmount <= maxLoanAmount, 'LoanMath: loan amount exceeds maximum');
@@ -95,32 +90,32 @@ library LoanMath {
 
     // Handle zero interest rate case (simple division)
     if (interestRate == 0) {
-      monthlyPayAmt = loanAmount.div(duration);
+      monthlyPayAmt = loanAmount / duration;
       return (loanAmount, monthlyPayAmt);
     }
 
     // Convert annual interest rate (ray) to monthly interest rate (ray)
     // monthlyRate = interestRate / 12
-    uint256 monthlyRate = interestRate.div(MONTHS_PER_YEAR);
+    uint256 monthlyRate = interestRate / MONTHS_PER_YEAR;
 
     // Calculate (1 + r) in RAY precision
     // onePlusRate = RAY + monthlyRate
-    uint256 onePlusRate = RAY.add(monthlyRate);
+    uint256 onePlusRate = RAY + monthlyRate;
 
     // Calculate (1 + r)^n using rayPow
     uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
 
     // Calculate numerator: P × r × (1 + r)^n
     // First: loanAmount × monthlyRate (result in ray precision)
-    uint256 numerator = loanAmount.mul(monthlyRate).div(RAY);
+    uint256 numerator = (loanAmount * monthlyRate) / RAY;
     // Then: multiply by (1 + r)^n
-    numerator = numerator.mul(onePlusRatePowN).div(RAY);
+    numerator = (numerator * onePlusRatePowN) / RAY;
 
     // Calculate denominator: (1 + r)^n - 1
-    uint256 denominator = onePlusRatePowN.sub(RAY);
+    uint256 denominator = onePlusRatePowN - RAY;
 
     // Calculate EMI: numerator / denominator
-    monthlyPayAmt = numerator.mul(RAY).div(denominator);
+    monthlyPayAmt = (numerator * RAY) / denominator;
 
     return (loanAmount, monthlyPayAmt);
   }

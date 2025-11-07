@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {ILendingPool} from '../../../interfaces/ILendingPool.sol';
-import {DataTypes} from '../../../protocol/libraries/types/DataTypes.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import {ILendingPool} from '../../interfaces/ILendingPool.sol';
+import {DataTypes} from '../types/DataTypes.sol';
 
 /**
  * @title AaveV2InteractionLogic
@@ -32,7 +31,7 @@ library AaveV2InteractionLogic {
     require(onBehalfOf != address(0), 'AaveV2InteractionLogic: invalid onBehalfOf');
 
     // Approve Aave V2 pool to spend asset
-    IERC20(asset).safeApprove(aaveV2Pool, amount);
+    IERC20(asset).forceApprove(aaveV2Pool, amount);
 
     ILendingPool(aaveV2Pool).deposit(asset, amount, onBehalfOf, 0);
   }

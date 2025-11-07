@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 
@@ -87,7 +86,7 @@ contract LoanStorage {
     address _aaveAddressesProvider,
     address _collateralAsset,
     address _debtAsset
-  ) public {
+  ) {
     require(_aaveV3Pool != address(0), 'LoanStorage: Invalid Aave V3 pool');
     require(_aaveV2Pool != address(0), 'LoanStorage: Invalid Aave V2 pool');
     require(_aaveAddressesProvider != address(0), 'LoanStorage: Invalid addresses provider');

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.8.30;
+pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
-import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {DataTypes} from '../protocol/libraries/types/DataTypes.sol';
 
 interface ILoan {
   // ============ Events ============

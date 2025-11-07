@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 
 /**
@@ -23,7 +22,7 @@ contract UniswapV4SwapAdapterWrapper {
     uint256 amountOut
   );
 
-  constructor(address _uniswapAdapter) public {
+  constructor(address _uniswapAdapter) {
     require(_uniswapAdapter != address(0), 'Wrapper: invalid adapter');
     i_UNISWAP_ADAPTER = IUniswapV4SwapAdapter(_uniswapAdapter);
   }
@@ -49,7 +48,7 @@ contract UniswapV4SwapAdapterWrapper {
 
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-    IERC20(tokenIn).safeApprove(address(i_UNISWAP_ADAPTER), amountIn);
+    IERC20(tokenIn).forceApprove(address(i_UNISWAP_ADAPTER), amountIn);
 
     amountOut = i_UNISWAP_ADAPTER.swapExactTokensForTokens(
       tokenIn,

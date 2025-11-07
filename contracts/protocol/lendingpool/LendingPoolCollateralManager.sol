@@ -18,10 +18,9 @@ import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol
 import {Errors} from '../libraries/helpers/Errors.sol';
 import {ValidationLogic} from '../libraries/logic/ValidationLogic.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
-import {DataTypes as BitmorDataTypes} from '../../bitmor/libraries/types/DataTypes.sol';
 import {LendingPoolStorage} from './LendingPoolStorage.sol';
 import {LoanLiquidationLogic} from '../libraries/logic/LoanLiquidationLogic.sol';
-import {ILoan} from '../../bitmor/interfaces/ILoan.sol';
+import {ILoan} from '../../interfaces/ILoan.sol';
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -321,7 +320,7 @@ contract LendingPoolCollateralManager is
 
     address bitmorLoan = _addressesProvider.getBitmorLoan();
 
-    BitmorDataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
+    DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
     vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < loanData.loanAmount
       ? loanData.estimatedMonthlyPayment

@@ -9,8 +9,7 @@ import {DataTypes} from '../types/DataTypes.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {GenericLogic} from './GenericLogic.sol';
-import {ILoan} from '../../../bitmor/interfaces/ILoan.sol';
-import {DataTypes as BitmorDataTypes} from '../../../bitmor/libraries/types/DataTypes.sol';
+import {ILoan} from '../../../interfaces/ILoan.sol';
 
 library LoanLiquidationLogic {
   using SafeMath for uint256;
@@ -55,7 +54,7 @@ library LoanLiquidationLogic {
     address oracle,
     address bitmorLoan
   ) internal view returns (uint256) {
-    BitmorDataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
+    DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
     // TODO: Implement this function in the Loan Provider
     // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
@@ -69,7 +68,7 @@ library LoanLiquidationLogic {
     // If the EMI is not overdue → no liquidation
     if (
       (loanData.nextDueTimestamp >= block.timestamp) &&
-      (loanData.status != BitmorDataTypes.LoanStatus.Active)
+      (loanData.status != DataTypes.LoanStatus.Active)
     ) {
       return 0;
     }

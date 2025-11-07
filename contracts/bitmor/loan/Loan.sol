@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {Ownable} from '../../dependencies/openzeppelin/contracts/Ownable.sol';
-import {ReentrancyGuard} from '../../dependencies/openzeppelin/contracts/ReentrancyGuard.sol';
-import {SafeMath} from '../../dependencies/openzeppelin/contracts/SafeMath.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
+import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
-import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
-import {ILendingPool} from '../../interfaces/ILendingPool.sol';
-import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
+import {ILendingPoolAddressesProvider} from '../interfaces/ILendingPoolAddressesProvider.sol';
+import {ILendingPool} from '../interfaces/ILendingPool.sol';
+import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
 import {SwapLogic} from '../libraries/logic/SwapLogic.sol';
 import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.sol';
@@ -28,7 +26,6 @@ import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
  */
 contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   using SafeERC20 for IERC20;
-  using SafeMath for uint256;
 
   // ============ Constructor ============
 
@@ -53,8 +50,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address _zQuoter,
     uint256 _maxLoanAmount
   )
-    public
     LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider, _collateralAsset, _debtAsset)
+    Ownable(msg.sender)
   {
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
     require(_maxLoanAmount > 0, 'Loan: invalid max loan amount');
@@ -108,8 +105,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       lsa = ILoanVaultFactory(s_loanVaultFactory).createLoanVault(msg.sender, block.timestamp);
 
       // Calculate payment timestamps (30 days = 1 month)
-      uint256 firstPaymentDue = block.timestamp.add(LOAN_REPAYMENT_INTERVAL);
-      uint256 finalPaymentDue = block.timestamp.add(duration.mul(LOAN_REPAYMENT_INTERVAL));
+      uint256 firstPaymentDue = block.timestamp + LOAN_REPAYMENT_INTERVAL;
+      uint256 finalPaymentDue = block.timestamp + (duration * LOAN_REPAYMENT_INTERVAL);
 
       // Store loan data on-chain
       s_loansByLSA[lsa] = DataTypes.LoanData({
@@ -129,7 +126,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       // Update user loan indexing for multi-loan support
       uint256 loanIndex = s_userLoanCount[msg.sender];
       s_userLoanAtIndex[msg.sender][loanIndex] = lsa;
-      s_userLoanCount[msg.sender] = loanIndex.add(1);
+      s_userLoanCount[msg.sender] = loanIndex + 1;
 
       // Emit loan creation event
       emit Loan__LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
@@ -194,7 +191,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     uint256 flashLoanAmount = amounts[0];
     uint256 flashLoanPremium = premiums[0];
-    uint256 totalSwapAmount = loan.depositAmount.add(flashLoanAmount);
+    uint256 totalSwapAmount = loan.depositAmount + flashLoanAmount;
 
     uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
       s_zQuoter,
@@ -207,7 +204,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     );
 
     // Approve SwapAdaptor to spend tokens
-    IERC20(i_debtAsset).safeApprove(s_swapAdapter, totalSwapAmount);
+    IERC20(i_debtAsset).forceApprove(s_swapAdapter, totalSwapAmount);
 
     uint256 amountReceived = SwapLogic.executeSwap(
       s_swapAdapter,
@@ -219,7 +216,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     require(amountReceived >= minimumAcceptable, 'Loan: insufficient cbBTC received');
 
-    uint256 borrowAmount = flashLoanAmount.add(flashLoanPremium);
+    uint256 borrowAmount = flashLoanAmount + flashLoanPremium;
 
     LSALogic.approveCreditDelegation(
       lsa,
@@ -238,7 +235,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     AaveV2InteractionLogic.borrowDebt(i_AAVE_V2_POOL, i_debtAsset, borrowAmount, lsa);
 
-    IERC20(i_debtAsset).safeApprove(i_AAVE_V3_POOL, borrowAmount);
+    IERC20(i_debtAsset).forceApprove(i_AAVE_V3_POOL, borrowAmount);
 
     return true;
   }
@@ -334,9 +331,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     uint256 btcPriceUSD = oracle.getAssetPrice(i_collateralAsset);
     require(btcPriceUSD > 0, 'Loan: invalid BTC price');
 
-    uint256 totalAmount = loanAmount.add(deposit);
+    uint256 totalAmount = loanAmount + deposit;
 
-    strikePrice = btcPriceUSD.mul(loanAmount).div(totalAmount).mul(110).div(100);
+    strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
 
     return strikePrice;
   }
@@ -367,8 +364,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
 
     // Approve Aave V2 pool (the spender) to pull from THIS contract
-    IERC20(i_debtAsset).safeApprove(i_AAVE_V2_POOL, 0);
-    IERC20(i_debtAsset).safeApprove(i_AAVE_V2_POOL, maxRepayableAmt);
+    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, 0);
+    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
     (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeLoanRepayment(

@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import {IzRouter} from '../interfaces/IzRouter.sol';
 
 /**
@@ -49,8 +48,8 @@ contract SwapAdaptor {
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
     // Approve zRouter
-    IERC20(tokenIn).safeApprove(address(i_ZROUTER), 0);
-    IERC20(tokenIn).safeApprove(address(i_ZROUTER), amountIn);
+    IERC20(tokenIn).forceApprove(address(i_ZROUTER), 0);
+    IERC20(tokenIn).forceApprove(address(i_ZROUTER), amountIn);
 
     (, amountOut) = i_ZROUTER.swapAero(
       msg.sender, // recipient
@@ -89,8 +88,8 @@ contract SwapAdaptor {
 
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-    IERC20(tokenIn).safeApprove(address(i_ZROUTER), 0);
-    IERC20(tokenIn).safeApprove(address(i_ZROUTER), amountIn);
+    IERC20(tokenIn).forceApprove(address(i_ZROUTER), 0);
+    IERC20(tokenIn).forceApprove(address(i_ZROUTER), amountIn);
 
     (, amountOut) = i_ZROUTER.swapAeroCL(
       msg.sender, // recipient

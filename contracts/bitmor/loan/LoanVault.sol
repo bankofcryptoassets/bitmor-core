@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.30;
 
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
+import {IERC20} from '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import {ILoanVault} from '../interfaces/ILoanVault.sol';
 
 /**
@@ -73,8 +73,8 @@ contract LoanVault is ILoanVault {
     require(token != address(0), 'LoanVault: invalid token');
     require(spender != address(0), 'LoanVault: invalid spender');
 
-    IERC20(token).safeApprove(spender, 0); // Reset first for tokens like USDT
-    IERC20(token).safeApprove(spender, amount);
+    IERC20(token).forceApprove(spender, 0); // Reset first for tokens like USDT
+    IERC20(token).forceApprove(spender, amount);
 
     emit LoanVault__TokenApproved(token, spender, amount);
   }

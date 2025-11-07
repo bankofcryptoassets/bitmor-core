@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
-import {ILendingPoolAddressesProvider} from '../../../interfaces/ILendingPoolAddressesProvider.sol';
-import {ILendingPool} from '../../../interfaces/ILendingPool.sol';
-import {DataTypes} from '../../../protocol/libraries/types/DataTypes.sol';
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
+import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
+import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
+import {ILendingPool} from '../../interfaces/ILendingPool.sol';
+import {DataTypes} from '../../libraries/types/DataTypes.sol';
 import {LoanMath} from './LoanMath.sol';
 
 /**
@@ -15,8 +13,6 @@ import {LoanMath} from './LoanMath.sol';
  * @dev Handles fetching prices and interest rates from Aave V2, delegates math to LoanMath
  */
 library LoanLogic {
-  using SafeMath for uint256;
-
   /**
    * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
    * @dev Fetch oracle price for the assets

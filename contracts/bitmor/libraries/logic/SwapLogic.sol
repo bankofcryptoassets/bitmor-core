@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {IzQuoter} from '../../interfaces/IzQuoter.sol';
 import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
 
@@ -14,9 +10,6 @@ import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
  * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter)
  */
 library SwapLogic {
-  using SafeMath for uint256;
-  using SafeERC20 for IERC20;
-
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
    * @dev If zQuoter is address(0), skips price validation (testnet mode)
@@ -72,10 +65,10 @@ library SwapLogic {
       require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
 
       // Calculate protocol's minimum acceptable output with slippage protection
-      minAcceptable = expectedOut.mul(basisPoints.sub(maxSlippageBps)).div(basisPoints);
+      minAcceptable = (expectedOut * (basisPoints - maxSlippageBps)) / basisPoints;
     } else {
       // minAcceptable = minAmountOut * (100% - slippage%) = minAmountOut * (10000 - 200) / 10000
-      minAcceptable = collateralAmount.mul(basisPoints.sub(maxSlippageBps)).div(basisPoints);
+      minAcceptable = (collateralAmount * (basisPoints - maxSlippageBps)) / basisPoints;
     }
     return minAcceptable;
   }
