@@ -70,6 +70,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   /// @inheritdoc ILoan
   function initializeLoan(
     uint256 depositAmount,
+    uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
     uint256 insuranceID
@@ -80,6 +81,11 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     // Transfer deposit from user to contract
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), depositAmount);
+
+    // Transfer premium amount to premium collector
+    if (premiumAmount > 0) {
+      IERC20(i_debtAsset).safeTransferFrom(msg.sender, s_premiumCollector, premiumAmount);
+    }
 
     uint256 loanAmount;
     // Calculate loan details and store data
@@ -428,6 +434,13 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     s_loansByLSA[_lsa] = data;
 
     emit Loan__LoanDataUpdated(_lsa, block.timestamp);
+  }
+
+  /// @inheritdoc ILoan
+  function setPremiumCollector(address newPremiumCollector) external override onlyOwner {
+    require(newPremiumCollector != address(0), 'Loan: Invalid Address');
+    s_premiumCollector = newPremiumCollector;
+    emit Loan__PremiumCollectorUpdated(s_premiumCollector);
   }
 
   /**

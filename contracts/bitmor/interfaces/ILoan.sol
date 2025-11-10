@@ -47,12 +47,15 @@ interface ILoan {
 
   event Loan__LoanDataUpdated(address indexed lsa, uint256 timestamp);
 
+  event Loan__PremiumCollectorUpdated(address newPremiumCollector);
+
   // ============ Main Functions ============
 
   /**
    * @notice Initializes a new loan with `depositAmount` USDC deposit
    * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow
    * @param depositAmount USDC deposit amount (6 decimals)
+   * @param premiumAmount USDC premium amount (6 decimals)
    * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
    * @param duration Loan duration in months
    * @param insuranceID Insurance/Order ID for tracking this loan
@@ -60,6 +63,7 @@ interface ILoan {
    */
   function initializeLoan(
     uint256 depositAmount,
+    uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
     uint256 insuranceID
@@ -211,4 +215,10 @@ interface ILoan {
    * @param _lsa The Loan Specific Address
    */
   function updateLoanData(bytes calldata _data, address _lsa) external;
+
+  /**
+   * @notice Updates the premium collector address
+   * @param newPremiumCollector New premium collector address
+   */
+  function setPremiumCollector(address newPremiumCollector) external;
 }
