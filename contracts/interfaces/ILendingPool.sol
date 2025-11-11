@@ -306,6 +306,13 @@ interface ILendingPool {
   ) external;
 
   /**
+   * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
+   * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
+   * @param data Microliquidation call data
+   */
+  function microLiquidationCall(bytes calldata data) external;
+
+  /**
    * @dev Allows smartcontracts to access the liquidity of the pool within one transaction,
    * as long as the amount taken plus a fee is returned.
    * IMPORTANT There are security concerns for developers of flashloan receiver contracts that must be kept into consideration.

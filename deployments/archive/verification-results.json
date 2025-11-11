@@ -1,0 +1,118 @@
+{
+  "timestamp": "2025-11-05T16:31:52.189Z",
+  "network": "Base Sepolia",
+  "results": [
+    {
+      "contract": "LoanVaultImplementation",
+      "status": "success",
+      "address": "0x13870e9625589A89a6495AEe6A4215acEAa4DD3c"
+    },
+    {
+      "contract": "Loan",
+      "status": "success",
+      "address": "0x3ad870b970a3E3912E51794E460BC9915402bd54"
+    },
+    {
+      "contract": "LoanVaultFactory",
+      "status": "success",
+      "address": "0xa8Fd72Eb08821E3497a14dA3cB2dA4543e88871C"
+    },
+    {
+      "contract": "Escrow",
+      "status": "success",
+      "address": "0xDe6273E8C5a565506D423D2A8ba76101F01cBa3B"
+    },
+    {
+      "contract": "UniswapV4SwapAdapterWrapper",
+      "status": "success",
+      "address": "0x5fe96Ac9DdA67D3D9847431b479743Ca1205dE8E"
+    },
+    {
+      "contract": "LendingPoolAddressesProvider",
+      "status": "success",
+      "address": "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9"
+    },
+    {
+      "contract": "ReserveLogic",
+      "status": "success",
+      "address": "0x79f580cf2685d7289336756495849aA7A483fC10"
+    },
+    {
+      "contract": "GenericLogic",
+      "status": "failed",
+      "address": "0x2ea14B9F92E2bCC0243b3D5CeFDaF24032Da603E",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
+    },
+    {
+      "contract": "ValidationLogic",
+      "status": "success",
+      "address": "0x58A65bec5Dc07361d734152e772cA7E615B35163"
+    },
+    {
+      "contract": "LendingPoolAddressesProviderRegistry",
+      "status": "success",
+      "address": "0xB512F2Fe43fC41351bD7fda2Ad52C82Db3732ce0"
+    },
+    {
+      "contract": "StableAndVariableTokensHelper",
+      "status": "success",
+      "address": "0x8883EEb620A9f7C8871000994bFBAe7287545350"
+    },
+    {
+      "contract": "ATokensAndRatesHelper",
+      "status": "success",
+      "address": "0x3eF758436d5ce6c2A8F043548290CD2CA648302e"
+    },
+    {
+      "contract": "AToken",
+      "status": "success",
+      "address": "0xb53dE131d5d4d4761126b7a5796df482C7E0a832"
+    },
+    {
+      "contract": "DelegationAwareAToken",
+      "status": "success",
+      "address": "0xBb626F80f1c06F187D4f3763663b6f81186Af6f0"
+    },
+    {
+      "contract": "StableDebtToken",
+      "status": "success",
+      "address": "0x447213d1FD1F316198218aac1E6D583cb23F5236"
+    },
+    {
+      "contract": "VariableDebtToken",
+      "status": "success",
+      "address": "0xeb6000Ba0FbD81886B441617C35a4cCF66aa1adF"
+    },
+    {
+      "contract": "WETHMocked",
+      "status": "success",
+      "address": "0xad1c7cF24EA8cb201B639CB96D0B67ccB6e4b6f4"
+    },
+    {
+      "contract": "LendingRateOracle",
+      "status": "success",
+      "address": "0xcCb4fa053709C9714f1215770369dfAD89fFDf46"
+    },
+    {
+      "contract": "WETHGateway",
+      "status": "success",
+      "address": "0x10103304D033E6c9a15DE74a80523A0da3c05a9B"
+    },
+    {
+      "contract": "AaveProtocolDataProvider",
+      "status": "success",
+      "address": "0x0984F48B074aB83333aa073d6c863fC1849D669f"
+    },
+    {
+      "contract": "WalletBalanceProvider",
+      "status": "success",
+      "address": "0x7C6Dcb4095A5616352f12ee543de3F88A53eA9C1"
+    },
+    {
+      "contract": "UiIncentiveDataProviderV2V3",
+      "status": "failed",
+      "address": "0x8D5B46c6f2A90edD790840Af55d9f9759CD79e0d",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
+    }
+  ]
+}

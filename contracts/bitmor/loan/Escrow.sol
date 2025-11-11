@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.30;
 
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {SafeMath} from '../../dependencies/openzeppelin/contracts/SafeMath.sol';
+import {IERC20} from '../dependencies/openzeppelin/IERC20.sol';
+import {SafeERC20} from '../dependencies/openzeppelin/SafeERC20.sol';
 import {IEscrow} from '../interfaces/IEscrow.sol';
 
 /**
@@ -13,7 +12,6 @@ import {IEscrow} from '../interfaces/IEscrow.sol';
  */
 contract Escrow is IEscrow {
   using SafeERC20 for IERC20;
-  using SafeMath for uint256;
 
   // ============ State Variables ============
 
@@ -69,7 +67,7 @@ contract Escrow is IEscrow {
    * @param _acbBTC acbBTC token address
    * @param _loanContract Loan contract address authorized to lock/unlock collateral
    */
-  constructor(address _acbBTC, address _loanContract) public {
+  constructor(address _acbBTC, address _loanContract) {
     require(_acbBTC != address(0), 'Escrow: invalid acbBTC');
     require(_loanContract != address(0), 'Escrow: invalid loan contract');
     acbBTC = _acbBTC;
@@ -91,7 +89,7 @@ contract Escrow is IEscrow {
 
     IERC20(acbBTC).safeTransferFrom(lsa, address(this), amount);
 
-    _lockedCollateral[lsa] = _lockedCollateral[lsa].add(amount);
+    _lockedCollateral[lsa] = _lockedCollateral[lsa] + amount;
 
     emit CollateralLocked(lsa, amount);
   }
@@ -107,7 +105,7 @@ contract Escrow is IEscrow {
     require(amount > 0, 'Escrow: invalid amount');
     require(_lockedCollateral[lsa] >= amount, 'Escrow: insufficient locked collateral');
 
-    _lockedCollateral[lsa] = _lockedCollateral[lsa].sub(amount);
+    _lockedCollateral[lsa] = _lockedCollateral[lsa] - amount;
 
     IERC20(acbBTC).safeTransfer(lsa, amount);
 

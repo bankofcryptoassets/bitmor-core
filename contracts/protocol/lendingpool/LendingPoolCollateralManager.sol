@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 import {SafeMath} from '../../dependencies/openzeppelin/contracts//SafeMath.sol';
 import {IERC20} from '../../dependencies/openzeppelin/contracts//IERC20.sol';
@@ -18,6 +19,8 @@ import {Errors} from '../libraries/helpers/Errors.sol';
 import {ValidationLogic} from '../libraries/logic/ValidationLogic.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {LendingPoolStorage} from './LendingPoolStorage.sol';
+import {LoanLiquidationLogic} from '../libraries/logic/LoanLiquidationLogic.sol';
+import {ILoan} from '../../interfaces/ILoan.sol';
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -104,10 +107,20 @@ contract LendingPoolCollateralManager is
 
     (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
 
+    uint256 typeOfLiquidation = LoanLiquidationLogic.checkTypeOfLiquidation(
+      user,
+      _reserves,
+      vars.healthFactor,
+      _reservesList,
+      _addressesProvider.getPriceOracle(),
+      _addressesProvider.getBitmorLoan()
+    );
+
     (vars.errorCode, vars.errorMsg) = ValidationLogic.validateLiquidationCall(
       collateralReserve,
       debtReserve,
       userConfig,
+      typeOfLiquidation,
       vars.healthFactor,
       vars.userStableDebt,
       vars.userVariableDebt
@@ -235,6 +248,197 @@ contract LendingPoolCollateralManager is
     );
 
     emit LiquidationCall(
+      collateralAsset,
+      debtAsset,
+      user,
+      vars.actualDebtToLiquidate,
+      vars.maxCollateralToLiquidate,
+      msg.sender,
+      receiveAToken
+    );
+
+    return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
+  }
+
+  /**
+   * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
+   * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
+   * @param data Microliquidation call data
+   */
+  function microLiquidationCall(
+    bytes calldata data
+  ) external override returns (uint256, string memory) {
+    (address collateralAsset, address debtAsset, address user) = abi.decode(
+      data,
+      (address, address, address)
+    );
+
+    /// @dev No one can deposit in the Lending Pool without going through loan creation process.
+    bool receiveAToken = false;
+
+    DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+    DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+    DataTypes.UserConfigurationMap storage userConfig = _usersConfig[user];
+
+    LiquidationCallLocalVars memory vars;
+
+    (, , , , vars.healthFactor) = GenericLogic.calculateUserAccountData(
+      user,
+      _reserves,
+      userConfig,
+      _reservesList,
+      _reservesCount,
+      _addressesProvider.getPriceOracle()
+    );
+
+    (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
+
+    uint256 typeOfLiquidation = LoanLiquidationLogic.checkTypeOfLiquidation(
+      user,
+      _reserves,
+      vars.healthFactor,
+      _reservesList,
+      _addressesProvider.getPriceOracle(),
+      _addressesProvider.getBitmorLoan()
+    );
+
+    (vars.errorCode, vars.errorMsg) = ValidationLogic.validateMicroLiquidationCall(
+      collateralReserve,
+      debtReserve,
+      userConfig,
+      typeOfLiquidation,
+      vars.userStableDebt,
+      vars.userVariableDebt
+    );
+
+    if (Errors.CollateralManagerErrors(vars.errorCode) != Errors.CollateralManagerErrors.NO_ERROR) {
+      return (vars.errorCode, vars.errorMsg);
+    }
+
+    vars.collateralAtoken = IAToken(collateralReserve.aTokenAddress);
+
+    vars.userCollateralBalance = vars.collateralAtoken.balanceOf(user);
+
+    address bitmorLoan = _addressesProvider.getBitmorLoan();
+
+    DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
+
+    vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < loanData.loanAmount
+      ? loanData.estimatedMonthlyPayment
+      : loanData.loanAmount;
+
+    (
+      vars.maxCollateralToLiquidate,
+      vars.debtAmountNeeded
+    ) = _calculateAvailableCollateralToLiquidate(
+      collateralReserve,
+      debtReserve,
+      collateralAsset,
+      debtAsset,
+      vars.actualDebtToLiquidate,
+      vars.userCollateralBalance
+    );
+
+    // If debtAmountNeeded < actualDebtToLiquidate, there isn't enough
+    // collateral to cover the actual amount that is being liquidated, hence we liquidate
+    // a smaller amount
+
+    if (vars.debtAmountNeeded < vars.actualDebtToLiquidate) {
+      vars.actualDebtToLiquidate = vars.debtAmountNeeded;
+    }
+
+    // If the liquidator reclaims the underlying asset, we make sure there is enough available liquidity in the
+    // collateral reserve
+    if (!receiveAToken) {
+      uint256 currentAvailableCollateral = IERC20(collateralAsset).balanceOf(
+        address(vars.collateralAtoken)
+      );
+      if (currentAvailableCollateral < vars.maxCollateralToLiquidate) {
+        return (
+          uint256(Errors.CollateralManagerErrors.NOT_ENOUGH_LIQUIDITY),
+          Errors.LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE
+        );
+      }
+    }
+
+    debtReserve.updateState();
+
+    if (vars.userVariableDebt >= vars.actualDebtToLiquidate) {
+      IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
+        user,
+        vars.actualDebtToLiquidate,
+        debtReserve.variableBorrowIndex
+      );
+    } else {
+      // If the user doesn't have variable debt, no need to try to burn variable debt tokens
+      if (vars.userVariableDebt > 0) {
+        IVariableDebtToken(debtReserve.variableDebtTokenAddress).burn(
+          user,
+          vars.userVariableDebt,
+          debtReserve.variableBorrowIndex
+        );
+      }
+      IStableDebtToken(debtReserve.stableDebtTokenAddress).burn(
+        user,
+        vars.actualDebtToLiquidate.sub(vars.userVariableDebt)
+      );
+    }
+
+    debtReserve.updateInterestRates(
+      debtAsset,
+      debtReserve.aTokenAddress,
+      vars.actualDebtToLiquidate,
+      0
+    );
+
+    if (receiveAToken) {
+      vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
+      vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
+
+      if (vars.liquidatorPreviousATokenBalance == 0) {
+        DataTypes.UserConfigurationMap storage liquidatorConfig = _usersConfig[msg.sender];
+        liquidatorConfig.setUsingAsCollateral(collateralReserve.id, true);
+        emit ReserveUsedAsCollateralEnabled(collateralAsset, msg.sender);
+      }
+    } else {
+      collateralReserve.updateState();
+      collateralReserve.updateInterestRates(
+        collateralAsset,
+        address(vars.collateralAtoken),
+        0,
+        vars.maxCollateralToLiquidate
+      );
+
+      // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+      vars.collateralAtoken.burn(
+        user,
+        msg.sender,
+        vars.maxCollateralToLiquidate,
+        collateralReserve.liquidityIndex
+      );
+    }
+
+    // If the collateral being liquidated is equal to the user balance,
+    // we set the currency as not being used as collateral anymore
+    if (vars.maxCollateralToLiquidate == vars.userCollateralBalance) {
+      userConfig.setUsingAsCollateral(collateralReserve.id, false);
+      emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
+    }
+
+    loanData.loanAmount = loanData.loanAmount.sub(vars.actualDebtToLiquidate);
+    loanData.collateralAmount = loanData.collateralAmount.sub(vars.maxCollateralToLiquidate);
+    loanData.nextDueTimestamp = loanData.nextDueTimestamp.add(30 days);
+
+    ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
+
+    // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
+    IERC20(debtAsset).safeTransferFrom(
+      msg.sender,
+      debtReserve.aTokenAddress,
+      vars.actualDebtToLiquidate
+    );
+
+    emit MicroLiquidationCall(
       collateralAsset,
       debtAsset,
       user,

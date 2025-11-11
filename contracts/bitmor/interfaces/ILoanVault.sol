@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
 /**
  * @title ILoanVault
@@ -10,10 +9,10 @@ pragma experimental ABIEncoderV2;
 interface ILoanVault {
   // ============ Events ============
 
-  event VaultInitialized(address indexed owner, address indexed borrower);
-  event TokenApproved(address indexed token, address indexed spender, uint256 amount);
-  event TokenTransferred(address indexed token, address indexed to, uint256 amount);
-  event Executed(address indexed target, bytes data, bytes result);
+  event LoanVault__VaultInitialized(address indexed owner, address indexed borrower);
+  event LoanVault__TokenApproved(address indexed token, address indexed spender, uint256 amount);
+  event LoanVault__TokenTransferred(address indexed token, address indexed to, uint256 amount);
+  event LoanVault__Executed(address indexed target, bytes data, bytes result);
 
   /**
    * @notice Initializes the LoanVault clone after deployment

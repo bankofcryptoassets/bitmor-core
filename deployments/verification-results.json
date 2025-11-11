@@ -1,31 +1,27 @@
 {
-  "timestamp": "2025-11-05T16:31:52.189Z",
+  "timestamp": "2025-11-07T20:41:47.030Z",
   "network": "Base Sepolia",
   "results": [
     {
       "contract": "LoanVaultImplementation",
       "status": "success",
-      "address": "0x13870e9625589A89a6495AEe6A4215acEAa4DD3c"
+      "address": "0xcE448542D98Be9B89bEcb70a51df3CCCb5cB48D0"
     },
     {
       "contract": "Loan",
-      "status": "success",
-      "address": "0x3ad870b970a3E3912E51794E460BC9915402bd54"
+      "status": "failed",
+      "address": "0x4A3fA69358e4FA6Aa58f42D267CE83D8D9AFC7a7",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     },
     {
       "contract": "LoanVaultFactory",
       "status": "success",
-      "address": "0xa8Fd72Eb08821E3497a14dA3cB2dA4543e88871C"
-    },
-    {
-      "contract": "Escrow",
-      "status": "success",
-      "address": "0xDe6273E8C5a565506D423D2A8ba76101F01cBa3B"
+      "address": "0xAB6eeADE6d7168d9E1C0133f81eFAD86620D6f78"
     },
     {
       "contract": "UniswapV4SwapAdapterWrapper",
       "status": "success",
-      "address": "0x5fe96Ac9DdA67D3D9847431b479743Ca1205dE8E"
+      "address": "0x913336CecD657bB7dA46548bcb1a967EecBEAC62"
     },
     {
       "contract": "LendingPoolAddressesProvider",
@@ -41,12 +37,23 @@
       "contract": "GenericLogic",
       "status": "failed",
       "address": "0x2ea14B9F92E2bCC0243b3D5CeFDaF24032Da603E",
-      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
     },
     {
       "contract": "ValidationLogic",
       "status": "success",
       "address": "0x58A65bec5Dc07361d734152e772cA7E615B35163"
+    },
+    {
+      "contract": "LendingPoolImpl",
+      "status": "success",
+      "address": "0x7e5B94f7661b0737cB0B4013637FFEAFdBf8dF3f"
+    },
+    {
+      "contract": "LendingPoolConfiguratorImpl",
+      "status": "failed",
+      "address": "0xef6151908F1A299eD869Fc24E0aF841b746dF431",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
     },
     {
       "contract": "LendingPoolAddressesProviderRegistry",
@@ -89,6 +96,11 @@
       "address": "0xad1c7cF24EA8cb201B639CB96D0B67ccB6e4b6f4"
     },
     {
+      "contract": "AaveOracle",
+      "status": "success",
+      "address": "0xdDa04c79e6bA7CEb638F0D897E617378E61563a4"
+    },
+    {
       "contract": "LendingRateOracle",
       "status": "success",
       "address": "0xcCb4fa053709C9714f1215770369dfAD89fFDf46"
@@ -104,9 +116,31 @@
       "address": "0x0984F48B074aB83333aa073d6c863fC1849D669f"
     },
     {
+      "contract": "DefaultReserveInterestRateStrategy (USDC)",
+      "status": "success",
+      "address": "0xE8bB2bBf3C9350465069c3b945D993F6744B77DD"
+    },
+    {
+      "contract": "DefaultReserveInterestRateStrategy (cbBTC)",
+      "status": "success",
+      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16"
+    },
+    {
+      "contract": "LendingPoolCollateralManagerImpl",
+      "status": "failed",
+      "address": "0x62694103479A761e64F769dB340CEB4A79D5b6db",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
+    },
+    {
       "contract": "WalletBalanceProvider",
       "status": "success",
       "address": "0x7C6Dcb4095A5616352f12ee543de3F88A53eA9C1"
+    },
+    {
+      "contract": "UiPoolDataProvider",
+      "status": "failed",
+      "address": "0xA37FbE5A98EE167d5B711330Bec9efA57b5BEb27",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
     },
     {
       "contract": "UiIncentiveDataProviderV2V3",

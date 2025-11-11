@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
+import {SafeERC20} from '../dependencies/openzeppelin/SafeERC20.sol';
+import {IERC20} from '../dependencies/openzeppelin/IERC20.sol';
 import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 
 /**
@@ -14,18 +13,18 @@ import {IUniswapV4SwapAdapter} from '../interfaces/IUniswapV4SwapAdapter.sol';
 contract UniswapV4SwapAdapterWrapper {
   using SafeERC20 for IERC20;
 
-  IUniswapV4SwapAdapter public immutable UNISWAP_ADAPTER;
+  IUniswapV4SwapAdapter public immutable i_UNISWAP_ADAPTER;
 
-  event Swapped(
+  event UniswapV4SwapAdapterWrapper__Swapped(
     address indexed tokenIn,
     address indexed tokenOut,
     uint256 amountIn,
     uint256 amountOut
   );
 
-  constructor(address _uniswapAdapter) public {
+  constructor(address _uniswapAdapter) {
     require(_uniswapAdapter != address(0), 'Wrapper: invalid adapter');
-    UNISWAP_ADAPTER = IUniswapV4SwapAdapter(_uniswapAdapter);
+    i_UNISWAP_ADAPTER = IUniswapV4SwapAdapter(_uniswapAdapter);
   }
 
   /**
@@ -49,13 +48,18 @@ contract UniswapV4SwapAdapterWrapper {
 
     IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
 
-    IERC20(tokenIn).safeApprove(address(UNISWAP_ADAPTER), amountIn);
+    IERC20(tokenIn).forceApprove(address(i_UNISWAP_ADAPTER), amountIn);
 
-    amountOut = UNISWAP_ADAPTER.swapExactTokensForTokens(tokenIn, tokenOut, amountIn, minAmountOut);
+    amountOut = i_UNISWAP_ADAPTER.swapExactTokensForTokens(
+      tokenIn,
+      tokenOut,
+      amountIn,
+      minAmountOut
+    );
 
     IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
 
-    emit Swapped(tokenIn, tokenOut, amountIn, amountOut);
+    emit UniswapV4SwapAdapterWrapper__Swapped(tokenIn, tokenOut, amountIn, amountOut);
 
     return amountOut;
   }

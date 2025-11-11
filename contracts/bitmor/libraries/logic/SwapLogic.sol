@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
-import {SafeERC20} from '../../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {IzQuoter} from '../../interfaces/IzQuoter.sol';
 import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
 
@@ -14,37 +10,47 @@ import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
  * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter)
  */
 library SwapLogic {
-  using SafeMath for uint256;
-  using SafeERC20 for IERC20;
-
-  uint256 private constant BASIS_POINTS = 10000;
-
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
    * @dev If zQuoter is address(0), skips price validation (testnet mode)
    * @param swapAdaptor SwapAdaptor contract address
-   * @param zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
    * @param tokenIn Input token (e.g., USDC)
    * @param tokenOut Output token (e.g., cbBTC)
    * @param amountIn Amount of input tokens
-   * @param minAmountOut Minimum output amount
-   * @param maxSlippageBps Max slippage in basis points (used only when zQuoter is set)
+   * @param minAcceptable Minimum output amount
    * @return amountOut Actual output amount received
    */
   function executeSwap(
     address swapAdaptor,
+    address tokenIn,
+    address tokenOut,
+    uint256 amountIn,
+    uint256 minAcceptable
+  ) internal returns (uint256 amountOut) {
+    // Execute swap via SwapAdaptor
+    amountOut = ISwapAdaptor(swapAdaptor).swapExactTokensForTokens(
+      tokenIn,
+      tokenOut,
+      amountIn,
+      minAcceptable,
+      false
+    );
+
+    require(amountOut >= minAcceptable, 'SwapLogic: insufficient output amount');
+
+    return amountOut;
+  }
+
+  function calculateMinBTCAmt(
     address zQuoter,
     address tokenIn,
     address tokenOut,
     uint256 amountIn,
-    uint256 minAmountOut,
-    uint256 maxSlippageBps
-  ) internal returns (uint256 amountOut) {
+    uint256 collateralAmount,
+    uint256 maxSlippageBps,
+    uint256 basisPoints
+  ) internal returns (uint256 minAcceptable) {
     require(amountIn > 0, 'SwapLogic: invalid amountIn');
-    require(minAmountOut > 0, 'SwapLogic: invalid minAmountOut');
-    require(maxSlippageBps <= BASIS_POINTS, 'SwapLogic: invalid slippage');
-
-    uint256 minAcceptable;
 
     if (zQuoter != address(0)) {
       // Base Mainnet: Use zQuoter for Aerodrome price validation
@@ -59,36 +65,11 @@ library SwapLogic {
       require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
 
       // Calculate protocol's minimum acceptable output with slippage protection
-      minAcceptable = expectedOut.mul(BASIS_POINTS.sub(maxSlippageBps)).div(BASIS_POINTS);
-
-      require(minAmountOut <= expectedOut, 'SwapLogic: minAmountOut exceeds quote');
+      minAcceptable = (expectedOut * (basisPoints - maxSlippageBps)) / basisPoints;
     } else {
-      // Base Sepolia: No quoter, use minAmountOut directly (Uniswap V4)
-      minAcceptable = minAmountOut;
+      // minAcceptable = minAmountOut * (100% - slippage%) = minAmountOut * (10000 - 200) / 10000
+      minAcceptable = (collateralAmount * (basisPoints - maxSlippageBps)) / basisPoints;
     }
-
-    // Approve SwapAdaptor to spend tokens
-    IERC20(tokenIn).safeApprove(swapAdaptor, amountIn);
-
-    // Get balance before swap
-    uint256 balanceBefore = IERC20(tokenOut).balanceOf(address(this));
-
-    // Execute swap via SwapAdaptor
-    amountOut = ISwapAdaptor(swapAdaptor).swapExactTokensForTokens(
-      tokenIn,
-      tokenOut,
-      amountIn,
-      minAcceptable,
-      false
-    );
-
-    // Verify balance increased by expected amount
-    uint256 balanceAfter = IERC20(tokenOut).balanceOf(address(this));
-    uint256 actualReceived = balanceAfter.sub(balanceBefore);
-
-    require(actualReceived >= amountOut, 'SwapLogic: balance mismatch');
-    require(amountOut >= minAcceptable, 'SwapLogic: insufficient output amount');
-
-    return amountOut;
+    return minAcceptable;
   }
 }

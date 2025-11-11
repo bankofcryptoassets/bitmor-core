@@ -2,18 +2,27 @@ const hre = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
-async function verifyContract(address, constructorArgs, contractName) {
+async function verifyContract(address, constructorArgs, contractName, contractPath) {
   console.log(`\n${"=".repeat(60)}`);
   console.log(`Verifying: ${contractName}`);
   console.log(`Address: ${address}`);
   console.log(`Constructor Args: ${JSON.stringify(constructorArgs)}`);
+  if (contractPath) {
+    console.log(`Contract: ${contractPath}`);
+  }
   console.log(`${"=".repeat(60)}`);
 
   try {
-    await hre.run("verify:verify", {
+    const verifyParams = {
       address: address,
       constructorArguments: constructorArgs,
-    });
+    };
+
+    if (contractPath) {
+      verifyParams.contract = contractPath;
+    }
+
+    await hre.run("verify:verify", verifyParams);
     console.log(`✅ ${contractName} verified successfully`);
     return { contract: contractName, status: "success", address };
   } catch (error) {
@@ -38,75 +47,56 @@ async function main() {
 
   // Load deployment files
   const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
-  const loanPath = path.join(__dirname, "../deployments/loan-sepolia.json");
-  const factoryPath = path.join(__dirname, "../deployments/loan-vault-factory-sepolia.json");
-  const escrowPath = path.join(__dirname, "../deployments/escrow-sepolia.json");
-  const implPath = path.join(__dirname, "../deployments/loan-vault-implementation-sepolia.json");
+  const bitmorContractsPath = path.join(__dirname, "../bitmor-deployed-contracts.json");
   const swapAdapterPath = path.join(__dirname, "../deployments/uniswap-v4-swap-adapter-wrapper-sepolia.json");
 
-  console.log("📂 Loading deployment files...\n");
+  console.log("Loading deployment files...\n");
 
   const deployedContracts = JSON.parse(fs.readFileSync(deployedContractsPath, "utf8"));
 
-  // 1. LoanVault Implementation (no constructor args)
-  if (fs.existsSync(implPath)) {
-    const implDeployment = JSON.parse(fs.readFileSync(implPath, "utf8"));
-    const implAddress = implDeployment.contracts.LoanVaultImplementation.address;
-    const result = await verifyContract(implAddress, [], "LoanVaultImplementation");
-    results.push(result);
+  // Verify Bitmor Loan System contracts
+  if (fs.existsSync(bitmorContractsPath)) {
+    const bitmorContracts = JSON.parse(fs.readFileSync(bitmorContractsPath, "utf8"));
+
+    // 1. LoanVault Implementation
+    if (bitmorContracts.LoanVaultImplementation?.sepolia) {
+      const implAddress = bitmorContracts.LoanVaultImplementation.sepolia.address;
+      const result1 = await verifyContract(implAddress, [], "LoanVaultImplementation");
+      results.push(result1);
+    }
+
+    // 2. Loan Contract
+    if (bitmorContracts.Loan?.sepolia) {
+      const loanAddress = bitmorContracts.Loan.sepolia.address;
+      const loanArgs = [
+        bitmorContracts.Loan.sepolia.constructorArgs.aaveV3Pool,
+        bitmorContracts.Loan.sepolia.constructorArgs.aaveV2Pool,
+        bitmorContracts.Loan.sepolia.constructorArgs.aaveAddressesProvider,
+        bitmorContracts.Loan.sepolia.constructorArgs.collateralAsset,
+        bitmorContracts.Loan.sepolia.constructorArgs.debtAsset,
+        bitmorContracts.Loan.sepolia.constructorArgs.swapAdapter,
+        bitmorContracts.Loan.sepolia.constructorArgs.zQuoter,
+        bitmorContracts.Loan.sepolia.constructorArgs.maxLoanAmount,
+      ];
+      const result2 = await verifyContract(loanAddress, loanArgs, "Loan", "contracts/bitmor/loan/Loan.sol:Loan");
+      results.push(result2);
+    }
+
+    // 3. LoanVaultFactory
+    if (bitmorContracts.LoanVaultFactory?.sepolia) {
+      const factoryAddress = bitmorContracts.LoanVaultFactory.sepolia.address;
+      const factoryArgs = [
+        bitmorContracts.LoanVaultFactory.sepolia.implementation,
+        bitmorContracts.LoanVaultFactory.sepolia.loanContract,
+      ];
+      const result3 = await verifyContract(factoryAddress, factoryArgs, "LoanVaultFactory");
+      results.push(result3);
+    }
   } else {
-    console.log("⚠️  LoanVaultImplementation deployment file not found");
+    console.log("WARNING: Bitmor contracts file not found at bitmor-deployed-contracts.json");
   }
 
-  // 2. Loan Contract
-  if (fs.existsSync(loanPath)) {
-    const loanDeployment = JSON.parse(fs.readFileSync(loanPath, "utf8"));
-    const loanAddress = loanDeployment.contracts.Loan.address;
-    const loanArgs = [
-      loanDeployment.contracts.Loan.constructorArgs.aaveV3Pool,
-      loanDeployment.contracts.Loan.constructorArgs.aaveV2Pool,
-      loanDeployment.contracts.Loan.constructorArgs.aaveAddressesProvider,
-      loanDeployment.contracts.Loan.constructorArgs.collateralAsset,
-      loanDeployment.contracts.Loan.constructorArgs.debtAsset,
-      loanDeployment.contracts.Loan.constructorArgs.swapAdapter,
-      loanDeployment.contracts.Loan.constructorArgs.zQuoter,
-      loanDeployment.contracts.Loan.constructorArgs.maxLoanAmount,
-    ];
-    const result = await verifyContract(loanAddress, loanArgs, "Loan");
-    results.push(result);
-  } else {
-    console.log("⚠️  Loan deployment file not found");
-  }
-
-  // 3. LoanVaultFactory
-  if (fs.existsSync(factoryPath)) {
-    const factoryDeployment = JSON.parse(fs.readFileSync(factoryPath, "utf8"));
-    const factoryAddress = factoryDeployment.contracts.LoanVaultFactory.address;
-    const factoryArgs = [
-      factoryDeployment.contracts.LoanVaultFactory.implementation,
-      factoryDeployment.contracts.LoanVaultFactory.loanContract,
-    ];
-    const result = await verifyContract(factoryAddress, factoryArgs, "LoanVaultFactory");
-    results.push(result);
-  } else {
-    console.log("⚠️  LoanVaultFactory deployment file not found");
-  }
-
-  // 4. Escrow
-  if (fs.existsSync(escrowPath)) {
-    const escrowDeployment = JSON.parse(fs.readFileSync(escrowPath, "utf8"));
-    const escrowAddress = escrowDeployment.contracts.Escrow.address;
-    const escrowArgs = [
-      escrowDeployment.contracts.Escrow.acbBTC,
-      escrowDeployment.contracts.Escrow.loanContract,
-    ];
-    const result = await verifyContract(escrowAddress, escrowArgs, "Escrow");
-    results.push(result);
-  } else {
-    console.log("⚠️  Escrow deployment file not found");
-  }
-
-  // 5. UniswapV4SwapAdapterWrapper
+  // 4. UniswapV4SwapAdapterWrapper
   if (fs.existsSync(swapAdapterPath)) {
     const swapAdapterDeployment = JSON.parse(fs.readFileSync(swapAdapterPath, "utf8"));
     const swapAdapterAddress = swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address;
@@ -152,21 +142,33 @@ async function main() {
     results.push(result);
   }
 
-  // 10. LendingPoolImpl (Implementation - requires library linking info)
-  console.log("\n⚠️  LendingPoolImpl requires library linking - verify manually on Basescan");
-  console.log(`   Address: ${deployedContracts.LendingPoolImpl?.sepolia?.address}`);
+  // 10. LendingPoolImpl (Implementation with library linking)
+  if (deployedContracts.LendingPoolImpl?.sepolia) {
+    const address = deployedContracts.LendingPoolImpl.sepolia.address;
+    const result = await verifyContract(address, [], "LendingPoolImpl");
+    results.push(result);
+  }
 
-  // 11. LendingPool (Proxy)
-  console.log("\n⚠️  LendingPool is a proxy contract - verify the implementation separately");
-  console.log(`   Address: ${deployedContracts.LendingPool?.sepolia?.address}`);
+  // 11. LendingPool (Proxy - no constructor args for proxy)
+  if (deployedContracts.LendingPool?.sepolia) {
+    const address = deployedContracts.LendingPool.sepolia.address;
+    console.log("\nNOTE: LendingPool is a proxy - verify as proxy on Basescan");
+    console.log(`   Address: ${address}`);
+  }
 
-  // 12. LendingPoolConfiguratorImpl (Implementation)
-  console.log("\n⚠️  LendingPoolConfiguratorImpl requires library linking - verify manually");
-  console.log(`   Address: ${deployedContracts.LendingPoolConfiguratorImpl?.sepolia?.address}`);
+  // 12. LendingPoolConfiguratorImpl (Implementation with library linking)
+  if (deployedContracts.LendingPoolConfiguratorImpl?.sepolia) {
+    const address = deployedContracts.LendingPoolConfiguratorImpl.sepolia.address;
+    const result = await verifyContract(address, [], "LendingPoolConfiguratorImpl");
+    results.push(result);
+  }
 
-  // 13. LendingPoolConfigurator (Proxy)
-  console.log("\n⚠️  LendingPoolConfigurator is a proxy - verify the implementation");
-  console.log(`   Address: ${deployedContracts.LendingPoolConfigurator?.sepolia?.address}`);
+  // 13. LendingPoolConfigurator (Proxy - no constructor args for proxy)
+  if (deployedContracts.LendingPoolConfigurator?.sepolia) {
+    const address = deployedContracts.LendingPoolConfigurator.sepolia.address;
+    console.log("\nNOTE: LendingPoolConfigurator is a proxy - verify as proxy on Basescan");
+    console.log(`   Address: ${address}`);
+  }
 
   // 14. LendingPoolAddressesProviderRegistry
   if (deployedContracts.LendingPoolAddressesProviderRegistry?.sepolia) {
@@ -232,8 +234,23 @@ async function main() {
   }
 
   // 22. AaveOracle
-  console.log("\n⚠️  AaveOracle requires complex constructor args - verify manually");
-  console.log(`   Address: ${deployedContracts.AaveOracle?.sepolia?.address}`);
+  if (deployedContracts.AaveOracle?.sepolia) {
+    const address = deployedContracts.AaveOracle.sepolia.address;
+    const USDC = "0x562937072309F8c929206a58e72732dFCA5b67D6";
+    const CBBTC = "0x39eF420a0467F8705D15065d4D542bC80ceA0356";
+    const USD_BASE = "0x10F7Fc1F91Ba351f9C629c5947AD69bD03C05b96";
+
+    // Constructor: assets[], sources[], fallbackOracle, baseCurrency, baseCurrencyUnit
+    const args = [
+      [USDC, CBBTC, USD_BASE],
+      ["0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165", "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298", "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298"],
+      "0x0000000000000000000000000000000000000000",
+      USD_BASE,
+      ethers.utils.parseUnits("1", 18).toString()
+    ];
+    const result = await verifyContract(address, args, "AaveOracle");
+    results.push(result);
+  }
 
   // 23. LendingRateOracle
   if (deployedContracts.LendingRateOracle?.sepolia) {
@@ -263,20 +280,47 @@ async function main() {
   // 26. DefaultReserveInterestRateStrategy (USDC)
   if (deployedContracts.rateStrategyUSDC?.sepolia) {
     const address = deployedContracts.rateStrategyUSDC.sepolia.address;
-    console.log("\n⚠️  DefaultReserveInterestRateStrategy (USDC) requires rate params - verify manually");
-    console.log(`   Address: ${address}`);
+    const providerAddress = deployedContracts.LendingPoolAddressesProvider.sepolia.address;
+
+    // Constructor: provider, optimalUtilizationRate, baseVariableBorrowRate, variableRateSlope1, variableRateSlope2, stableRateSlope1, stableRateSlope2
+    const args = [
+      providerAddress,
+      "900000000000000000000000000", // 90% optimal utilization
+      "0",
+      "40000000000000000000000000", // 4% slope 1
+      "600000000000000000000000000", // 60% slope 2
+      "0",
+      "0"
+    ];
+    const result = await verifyContract(address, args, "DefaultReserveInterestRateStrategy (USDC)", "contracts/protocol/lendingpool/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy");
+    results.push(result);
   }
 
   // 27. DefaultReserveInterestRateStrategy (cbBTC)
   if (deployedContracts.rateStrategyCBBTC?.sepolia) {
     const address = deployedContracts.rateStrategyCBBTC.sepolia.address;
-    console.log("\n⚠️  DefaultReserveInterestRateStrategy (cbBTC) requires rate params - verify manually");
-    console.log(`   Address: ${address}`);
+    const providerAddress = deployedContracts.LendingPoolAddressesProvider.sepolia.address;
+
+    // Constructor: provider, optimalUtilizationRate, baseVariableBorrowRate, variableRateSlope1, variableRateSlope2, stableRateSlope1, stableRateSlope2
+    const args = [
+      providerAddress,
+      "650000000000000000000000000", // 65% optimal utilization
+      "0",
+      "80000000000000000000000000", // 8% slope 1
+      "3000000000000000000000000000", // 300% slope 2
+      "0",
+      "0"
+    ];
+    const result = await verifyContract(address, args, "DefaultReserveInterestRateStrategy (cbBTC)", "contracts/protocol/lendingpool/DefaultReserveInterestRateStrategy.sol:DefaultReserveInterestRateStrategy");
+    results.push(result);
   }
 
-  // 28. LendingPoolCollateralManagerImpl
-  console.log("\n⚠️  LendingPoolCollateralManagerImpl requires library linking - verify manually");
-  console.log(`   Address: ${deployedContracts.LendingPoolCollateralManagerImpl?.sepolia?.address}`);
+  // 28. LendingPoolCollateralManagerImpl (with library linking)
+  if (deployedContracts.LendingPoolCollateralManagerImpl?.sepolia) {
+    const address = deployedContracts.LendingPoolCollateralManagerImpl.sepolia.address;
+    const result = await verifyContract(address, [], "LendingPoolCollateralManagerImpl");
+    results.push(result);
+  }
 
   // 29. WalletBalanceProvider
   if (deployedContracts.WalletBalanceProvider?.sepolia) {
@@ -288,8 +332,15 @@ async function main() {
   // 30. UiPoolDataProvider
   if (deployedContracts.UiPoolDataProvider?.sepolia) {
     const address = deployedContracts.UiPoolDataProvider.sepolia.address;
-    console.log("\n⚠️  UiPoolDataProvider requires complex constructor - verify manually");
-    console.log(`   Address: ${address}`);
+    const oracleAddress = deployedContracts.AaveOracle.sepolia.address;
+
+    // Constructor: incentivesController, oracle
+    const args = [
+      "0x0000000000000000000000000000000000000000", // No incentives controller
+      oracleAddress
+    ];
+    const result = await verifyContract(address, args, "UiPoolDataProvider");
+    results.push(result);
   }
 
   // 31. UiIncentiveDataProviderV2V3

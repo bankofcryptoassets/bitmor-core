@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.30;
 
-import {Clones} from '../helpers/Clones.sol';
+import {Clones} from '../dependencies/openzeppelin/Clones.sol';
 import {ILoanVault} from '../interfaces/ILoanVault.sol';
 
 /**
@@ -14,26 +14,29 @@ contract LoanVaultFactory {
   // ============ State Variables ============
 
   /// @notice The LoanVault implementation contract to clone
-  address public immutable IMPLEMENTATION;
+  address public immutable i_IMPLEMENTATION;
 
   /// @notice The Loan contract authorized to create vaults
-  address public loanContract; // This will be our Loan.sol contract address
+  address public s_loanContract; // This will be our Loan.sol contract address
 
   // ============ Events ============
 
-  event VaultCreated(
+  event LoanVaultFactory__VaultCreated(
     address indexed vault,
     address indexed borrower,
     uint256 timestamp,
     bytes32 salt
   );
 
-  event LoanContractUpdated(address indexed oldContract, address indexed newContract);
+  event LoanVaultFactory__LoanContractUpdated(
+    address indexed oldContract,
+    address indexed newContract
+  );
 
   // ============ Modifiers ============
 
   modifier onlyLoanContract() {
-    require(msg.sender == loanContract, 'LoanVaultFactory: caller not authorized');
+    require(msg.sender == s_loanContract, 'LoanVaultFactory: caller not authorized');
     _;
   }
 
@@ -47,8 +50,8 @@ contract LoanVaultFactory {
   constructor(address implementation, address _loanContract) public {
     require(implementation != address(0), 'LoanVaultFactory: invalid implementation');
     require(_loanContract != address(0), 'LoanVaultFactory: invalid loan contract');
-    IMPLEMENTATION = implementation;
-    loanContract = _loanContract;
+    i_IMPLEMENTATION = implementation;
+    s_loanContract = _loanContract;
   }
 
   // ============ Public Functions ============
@@ -62,7 +65,7 @@ contract LoanVaultFactory {
    */
   function computeAddress(address borrower, uint256 timestamp) external view returns (address) {
     bytes32 salt = _generateSalt(borrower, timestamp);
-    return Clones.predictDeterministicAddress(IMPLEMENTATION, salt, address(this));
+    return Clones.predictDeterministicAddress(i_IMPLEMENTATION, salt, address(this));
   }
 
   /**
@@ -82,12 +85,12 @@ contract LoanVaultFactory {
     bytes32 salt = _generateSalt(borrower, timestamp);
 
     // Deploy clone using CREATE2 (deterministic address)
-    vault = Clones.cloneDeterministic(IMPLEMENTATION, salt);
+    vault = Clones.cloneDeterministic(i_IMPLEMENTATION, salt);
 
     // Initialize the vault
-    ILoanVault(vault).initialize(loanContract, borrower);
+    ILoanVault(vault).initialize(s_loanContract, borrower);
 
-    emit VaultCreated(vault, borrower, timestamp, salt);
+    emit LoanVaultFactory__VaultCreated(vault, borrower, timestamp, salt);
 
     return vault;
   }

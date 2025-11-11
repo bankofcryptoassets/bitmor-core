@@ -50,18 +50,7 @@ library DataTypes {
     STABLE,
     VARIABLE
   }
-
-  /**
-   * @notice Represents the current state of a loan
-   * @dev Active: Loan is ongoing and being repaid
-   * @dev Completed: Loan has been fully repaid
-   * @dev Liquidated: Loan was liquidated due to insufficient collateral or other reasons
-   */
-  enum LoanStatus {
-    Active,
-    Completed,
-    Liquidated
-  }
+  // ============ Loan Data Structure ============
 
   /**
    * @notice Complete loan information stored per LSA
@@ -89,5 +78,19 @@ library DataTypes {
     uint256 nextDueTimestamp;
     uint256 lastDueTimestamp;
     LoanStatus status;
+  }
+
+  // ============ Loan Status ============
+
+  /**
+   * @notice Represents the current state of a loan
+   * @dev Active: Loan is ongoing and being repaid
+   * @dev Completed: Loan has been fully repaid
+   * @dev Liquidated: Loan was liquidated due to insufficient collateral or other reasons
+   */
+  enum LoanStatus {
+    Active,
+    Completed,
+    Liquidated
   }
 }

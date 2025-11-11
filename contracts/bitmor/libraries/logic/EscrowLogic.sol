@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
+pragma solidity 0.8.30;
 
 import {ILoanVault} from '../../interfaces/ILoanVault.sol';
 import {IEscrow} from '../../interfaces/IEscrow.sol';

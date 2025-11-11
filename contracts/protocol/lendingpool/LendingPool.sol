@@ -461,6 +461,26 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     require(returnCode == 0, string(abi.encodePacked(returnMessage)));
   }
 
+  /**
+   * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
+   * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
+   * @param data Microliquidation call data
+   */
+  function microLiquidationCall(bytes calldata data) external override whenNotPaused {
+    address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
+
+    //solium-disable-next-line
+    (bool success, bytes memory result) = collateralManager.delegatecall(
+      abi.encodeWithSignature('microLiquidationCall(bytes)', data)
+    );
+
+    require(success, Errors.LP_MICRO_LIQUIDATION_FAILED);
+
+    (uint256 returnCode, string memory returnMessage) = abi.decode(result, (uint256, string));
+
+    require(returnCode == 0, string(abi.encodePacked(returnMessage)));
+  }
+
   struct FlashLoanLocalVars {
     IFlashLoanReceiver receiver;
     address oracle;
@@ -708,6 +728,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     return _addressesProvider;
   }
 
+  /**
+   * This returns the type of liquidation that can be done for `user`.
+   * 0 => No Liquidation
+   * 1 => Full Liquidation
+   * 2 => Micro liquidation
+   * @param user Address of the user
+   * @return type of liquidation.
+   */
   function checkTypeOfLiquidation(address user) public view returns (uint256) {
     (, , , , uint256 hf) = GenericLogic.calculateUserAccountData(
       user,

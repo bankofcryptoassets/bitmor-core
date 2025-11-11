@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.6.12;
-pragma experimental ABIEncoderV2;
+pragma solidity 0.8.30;
 
-import {SafeMath} from '../../../dependencies/openzeppelin/contracts/SafeMath.sol';
 import {ILoanVault} from '../../interfaces/ILoanVault.sol';
 import {EscrowLogic} from './EscrowLogic.sol';
 
@@ -11,8 +9,6 @@ import {EscrowLogic} from './EscrowLogic.sol';
  * @notice Handles collateral withdrawal from LSA
  */
 library WithdrawalLogic {
-  using SafeMath for uint256;
-
   /**
    * @notice Withdraws collateral from LSA to user's wallet
    * @param lsa The Loan Specific Address

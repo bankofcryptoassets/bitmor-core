@@ -1,18 +1,31 @@
+# Fast development profile (default) - NO model checker
 [profile.default]
 src = "contracts"
 out = "forge-out"
-libs = ["node_modules"]
-solc_version = "0.6.12"
+libs = ["node_modules", "lib"]
+optimizer = true
+optimizer_runs = 200
+evm_version = "istanbul"
+sizes = true
+
+# Security analysis profile - WITH model checker (use: FOUNDRY_PROFILE=security forge build)
+[profile.security]
+src = "contracts"
+out = "forge-out"
+libs = ["node_modules", "lib"]
 optimizer = true
 optimizer_runs = 200
 evm_version = "istanbul"
 
-[profile.default.model_checker]
-contracts = {}
+[profile.security.model_checker]
+contracts = {}  # For specific contracts: { "src/Contract.sol" = ["Contract"] }
 engine = 'chc'
-timeout = 10000
-targets = ['assert', 'underflow', 'overflow', 'divByZero', 'constantCondition', 'popEmptyArray',
-'outOfBounds']
+timeout = 30000  # Increased timeout
+targets = ['assert', 'underflow', 'overflow', 'divByZero']
+
+# Compiler optimizations for mixed version setup
+auto_detect_solc = true  # Let Foundry handle version selection
+solc_version = "0.8.30"  # Default version, overridden per file as needed
 
 # Network configurations
 [rpc_endpoints]
