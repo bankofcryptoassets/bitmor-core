@@ -16,11 +16,8 @@ import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
 import {SwapLogic} from '../libraries/logic/SwapLogic.sol';
 import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.sol';
 import {LSALogic} from '../libraries/logic/LSALogic.sol';
-import {WithdrawalLogic} from '../libraries/logic/WithdrawalLogic.sol';
-import {IEscrow} from '../interfaces/IEscrow.sol';
 import {ILoan} from '../interfaces/ILoan.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
-import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
 
 /**
  * @title Loan
@@ -325,7 +322,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     IERC20(i_debtAsset).safeApprove(i_AAVE_V2_POOL, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-    (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeLoanRepayment(
+    (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
       loan,
       i_AAVE_V2_POOL,
       i_debtAsset,
@@ -345,34 +342,32 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   // ============ Withdrawal Function ============
 
   /// @inheritdoc ILoan
-  function withdrawCollateral(
+  function closeLoan(
     address lsa,
     uint256 amount
-  ) external override nonReentrant returns (uint256 amountWithdrawn) {
+  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
     DataTypes.LoanData storage loan = s_loansByLSA[lsa];
 
-    require(loan.borrower != address(0), 'Loan: loan does not exist');
     require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
     require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
     require(amount > 0, 'Loan: invalid withdrawal amount');
 
-    // Check locked amount in Escrow
-    uint256 lockedAmount = IEscrow(s_escrow).getLockedAmount(lsa);
-    require(lockedAmount > 0, 'Loan: no collateral in escrow');
-    require(amount <= lockedAmount, 'Loan: insufficient locked collateral');
+    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_AAVE_V2_POOL, lsa);
+    require(amount >= totalDebtAmt, 'Loan: insufficient amount supplied');
 
-    amountWithdrawn = WithdrawalLogic.withdrawCollateral(
-      lsa,
+    IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
+
+    (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
       i_AAVE_V2_POOL,
-      s_escrow,
+      lsa,
+      i_debtAsset,
       i_collateralAsset,
-      amount,
-      msg.sender // Send cbBTC to borrower
+      msg.sender
     );
 
-    emit Loan__CollateralWithdrawn(lsa, msg.sender, amountWithdrawn, block.timestamp);
+    emit Loan__ClosedLoan(lsa, finalAmountRepaid, amountWithdrawn);
 
-    return amountWithdrawn;
+    return (finalAmountRepaid, amountWithdrawn);
   }
 
   // ============ Admin Functions ============

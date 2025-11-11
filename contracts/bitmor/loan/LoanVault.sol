@@ -28,12 +28,12 @@ contract LoanVault is ILoanVault {
   // ============ Modifiers ============
 
   modifier onlyOwner() {
-    require(msg.sender == s_owner, 'LoanVault: caller is not owner');
+    _onlyOwner();
     _;
   }
 
   modifier notInitialized() {
-    require(!s_initialized, 'LoanVault: already initialized');
+    _notInitialized();
     _;
   }
 
@@ -150,6 +150,14 @@ contract LoanVault is ILoanVault {
    */
   function getTokenBalance(address token) external view override returns (uint256) {
     return IERC20(token).balanceOf(address(this));
+  }
+
+  function _notInitialized() internal {
+    require(!s_initialized, 'LoanVault: already initialized');
+  }
+
+  function _onlyOwner() internal {
+    require(msg.sender == s_owner, 'LoanVault: caller is not owner');
   }
 
   receive() external payable {}

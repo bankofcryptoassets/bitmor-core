@@ -28,11 +28,10 @@ interface ILoan {
 
   event Loan__MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
 
-  event Loan__CollateralWithdrawn(
+  event Loan__ClosedLoan(
     address indexed lsa,
-    address indexed borrower,
-    uint256 amount,
-    uint256 timestamp
+    uint256 indexed debtAmount,
+    uint256 indexed cbBTCAmount
   );
 
   event Loan__LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
@@ -161,13 +160,14 @@ interface ILoan {
    * @notice Allows borrower to withdraw collateral from their LSA
    * @dev Withdraws from escrow where excess collateral is locked
    * @param lsa The Loan Specific Address
-   * @param amount Amount of cbBTC to withdraw (8 decimals)
-   * @return amountWithdrawn Actual amount withdrawn
+   * @param amount USDC amount to transfer
+   * @return finalAmountRepaid Actual amount of USDC repaid
+   * @return amountWithdrawn Actual amount of cbBTC withdrawn
    */
-  function withdrawCollateral(
+  function closeLoan(
     address lsa,
     uint256 amount
-  ) external returns (uint256 amountWithdrawn);
+  ) external returns (uint256 finalAmountRepaid, uint256 amountWithdrawn);
 
   // ============ Admin Functions ============
 
