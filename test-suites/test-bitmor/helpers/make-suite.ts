@@ -9,13 +9,8 @@ import {
   getLendingPoolConfiguratorProxy,
   getPriceOracle,
   getLendingPoolAddressesProviderRegistry,
-  getWETHMocked,
-  getWETHGateway,
-  getUniswapLiquiditySwapAdapter,
-  getUniswapRepayAdapter,
-  getFlashLiquidationAdapter,
 } from '../../../helpers/contracts-getters';
-import { eEthereumNetwork, eNetwork, tEthereumAddress } from '../../../helpers/types';
+import { eNetwork, tEthereumAddress } from '../../../helpers/types';
 import { LendingPool } from '../../../types/LendingPool';
 import { AaveProtocolDataProvider } from '../../../types/AaveProtocolDataProvider';
 import { MintableERC20 } from '../../../types/MintableERC20';
@@ -30,14 +25,9 @@ import { PriceOracle } from '../../../types/PriceOracle';
 import { LendingPoolAddressesProvider } from '../../../types/LendingPoolAddressesProvider';
 import { LendingPoolAddressesProviderRegistry } from '../../../types/LendingPoolAddressesProviderRegistry';
 import { getEthersSigners } from '../../../helpers/contracts-helpers';
-import { UniswapLiquiditySwapAdapter } from '../../../types/UniswapLiquiditySwapAdapter';
-import { UniswapRepayAdapter } from '../../../types/UniswapRepayAdapter';
 import { getParamPerNetwork } from '../../../helpers/contracts-helpers';
-import { WETH9Mocked } from '../../../types/WETH9Mocked';
-import { WETHGateway } from '../../../types/WETHGateway';
 import { solidity } from 'ethereum-waffle';
-import { AmmConfig } from '../../../markets/amm';
-import { FlashLiquidationAdapter } from '../../../types';
+import BitmorConfig from '../../../markets/bitmor';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { usingTenderly } from '../../../helpers/tenderly-utils';
 
@@ -56,19 +46,12 @@ export interface TestEnv {
   configurator: LendingPoolConfigurator;
   oracle: PriceOracle;
   helpersContract: AaveProtocolDataProvider;
-  weth: WETH9Mocked;
-  aWETH: AToken;
-  dai: MintableERC20;
-  aDai: AToken;
   usdc: MintableERC20;
-  aave: MintableERC20;
+  aUsdc: AToken;
+  cbBTC: MintableERC20;
+  aCbBTC: AToken;
   addressesProvider: LendingPoolAddressesProvider;
-  uniswapLiquiditySwapAdapter: UniswapLiquiditySwapAdapter;
-  uniswapRepayAdapter: UniswapRepayAdapter;
   registry: LendingPoolAddressesProviderRegistry;
-  wethGateway: WETHGateway;
-  flashLiquidationAdapter: FlashLiquidationAdapter;
-  
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -83,18 +66,12 @@ const testEnv: TestEnv = {
   configurator: {} as LendingPoolConfigurator,
   helpersContract: {} as AaveProtocolDataProvider,
   oracle: {} as PriceOracle,
-  weth: {} as WETH9Mocked,
-  aWETH: {} as AToken,
-  dai: {} as MintableERC20,
-  aDai: {} as AToken,
   usdc: {} as MintableERC20,
-  aave: {} as MintableERC20,
+  aUsdc: {} as AToken,
+  cbBTC: {} as MintableERC20,
+  aCbBTC: {} as AToken,
   addressesProvider: {} as LendingPoolAddressesProvider,
-  uniswapLiquiditySwapAdapter: {} as UniswapLiquiditySwapAdapter,
-  uniswapRepayAdapter: {} as UniswapRepayAdapter,
-  flashLiquidationAdapter: {} as FlashLiquidationAdapter,
   registry: {} as LendingPoolAddressesProviderRegistry,
-  wethGateway: {} as WETHGateway,
 } as TestEnv;
 
 export async function initializeMakeSuite() {
@@ -119,7 +96,7 @@ export async function initializeMakeSuite() {
 
   if (process.env.FORK) {
     testEnv.registry = await getLendingPoolAddressesProviderRegistry(
-      getParamPerNetwork(AmmConfig.ProviderRegistry, process.env.FORK as eNetwork)
+      getParamPerNetwork(BitmorConfig.ProviderRegistry, process.env.FORK as eNetwork)
     );
   } else {
     testEnv.registry = await getLendingPoolAddressesProviderRegistry();
@@ -129,36 +106,30 @@ export async function initializeMakeSuite() {
   testEnv.helpersContract = await getAaveProtocolDataProvider();
 
   const allTokens = await testEnv.helpersContract.getAllATokens();
-  const aDaiAddress = allTokens.find((aToken) => aToken.symbol === 'aAmmDAI')?.tokenAddress;
-
-  const aWEthAddress = allTokens.find((aToken) => aToken.symbol === 'aAmmWETH')?.tokenAddress;
+  
+  // Find Bitmor-specific aTokens (only USDC and cbBTC)
+  const aUsdcAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
+  const aCbBTCAddress = allTokens.find((aToken) => aToken.symbol === 'acbBTC')?.tokenAddress;
 
   const reservesTokens = await testEnv.helpersContract.getAllReservesTokens();
 
-  const daiAddress = reservesTokens.find((token) => token.symbol === 'DAI')?.tokenAddress;
   const usdcAddress = reservesTokens.find((token) => token.symbol === 'USDC')?.tokenAddress;
-  const aaveAddress = reservesTokens.find((token) => token.symbol === 'UniAAVEWETH')?.tokenAddress;
-  const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
+  const cbBTCAddress = reservesTokens.find((token) => token.symbol === 'cbBTC')?.tokenAddress;
 
-  if (!aDaiAddress || !aWEthAddress) {
+  if (!aUsdcAddress || !aCbBTCAddress) {
+    console.error('Missing aTokens for Bitmor! Expected: aUSDC, acbBTC');
     process.exit(1);
   }
-  if (!daiAddress || !usdcAddress || !aaveAddress || !wethAddress) {
+  if (!usdcAddress || !cbBTCAddress) {
+    console.error('Missing reserve tokens for Bitmor! Expected: USDC, cbBTC');
     process.exit(1);
   }
 
-  testEnv.aDai = await getAToken(aDaiAddress);
-  testEnv.aWETH = await getAToken(aWEthAddress);
+  testEnv.aUsdc = await getAToken(aUsdcAddress);
+  testEnv.aCbBTC = await getAToken(aCbBTCAddress);
 
-  testEnv.dai = await getMintableERC20(daiAddress);
   testEnv.usdc = await getMintableERC20(usdcAddress);
-  testEnv.aave = await getMintableERC20(aaveAddress);
-  testEnv.weth = await getWETHMocked(wethAddress);
-  testEnv.wethGateway = await getWETHGateway();
-
-  testEnv.uniswapLiquiditySwapAdapter = await getUniswapLiquiditySwapAdapter();
-  testEnv.uniswapRepayAdapter = await getUniswapRepayAdapter();
-  testEnv.flashLiquidationAdapter = await getFlashLiquidationAdapter();
+  testEnv.cbBTC = await getMintableERC20(cbBTCAddress);
 }
 
 const setSnapshot = async () => {
