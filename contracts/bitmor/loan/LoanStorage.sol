@@ -40,6 +40,9 @@ contract LoanStorage {
   /// @notice zQuoter contract for price quotation (Aerodrome DEX)
   address public s_zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
 
+  /// @notice Collects insurance premium amount.
+  address public s_premiumCollector;
+
   // ============ Storage Mappings ============
 
   /// @notice Maps LSA addresses to their loan data
@@ -68,6 +71,7 @@ contract LoanStorage {
   /// @notice Maximum slippage tolerance in basis points (200 = 2%)
   uint256 public constant MAX_SLIPPAGE_BPS = 200;
 
+  /// @notice Loan repayment interval in seconds (30 days)
   uint256 public constant LOAN_REPAYMENT_INTERVAL = 30 days;
 
   // ============ Constructor ============

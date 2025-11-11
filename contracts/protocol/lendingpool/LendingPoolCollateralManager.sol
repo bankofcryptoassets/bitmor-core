@@ -263,15 +263,16 @@ contract LendingPoolCollateralManager is
   /**
    * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
    * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
-   * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation.
-   * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
-   * @param user the address of the borrower's LSA getting liquidated
+   * @param data Microliquidation call data
    */
   function microLiquidationCall(
-    address collateralAsset,
-    address debtAsset,
-    address user
+    bytes calldata data
   ) external override returns (uint256, string memory) {
+    (address collateralAsset, address debtAsset, address user) = abi.decode(
+      data,
+      (address, address, address)
+    );
+
     /// @dev No one can deposit in the Lending Pool without going through loan creation process.
     bool receiveAToken = false;
 

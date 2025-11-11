@@ -6,6 +6,7 @@ libs = ["node_modules", "lib"]
 optimizer = true
 optimizer_runs = 200
 evm_version = "istanbul"
+sizes = true
 
 # Security analysis profile - WITH model checker (use: FOUNDRY_PROFILE=security forge build)
 [profile.security]

@@ -407,7 +407,7 @@
   },
   "WETHMocked": {
     "hardhat": {
-      "address": "0x90b17b801434FB1c48a4f1888dd6C410d11Bda59",
+      "address": "0xf784709d2317D872237C4bC22f867d1BAe2913AB",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
@@ -562,6 +562,12 @@
     "sepolia": {
       "address": "0x8D5B46c6f2A90edD790840Af55d9f9759CD79e0d",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
+    }
+  },
+  "PriceOracle": {
+    "hardhat": {
+      "address": "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
+      "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   }
 }

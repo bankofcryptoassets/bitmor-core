@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
+/**
+ * @title LoanMath
+ * @notice Library for loan calculation mathematics
+ * @dev Contains pure mathematical functions for interest rate calculations, loan amortization, and EMI computation using RAY precision (27 decimals)
+ */
 library LoanMath {
   uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
   uint256 private constant USDC_DECIMALS = 1e6; // USDC has 6 decimals
