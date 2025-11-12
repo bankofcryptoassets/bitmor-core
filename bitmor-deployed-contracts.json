@@ -1,18 +1,18 @@
 {
   "LoanVaultImplementation": {
     "sepolia": {
-      "address": "0xbB98dda8150A1806d71fab1CB2ebf2078Ff990e9",
+      "address": "0x332ABB5eB28861D7C9153e5F891869112D4C8435",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "Loan": {
     "sepolia": {
-      "address": "0xd978370657F964c2B7Bd3776359a7610A93be770",
+      "address": "0xb92A5be90990e6D2095bF7e19bC7b12b769BacEc",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
       "constructorArgs": {
         "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
-        "aaveV2Pool": "0x64688EAa8cBC3029D303b61D7e77f986E34742b3",
-        "aaveAddressesProvider": "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9",
+        "aaveV2Pool": "0x641C7F9c1a804cf5650a48F32c1F2E886CDb0e0c",
+        "oracle": "0x112fA4047b95589DB5b4AF60f3458D4e76058252",
         "collateralAsset": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
         "debtAsset": "0x562937072309F8c929206a58e72732dFCA5b67D6",
         "swapAdapter": "0x913336CecD657bB7dA46548bcb1a967EecBEAC62",
@@ -23,10 +23,10 @@
   },
   "LoanVaultFactory": {
     "sepolia": {
-      "address": "0xEE4683c9187bA7DC444fF2bED7254079Ec9C93f8",
+      "address": "0x4aac21164fd5523119a587ef4975346D207ED675",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-      "implementation": "0xbB98dda8150A1806d71fab1CB2ebf2078Ff990e9",
-      "loanContract": "0xd978370657F964c2B7Bd3776359a7610A93be770"
+      "implementation": "0x332ABB5eB28861D7C9153e5F891869112D4C8435",
+      "loanContract": "0xb92A5be90990e6D2095bF7e19bC7b12b769BacEc"
     }
   }
 }

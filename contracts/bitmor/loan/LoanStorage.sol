@@ -14,11 +14,11 @@ contract LoanStorage {
   /// @notice Aave V3 pool address for flash loan operations
   address public immutable i_AAVE_V3_POOL;
 
-  /// @notice Aave V2 lending pool address for collateral deposits and debt borrowing
-  address public immutable i_AAVE_V2_POOL;
+  /// @notice Bitmor Lending Pool address for collateral deposits and debt borrowing
+  address public immutable i_BITMOR_POOL;
 
   /// @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
-  address public immutable i_AAVE_ADDRESSES_PROVIDER;
+  address public immutable i_ORACLE;
 
   /// @notice Collateral asset address (cbBTC)
   address internal immutable i_collateralAsset;
@@ -79,27 +79,27 @@ contract LoanStorage {
   /**
    * @notice Initializes the storage contract with immutable protocol addresses
    * @param _aaveV3Pool Aave V3 pool address (for flash loans)
-   * @param _aaveV2Pool Aave V2 lending pool address (for BTC/USDC reserves)
-   * @param _aaveAddressesProvider Aave V2 addresses provider address
+   * @param _bitmorPool Bitmor Lending Pool
+   * @param _oracle Price Oracle
    * @param _collateralAsset Collateral asset address (cbBTC)
    * @param _debtAsset Debt asset address (USDC)
    */
   constructor(
     address _aaveV3Pool,
-    address _aaveV2Pool,
-    address _aaveAddressesProvider,
+    address _bitmorPool,
+    address _oracle,
     address _collateralAsset,
     address _debtAsset
   ) {
     require(_aaveV3Pool != address(0), 'LoanStorage: Invalid Aave V3 pool');
-    require(_aaveV2Pool != address(0), 'LoanStorage: Invalid Aave V2 pool');
-    require(_aaveAddressesProvider != address(0), 'LoanStorage: Invalid addresses provider');
+    require(_bitmorPool != address(0), 'LoanStorage: Invalid Aave V2 pool');
+    require(_oracle != address(0), 'LoanStorage: Invalid addresses provider');
     require(_collateralAsset != address(0), 'LoanStorage: Invalid collateral asset');
     require(_debtAsset != address(0), 'LoanStorage: Invalid debt asset');
 
     i_AAVE_V3_POOL = _aaveV3Pool;
-    i_AAVE_V2_POOL = _aaveV2Pool;
-    i_AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
+    i_BITMOR_POOL = _bitmorPool;
+    i_ORACLE = _oracle;
     i_collateralAsset = _collateralAsset;
     i_debtAsset = _debtAsset;
   }

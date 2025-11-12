@@ -42,7 +42,7 @@ async function main() {
   console.log();
 
   const usdc = await hre.ethers.getContractAt("MintableERC20", USDC_ADDRESS);
-  const lendingPool = await hre.ethers.getContractAt("ILendingPool", LENDING_POOL);
+  const lendingPool = await hre.ethers.getContractAt("contracts/interfaces/ILendingPool.sol:ILendingPool", LENDING_POOL);
   const dataProvider = await hre.ethers.getContractAt("AaveProtocolDataProvider", DATA_PROVIDER);
 
   // Step 1: Check current USDC balance

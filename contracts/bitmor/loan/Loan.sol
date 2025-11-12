@@ -7,7 +7,6 @@ import {Ownable} from '../dependencies/openzeppelin/Ownable.sol';
 import {ReentrancyGuard} from '../dependencies/openzeppelin/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
-import {ILendingPoolAddressesProvider} from '../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingPool} from '../interfaces/ILendingPool.sol';
 import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
@@ -30,8 +29,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   /**
    * @notice Initializes the Loan contract with protocol addresses and configuration
    * @param _aaveV3Pool Aave V3 pool address for flash loans
-   * @param _aaveV2Pool Aave V2 lending pool address for BTC/USDC reserves
-   * @param _aaveAddressesProvider Aave V2 addresses provider
+   * @param _bitmorPool Bitmor Lending Pool
+   * @param _oracle Price Oracle
    * @param _collateralAsset cbBTC address
    * @param _debtAsset USDC address
    * @param _swapAdapter SwapAdapter contract address for token swaps
@@ -40,15 +39,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
    */
   constructor(
     address _aaveV3Pool,
-    address _aaveV2Pool,
-    address _aaveAddressesProvider,
+    address _bitmorPool,
+    address _oracle,
     address _collateralAsset,
     address _debtAsset,
     address _swapAdapter,
     address _zQuoter,
     uint256 _maxLoanAmount
   )
-    LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider, _collateralAsset, _debtAsset)
+    LoanStorage(_aaveV3Pool, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
     Ownable(msg.sender)
   {
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
@@ -87,8 +86,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       uint256 monthlyPayment;
       uint256 interestRate;
       (loanAmount, monthlyPayment, interestRate) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
-        i_AAVE_V2_POOL,
-        ILendingPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER),
+        i_BITMOR_POOL,
+        i_ORACLE,
         i_collateralAsset,
         i_debtAsset,
         depositAmount,
@@ -206,20 +205,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     LSALogic.approveCreditDelegation(
       lsa,
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       i_debtAsset,
       borrowAmount,
       address(this) // Protocol is the delegatee
     );
 
-    AaveV2InteractionLogic.depositCollateral(
-      i_AAVE_V2_POOL,
-      i_collateralAsset,
-      amountReceived,
-      lsa
-    );
+    AaveV2InteractionLogic.depositCollateral(i_BITMOR_POOL, i_collateralAsset, amountReceived, lsa);
 
-    AaveV2InteractionLogic.borrowDebt(i_AAVE_V2_POOL, i_debtAsset, borrowAmount, lsa);
+    AaveV2InteractionLogic.borrowDebt(i_BITMOR_POOL, i_debtAsset, borrowAmount, lsa);
 
     IERC20(i_debtAsset).forceApprove(i_AAVE_V3_POOL, borrowAmount);
 
@@ -281,9 +275,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     require(loanAmount > 0, 'Loan: invalid loan amount');
     require(deposit > 0, 'Loan: invalid deposit');
 
-    IPriceOracleGetter oracle = IPriceOracleGetter(
-      ILendingPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER).getPriceOracle()
-    );
+    IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
 
     uint256 btcPriceUSD = oracle.getAssetPrice(i_collateralAsset);
     require(btcPriceUSD > 0, 'Loan: invalid BTC price');
@@ -315,13 +307,12 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
 
     // Approve Aave V2 pool (the spender) to pull from THIS contract
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, 0);
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, maxRepayableAmt);
+    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
     (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
       loan,
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       i_debtAsset,
       lsa,
       maxRepayableAmt
@@ -349,14 +340,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
     require(amount > 0, 'Loan: invalid withdrawal amount');
 
-    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_AAVE_V2_POOL, lsa);
+    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_BITMOR_POOL, lsa);
     require(amount >= totalDebtAmt, 'Loan: insufficient amount supplied');
 
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
 
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, totalDebtAmt);
+    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, totalDebtAmt);
     (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       lsa,
       i_debtAsset,
       i_collateralAsset,

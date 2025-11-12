@@ -29,7 +29,7 @@ async function main() {
   const PREMIUM_AMOUNT = ethers.utils.parseUnits("1000", 6);
   const COLLATERAL_AMOUNT = ethers.utils.parseUnits("1", 8);
   const DURATION = 12;
-  const INSURANCE_ID = 1;
+  const INSURANCE_ID = 0;
   const PREMIUM_COLLECTOR = "0x64e4e1d6ea4d7d4be5022510408bec5b24765176";
 
   console.log("Test Parameters:");

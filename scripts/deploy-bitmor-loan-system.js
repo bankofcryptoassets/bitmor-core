@@ -37,7 +37,7 @@ async function main() {
   const config = {
     aaveV3Pool: "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
     aaveV2Pool: aaveV2.LendingPool.sepolia.address,
-    aaveAddressesProvider: aaveV2.LendingPoolAddressesProvider.sepolia.address,
+    oracle: aaveV2.AaveOracle.sepolia.address,
     collateralAsset: cbbtcDeployment.address,
     debtAsset: usdcDeployment.address,
     swapAdapter: swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address,
@@ -48,6 +48,7 @@ async function main() {
   console.log("Configuration:");
   console.log("  Aave V3 Pool:", config.aaveV3Pool);
   console.log("  Aave V2 Pool:", config.aaveV2Pool);
+  console.log("  Oracle:", config.oracle);
   console.log("  Collateral (cbBTC):", config.collateralAsset);
   console.log("  Debt (USDC):", config.debtAsset);
   console.log("  Swap Adapter:", config.swapAdapter);
@@ -83,7 +84,7 @@ async function main() {
   const loan = await Loan.deploy(
     config.aaveV3Pool,
     config.aaveV2Pool,
-    config.aaveAddressesProvider,
+    config.oracle,
     config.collateralAsset,
     config.debtAsset,
     config.swapAdapter,
@@ -100,7 +101,7 @@ async function main() {
     constructorArgs: {
       aaveV3Pool: config.aaveV3Pool,
       aaveV2Pool: config.aaveV2Pool,
-      aaveAddressesProvider: config.aaveAddressesProvider,
+      oracle: config.oracle,
       collateralAsset: config.collateralAsset,
       debtAsset: config.debtAsset,
       swapAdapter: config.swapAdapter,
@@ -128,7 +129,9 @@ async function main() {
   console.log("\n4/4 Initializing Loan Contract...");
 
   console.log("    Setting LoanVaultFactory...");
-  const setFactoryTx = await loan.setLoanVaultFactory(factory.address);
+  const setFactoryTx = await loan.setLoanVaultFactory(factory.address, {
+    gasLimit: 500000
+  });
   await setFactoryTx.wait();
   console.log("    Factory set successfully");
 
