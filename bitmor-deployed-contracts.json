@@ -1,13 +1,13 @@
 {
   "LoanVaultImplementation": {
     "sepolia": {
-      "address": "0xcE448542D98Be9B89bEcb70a51df3CCCb5cB48D0",
+      "address": "0x63c451a18B29720a393d8F13D1F96fe80b8d09b1",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "Loan": {
     "sepolia": {
-      "address": "0x4A3fA69358e4FA6Aa58f42D267CE83D8D9AFC7a7",
+      "address": "0xFe50697E7e070d18749f956e8fE9C426aAB9E49d",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
       "constructorArgs": {
         "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
@@ -23,10 +23,10 @@
   },
   "LoanVaultFactory": {
     "sepolia": {
-      "address": "0xAB6eeADE6d7168d9E1C0133f81eFAD86620D6f78",
+      "address": "0x4E036e49e3Dd759F2df74c1B794e0930Ad4e0165",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-      "implementation": "0xcE448542D98Be9B89bEcb70a51df3CCCb5cB48D0",
-      "loanContract": "0x4A3fA69358e4FA6Aa58f42D267CE83D8D9AFC7a7"
+      "implementation": "0x63c451a18B29720a393d8F13D1F96fe80b8d09b1",
+      "loanContract": "0xFe50697E7e070d18749f956e8fE9C426aAB9E49d"
     }
   }
 }
