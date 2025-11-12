@@ -15,20 +15,20 @@ library LSALogic {
    * @dev This MUST be called BEFORE Protocol borrows on behalf of LSA
    *      Uses the existing execute() function in LoanVault
    * @param lsa The LSA address
-   * @param aaveV2Pool Aave V2 lending pool
+   * @param bitmorPool Bitmor Lending Pool
    * @param debtAsset USDC address
    * @param amount Amount to delegate
    * @param delegatee Address that can borrow (Protocol address)
    */
   function approveCreditDelegation(
     address lsa,
-    address aaveV2Pool,
+    address bitmorPool,
     address debtAsset,
     uint256 amount,
     address delegatee
   ) internal {
     // Get variable debt token address from Aave V2
-    DataTypes.ReserveData memory reserveData = ILendingPool(aaveV2Pool).getReserveData(debtAsset);
+    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
     address variableDebtToken = reserveData.variableDebtTokenAddress;
 
     require(variableDebtToken != address(0), 'LSALogic: invalid debt token');

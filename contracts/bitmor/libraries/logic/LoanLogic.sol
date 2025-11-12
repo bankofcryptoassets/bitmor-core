@@ -16,8 +16,8 @@ library LoanLogic {
   /**
    * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
    * @dev Fetch oracle price for the assets
-   * @param aaveV2Pool Aave V2 lending pool address
-   * @param addressesProvider Aave V2 addresses provider for oracle access
+   * @param bitmorPool Bitmor Lending Pool address
+   * @param _oracle Price Oracle address
    * @param collateralAsset cbBTC address
    * @param debtAsset USDC address
    * @param depositAmount User's USDC deposit (6 decimals)
@@ -29,8 +29,8 @@ library LoanLogic {
    * @return interestRate Current Aave V2 variable borrow rate (27 decimals - ray)
    */
   function calculateLoanAmountAndMonthlyPayment(
-    address aaveV2Pool,
-    ILendingPoolAddressesProvider addressesProvider,
+    address bitmorPool,
+    address _oracle,
     address collateralAsset,
     address debtAsset,
     uint256 depositAmount,
@@ -39,12 +39,12 @@ library LoanLogic {
     uint256 duration
   ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 interestRate) {
     // Get oracle prices
-    IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
+    IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
     uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
 
     // Fetch current variable borrow rate from Aave V2 USDC reserve
-    DataTypes.ReserveData memory reserveData = ILendingPool(aaveV2Pool).getReserveData(debtAsset);
+    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
     interestRate = reserveData.currentVariableBorrowRate;
 
     // Calculate loan amount and monthly payment using fetched rate

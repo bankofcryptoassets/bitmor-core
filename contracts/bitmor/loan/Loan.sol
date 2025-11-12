@@ -7,7 +7,6 @@ import {Ownable} from '../dependencies/openzeppelin/Ownable.sol';
 import {ReentrancyGuard} from '../dependencies/openzeppelin/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
-import {ILendingPoolAddressesProvider} from '../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingPool} from '../interfaces/ILendingPool.sol';
 import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
@@ -30,8 +29,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   /**
    * @notice Initializes the Loan contract with protocol addresses and configuration
    * @param _aaveV3Pool Aave V3 pool address for flash loans
-   * @param _aaveV2Pool Aave V2 lending pool address for BTC/USDC reserves
-   * @param _aaveAddressesProvider Aave V2 addresses provider
+   * @param _bitmorPool Bitmor Lending Pool
+   * @param _oracle Price Oracle
    * @param _collateralAsset cbBTC address
    * @param _debtAsset USDC address
    * @param _swapAdapter SwapAdapter contract address for token swaps
@@ -40,15 +39,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
    */
   constructor(
     address _aaveV3Pool,
-    address _aaveV2Pool,
-    address _aaveAddressesProvider,
+    address _bitmorPool,
+    address _oracle,
     address _collateralAsset,
     address _debtAsset,
     address _swapAdapter,
     address _zQuoter,
     uint256 _maxLoanAmount
   )
-    LoanStorage(_aaveV3Pool, _aaveV2Pool, _aaveAddressesProvider, _collateralAsset, _debtAsset)
+    LoanStorage(_aaveV3Pool, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
     Ownable(msg.sender)
   {
     require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
@@ -88,7 +87,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       uint256 interestRate;
       (loanAmount, monthlyPayment, interestRate) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
         i_AAVE_V2_POOL,
-        ILendingPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER),
+        i_ORACLE,
         i_collateralAsset,
         i_debtAsset,
         depositAmount,
@@ -281,9 +280,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     require(loanAmount > 0, 'Loan: invalid loan amount');
     require(deposit > 0, 'Loan: invalid deposit');
 
-    IPriceOracleGetter oracle = IPriceOracleGetter(
-      ILendingPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER).getPriceOracle()
-    );
+    IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
 
     uint256 btcPriceUSD = oracle.getAssetPrice(i_collateralAsset);
     require(btcPriceUSD > 0, 'Loan: invalid BTC price');
