@@ -354,6 +354,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
 
+    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, totalDebtAmt);
     (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
       i_AAVE_V2_POOL,
       lsa,
