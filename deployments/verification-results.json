@@ -1,21 +1,21 @@
 {
-  "timestamp": "2025-11-12T08:50:28.030Z",
+  "timestamp": "2025-11-12T11:58:05.565Z",
   "network": "Base Sepolia",
   "results": [
     {
       "contract": "LoanVaultImplementation",
       "status": "success",
-      "address": "0x63c451a18B29720a393d8F13D1F96fe80b8d09b1"
+      "address": "0xbB98dda8150A1806d71fab1CB2ebf2078Ff990e9"
     },
     {
       "contract": "Loan",
       "status": "success",
-      "address": "0xFe50697E7e070d18749f956e8fE9C426aAB9E49d"
+      "address": "0xd978370657F964c2B7Bd3776359a7610A93be770"
     },
     {
       "contract": "LoanVaultFactory",
       "status": "success",
-      "address": "0x4E036e49e3Dd759F2df74c1B794e0930Ad4e0165"
+      "address": "0xEE4683c9187bA7DC444fF2bED7254079Ec9C93f8"
     },
     {
       "contract": "UniswapV4SwapAdapterWrapper",

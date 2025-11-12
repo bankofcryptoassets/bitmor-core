@@ -150,6 +150,8 @@ async function main() {
   console.log("\nNext Steps:");
   console.log("  1. Verify contracts: npx hardhat run scripts/verify-all-contracts.js --network sepolia");
   console.log("  2. Initialize loan: npx hardhat run scripts/initialize-loan.js --network sepolia\n");
+  console.log("  3. Repay loan: npx hardhat run scripts/repay-loan.js --network sepolia\n");
+  console.log("  4. Close loan: npx hardhat run scripts/close-loan.js --network sepolia\n");
 }
 
 main()
