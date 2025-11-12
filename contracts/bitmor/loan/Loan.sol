@@ -359,7 +359,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       lsa,
       i_debtAsset,
       i_collateralAsset,
-      msg.sender
+      msg.sender,
+      totalDebtAmt
     );
 
     emit Loan__ClosedLoan(lsa, finalAmountRepaid, amountWithdrawn);
