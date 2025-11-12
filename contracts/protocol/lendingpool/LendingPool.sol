@@ -736,24 +736,19 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
    * @param user Address of the user
    * @return type of liquidation.
    */
-  function checkTypeOfLiquidation(address user) public view returns (uint256) {
-    (, , , , uint256 hf) = GenericLogic.calculateUserAccountData(
-      user,
-      _reserves,
-      _usersConfig[user],
-      _reservesList,
-      _reservesCount,
-      _addressesProvider.getPriceOracle()
+  function checkTypeOfLiquidation(address user) external returns (uint256) {
+    address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
+
+    //solium-disable-next-line
+    (bool success, bytes memory result) = collateralManager.delegatecall(
+      abi.encodeWithSignature('checkTypeOfLiquidation(address)', user)
     );
-    return
-      LoanLiquidationLogic.checkTypeOfLiquidation(
-        user,
-        _reserves,
-        hf,
-        _reservesList,
-        _addressesProvider.getPriceOracle(),
-        _addressesProvider.getBitmorLoan()
-      );
+
+    require(success, Errors.LP_CHECK_TYPE_OF_LIQUIDATION_FAILED);
+
+    uint256 typeOfLiquidation = abi.decode(result, (uint256));
+
+    return typeOfLiquidation;
   }
 
   /**
