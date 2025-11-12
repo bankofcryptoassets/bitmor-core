@@ -1,25 +1,60 @@
-// // SPDX-License-Identifier: SEE LICENSE IN LICENSE
-// pragma solidity 0.8.30;
+// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+pragma solidity 0.8.30;
 
-// import {Script} from 'forge-std/Script.sol';
-// import {HelperConfig} from '../HelperConfig.s.sol';
-// import {Loan} from '@bitmor/loan/Loan.sol';
+import {Script} from 'forge-std/Script.sol';
+import {HelperConfig} from '../HelperConfig.s.sol';
+import {Loan} from '@bitmor/loan/Loan.sol';
 
-// contract DeployLoan is Script {
-//   function deployLoanUsingConfig() public {
-//     vm.startBroadcast();
-//     Loan loan = new Loan();
-//     vm.stopBroadcast();
-//   }
+contract DeployLoan is Script {
+  function _deployLoanUsingConfig(
+    address bitmorPool,
+    address aaveV3Pool,
+    address oracle,
+    address collateralAsset,
+    address debtAsset,
+    address swapAdapter,
+    address zQuoter,
+    uint256 maxLoanAmount
+  ) internal {
+    vm.startBroadcast();
+    new Loan(
+      bitmorPool,
+      aaveV3Pool,
+      oracle,
+      collateralAsset,
+      debtAsset,
+      swapAdapter,
+      zQuoter,
+      maxLoanAmount
+    );
+    vm.stopBroadcast();
+  }
 
-//   function deployLoan() public {
-//     HelperConfig config = new HelperConfig();
-//     HelperConfig.NetworkConfig networkConfig = config.networkConfig();
+  function _deployLoan() internal {
+    HelperConfig config = new HelperConfig();
+    (
+      address bitmorPool,
+      address aaveV3Pool,
+      address oracle,
+      address collateralAsset,
+      address debtAsset,
+      address swapAdapter,
+      address zQuoter,
+      uint256 maxLoanAmount
+    ) = config.networkConfig();
+    _deployLoanUsingConfig(
+      bitmorPool,
+      aaveV3Pool,
+      oracle,
+      collateralAsset,
+      debtAsset,
+      swapAdapter,
+      zQuoter,
+      maxLoanAmount
+    );
+  }
 
-//     deployLoanUsingConfig();
-//   }
-
-//   function run() public {
-//     deployLoan();
-//   }
-// }
+  function run() public {
+    _deployLoan();
+  }
+}
