@@ -15,7 +15,7 @@ contract LoanStorage {
   address public immutable i_AAVE_V3_POOL;
 
   /// @notice Bitmor Lending Pool address for collateral deposits and debt borrowing
-  address public immutable i_AAVE_V2_POOL;
+  address public immutable i_BITMOR_POOL;
 
   /// @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
   address public immutable i_ORACLE;
@@ -98,7 +98,7 @@ contract LoanStorage {
     require(_debtAsset != address(0), 'LoanStorage: Invalid debt asset');
 
     i_AAVE_V3_POOL = _aaveV3Pool;
-    i_AAVE_V2_POOL = _bitmorPool;
+    i_BITMOR_POOL = _bitmorPool;
     i_ORACLE = _oracle;
     i_collateralAsset = _collateralAsset;
     i_debtAsset = _debtAsset;

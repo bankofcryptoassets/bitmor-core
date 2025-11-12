@@ -86,7 +86,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       uint256 monthlyPayment;
       uint256 interestRate;
       (loanAmount, monthlyPayment, interestRate) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
-        i_AAVE_V2_POOL,
+        i_BITMOR_POOL,
         i_ORACLE,
         i_collateralAsset,
         i_debtAsset,
@@ -205,20 +205,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
     LSALogic.approveCreditDelegation(
       lsa,
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       i_debtAsset,
       borrowAmount,
       address(this) // Protocol is the delegatee
     );
 
-    AaveV2InteractionLogic.depositCollateral(
-      i_AAVE_V2_POOL,
-      i_collateralAsset,
-      amountReceived,
-      lsa
-    );
+    AaveV2InteractionLogic.depositCollateral(i_BITMOR_POOL, i_collateralAsset, amountReceived, lsa);
 
-    AaveV2InteractionLogic.borrowDebt(i_AAVE_V2_POOL, i_debtAsset, borrowAmount, lsa);
+    AaveV2InteractionLogic.borrowDebt(i_BITMOR_POOL, i_debtAsset, borrowAmount, lsa);
 
     IERC20(i_debtAsset).forceApprove(i_AAVE_V3_POOL, borrowAmount);
 
@@ -312,13 +307,12 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
 
     // Approve Aave V2 pool (the spender) to pull from THIS contract
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, 0);
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V2_POOL, maxRepayableAmt);
+    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
     (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
       loan,
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       i_debtAsset,
       lsa,
       maxRepayableAmt
@@ -346,13 +340,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
     require(amount > 0, 'Loan: invalid withdrawal amount');
 
-    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_AAVE_V2_POOL, lsa);
+    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_BITMOR_POOL, lsa);
     require(amount >= totalDebtAmt, 'Loan: insufficient amount supplied');
 
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
 
+    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, totalDebtAmt);
     (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
-      i_AAVE_V2_POOL,
+      i_BITMOR_POOL,
       lsa,
       i_debtAsset,
       i_collateralAsset,
