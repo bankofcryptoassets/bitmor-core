@@ -93,7 +93,7 @@ library AaveV2InteractionLogic {
     address recipient,
     uint256 repaymentAmount
   ) internal returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
-    finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, MAX_U256, RATE_MODE, lsa);
+    finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, repaymentAmount, RATE_MODE, lsa);
 
     // LSA calls bitmorPool.withdraw(cbBTC, amount, recipient)
     // This will:
@@ -113,6 +113,8 @@ library AaveV2InteractionLogic {
     amountWithdrawn = abi.decode(result, (uint256));
 
     require(amountWithdrawn > 0, 'WithdrawalLogic: withdrawal failed');
+
+    // TODO!: Implement Loan State Change
 
     return (finalAmountRepaid, amountWithdrawn);
   }
