@@ -90,7 +90,8 @@ library AaveV2InteractionLogic {
     address lsa,
     address debtAsset,
     address cbBTC,
-    address recipient
+    address recipient,
+    uint256 repaymentAmount
   ) internal returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
     finalAmountRepaid = ILendingPool(aaveV2Pool).repay(debtAsset, MAX_U256, RATE_MODE, lsa);
 

@@ -25,48 +25,54 @@ async function main() {
   const LOAN_ADDRESS = bitmorContracts.Loan.sepolia.address;
   const USDC_ADDRESS = usdcDeployment.address;
 
-  // Test parameters
-  const DEPOSIT_AMOUNT = ethers.utils.parseUnits("40000", 6); // 40,000 USDC (user's deposit)
-  const COLLATERAL_AMOUNT = ethers.utils.parseUnits("1", 8); // 1 cbBTC (target collateral goal)
-  const DURATION = 12; // 12 months
+  const DEPOSIT_AMOUNT = ethers.utils.parseUnits("40000", 6);
+  const PREMIUM_AMOUNT = ethers.utils.parseUnits("1000", 6);
+  const COLLATERAL_AMOUNT = ethers.utils.parseUnits("1", 8);
+  const DURATION = 12;
   const INSURANCE_ID = 1;
-
+  const PREMIUM_COLLECTOR = "0x64e4e1d6ea4d7d4be5022510408bec5b24765176";
 
   console.log("Test Parameters:");
   console.log("  Loan Contract:", LOAN_ADDRESS);
   console.log("  USDC Address:", USDC_ADDRESS);
   console.log("  Deposit Amount:", ethers.utils.formatUnits(DEPOSIT_AMOUNT, 6), "USDC");
+  console.log("  Premium Amount:", ethers.utils.formatUnits(PREMIUM_AMOUNT, 6), "USDC");
   console.log("  Collateral Amount:", ethers.utils.formatUnits(COLLATERAL_AMOUNT, 8), "cbBTC");
   console.log("  Duration:", DURATION, "months");
   console.log("  Insurance ID:", INSURANCE_ID);
+  console.log("  Premium Collector:", PREMIUM_COLLECTOR);
   console.log();
 
-  // Get contract instances
   const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS);
   const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS);
 
-  // Check USDC balance
+  console.log("Setting premium collector...");
+  const setPremiumTx = await loan.setPremiumCollector(PREMIUM_COLLECTOR);
+  await setPremiumTx.wait();
+  console.log("Premium collector set");
+  console.log();
+
   const usdcBalance = await usdc.balanceOf(deployer.address);
   console.log("Your USDC balance:", ethers.utils.formatUnits(usdcBalance, 6), "USDC");
 
-  if (usdcBalance.lt(DEPOSIT_AMOUNT)) {
-    console.log("\nInsufficient USDC balance. You need at least", ethers.utils.formatUnits(DEPOSIT_AMOUNT, 6), "USDC");
+  const totalAmount = DEPOSIT_AMOUNT.add(PREMIUM_AMOUNT);
+  if (usdcBalance.lt(totalAmount)) {
+    console.log("\nInsufficient USDC balance. You need at least", ethers.utils.formatUnits(totalAmount, 6), "USDC");
     return;
   }
   console.log();
 
-  // Approve USDC
   console.log("Approving USDC...");
-  const approveTx = await usdc.approve(LOAN_ADDRESS, DEPOSIT_AMOUNT);
+  const approveTx = await usdc.approve(LOAN_ADDRESS, totalAmount);
   await approveTx.wait();
   console.log("USDC approved");
   console.log();
 
-  // Initialize loan
   console.log("Calling initializeLoan()...");
   try {
     const tx = await loan.initializeLoan(
       DEPOSIT_AMOUNT,
+      PREMIUM_AMOUNT,
       COLLATERAL_AMOUNT,
       DURATION,
       INSURANCE_ID,
