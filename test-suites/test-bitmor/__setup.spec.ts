@@ -50,10 +50,18 @@ import {
 import { WETH9Mocked } from '../../types/WETH9Mocked';
 
 const MOCK_USD_PRICE_IN_WEI = BitmorConfig.ProtocolGlobalParams.MockUsdPriceInWei;
-const ALL_ASSETS_INITIAL_PRICES = BitmorConfig.Mocks.AllAssetsInitialPrices;
-const USD_ADDRESS = BitmorConfig.ProtocolGlobalParams.UsdAddress;
-const MOCK_CHAINLINK_AGGREGATORS_PRICES = BitmorConfig.Mocks.AllAssetsInitialPrices;
 const LENDING_RATE_ORACLE_RATES_COMMON = BitmorConfig.LendingRateOracleRatesCommon;
+
+// USD prices for Bitmor (8 decimals - Chainlink standard)
+const USD_PRICES_8_DECIMALS = {
+  USDC: '100000000',         // $1.00
+  cbBTC: '10000000000000',   // $100,000.00
+};
+
+// Global variable to store aggregator addresses for test access
+declare global {
+  var mockAggregators: { [key: string]: string };
+}
 
 // Deploy only the tokens needed for Bitmor: USDC, cbBTC, WETH
 const deployBitmorMockTokens = async (deployer: Signer) => {
@@ -135,20 +143,20 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const fallbackOracle = await deployPriceOracle();
   await waitForTx(await fallbackOracle.setEthUsdPrice(MOCK_USD_PRICE_IN_WEI));
 
-  // Set initial prices for Bitmor tokens
+  // Set initial USD prices for Bitmor reserves (8 decimals)
   await setInitialAssetPricesInOracle(
-    ALL_ASSETS_INITIAL_PRICES,
+    USD_PRICES_8_DECIMALS,
     {
-      WETH: mockTokens.WETH.address,
       USDC: mockTokens.USDC.address,
       cbBTC: mockTokens.cbBTC.address,
-      USD: USD_ADDRESS,
     },
     fallbackOracle
   );
 
-  // Deploy Chainlink mock aggregators
-  const mockAggregators = await deployAllMockAggregators(MOCK_CHAINLINK_AGGREGATORS_PRICES);
+  // Deploy Chainlink mock aggregators with USD prices (8 decimals)
+  const mockAggregators = await deployAllMockAggregators(USD_PRICES_8_DECIMALS);
+
+  global.mockAggregators = mockAggregators;
 
   const allTokenAddresses = Object.entries(mockTokens).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, tokenContract]) => ({

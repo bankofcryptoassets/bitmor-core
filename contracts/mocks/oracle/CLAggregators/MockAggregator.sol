@@ -15,6 +15,15 @@ contract MockAggregator {
     return _latestAnswer;
   }
 
+  function decimals() external pure returns (uint8) {
+    return 8; // USD price feeds use 8 decimals
+  }
+
+  function updateAnswer(int256 _answer) external {
+    _latestAnswer = _answer;
+    emit AnswerUpdated(_answer, 0, block.timestamp);
+  }
+
   function getTokenType() external view returns (uint256) {
     return 1;
   }

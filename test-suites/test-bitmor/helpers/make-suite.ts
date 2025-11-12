@@ -52,6 +52,9 @@ export interface TestEnv {
   aCbBTC: AToken;
   addressesProvider: LendingPoolAddressesProvider;
   registry: LendingPoolAddressesProviderRegistry;
+  // Mock aggregators for price manipulation
+  usdcAggregator?: any;
+  cbBTCAggregator?: any;
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -130,6 +133,14 @@ export async function initializeMakeSuite() {
 
   testEnv.usdc = await getMintableERC20(usdcAddress);
   testEnv.cbBTC = await getMintableERC20(cbBTCAddress);
+  
+  // Attach mock aggregators
+  if ((global as any).mockAggregators) {
+    const { MockAggregatorFactory } = await import('../../../types/MockAggregatorFactory');
+    const [signer] = await getEthersSigners();
+    testEnv.usdcAggregator = MockAggregatorFactory.connect((global as any).mockAggregators.USDC, signer);
+    testEnv.cbBTCAggregator = MockAggregatorFactory.connect((global as any).mockAggregators.cbBTC, signer);
+  }
 }
 
 const setSnapshot = async () => {
