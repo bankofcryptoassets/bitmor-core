@@ -22,8 +22,8 @@ contract HelperConfig is Script {
   NetworkConfig public networkConfig;
 
   uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
-  uint256 constant DECIMAL_USDC = 1e6;
-  uint256 constant DECIMAL_CBBTC = 1e8;
+  uint256 public constant DECIMAL_USDC = 1e6;
+  uint256 public constant DECIMAL_CBBTC = 1e8;
   uint256 constant DEPOSIT_AMT = 30_000 * DECIMAL_USDC;
   uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
   uint256 constant COLLATERL_AMT = 1 * DECIMAL_CBBTC;
