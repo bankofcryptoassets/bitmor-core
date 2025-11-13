@@ -96,13 +96,15 @@ contract LendingPoolCollateralManager is
 
     LiquidationCallLocalVars memory vars;
 
+    address oracle = _addressesProvider.getPriceOracle();
+
     (, , , , vars.healthFactor) = GenericLogic.calculateUserAccountData(
       user,
       _reserves,
       userConfig,
       _reservesList,
       _reservesCount,
-      _addressesProvider.getPriceOracle()
+      oracle
     );
 
     (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
@@ -111,8 +113,7 @@ contract LendingPoolCollateralManager is
       user,
       _reserves,
       vars.healthFactor,
-      _reservesList,
-      _addressesProvider.getPriceOracle(),
+      oracle,
       _addressesProvider.getBitmorLoan()
     );
 
@@ -297,7 +298,6 @@ contract LendingPoolCollateralManager is
       user,
       _reserves,
       vars.healthFactor,
-      _reservesList,
       _addressesProvider.getPriceOracle(),
       _addressesProvider.getBitmorLoan()
     );
@@ -449,6 +449,33 @@ contract LendingPoolCollateralManager is
     );
 
     return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
+  }
+
+  /**
+   * Returns the type of Liquidation
+   * 0 => No Liquidation
+   * 1 => Full Liquidation
+   * 2 => MicroLiquidation
+   * @param user Address of the borrower
+   */
+  function checkTypeOfLiquidation(address user) external override returns (uint256) {
+    address oracle = _addressesProvider.getPriceOracle();
+    (, , , , uint256 hf) = GenericLogic.calculateUserAccountData(
+      user,
+      _reserves,
+      _usersConfig[user],
+      _reservesList,
+      _reservesCount,
+      oracle
+    );
+    return
+      LoanLiquidationLogic.checkTypeOfLiquidation(
+        user,
+        _reserves,
+        hf,
+        oracle,
+        _addressesProvider.getBitmorLoan()
+      );
   }
 
   struct AvailableCollateralToLiquidateLocalVars {

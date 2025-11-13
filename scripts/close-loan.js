@@ -76,11 +76,11 @@ async function main() {
     const accountData = await aaveV2Pool.getUserAccountData(lsaAddress);
     const currentTotalDebt = accountData[1];
 
-    console.log("Current Total Debt (from Aave):", ethers.utils.formatUnits(currentTotalDebt, 6), "USDC");
+    console.log("Current Total Debt (from Aave):", ethers.utils.formatUnits(currentTotalDebt, 8), "USD");
     console.log();
 
     console.log("Close Loan Configuration:");
-    console.log("  Amount to Provide:", ethers.utils.formatUnits(currentTotalDebt, 6));
+    console.log("  Amount to Provide:", ethers.utils.formatUnits(currentTotalDebt, 8), "USD");
     console.log("  Expected Collateral Return:", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
     console.log();
 
@@ -114,11 +114,11 @@ async function main() {
 
         const loanClosedEvent = receipt.events?.find(e => e.event === "Loan__ClosedLoan");
         if (loanClosedEvent) {
-            const { lsa, debtAmount, amountWithdrawn } = loanClosedEvent.args;
+            const { lsa, debtAmount, cbBTCAmount } = loanClosedEvent.args;
             console.log("Loan Closed Successfully!");
             console.log("  LSA:", lsa);
             console.log("  Debt Repaid:", ethers.utils.formatUnits(debtAmount, 6), "USDC");
-            console.log("  Collateral Withdrawn:", ethers.utils.formatUnits(amountWithdrawn, 8), "cbBTC");
+            console.log("  Collateral Withdrawn:", ethers.utils.formatUnits(cbBTCAmount, 8), "cbBTC");
         } else {
             console.log("Loan closed successfully!");
             console.log("Note: Event details not captured");
