@@ -56,25 +56,26 @@ library LoanLiquidationLogic {
   ) internal view returns (uint256) {
     DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
-    // TODO: Implement this function in the Loan Provider
-    // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
-    uint256 bufferBPS = 50;
+    if (loanData.status != DataTypes.LoanStatus.Active) {
+      return 0;
+    }
 
     // If user is uninsured AND HF < threshold → full liquidation
-    if (!(loanData.insuranceID > 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
+    if ((loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
       return 1;
     }
 
     // If the EMI is not overdue → no liquidation
-    if (
-      (loanData.nextDueTimestamp >= block.timestamp) &&
-      (loanData.status != DataTypes.LoanStatus.Active)
-    ) {
+    if (loanData.nextDueTimestamp >= block.timestamp) {
       return 0;
     }
 
     // Working variables packed in a memory struct to avoid "stack too deep"
     LiquidationVars memory v;
+
+    // TODO!: Implement this function in the Loan Provider
+    // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
+    uint256 bufferBPS = 50;
 
     v.collateralAsset = ILoan(bitmorLoan).getCollateralAsset();
     v.debtAsset = ILoan(bitmorLoan).getDebtAsset();
