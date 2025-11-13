@@ -41,7 +41,7 @@ async function main() {
   console.log("  Deposit Amount:", DEPOSIT_AMOUNT, "USDC");
   console.log();
 
-  const usdc = await hre.ethers.getContractAt("MintableERC20", USDC_ADDRESS);
+  const usdc = await hre.ethers.getContractAt("contracts/mocks/tokens/MintableERC20.sol:MintableERC20", USDC_ADDRESS);
   const lendingPool = await hre.ethers.getContractAt("contracts/interfaces/ILendingPool.sol:ILendingPool", LENDING_POOL);
   const dataProvider = await hre.ethers.getContractAt("AaveProtocolDataProvider", DATA_PROVIDER);
 
@@ -82,7 +82,7 @@ async function main() {
   const aTokenAddress = reserveTokens.aTokenAddress;
   console.log("  aUSDC Address:", aTokenAddress);
 
-  const aToken = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", aTokenAddress);
+  const aToken = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", aTokenAddress);
   const aTokenBalanceBefore = await aToken.balanceOf(deployer.address);
   console.log("  aUSDC Balance (before):", ethers.utils.formatUnits(aTokenBalanceBefore, 6));
 
@@ -93,7 +93,7 @@ async function main() {
     amountToDeposit,
     deployer.address,
     0 // referralCode
-  );
+  ,{gasLimit: 5000000});
   const receipt = await depositTx.wait();
   console.log("  Deposit successful!");
   console.log("  Transaction hash:", receipt.transactionHash);

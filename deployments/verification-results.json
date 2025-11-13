@@ -1,21 +1,21 @@
 {
-  "timestamp": "2025-11-12T19:54:31.619Z",
+  "timestamp": "2025-11-13T09:34:19.372Z",
   "network": "Base Sepolia",
   "results": [
     {
       "contract": "LoanVaultImplementation",
       "status": "success",
-      "address": "0x332ABB5eB28861D7C9153e5F891869112D4C8435"
+      "address": "0x4388D64f146Af1C58fd1463A0465344D1B9ee3d3"
     },
     {
       "contract": "Loan",
       "status": "success",
-      "address": "0xb92A5be90990e6D2095bF7e19bC7b12b769BacEc"
+      "address": "0x155b116E9Dd6C8a3c85cD612C65143A99BE6B56f"
     },
     {
       "contract": "LoanVaultFactory",
       "status": "success",
-      "address": "0x4aac21164fd5523119a587ef4975346D207ED675"
+      "address": "0x4F9781665066eEF4A02b8EC9d55E0D429e58c8fB"
     },
     {
       "contract": "UniswapV4SwapAdapterWrapper",
@@ -24,63 +24,55 @@
     },
     {
       "contract": "LendingPoolAddressesProvider",
-      "status": "failed",
-      "address": "0x01686a16BEf8D055a5a1e86cF11972Fea0e96D64",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xB4DF23Bb81A58697bf224479A020d7Dd9181dB83"
     },
     {
       "contract": "ReserveLogic",
-      "status": "failed",
-      "address": "0x351e8797453b3503B29Fc65fA176a8f45634bfdb",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xE515db4236c19729dcfC6A7bB33CcDa6F74904bD"
     },
     {
       "contract": "GenericLogic",
-      "status": "failed",
-      "address": "0x52b4165d08d5931eA0A25D41e7B80fAe547a0f89",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x3346864C92C63bA221733A7F9E73316d3575CB1e"
     },
     {
       "contract": "ValidationLogic",
       "status": "failed",
-      "address": "0x060a1c1d8F773BadA53B44F4D35B6C448eB9d23B",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "address": "0x387F8C67096c64E9B27de63075b46CBf36Ad0bd2",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     },
     {
       "contract": "LendingPoolImpl",
       "status": "failed",
-      "address": "0x0d370e7B54B3DD9Aa3F6dB73B9f9d5F82cB9694C",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "address": "0xe5B8f946D8167FED6cEE9C8f43694bD1Abd275Ec",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     },
     {
       "contract": "LendingPoolConfiguratorImpl",
-      "status": "failed",
-      "address": "0x30A9f79068940045F62c6E64A466A5b3Be8Df18b",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x4ff2ac8CEB25cE2eE10E5701859C0134516db56c"
     },
     {
       "contract": "LendingPoolAddressesProviderRegistry",
-      "status": "failed",
-      "address": "0xaaac799D223c5b13ebCD495ac7EB3aEBF8B779a0",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xC9a037E89Ba4a6B9b5F18e5acA34a87426029980"
     },
     {
       "contract": "StableAndVariableTokensHelper",
-      "status": "failed",
-      "address": "0x9480312d9E8F3FF2D501E8AAd3a531Ca4A1C8260",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xEC8Cdd8f48C23528E5f9C36AB4293AC2d3241d63"
     },
     {
       "contract": "ATokensAndRatesHelper",
-      "status": "failed",
-      "address": "0x5745eD365Ec13455Ea4B68B60A0CFD8dfE681b06",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x65552b3b3B139c2351010286c12ff00cd87B9F8D"
     },
     {
       "contract": "AToken",
-      "status": "failed",
-      "address": "0x1d218958912041f8A7baD362C8bfb2a9D48365eE",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xe247A96bA2d111F6F541A68eaEd1E52389343AcC"
     },
     {
       "contract": "DelegationAwareAToken",
@@ -89,79 +81,70 @@
     },
     {
       "contract": "StableDebtToken",
-      "status": "failed",
-      "address": "0x49EceCcFc81E991FdE3BdB079EEa92142A47ea15",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x5e410B3F5cd56d0b98eeBC39d148ad824F0e7Ce7"
     },
     {
       "contract": "VariableDebtToken",
-      "status": "failed",
-      "address": "0x38e54F544C0dD51E4e59466BB359c729C0CaDA65",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x016fA08d22660257CA775613d974020DFcEaa6e2"
     },
     {
       "contract": "WETHMocked",
-      "status": "failed",
-      "address": "0xc060219d7c8a6998e9cc09623fe872AeE1C71368",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x03697f2e44e13F9E4cF26F618Ca770cA666Aeeb3"
     },
     {
       "contract": "AaveOracle",
-      "status": "failed",
-      "address": "0x112fA4047b95589DB5b4AF60f3458D4e76058252",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x29354b3ECf11e4c6e2292EBBF9aAbA63BB79cB08"
     },
     {
       "contract": "LendingRateOracle",
-      "status": "failed",
-      "address": "0x31A5e0b18d461D056b642AdacB9869f33Ff09110",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x58B7C5cc9fdee45FDff3A88C0A4bF8EcF465b3DA"
     },
     {
       "contract": "WETHGateway",
-      "status": "failed",
-      "address": "0x82a5cBFCf4FC9894EB7BF1B6bFA6d2d3aD05B781",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x002C0aA3BE3431343e8cC2A1f8D80b765FF248CF"
     },
     {
       "contract": "AaveProtocolDataProvider",
-      "status": "failed",
-      "address": "0x0cc4Ea9a2C398039653d6682c329cD5e056C8C48",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0xeF1b1c53A4Cefb00E6B5A7d994d5F198949A901f"
     },
     {
       "contract": "DefaultReserveInterestRateStrategy (USDC)",
       "status": "success",
-      "address": "0x289A9Ee793aB6d762316E99976dE4D15029DfAea"
+      "address": "0x490900c10aa9F7eF5e12C7C237378CE8b47F4837"
     },
     {
       "contract": "DefaultReserveInterestRateStrategy (cbBTC)",
       "status": "success",
-      "address": "0xeB9b7D6098C433b7b4DB2aba922b5B3c80c714CE"
+      "address": "0x0d69521e95c5E41D4464455bAA7e03Da3ae0F398"
     },
     {
       "contract": "LendingPoolCollateralManagerImpl",
-      "status": "failed",
-      "address": "0xacC6470346A94B4474897bB95450A784D0D80Aed",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x3B066a1579A32CDCe17d037aCE14355BC4677E43"
     },
     {
       "contract": "WalletBalanceProvider",
-      "status": "failed",
-      "address": "0xa79443E477D7Ba5A31b09A76054861F969B25994",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "status": "success",
+      "address": "0x755786e97baa90f49C857B623E42f3197e72dD68"
     },
     {
       "contract": "UiPoolDataProvider",
       "status": "failed",
-      "address": "0xA01aE55194634f425d0d5C03E925aAd960B659ee",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "address": "0x5765373368A8CD4D03c0b174e19Ab4FB9146Aba3",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     },
     {
       "contract": "UiIncentiveDataProviderV2V3",
       "status": "failed",
-      "address": "0x929766A46168830296E34d519b1D2bf3c5Eb120D",
-      "error": "ENOENT: no such file or directory, open '/home/abhishek/bitmor/protocol-v2/artifacts/build-info/6f988eed1970ba7bf8eebd23814ddbd7.json'"
+      "address": "0xaA66586C7BC70c9EF0DbEfA8A9393E17ac558276",
+      "error": "The Etherscan API responded with a failure status.\nThe verification may still succeed but should be checked manually.\nReason: Fail - Unable to verify. Compiled contract deployment bytecode does NOT match the transaction deployment bytecode."
     }
   ]
 }
