@@ -463,7 +463,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     emit Loan__LoanDataUpdated(_lsa, _data);
   }
 
-  function getLoanValues(
+  function getLoanDetails(
     uint256 collateralAmount,
     uint256 duration
   ) external view returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired) {
