@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
-import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {DataTypes} from '../../libraries/types/DataTypes.sol';
 import {LoanMath} from './LoanMath.sol';
@@ -26,7 +25,7 @@ library LoanLogic {
    * @param duration Loan duration in months
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)
-   * @return interestRate Current Aave V2 variable borrow rate (27 decimals - ray)
+   * @return minDepositRequired Minimum deposit requried amount
    */
   function calculateLoanAmountAndMonthlyPayment(
     address bitmorPool,
@@ -37,7 +36,11 @@ library LoanLogic {
     uint256 maxLoanAmount,
     uint256 collateralAmount,
     uint256 duration
-  ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 interestRate) {
+  )
+    internal
+    view
+    returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+  {
     // Get oracle prices
     IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
@@ -45,10 +48,11 @@ library LoanLogic {
 
     // Fetch current variable borrow rate from Aave V2 USDC reserve
     DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-    interestRate = reserveData.currentVariableBorrowRate;
+
+    uint256 interestRate = reserveData.currentVariableBorrowRate;
 
     // Calculate loan amount and monthly payment using fetched rate
-    (exactLoanAmt, monthlyPayAmt) = LoanMath.calculateLoanAmt(
+    (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
       depositAmount,
       collateralAmount,
       collateralPriceUSD,
@@ -57,7 +61,38 @@ library LoanLogic {
       interestRate,
       duration
     );
+  }
 
-    return (exactLoanAmt, monthlyPayAmt, interestRate);
+  function calculateLoanDetails(
+    address bitmorPool,
+    address _oracle,
+    address collateralAsset,
+    address debtAsset,
+    uint256 maxLoanAmount,
+    uint256 collateralAmount,
+    uint256 duration
+  )
+    internal
+    view
+    returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+  {
+    // Get oracle prices
+    IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
+    uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
+    uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+
+    // Fetch current variable borrow rate from Aave V2 USDC reserve
+    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+    uint256 interestRate = reserveData.currentVariableBorrowRate;
+
+    // Calculate loan amount and monthly payment using fetched rate
+    (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
+      collateralAmount,
+      collateralPriceUSD,
+      debtPriceUSD,
+      maxLoanAmount,
+      interestRate,
+      duration
+    );
   }
 }

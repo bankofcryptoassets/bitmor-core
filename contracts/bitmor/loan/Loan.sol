@@ -6,7 +6,7 @@ import {SafeERC20} from '../dependencies/openzeppelin/SafeERC20.sol';
 import {Ownable} from '../dependencies/openzeppelin/Ownable.sol';
 import {ReentrancyGuard} from '../dependencies/openzeppelin/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
-import {LoanLogic} from '../libraries/logic/LoanLogic.sol';
+import {LoanLogic, LoanMath} from '../libraries/logic/LoanLogic.sol';
 import {ILendingPool} from '../interfaces/ILendingPool.sol';
 import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
 import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
@@ -58,6 +58,21 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     s_maxLoanAmount = _maxLoanAmount;
   }
 
+  modifier checkZeroAmount(uint256 amt) {
+    _checkZeroAmount(amt);
+    _;
+  }
+
+  modifier checkZeroAddress(address _add) {
+    _checkZeroAddress(_add);
+    _;
+  }
+
+  modifier checkIfLoanExists(address _lsa) {
+    _checkIfLoanExists(_lsa);
+    _;
+  }
+
   // ============ Main Loan Creation ============
 
   /// @inheritdoc ILoan
@@ -84,8 +99,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     // Calculate loan details and store data
     {
       uint256 monthlyPayment;
-      uint256 interestRate;
-      (loanAmount, monthlyPayment, interestRate) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
+
+      (loanAmount, monthlyPayment, ) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
         i_BITMOR_POOL,
         i_ORACLE,
         i_collateralAsset,
@@ -121,9 +136,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       uint256 loanIndex = s_userLoanCount[msg.sender];
       s_userLoanAtIndex[msg.sender][loanIndex] = lsa;
       s_userLoanCount[msg.sender] = loanIndex + 1;
-
-      // Emit loan creation event
-      emit Loan__LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
     }
 
     // Flash loan execution flow
@@ -150,6 +162,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       );
     }
 
+    // Emit loan creation event
+    emit Loan__LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
     return lsa;
   }
 
@@ -163,8 +177,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
-    require(msg.sender == i_AAVE_V3_POOL, 'Loan: caller not Aave pool');
-    require(initiator == address(this), 'Loan: invalid initiator');
+    if (msg.sender != i_AAVE_V3_POOL) revert Loan__CallerIsNotAAVEPool();
+
+    if (initiator != address(this)) revert Loan__WrongFlashLoanInitiator();
 
     // Flash loan execution logic will be implemented here
     // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
@@ -199,7 +214,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       minimumAcceptable
     );
 
-    require(amountReceived >= minimumAcceptable, 'Loan: insufficient cbBTC received');
+    if (amountReceived < minimumAcceptable) revert Loan__InsufficientCBBTCReceived();
 
     uint256 borrowAmount = flashLoanAmount + flashLoanPremium;
 
@@ -223,13 +238,23 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   // ============ View Functions ============
 
   /// @inheritdoc ILoan
-  function getLoanByLSA(address lsa) external view override returns (DataTypes.LoanData memory) {
-    require(s_loansByLSA[lsa].borrower != address(0), 'Loan: loan does not exist');
+  function getLoanByLSA(
+    address lsa
+  )
+    external
+    view
+    override
+    checkZeroAddress(lsa)
+    checkIfLoanExists(lsa)
+    returns (DataTypes.LoanData memory)
+  {
     return s_loansByLSA[lsa];
   }
 
   /// @inheritdoc ILoan
-  function getUserLoanCount(address user) external view override returns (uint256) {
+  function getUserLoanCount(
+    address user
+  ) external view override checkZeroAddress(user) returns (uint256) {
     return s_userLoanCount[user];
   }
 
@@ -237,15 +262,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function getUserLoanAtIndex(
     address user,
     uint256 index
-  ) external view override returns (address) {
-    require(index < s_userLoanCount[user], 'Loan: index out of bounds');
+  ) external view override checkZeroAddress(user) returns (address) {
+    if (index >= s_userLoanCount[user]) revert Loan__IndexOutOfBound();
     return s_userLoanAtIndex[user][index];
   }
 
   /// @inheritdoc ILoan
   function getUserAllLoans(
     address user
-  ) external view override returns (DataTypes.LoanData[] memory) {
+  ) external view override checkZeroAddress(user) returns (DataTypes.LoanData[] memory) {
     uint256 count = s_userLoanCount[user];
     DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
@@ -271,14 +296,18 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function calculateStrikePrice(
     uint256 loanAmount,
     uint256 deposit
-  ) external view override returns (uint256 strikePrice) {
-    require(loanAmount > 0, 'Loan: invalid loan amount');
-    require(deposit > 0, 'Loan: invalid deposit');
-
+  )
+    external
+    view
+    override
+    checkZeroAmount(loanAmount)
+    checkZeroAmount(deposit)
+    returns (uint256 strikePrice)
+  {
     IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
 
     uint256 btcPriceUSD = oracle.getAssetPrice(i_collateralAsset);
-    require(btcPriceUSD > 0, 'Loan: invalid BTC price');
+    if (btcPriceUSD == 0) revert Loan__InvalidAssetPrice();
 
     uint256 totalAmount = loanAmount + deposit;
 
@@ -291,17 +320,22 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function repay(
     address lsa,
     uint256 amount
-  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
-    require(lsa != address(0), 'Loan: WRONG LSA ADDRESS');
-    require(amount > 0, 'Loan: invalid withdrawal amount');
+  )
+    external
+    override
+    nonReentrant
+    checkZeroAddress(lsa)
+    checkZeroAmount(amount)
+    checkIfLoanExists(lsa)
+    returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp)
+  {
     DataTypes.LoanData storage loan = s_loansByLSA[lsa];
 
-    require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
-    require(loan.borrower != address(0), 'Loan: loan does not exist');
-    require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
+    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
+    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
 
     // Cap the requested amount to outstanding principal so we never custody more than needed
-    uint256 maxRepayableAmt = _min(amount, loan.loanAmount);
+    uint256 maxRepayableAmt = LoanMath.min(amount, loan.loanAmount);
 
     // Pull only what might be needed from the borrower
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
@@ -333,15 +367,25 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function closeLoan(
     address lsa,
     uint256 amount
-  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
+  )
+    external
+    override
+    nonReentrant
+    checkZeroAddress(lsa)
+    checkZeroAmount(amount)
+    checkIfLoanExists(lsa)
+    returns (uint256 finalAmountRepaid, uint256 amountWithdrawn)
+  {
     DataTypes.LoanData storage loan = s_loansByLSA[lsa];
 
-    require(msg.sender == loan.borrower, 'Loan: caller is not borrower');
-    require(loan.status == DataTypes.LoanStatus.Active, 'Loan: loan is not active');
-    require(amount > 0, 'Loan: invalid withdrawal amount');
+    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
+    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
 
     uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_BITMOR_POOL, lsa);
-    require(amount >= totalDebtAmt, 'Loan: insufficient amount supplied');
+
+    if (amount < totalDebtAmt) {
+      revert Loan__InsufficientAmountSuppliedForClosure(totalDebtAmt, amount);
+    }
 
     IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
 
@@ -363,78 +407,100 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   // ============ Admin Functions ============
 
   /// @inheritdoc ILoan
-  function setMaxLoanAmount(uint256 newMaxLoanAmount) external override onlyOwner {
-    require(newMaxLoanAmount > 0, 'Loan: invalid max loan amount');
-    uint256 oldAmount = s_maxLoanAmount;
+  function setMaxLoanAmount(
+    uint256 newMaxLoanAmount
+  ) external override checkZeroAmount(newMaxLoanAmount) onlyOwner {
     s_maxLoanAmount = newMaxLoanAmount;
-    emit Loan__MaxLoanAmountUpdated(oldAmount, newMaxLoanAmount);
+    emit Loan__MaxLoanAmountUpdated(newMaxLoanAmount);
   }
 
   /// @inheritdoc ILoan
-  function setLoanVaultFactory(address newFactory) external override onlyOwner {
-    require(newFactory != address(0), 'Loan: invalid factory');
-    address oldFactory = s_loanVaultFactory;
+  function setLoanVaultFactory(
+    address newFactory
+  ) external override checkZeroAddress(newFactory) onlyOwner {
     s_loanVaultFactory = newFactory;
-    emit Loan__LoanVaultFactoryUpdated(oldFactory, newFactory);
+    emit Loan__LoanVaultFactoryUpdated(newFactory);
   }
 
   /// @inheritdoc ILoan
-  function setEscrow(address newEscrow) external override onlyOwner {
-    require(newEscrow != address(0), 'Loan: invalid escrow');
-    address oldEscrow = s_escrow;
+  function setEscrow(address newEscrow) external override checkZeroAddress(newEscrow) onlyOwner {
     s_escrow = newEscrow;
-    emit Loan__EscrowUpdated(oldEscrow, newEscrow);
+    emit Loan__EscrowUpdated(newEscrow);
   }
 
   /// @inheritdoc ILoan
-  function setSwapAdapter(address newSwapAdapter) external override onlyOwner {
-    require(newSwapAdapter != address(0), 'Loan: invalid swap adapter');
-    address oldSwapAdapter = s_swapAdapter;
+  function setSwapAdapter(
+    address newSwapAdapter
+  ) external override checkZeroAddress(newSwapAdapter) onlyOwner {
     s_swapAdapter = newSwapAdapter;
-    emit Loan__SwapAdapterUpdated(oldSwapAdapter, newSwapAdapter);
+    emit Loan__SwapAdapterUpdated(newSwapAdapter);
   }
 
   /// @inheritdoc ILoan
-  function setZQuoter(address newZQuoter) external override onlyOwner {
-    require(newZQuoter != address(0), 'Loan: invalid zQuoter');
-    address oldZQuoter = s_zQuoter;
+  function setZQuoter(address newZQuoter) external override checkZeroAddress(newZQuoter) onlyOwner {
     s_zQuoter = newZQuoter;
-    emit Loan__ZQuoterUpdated(oldZQuoter, newZQuoter);
+    emit Loan__ZQuoterUpdated(newZQuoter);
   }
 
   /// @inheritdoc ILoan
   function updateLoanStatus(
     address lsa,
     DataTypes.LoanStatus newStatus
-  ) external override onlyOwner {
-    require(s_loansByLSA[lsa].borrower != address(0), 'Loan: loan does not exist');
+  ) external override checkIfLoanExists(lsa) onlyOwner {
     DataTypes.LoanStatus oldStatus = s_loansByLSA[lsa].status;
     s_loansByLSA[lsa].status = newStatus;
     emit Loan__LoanStatusUpdated(lsa, oldStatus, newStatus);
   }
 
   /// @inheritdoc ILoan
-  function updateLoanData(bytes calldata _data, address _lsa) external override onlyOwner {
+  function updateLoanData(
+    bytes calldata _data,
+    address _lsa
+  ) external override checkZeroAddress(_lsa) onlyOwner {
     DataTypes.LoanData memory data = abi.decode(_data, (DataTypes.LoanData));
     s_loansByLSA[_lsa] = data;
 
-    emit Loan__LoanDataUpdated(_lsa, block.timestamp);
+    emit Loan__LoanDataUpdated(_lsa, _data);
+  }
+
+  function getLoanValues(
+    uint256 collateralAmount,
+    uint256 duration
+  ) external view returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired) {
+    (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
+      i_BITMOR_POOL,
+      i_ORACLE,
+      i_collateralAsset,
+      i_debtAsset,
+      s_maxLoanAmount,
+      collateralAmount,
+      duration
+    );
   }
 
   /// @inheritdoc ILoan
-  function setPremiumCollector(address newPremiumCollector) external override onlyOwner {
-    require(newPremiumCollector != address(0), 'Loan: Invalid Address');
+  function setPremiumCollector(
+    address newPremiumCollector
+  ) external override checkZeroAddress(newPremiumCollector) onlyOwner {
     s_premiumCollector = newPremiumCollector;
     emit Loan__PremiumCollectorUpdated(s_premiumCollector);
   }
 
-  /**
-   * @notice Returns the minimum of two uint256 values
-   * @param a The first value
-   * @param b The second value
-   * @return The minimum of the two values
-   */
-  function _min(uint256 a, uint256 b) private pure returns (uint256) {
-    return a < b ? a : b;
+  function _checkZeroAmount(uint256 amt) internal view {
+    if (amt == 0) {
+      revert Loan__ZeroAmount();
+    }
+  }
+
+  function _checkZeroAddress(address _add) internal view {
+    if (_add == address(0)) {
+      revert Loan__ZeroAddress();
+    }
+  }
+
+  function _checkIfLoanExists(address _lsa) internal view {
+    if (s_loansByLSA[_lsa].borrower == address(0)) {
+      revert Loan__LoanDoesNotExist();
+    }
   }
 }

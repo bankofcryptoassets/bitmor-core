@@ -11,6 +11,20 @@ import {DataTypes} from '../libraries/types/DataTypes.sol';
 interface ILoan {
   // ============ Events ============
 
+  error Loan__ZeroAmount();
+  error Loan__CallerIsNotAAVEPool();
+  error Loan__WrongFlashLoanInitiator();
+  error Loan__InsufficientCBBTCReceived();
+  error Loan__ZeroAddress();
+  error Loan__LoanDoesNotExist();
+  error Loan__IndexOutOfBound();
+  error Loan__InvalidAssetPrice();
+  error Loan__CallerIsNotBorrower();
+  error Loan__LoanIsNotActive(DataTypes.LoanStatus status);
+  error Loan__InsufficientAmountSuppliedForClosure(uint256 amountRequired, uint256 amountSupplied);
+
+  // ============ Events ============
+
   event Loan__LoanCreated(
     address indexed borrower,
     address indexed lsa,
@@ -21,11 +35,11 @@ interface ILoan {
 
   event Loan__LoanStatusUpdated(
     address indexed lsa,
-    DataTypes.LoanStatus oldStatus,
-    DataTypes.LoanStatus newStatus
+    DataTypes.LoanStatus indexed oldStatus,
+    DataTypes.LoanStatus indexed newStatus
   );
 
-  event Loan__MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
+  event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
 
   event Loan__ClosedLoan(
     address indexed lsa,
@@ -33,19 +47,23 @@ interface ILoan {
     uint256 indexed cbBTCAmount
   );
 
-  event Loan__LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
+  event Loan__LoanVaultFactoryUpdated(address indexed newFactory);
 
-  event Loan__EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
+  event Loan__EscrowUpdated(address indexed newEscrow);
 
-  event Loan__SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
+  event Loan__SwapAdapterUpdated(address indexed newSwapAdapter);
 
-  event Loan__ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
+  event Loan__ZQuoterUpdated(address indexed newZQuoter);
 
-  event Loan__LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+  event Loan__LoanRepaid(
+    address indexed lsa,
+    uint256 indexed amountRepaid,
+    uint256 indexed nextDueTimestamp
+  );
 
-  event Loan__LoanDataUpdated(address indexed lsa, uint256 timestamp);
+  event Loan__LoanDataUpdated(address indexed lsa, bytes data);
 
-  event Loan__PremiumCollectorUpdated(address newPremiumCollector);
+  event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
 
   // ============ Main Functions ============
 
