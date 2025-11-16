@@ -119,7 +119,7 @@ library BitmorLendingPoolLogic {
   /**
    * @notice Executes loan repayment on Aave V2 and updates loan state
    * @dev Updates loanAmount, lastDueTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
-   * @param loanData Storage reference to the loan being repaid
+   * @param loan Storage reference to the loan being repaid
    * @param bitmorPool Bitmor Lending Pool address
    * @param debtAsset USDC token address (debt asset)
    * @param lsa Loan Specific Address (the borrower address on Aave)
@@ -128,7 +128,7 @@ library BitmorLendingPoolLogic {
    * @return nextDueTimestamp Updated next payment due timestamp (or current if fully repaid)
    */
   function executeLoanRepayment(
-    DataTypes.LoanData storage loanData,
+    DataTypes.LoanData storage loan,
     address bitmorPool,
     address debtAsset,
     address lsa,

@@ -34,7 +34,8 @@ library CloseLogic {
       ctx.debtAsset,
       ctx.collateralAsset,
       msg.sender,
-      totalDebtAmt
+      totalDebtAmt,
+      loan
     );
 
     emit ILoan.Loan__ClosedLoan(params.lsa, finalAmountRepaid, amountWithdrawn);
