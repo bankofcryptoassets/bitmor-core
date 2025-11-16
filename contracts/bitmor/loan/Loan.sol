@@ -276,12 +276,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   }
 
   /// @inheritdoc ILoan
-  function setEscrow(address newEscrow) external override checkZeroAddress(newEscrow) onlyOwner {
-    s_escrow = newEscrow;
-    emit Loan__EscrowUpdated(newEscrow);
-  }
-
-  /// @inheritdoc ILoan
   function setSwapAdapter(
     address newSwapAdapter
   ) external override checkZeroAddress(newSwapAdapter) onlyOwner {

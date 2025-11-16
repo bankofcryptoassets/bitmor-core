@@ -16,4 +16,5 @@ library Errors {
   error CallerIsNotAAVEPool();
   error WrongFLInitiator();
   error LessThanMinimumAmtReceived();
+  error UnauthorizedCaller();
 }

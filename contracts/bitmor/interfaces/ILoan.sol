@@ -188,12 +188,6 @@ interface ILoan {
   function setLoanVaultFactory(address newFactory) external;
 
   /**
-   * @notice Updates the escrow contract address
-   * @param newEscrow New escrow address
-   */
-  function setEscrow(address newEscrow) external;
-
-  /**
    * @notice Updates the swap adapter contract address
    * @param newSwapAdapter New swap adapter address
    */

@@ -31,9 +31,6 @@ contract LoanStorage {
   /// @notice Factory contract for deploying Loan Specific Address (LSAs)
   address public s_loanVaultFactory;
 
-  /// @notice Escrow contract for holding locked collateral
-  address public s_escrow;
-
   /// @notice Swap adapter contract for executing token swaps
   address public s_swapAdapter;
 
