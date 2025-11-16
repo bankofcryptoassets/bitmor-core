@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {AaveV2InteractionLogic} from './AaveV2InteractionLogic.sol';
+import {BitmorLendingPoolLogic} from './BitmorLendingPoolLogic.sol';
 import {ILoan} from '../../interfaces/ILoan.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 import {Errors} from '../helpers/Errors.sol';
@@ -36,7 +36,7 @@ library RepayLogic {
     IERC20(debtAsset).forceApprove(bitmorPool, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-    (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
+    (finalAmountRepaid, nextDueTimestamp) = BitmorLendingPoolLogic.executeLoanRepayment(
       loan,
       bitmorPool,
       debtAsset,

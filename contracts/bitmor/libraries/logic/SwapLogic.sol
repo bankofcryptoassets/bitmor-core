@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {IzQuoter} from '../../interfaces/IzQuoter.sol';
 import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
+import {Errors} from '../helpers/Errors.sol';
 
 /**
  * @title SwapLogic
@@ -11,6 +12,9 @@ import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
  */
 library SwapLogic {
   uint256 constant BASIS_POINTS = 100_00; // 100%
+  bool constant EXACT_OUT = false;
+  bool constant SUSHI = false;
+  bool constant STABLE = false;
 
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
@@ -35,10 +39,10 @@ library SwapLogic {
       tokenOut,
       amountIn,
       minAcceptable,
-      false
+      STABLE
     );
 
-    require(amountOut >= minAcceptable, 'SwapLogic: insufficient output amount');
+    if (minAcceptable > amountOut) revert Errors.LessThanMinimumAmtReceived();
 
     return amountOut;
   }
@@ -51,19 +55,17 @@ library SwapLogic {
     uint256 collateralAmount,
     uint256 maxSlippageBps
   ) internal returns (uint256 minAcceptable) {
-    require(amountIn > 0, 'SwapLogic: invalid amountIn');
-
     if (zQuoter != address(0)) {
       // Base Mainnet: Use zQuoter for Aerodrome price validation
       (, uint256 expectedOut) = IzQuoter(zQuoter).quoteV2(
-        false, // exactOut = false (we have exact input)
+        EXACT_OUT, // exactOut = false (we have exact input)
         tokenIn, // USDC
         tokenOut, // cbBTC
         amountIn, // Amount to swap
-        false // sushi = false (Aerodrome is V2-style, not Sushi)
+        SUSHI // sushi = false (Aerodrome is V2-style, not Sushi)
       );
 
-      require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
+      if (expectedOut == 0) revert Errors.ZeroAmount();
 
       // Calculate protocol's minimum acceptable output with slippage protection
       minAcceptable = (expectedOut * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;

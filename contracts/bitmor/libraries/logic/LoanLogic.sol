@@ -10,7 +10,7 @@ import {ILoanVaultFactory} from '../../interfaces/ILoanVaultFactory.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
-import {AaveV2InteractionLogic} from '../logic/AaveV2InteractionLogic.sol';
+import {BitmorLendingPoolLogic} from '../logic/BitmorLendingPoolLogic.sol';
 
 import {SwapLogic} from '../logic/SwapLogic.sol';
 import {LSALogic} from '../logic/LSALogic.sol';
@@ -163,14 +163,14 @@ library LoanLogic {
       address(this) // Protocol is the delegatee
     );
 
-    AaveV2InteractionLogic.depositCollateral(
+    BitmorLendingPoolLogic.depositCollateral(
       ctx.bitmorPool,
       ctx.collateralAsset,
       amountReceived,
       lsa
     );
 
-    AaveV2InteractionLogic.borrowDebt(ctx.bitmorPool, ctx.debtAsset, borrowAmount, lsa);
+    BitmorLendingPoolLogic.borrowDebt(ctx.bitmorPool, ctx.debtAsset, borrowAmount, lsa);
 
     IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, borrowAmount);
   }

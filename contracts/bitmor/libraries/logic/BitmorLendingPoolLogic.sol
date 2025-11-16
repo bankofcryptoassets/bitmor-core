@@ -9,15 +9,16 @@ import {ILoanVault} from '../../interfaces/ILoanVault.sol';
 import {DataTypes as BitmorDataTypes} from '../types/DataTypes.sol';
 
 /**
- * @title AaveV2InteractionLogic
+ * @title BitmorLendingPoolLogic
  * @notice Handles deposits and borrows on Bitmor Lending Pool
  */
 
-library AaveV2InteractionLogic {
+library BitmorLendingPoolLogic {
   using SafeERC20 for IERC20;
 
   uint256 constant MAX_U256 = type(uint256).max;
   uint256 constant RATE_MODE = 2;
+  unit256 constant REFERRAL = 0;
 
   /**
    * @notice Deposits collateral to Aave V2 on behalf of LSA
@@ -33,13 +34,10 @@ library AaveV2InteractionLogic {
     uint256 amount,
     address onBehalfOf
   ) internal {
-    require(amount > 0, 'AaveV2InteractionLogic: invalid deposit amount');
-    require(onBehalfOf != address(0), 'AaveV2InteractionLogic: invalid onBehalfOf');
-
     // Approve Aave V2 pool to spend asset
     IERC20(asset).forceApprove(bitmorPool, amount);
 
-    ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, 0);
+    ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
   }
 
   /**
@@ -56,11 +54,8 @@ library AaveV2InteractionLogic {
     uint256 amount,
     address onBehalfOf
   ) internal {
-    require(amount > 0, 'AaveV2InteractionLogic: invalid borrow amount');
-    require(onBehalfOf != address(0), 'AaveV2InteractionLogic: invalid onBehalfOf');
-
     // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
-    ILendingPool(bitmorPool).borrow(asset, amount, 2, 0, onBehalfOf);
+    ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
   }
 
   /**
@@ -74,7 +69,6 @@ library AaveV2InteractionLogic {
     DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(asset);
     address aToken = reserveData.aTokenAddress;
 
-    require(aToken != address(0), 'AaveV2InteractionLogic: invalid aToken');
     return aToken;
   }
 
