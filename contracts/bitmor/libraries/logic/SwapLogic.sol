@@ -10,6 +10,8 @@ import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
  * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter)
  */
 library SwapLogic {
+  uint256 constant BASIS_POINTS = 100_00; // 100%
+
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
    * @dev If zQuoter is address(0), skips price validation (testnet mode)
@@ -47,8 +49,7 @@ library SwapLogic {
     address tokenOut,
     uint256 amountIn,
     uint256 collateralAmount,
-    uint256 maxSlippageBps,
-    uint256 basisPoints
+    uint256 maxSlippageBps
   ) internal returns (uint256 minAcceptable) {
     require(amountIn > 0, 'SwapLogic: invalid amountIn');
 
@@ -65,10 +66,10 @@ library SwapLogic {
       require(expectedOut > 0, 'SwapLogic: invalid quote from zQuoter');
 
       // Calculate protocol's minimum acceptable output with slippage protection
-      minAcceptable = (expectedOut * (basisPoints - maxSlippageBps)) / basisPoints;
+      minAcceptable = (expectedOut * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;
     } else {
       // minAcceptable = minAmountOut * (100% - slippage%) = minAmountOut * (10000 - 200) / 10000
-      minAcceptable = (collateralAmount * (basisPoints - maxSlippageBps)) / basisPoints;
+      minAcceptable = (collateralAmount * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;
     }
     return minAcceptable;
   }

@@ -224,4 +224,16 @@ library LoanMath {
   function min(uint256 a, uint256 b) internal pure returns (uint256) {
     return a < b ? a : b;
   }
+
+  function calculateStrikePrice(
+    uint256 btcPriceUSD,
+    uint256 loanAmount,
+    uint256 deposit
+  ) internal pure returns (uint256 strikePrice) {
+    uint256 totalAmount = loanAmount + deposit;
+
+    strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
+
+    return strikePrice;
+  }
 }
