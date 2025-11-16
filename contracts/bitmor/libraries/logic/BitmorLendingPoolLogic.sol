@@ -6,7 +6,6 @@ import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 import {ILoanVault} from '../../interfaces/ILoanVault.sol';
-import {DataTypes as BitmorDataTypes} from '../types/DataTypes.sol';
 
 /**
  * @title BitmorLendingPoolLogic
@@ -18,7 +17,7 @@ library BitmorLendingPoolLogic {
 
   uint256 constant MAX_U256 = type(uint256).max;
   uint256 constant RATE_MODE = 2;
-  unit256 constant REFERRAL = 0;
+  uint16 constant REFERRAL = 0;
 
   /**
    * @notice Deposits collateral to Aave V2 on behalf of LSA
@@ -85,7 +84,8 @@ library BitmorLendingPoolLogic {
     address debtAsset,
     address cbBTC,
     address recipient,
-    uint256 repaymentAmount
+    uint256 repaymentAmount,
+    DataTypes.LoanData storage loan
   ) internal returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
     finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, repaymentAmount, RATE_MODE, lsa);
 
@@ -110,6 +110,9 @@ library BitmorLendingPoolLogic {
 
     // TODO!: Implement Loan State Change
 
+    loan.lastDueTimestamp = block.timestamp;
+    loan.status = DataTypes.LoanStatus.Completed;
+
     return (finalAmountRepaid, amountWithdrawn);
   }
 
@@ -125,7 +128,7 @@ library BitmorLendingPoolLogic {
    * @return nextDueTimestamp Updated next payment due timestamp (or current if fully repaid)
    */
   function executeLoanRepayment(
-    BitmorDataTypes.LoanData storage loanData,
+    DataTypes.LoanData storage loanData,
     address bitmorPool,
     address debtAsset,
     address lsa,
@@ -134,22 +137,22 @@ library BitmorLendingPoolLogic {
     // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
     // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
 
-    uint256 beforeDebt = loanData.loanAmount;
+    uint256 beforeDebt = loan.loanAmount;
 
     finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, amount, RATE_MODE, lsa);
 
     // Update accounting
     uint256 afterDebt = beforeDebt - finalAmountRepaid;
-    loanData.loanAmount = afterDebt;
-    loanData.lastDueTimestamp = block.timestamp;
+    loan.loanAmount = afterDebt;
+    loan.lastDueTimestamp = block.timestamp;
 
     // Advance schedule only if loan remains active
     if (afterDebt == 0) {
       // Fully repaid
-      nextDueTimestamp = loanData.nextDueTimestamp;
-      loanData.status = BitmorDataTypes.LoanStatus.Completed;
+      nextDueTimestamp = loan.nextDueTimestamp;
+      loan.status = DataTypes.LoanStatus.Completed;
     } else {
-      uint256 emp = loanData.estimatedMonthlyPayment;
+      uint256 emp = loan.estimatedMonthlyPayment;
       uint256 periods = 1;
       if (emp > 0) {
         // ceilDiv: (a + b - 1) / b
@@ -158,8 +161,8 @@ library BitmorLendingPoolLogic {
           periods = 1;
         }
       }
-      nextDueTimestamp = loanData.nextDueTimestamp + (periods * (30 days));
-      loanData.nextDueTimestamp = nextDueTimestamp;
+      nextDueTimestamp = loan.nextDueTimestamp + (periods * (30 days));
+      loan.nextDueTimestamp = nextDueTimestamp;
     }
 
     return (finalAmountRepaid, nextDueTimestamp);
