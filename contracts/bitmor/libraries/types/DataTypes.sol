@@ -95,6 +95,17 @@ library DataTypes {
     uint256 amount;
   }
 
+  struct ExecuteCloseParams {
+    address lsa;
+    uint256 amount;
+  }
+
+  struct CloseContext {
+    address bitmorPool;
+    address debtAsset;
+    address collateralAsset;
+  }
+
   // ============ Loan Data Structure ============
 
   /**

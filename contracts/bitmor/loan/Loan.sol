@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {SafeERC20} from '../dependencies/openzeppelin/SafeERC20.sol';
 import {Ownable} from '../dependencies/openzeppelin/Ownable.sol';
 import {ReentrancyGuard} from '../dependencies/openzeppelin/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic, LoanMath} from '../libraries/logic/LoanLogic.sol';
 import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
-import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.sol';
-
 import {ILoan} from '../interfaces/ILoan.sol';
-import {IERC20} from '../dependencies/openzeppelin/IERC20.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
+import {CloseLogic} from '../libraries/logic/CloseLogic.sol';
+import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
  * @title Loan
@@ -20,8 +18,6 @@ import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
  * @dev Implements ILoan interface with full loan lifecycle management
  */
 contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
-  using SafeERC20 for IERC20;
-
   // ============ Constructor ============
 
   /**
@@ -171,7 +167,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address user,
     uint256 index
   ) external view override checkZeroAddress(user) returns (address) {
-    if (index >= s_userLoanCount[user]) revert Loan__IndexOutOfBound();
+    if (index >= s_userLoanCount[user]) revert Errors.IndexOutOfBounds();
     return s_userLoanAtIndex[user][index];
   }
 
@@ -215,7 +211,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
 
     uint256 btcPriceUSD = oracle.getAssetPrice(i_COLLATERAL_ASSET);
-    if (btcPriceUSD == 0) revert Loan__InvalidAssetPrice();
+    if (btcPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
     strikePrice = LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
   }
@@ -248,32 +244,17 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     checkIfLoanExists(lsa)
     returns (uint256 finalAmountRepaid, uint256 amountWithdrawn)
   {
-    DataTypes.LoanData storage loan = s_loansByLSA[lsa];
-
-    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
-    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
-
-    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_BITMOR_POOL, lsa);
-
-    if (amount < totalDebtAmt) {
-      revert Loan__InsufficientAmountSuppliedForClosure(totalDebtAmt, amount);
-    }
-
-    IERC20(i_DEBT_ASSET).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
-
-    IERC20(i_DEBT_ASSET).forceApprove(i_BITMOR_POOL, totalDebtAmt);
-    (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
+    DataTypes.CloseContext memory ctx = DataTypes.CloseContext(
       i_BITMOR_POOL,
-      lsa,
       i_DEBT_ASSET,
-      i_COLLATERAL_ASSET,
-      msg.sender,
-      totalDebtAmt
+      i_COLLATERAL_ASSET
     );
 
-    emit Loan__ClosedLoan(lsa, finalAmountRepaid, amountWithdrawn);
-
-    return (finalAmountRepaid, amountWithdrawn);
+    (finalAmountRepaid, amountWithdrawn) = CloseLogic.executeClose(
+      ctx,
+      DataTypes.ExecuteCloseParams(lsa, amount),
+      s_loansByLSA
+    );
   }
 
   // ============ Admin Functions ============
@@ -360,19 +341,19 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
   function _checkZeroAmount(uint256 amt) internal view {
     if (amt == 0) {
-      revert Loan__ZeroAmount();
+      revert Errors.ZeroAmount();
     }
   }
 
   function _checkZeroAddress(address _add) internal view {
     if (_add == address(0)) {
-      revert Loan__ZeroAddress();
+      revert Errors.ZeroAddress();
     }
   }
 
   function _checkIfLoanExists(address _lsa) internal view {
     if (s_loansByLSA[_lsa].borrower == address(0)) {
-      revert Loan__LoanDoesNotExist();
+      revert Errors.LoanDoesNotExists();
     }
   }
 }

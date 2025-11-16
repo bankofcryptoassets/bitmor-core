@@ -10,4 +10,10 @@ library Errors {
   error ZeroAddress();
   error LoanDoesNotExists();
   error LoanIsNotActive();
+  error InsufficientAmountSuppliedForClosure(uint256 amountRequired, uint256 amountSupplied);
+  error IndexOutOfBounds();
+  error InvalidAssetPrice();
+  error CallerIsNotAAVEPool();
+  error WrongFLInitiator();
+  error LessThanMinimumAmtReceived();
 }

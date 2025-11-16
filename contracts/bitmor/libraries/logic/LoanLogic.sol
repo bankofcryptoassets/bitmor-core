@@ -116,8 +116,8 @@ library LoanLogic {
     DataTypes.FLOperationParams memory params,
     mapping(address => DataTypes.LoanData) storage loansByLSA
   ) internal {
-    if (msg.sender != ctx.aavePool) revert ILoan.Loan__CallerIsNotAAVEPool();
-    if (params.initiator != address(this)) revert ILoan.Loan__WrongFlashLoanInitiator();
+    if (msg.sender != ctx.aavePool) revert Errors.CallerIsNotAAVEPool();
+    if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
     // Flash loan execution logic will be implemented here
     // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
@@ -151,7 +151,7 @@ library LoanLogic {
       minimumAcceptable
     );
 
-    if (amountReceived < minimumAcceptable) revert ILoan.Loan__InsufficientCBBTCReceived();
+    if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
 
     uint256 borrowAmount = flashLoanAmount + flashLoanPremium;
 

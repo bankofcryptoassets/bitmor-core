@@ -11,20 +11,6 @@ import {DataTypes} from '../libraries/types/DataTypes.sol';
 interface ILoan {
   // ============ Events ============
 
-  error Loan__ZeroAmount();
-  error Loan__CallerIsNotAAVEPool();
-  error Loan__WrongFlashLoanInitiator();
-  error Loan__InsufficientCBBTCReceived();
-  error Loan__ZeroAddress();
-  error Loan__LoanDoesNotExist();
-  error Loan__IndexOutOfBound();
-  error Loan__InvalidAssetPrice();
-  error Loan__CallerIsNotBorrower();
-  error Loan__LoanIsNotActive(DataTypes.LoanStatus status);
-  error Loan__InsufficientAmountSuppliedForClosure(uint256 amountRequired, uint256 amountSupplied);
-
-  // ============ Events ============
-
   event Loan__LoanCreated(
     address indexed borrower,
     address indexed lsa,
