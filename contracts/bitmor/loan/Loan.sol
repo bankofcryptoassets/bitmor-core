@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {IERC20} from '../dependencies/openzeppelin/IERC20.sol';
-import {SafeERC20} from '../dependencies/openzeppelin/SafeERC20.sol';
 import {Ownable} from '../dependencies/openzeppelin/Ownable.sol';
 import {ReentrancyGuard} from '../dependencies/openzeppelin/ReentrancyGuard.sol';
 import {LoanStorage} from './LoanStorage.sol';
 import {LoanLogic, LoanMath} from '../libraries/logic/LoanLogic.sol';
-import {ILendingPool} from '../interfaces/ILendingPool.sol';
 import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
-import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
-import {SwapLogic} from '../libraries/logic/SwapLogic.sol';
-import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.sol';
-import {LSALogic} from '../libraries/logic/LSALogic.sol';
 import {ILoan} from '../interfaces/ILoan.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
+import {CloseLogic} from '../libraries/logic/CloseLogic.sol';
+import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
  * @title Loan
@@ -22,8 +18,6 @@ import {DataTypes} from '../libraries/types/DataTypes.sol';
  * @dev Implements ILoan interface with full loan lifecycle management
  */
 contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
-  using SafeERC20 for IERC20;
-
   // ============ Constructor ============
 
   /**
@@ -81,90 +75,35 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
-    uint256 insuranceID
+    uint256 insuranceID,
+    address onBehalfOf
   ) external override nonReentrant returns (address lsa) {
-    require(depositAmount > 0, 'Loan: invalid deposit amount');
-    require(collateralAmount > 0, 'Loan: invalid collateral amount');
-    require(duration > 0, 'Loan: invalid duration');
+    DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
+      bitmorPool: i_BITMOR_POOL,
+      oracle: i_ORACLE,
+      collateralAsset: i_COLLATERAL_ASSET,
+      debtAsset: i_DEBT_ASSET,
+      aavePool: i_AAVE_V3_POOL,
+      loanVaultFactory: s_loanVaultFactory,
+      premiumCollector: s_premiumCollector,
+      maxLoanAmt: s_maxLoanAmount,
+      loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
+    });
 
-    // Transfer deposit from user to contract
-    IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), depositAmount);
-
-    // Transfer premium amount to premium collector
-    if (premiumAmount > 0) {
-      IERC20(i_debtAsset).safeTransferFrom(msg.sender, s_premiumCollector, premiumAmount);
-    }
-
-    uint256 loanAmount;
-    // Calculate loan details and store data
-    {
-      uint256 monthlyPayment;
-
-      (loanAmount, monthlyPayment, ) = LoanLogic.calculateLoanAmountAndMonthlyPayment(
-        i_BITMOR_POOL,
-        i_ORACLE,
-        i_collateralAsset,
-        i_debtAsset,
+    lsa = LoanLogic.executeInitializeLoan(
+      ctx,
+      DataTypes.ExecuteInitializeLoanParams(
+        onBehalfOf,
         depositAmount,
-        s_maxLoanAmount,
+        premiumAmount,
         collateralAmount,
-        duration
-      );
-
-      // Create LSA via factory using CREATE2 for deterministic address
-      lsa = ILoanVaultFactory(s_loanVaultFactory).createLoanVault(msg.sender, block.timestamp);
-
-      // Calculate payment timestamps (30 days = 1 month)
-      uint256 firstPaymentDue = block.timestamp + LOAN_REPAYMENT_INTERVAL;
-
-      // Store loan data on-chain
-      s_loansByLSA[lsa] = DataTypes.LoanData({
-        borrower: msg.sender,
-        depositAmount: depositAmount,
-        loanAmount: loanAmount,
-        collateralAmount: collateralAmount,
-        estimatedMonthlyPayment: monthlyPayment,
-        duration: duration,
-        createdAt: block.timestamp,
-        insuranceID: insuranceID,
-        nextDueTimestamp: firstPaymentDue,
-        lastDueTimestamp: 0,
-        status: DataTypes.LoanStatus.Active
-      });
-
-      // Update user loan indexing for multi-loan support
-      uint256 loanIndex = s_userLoanCount[msg.sender];
-      s_userLoanAtIndex[msg.sender][loanIndex] = lsa;
-      s_userLoanCount[msg.sender] = loanIndex + 1;
-    }
-
-    // Flash loan execution flow
-    {
-      address[] memory assets = new address[](1);
-      assets[0] = i_debtAsset;
-
-      uint256[] memory amounts = new uint256[](1);
-      amounts[0] = loanAmount;
-
-      uint256[] memory modes = new uint256[](1);
-      modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
-
-      bytes memory params = abi.encode(lsa, collateralAmount);
-
-      ILendingPool(i_AAVE_V3_POOL).flashLoan(
-        address(this), // receiver address
-        assets, // assets to borrow
-        amounts, // amounts to borrow the assets
-        modes, // modes of the debt to open if the flash loan is not returned
-        lsa, // onbehalf of address
-        params, // params to pass to the receiver
-        uint16(0) // referral code
-      );
-    }
-
-    // Emit loan creation event
-    emit Loan__LoanCreated(msg.sender, lsa, loanAmount, collateralAmount, block.timestamp);
-    return lsa;
+        duration,
+        insuranceID
+      ),
+      s_loansByLSA,
+      s_userLoanCount,
+      s_userLoanAtIndex
+    );
   }
 
   // ============ Flash Loan Callback ============
@@ -177,60 +116,25 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
-    if (msg.sender != i_AAVE_V3_POOL) revert Loan__CallerIsNotAAVEPool();
-
-    if (initiator != address(this)) revert Loan__WrongFlashLoanInitiator();
-
-    // Flash loan execution logic will be implemented here
-    // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
-
-    (address lsa, uint256 collateralAmount) = abi.decode(params, (address, uint256));
-
-    // Retrieve loan data from storage
-    DataTypes.LoanData storage loan = s_loansByLSA[lsa];
-
-    uint256 flashLoanAmount = amounts[0];
-    uint256 flashLoanPremium = premiums[0];
-    uint256 totalSwapAmount = loan.depositAmount + flashLoanAmount;
-
-    uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
-      s_zQuoter,
-      i_debtAsset, // tokenIn
-      i_collateralAsset, // tokenOut
-      totalSwapAmount, // amountIn
-      collateralAmount,
-      MAX_SLIPPAGE_BPS,
-      BASIS_POINTS
-    );
-
-    // Approve SwapAdaptor to spend tokens
-    IERC20(i_debtAsset).forceApprove(s_swapAdapter, totalSwapAmount);
-
-    uint256 amountReceived = SwapLogic.executeSwap(
-      s_swapAdapter,
-      i_debtAsset,
-      i_collateralAsset,
-      totalSwapAmount,
-      minimumAcceptable
-    );
-
-    if (amountReceived < minimumAcceptable) revert Loan__InsufficientCBBTCReceived();
-
-    uint256 borrowAmount = flashLoanAmount + flashLoanPremium;
-
-    LSALogic.approveCreditDelegation(
-      lsa,
+    DataTypes.FLOperationContext memory ctx = DataTypes.FLOperationContext(
+      i_AAVE_V3_POOL,
       i_BITMOR_POOL,
-      i_debtAsset,
-      borrowAmount,
-      address(this) // Protocol is the delegatee
+      s_zQuoter,
+      i_DEBT_ASSET,
+      i_COLLATERAL_ASSET,
+      s_swapAdapter,
+      MAX_SLIPPAGE_BPS
     );
 
-    AaveV2InteractionLogic.depositCollateral(i_BITMOR_POOL, i_collateralAsset, amountReceived, lsa);
+    DataTypes.FLOperationParams memory flOpParams = DataTypes.FLOperationParams(
+      assets,
+      amounts,
+      premiums,
+      initiator,
+      params
+    );
 
-    AaveV2InteractionLogic.borrowDebt(i_BITMOR_POOL, i_debtAsset, borrowAmount, lsa);
-
-    IERC20(i_debtAsset).forceApprove(i_AAVE_V3_POOL, borrowAmount);
+    LoanLogic.executeFLOperation(ctx, flOpParams, s_loansByLSA);
 
     return true;
   }
@@ -263,7 +167,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address user,
     uint256 index
   ) external view override checkZeroAddress(user) returns (address) {
-    if (index >= s_userLoanCount[user]) revert Loan__IndexOutOfBound();
+    if (index >= s_userLoanCount[user]) revert Errors.IndexOutOfBounds();
     return s_userLoanAtIndex[user][index];
   }
 
@@ -284,12 +188,12 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
   /// @inheritdoc ILoan
   function getCollateralAsset() external view override returns (address) {
-    return i_collateralAsset;
+    return i_COLLATERAL_ASSET;
   }
 
   /// @inheritdoc ILoan
   function getDebtAsset() external view override returns (address) {
-    return i_debtAsset;
+    return i_DEBT_ASSET;
   }
 
   /// @inheritdoc ILoan
@@ -306,59 +210,23 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   {
     IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
 
-    uint256 btcPriceUSD = oracle.getAssetPrice(i_collateralAsset);
-    if (btcPriceUSD == 0) revert Loan__InvalidAssetPrice();
+    uint256 btcPriceUSD = oracle.getAssetPrice(i_COLLATERAL_ASSET);
+    if (btcPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-    uint256 totalAmount = loanAmount + deposit;
-
-    strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
-
-    return strikePrice;
+    strikePrice = LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
   }
 
   /// @inheritdoc ILoan
   function repay(
     address lsa,
     uint256 amount
-  )
-    external
-    override
-    nonReentrant
-    checkZeroAddress(lsa)
-    checkZeroAmount(amount)
-    checkIfLoanExists(lsa)
-    returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp)
-  {
-    DataTypes.LoanData storage loan = s_loansByLSA[lsa];
-
-    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
-    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
-
-    // Cap the requested amount to outstanding principal so we never custody more than needed
-    uint256 maxRepayableAmt = LoanMath.min(amount, loan.loanAmount);
-
-    // Pull only what might be needed from the borrower
-    IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
-
-    // Approve Aave V2 pool (the spender) to pull from THIS contract
-    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, maxRepayableAmt);
-
-    // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-    (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
-      loan,
+  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
+    (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeRepay(
       i_BITMOR_POOL,
-      i_debtAsset,
-      lsa,
-      maxRepayableAmt
+      i_DEBT_ASSET,
+      DataTypes.ExecuteRepayParams(lsa, amount),
+      s_loansByLSA
     );
-
-    // Refund any unspent amount to the payer
-    if (finalAmountRepaid < maxRepayableAmt) {
-      IERC20(i_debtAsset).safeTransfer(msg.sender, maxRepayableAmt - finalAmountRepaid);
-    }
-
-    emit Loan__LoanRepaid(lsa, finalAmountRepaid, nextDueTimestamp);
-    return (finalAmountRepaid, nextDueTimestamp);
   }
 
   // ============ Withdrawal Function ============
@@ -376,32 +244,17 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     checkIfLoanExists(lsa)
     returns (uint256 finalAmountRepaid, uint256 amountWithdrawn)
   {
-    DataTypes.LoanData storage loan = s_loansByLSA[lsa];
-
-    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
-    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
-
-    uint256 totalDebtAmt = AaveV2InteractionLogic.getUserCurrentDebt(i_BITMOR_POOL, lsa);
-
-    if (amount < totalDebtAmt) {
-      revert Loan__InsufficientAmountSuppliedForClosure(totalDebtAmt, amount);
-    }
-
-    IERC20(i_debtAsset).safeTransferFrom(msg.sender, address(this), totalDebtAmt);
-
-    IERC20(i_debtAsset).forceApprove(i_BITMOR_POOL, totalDebtAmt);
-    (finalAmountRepaid, amountWithdrawn) = AaveV2InteractionLogic.closeLoan(
+    DataTypes.CloseContext memory ctx = DataTypes.CloseContext(
       i_BITMOR_POOL,
-      lsa,
-      i_debtAsset,
-      i_collateralAsset,
-      msg.sender,
-      totalDebtAmt
+      i_DEBT_ASSET,
+      i_COLLATERAL_ASSET
     );
 
-    emit Loan__ClosedLoan(lsa, finalAmountRepaid, amountWithdrawn);
-
-    return (finalAmountRepaid, amountWithdrawn);
+    (finalAmountRepaid, amountWithdrawn) = CloseLogic.executeClose(
+      ctx,
+      DataTypes.ExecuteCloseParams(lsa, amount),
+      s_loansByLSA
+    );
   }
 
   // ============ Admin Functions ============
@@ -420,12 +273,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   ) external override checkZeroAddress(newFactory) onlyOwner {
     s_loanVaultFactory = newFactory;
     emit Loan__LoanVaultFactoryUpdated(newFactory);
-  }
-
-  /// @inheritdoc ILoan
-  function setEscrow(address newEscrow) external override checkZeroAddress(newEscrow) onlyOwner {
-    s_escrow = newEscrow;
-    emit Loan__EscrowUpdated(newEscrow);
   }
 
   /// @inheritdoc ILoan
@@ -470,8 +317,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
       i_BITMOR_POOL,
       i_ORACLE,
-      i_collateralAsset,
-      i_debtAsset,
+      i_COLLATERAL_ASSET,
+      i_DEBT_ASSET,
       s_maxLoanAmount,
       collateralAmount,
       duration
@@ -488,19 +335,19 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
   function _checkZeroAmount(uint256 amt) internal view {
     if (amt == 0) {
-      revert Loan__ZeroAmount();
+      revert Errors.ZeroAmount();
     }
   }
 
   function _checkZeroAddress(address _add) internal view {
     if (_add == address(0)) {
-      revert Loan__ZeroAddress();
+      revert Errors.ZeroAddress();
     }
   }
 
   function _checkIfLoanExists(address _lsa) internal view {
     if (s_loansByLSA[_lsa].borrower == address(0)) {
-      revert Loan__LoanDoesNotExist();
+      revert Errors.LoanDoesNotExists();
     }
   }
 }

@@ -16,8 +16,7 @@ interface ILoan {
     address indexed borrower,
     address indexed lsa,
     uint256 loanAmount,
-    uint256 collateralAmount,
-    uint256 createdAt
+    uint256 collateralAmount
   );
 
   event Loan__LoanStatusUpdated(

@@ -15,12 +15,20 @@ contract Loan_InitializeLoan is Script {
     uint256 premiumAmt,
     uint256 collateralAmt,
     uint256 durationInMonths,
-    uint256 insuranceID
+    uint256 insuranceID,
+    address user
   ) internal returns (address lsa) {
     ILoan loan = ILoan(loanAddress);
 
     vm.broadcast();
-    lsa = loan.initializeLoan(depositAmt, premiumAmt, collateralAmt, durationInMonths, insuranceID);
+    lsa = loan.initializeLoan(
+      depositAmt,
+      premiumAmt,
+      collateralAmt,
+      durationInMonths,
+      insuranceID,
+      user
+    );
 
     console2.log('LSA address:', lsa);
   }
@@ -42,7 +50,8 @@ contract Loan_InitializeLoan is Script {
       premiumAmt,
       collateralAmt,
       durationInMonths,
-      insuranceID
+      insuranceID,
+      msg.sender
     );
   }
 

@@ -21,18 +21,15 @@ contract LoanStorage {
   address public immutable i_ORACLE;
 
   /// @notice Collateral asset address (cbBTC)
-  address internal immutable i_collateralAsset;
+  address internal immutable i_COLLATERAL_ASSET;
 
   /// @notice Debt asset address (USDC)
-  address internal immutable i_debtAsset;
+  address internal immutable i_DEBT_ASSET;
 
   // ============ Protocol Contract Addresses ============
 
   /// @notice Factory contract for deploying Loan Specific Address (LSAs)
   address public s_loanVaultFactory;
-
-  /// @notice Escrow contract for holding locked collateral
-  address public s_escrow;
 
   /// @notice Swap adapter contract for executing token swaps
   address public s_swapAdapter;
@@ -100,7 +97,7 @@ contract LoanStorage {
     i_AAVE_V3_POOL = _aaveV3Pool;
     i_BITMOR_POOL = _bitmorPool;
     i_ORACLE = _oracle;
-    i_collateralAsset = _collateralAsset;
-    i_debtAsset = _debtAsset;
+    i_COLLATERAL_ASSET = _collateralAsset;
+    i_DEBT_ASSET = _debtAsset;
   }
 }

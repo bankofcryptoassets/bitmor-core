@@ -50,6 +50,62 @@ library DataTypes {
     STABLE,
     VARIABLE
   }
+
+  struct ExecuteInitializeLoanParams {
+    address user;
+    uint256 depositAmount;
+    uint256 premiumAmount;
+    uint256 collateralAmount;
+    uint256 duration;
+    uint256 insuranceID;
+  }
+
+  struct InitializeLoanContext {
+    address bitmorPool;
+    address oracle;
+    address collateralAsset;
+    address debtAsset;
+    address aavePool;
+    address loanVaultFactory;
+    address premiumCollector;
+    uint256 maxLoanAmt;
+    uint256 loanRepaymentInterval;
+  }
+
+  struct FLOperationParams {
+    address[] assets;
+    uint256[] amounts;
+    uint256[] premiums;
+    address initiator;
+    bytes params;
+  }
+
+  struct FLOperationContext {
+    address aavePool;
+    address bitmorPool;
+    address zQuoter;
+    address debtAsset;
+    address collateralAsset;
+    address swapAdapter;
+    uint256 maxSlippage;
+  }
+
+  struct ExecuteRepayParams {
+    address lsa;
+    uint256 amount;
+  }
+
+  struct ExecuteCloseParams {
+    address lsa;
+    uint256 amount;
+  }
+
+  struct CloseContext {
+    address bitmorPool;
+    address debtAsset;
+    address collateralAsset;
+  }
+
   // ============ Loan Data Structure ============
 
   /**
