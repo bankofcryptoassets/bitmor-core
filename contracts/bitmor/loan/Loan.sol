@@ -12,6 +12,7 @@ import {AaveV2InteractionLogic} from '../libraries/logic/AaveV2InteractionLogic.
 import {ILoan} from '../interfaces/ILoan.sol';
 import {IERC20} from '../dependencies/openzeppelin/IERC20.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
 
 /**
  * @title Loan
@@ -223,45 +224,13 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function repay(
     address lsa,
     uint256 amount
-  )
-    external
-    override
-    nonReentrant
-    checkZeroAddress(lsa)
-    checkZeroAmount(amount)
-    checkIfLoanExists(lsa)
-    returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp)
-  {
-    DataTypes.LoanData storage loan = s_loansByLSA[lsa];
-
-    if (msg.sender != loan.borrower) revert Loan__CallerIsNotBorrower();
-    if (loan.status != DataTypes.LoanStatus.Active) revert Loan__LoanIsNotActive(loan.status);
-
-    // Cap the requested amount to outstanding principal so we never custody more than needed
-    uint256 maxRepayableAmt = LoanMath.min(amount, loan.loanAmount);
-
-    // Pull only what might be needed from the borrower
-    IERC20(i_DEBT_ASSET).safeTransferFrom(msg.sender, address(this), maxRepayableAmt);
-
-    // Approve Aave V2 pool (the spender) to pull from THIS contract
-    IERC20(i_DEBT_ASSET).forceApprove(i_BITMOR_POOL, maxRepayableAmt);
-
-    // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-    (finalAmountRepaid, nextDueTimestamp) = AaveV2InteractionLogic.executeLoanRepayment(
-      loan,
+  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
+    (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeRepay(
       i_BITMOR_POOL,
       i_DEBT_ASSET,
-      lsa,
-      maxRepayableAmt
+      DataTypes.ExecuteRepayParams(lsa, amount),
+      s_loansByLSA
     );
-
-    // Refund any unspent amount to the payer
-    if (finalAmountRepaid < maxRepayableAmt) {
-      IERC20(i_DEBT_ASSET).safeTransfer(msg.sender, maxRepayableAmt - finalAmountRepaid);
-    }
-
-    emit Loan__LoanRepaid(lsa, finalAmountRepaid, nextDueTimestamp);
-    return (finalAmountRepaid, nextDueTimestamp);
   }
 
   // ============ Withdrawal Function ============

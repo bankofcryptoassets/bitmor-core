@@ -90,6 +90,11 @@ library DataTypes {
     uint256 maxSlippage;
   }
 
+  struct ExecuteRepayParams {
+    address lsa;
+    uint256 amount;
+  }
+
   // ============ Loan Data Structure ============
 
   /**
