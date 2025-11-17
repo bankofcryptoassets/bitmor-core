@@ -57,9 +57,6 @@ contract LoanStorage {
 
   // ============ Constants ============
 
-  /// @notice Basis points denominator for percentage calculations (10000 = 100%)
-  uint256 internal constant BASIS_POINTS = 10000;
-
   /// @notice Maximum slippage tolerance in basis points (200 = 2%)
   uint256 public constant MAX_SLIPPAGE_BPS = 200;
 

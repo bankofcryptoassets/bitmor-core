@@ -21,7 +21,6 @@ import {PercentageMath} from '../libraries/math/PercentageMath.sol';
 import {ReserveLogic} from '../libraries/logic/ReserveLogic.sol';
 import {GenericLogic} from '../libraries/logic/GenericLogic.sol';
 import {ValidationLogic} from '../libraries/logic/ValidationLogic.sol';
-import {LoanLiquidationLogic} from '../libraries/logic/LoanLiquidationLogic.sol';
 import {ReserveConfiguration} from '../libraries/configuration/ReserveConfiguration.sol';
 import {UserConfiguration} from '../libraries/configuration/UserConfiguration.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
