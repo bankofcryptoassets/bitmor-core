@@ -35,7 +35,7 @@ contract LoanVaultFactory is ILoanVaultFactory {
    * @param implementation The LoanVault implementation address to clone
    * @param loanContract The Loan contract address authorized to create vaults
    */
-  constructor(address implementation, address loanContract) public {
+  constructor(address implementation, address loanContract) {
     if (implementation == address(0)) revert Errors.ZeroAddress();
     if (loanContract == address(0)) revert Errors.ZeroAddress();
 

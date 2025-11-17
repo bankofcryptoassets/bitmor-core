@@ -17,4 +17,7 @@ library Errors {
   error WrongFLInitiator();
   error LessThanMinimumAmtReceived();
   error UnauthorizedCaller();
+  error InsufficientCollateral();
+  error InsufficientDeposit();
+  error GreaterThanMaxCollateralAllowed();
 }

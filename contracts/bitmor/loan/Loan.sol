@@ -29,7 +29,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
    * @param _debtAsset USDC address
    * @param _swapAdapter SwapAdapter contract address for token swaps
    * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
-   * @param _maxLoanAmount Maximum loan amount allowed (6 decimals for USDC)
    */
   constructor(
     address _aaveV3Pool,
@@ -38,18 +37,15 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address _collateralAsset,
     address _debtAsset,
     address _swapAdapter,
-    address _zQuoter,
-    uint256 _maxLoanAmount
+    address _zQuoter
   )
     LoanStorage(_aaveV3Pool, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
     Ownable(msg.sender)
   {
-    require(_swapAdapter != address(0), 'Loan: invalid swap adapter');
-    require(_maxLoanAmount > 0, 'Loan: invalid max loan amount');
+    if (_swapAdapter == address(0)) revert Errors.ZeroAddress();
 
     s_swapAdapter = _swapAdapter;
     s_zQuoter = _zQuoter;
-    s_maxLoanAmount = _maxLoanAmount;
   }
 
   modifier checkZeroAmount(uint256 amt) {
@@ -86,7 +82,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       aavePool: i_AAVE_V3_POOL,
       loanVaultFactory: s_loanVaultFactory,
       premiumCollector: s_premiumCollector,
-      maxLoanAmt: s_maxLoanAmount,
+      maxCollateralAmt: MAX_COLLATERAL_AMOUNT,
       loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
     });
 
@@ -260,14 +256,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   // ============ Admin Functions ============
 
   /// @inheritdoc ILoan
-  function setMaxLoanAmount(
-    uint256 newMaxLoanAmount
-  ) external override checkZeroAmount(newMaxLoanAmount) onlyOwner {
-    s_maxLoanAmount = newMaxLoanAmount;
-    emit Loan__MaxLoanAmountUpdated(newMaxLoanAmount);
-  }
-
-  /// @inheritdoc ILoan
   function setLoanVaultFactory(
     address newFactory
   ) external override checkZeroAddress(newFactory) onlyOwner {
@@ -319,7 +307,6 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
       i_ORACLE,
       i_COLLATERAL_ASSET,
       i_DEBT_ASSET,
-      s_maxLoanAmount,
       collateralAmount,
       duration
     );

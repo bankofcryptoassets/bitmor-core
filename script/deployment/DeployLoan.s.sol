@@ -13,20 +13,10 @@ contract DeployLoan is Script {
     address collateralAsset,
     address debtAsset,
     address swapAdapter,
-    address zQuoter,
-    uint256 maxLoanAmount
+    address zQuoter
   ) internal {
     vm.startBroadcast();
-    new Loan(
-      bitmorPool,
-      aaveV3Pool,
-      oracle,
-      collateralAsset,
-      debtAsset,
-      swapAdapter,
-      zQuoter,
-      maxLoanAmount
-    );
+    new Loan(bitmorPool, aaveV3Pool, oracle, collateralAsset, debtAsset, swapAdapter, zQuoter);
     vm.stopBroadcast();
   }
 
@@ -39,8 +29,7 @@ contract DeployLoan is Script {
       address collateralAsset,
       address debtAsset,
       address swapAdapter,
-      address zQuoter,
-      uint256 maxLoanAmount
+      address zQuoter
     ) = config.networkConfig();
     _deployLoanUsingConfig(
       bitmorPool,
@@ -49,8 +38,7 @@ contract DeployLoan is Script {
       collateralAsset,
       debtAsset,
       swapAdapter,
-      zQuoter,
-      maxLoanAmount
+      zQuoter
     );
   }
 

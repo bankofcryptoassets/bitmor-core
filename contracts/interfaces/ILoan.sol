@@ -171,12 +171,6 @@ interface ILoan {
   // ============ Admin Functions ============
 
   /**
-   * @notice Updates the maximum loan amount
-   * @param newMaxLoanAmount New maximum loan amount (6 decimals for USDC)
-   */
-  function setMaxLoanAmount(uint256 newMaxLoanAmount) external;
-
-  /**
    * @notice Updates the loan vault factory address
    * @param newFactory New factory address
    */

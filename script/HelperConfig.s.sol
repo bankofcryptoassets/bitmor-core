@@ -16,7 +16,6 @@ contract HelperConfig is Script {
     address debtAsset;
     address swapAdapter;
     address zQuoter;
-    uint256 maxLoanAmount;
   }
 
   NetworkConfig public networkConfig;
@@ -50,8 +49,7 @@ contract HelperConfig is Script {
       collateralAsset: getCollateralAsset(),
       debtAsset: getDebtAsset(),
       swapAdapter: getSwapAdapter(),
-      zQuoter: getZQuoter(),
-      maxLoanAmount: getMaxLoanAmount()
+      zQuoter: getZQuoter()
     });
   }
 
@@ -101,12 +99,6 @@ contract HelperConfig is Script {
   function getZQuoter() public view returns (address) {
     if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
       return ZQUOTER_BASE_SEPOLIA;
-    }
-  }
-
-  function getMaxLoanAmount() public view returns (uint256) {
-    if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-      return MAX_LOAN_AMOUNT_BASE_SEPOLIA;
     }
   }
 

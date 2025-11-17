@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
  * @title LoanStorage
@@ -54,12 +55,6 @@ contract LoanStorage {
   /// @dev Enables retrieval of user's Nth loan: s_userLoanAtIndex[user][0] returns first loan's LSA
   mapping(address => mapping(uint256 => address)) public s_userLoanAtIndex;
 
-  // ============ Protocol Parameters ============
-
-  /// @notice Maximum loan amount allowed per loan (6 decimals for USDC)
-  /// @dev Can be updated by admin to manage protocol risk
-  uint256 public s_maxLoanAmount;
-
   // ============ Constants ============
 
   /// @notice Basis points denominator for percentage calculations (10000 = 100%)
@@ -70,6 +65,9 @@ contract LoanStorage {
 
   /// @notice Loan repayment interval in seconds (30 days)
   uint256 public constant LOAN_REPAYMENT_INTERVAL = 30 days;
+
+  /// @notice MAX collateral amount user can take.
+  uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
 
   // ============ Constructor ============
 
@@ -88,11 +86,13 @@ contract LoanStorage {
     address _collateralAsset,
     address _debtAsset
   ) {
-    require(_aaveV3Pool != address(0), 'LoanStorage: Invalid Aave V3 pool');
-    require(_bitmorPool != address(0), 'LoanStorage: Invalid Aave V2 pool');
-    require(_oracle != address(0), 'LoanStorage: Invalid addresses provider');
-    require(_collateralAsset != address(0), 'LoanStorage: Invalid collateral asset');
-    require(_debtAsset != address(0), 'LoanStorage: Invalid debt asset');
+    if (
+      _aaveV3Pool == address(0) ||
+      _bitmorPool == address(0) ||
+      _oracle == address(0) ||
+      _collateralAsset == address(0) ||
+      _debtAsset == address(0)
+    ) revert Errors.ZeroAddress();
 
     i_AAVE_V3_POOL = _aaveV3Pool;
     i_BITMOR_POOL = _bitmorPool;

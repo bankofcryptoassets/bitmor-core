@@ -68,7 +68,7 @@ library DataTypes {
     address aavePool;
     address loanVaultFactory;
     address premiumCollector;
-    uint256 maxLoanAmt;
+    uint256 maxCollateralAmt;
     uint256 loanRepaymentInterval;
   }
 

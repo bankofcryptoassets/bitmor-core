@@ -33,13 +33,15 @@ library LoanLogic {
     if (params.depositAmount == 0 || params.collateralAmount == 0 || params.duration == 0)
       revert Errors.ZeroAmount();
 
+    if (params.collateralAmount > ctx.maxCollateralAmt)
+      revert Errors.GreaterThanMaxCollateralAllowed();
+
     (uint256 loanAmount, uint256 monthlyPayment, ) = calculateLoanAmountAndMonthlyPayment(
       ctx.bitmorPool,
       ctx.oracle,
       ctx.collateralAsset,
       ctx.debtAsset,
       params.depositAmount,
-      ctx.maxLoanAmt,
       params.collateralAmount,
       params.duration
     );
@@ -183,7 +185,6 @@ library LoanLogic {
    * @param collateralAsset cbBTC address
    * @param debtAsset USDC address
    * @param depositAmount User's USDC deposit (6 decimals)
-   * @param maxLoanAmount Maximum allowed loan amount (6 decimals)
    * @param collateralAmount Desired cbBTC collateral (8 decimals)
    * @param duration Loan duration in months
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
@@ -196,7 +197,6 @@ library LoanLogic {
     address collateralAsset,
     address debtAsset,
     uint256 depositAmount,
-    uint256 maxLoanAmount,
     uint256 collateralAmount,
     uint256 duration
   )
@@ -208,6 +208,8 @@ library LoanLogic {
     IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
     uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+
+    if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
     // Fetch current variable borrow rate from Aave V2 USDC reserve
     DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
@@ -220,7 +222,6 @@ library LoanLogic {
       collateralAmount,
       collateralPriceUSD,
       debtPriceUSD,
-      maxLoanAmount,
       interestRate,
       duration
     );
@@ -231,7 +232,6 @@ library LoanLogic {
     address _oracle,
     address collateralAsset,
     address debtAsset,
-    uint256 maxLoanAmount,
     uint256 collateralAmount,
     uint256 duration
   )
@@ -244,6 +244,8 @@ library LoanLogic {
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
     uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
 
+    if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+
     // Fetch current variable borrow rate from Aave V2 USDC reserve
     DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
     uint256 interestRate = reserveData.currentVariableBorrowRate;
@@ -253,7 +255,6 @@ library LoanLogic {
       collateralAmount,
       collateralPriceUSD,
       debtPriceUSD,
-      maxLoanAmount,
       interestRate,
       duration
     );
