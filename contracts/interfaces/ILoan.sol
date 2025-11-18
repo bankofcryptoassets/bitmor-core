@@ -21,11 +21,11 @@ interface ILoan {
 
   event Loan__LoanStatusUpdated(
     address indexed lsa,
-    DataTypes.LoanStatus oldStatus,
-    DataTypes.LoanStatus newStatus
+    DataTypes.LoanStatus indexed oldStatus,
+    DataTypes.LoanStatus indexed newStatus
   );
 
-  event Loan__MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
+  event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
 
   event Loan__ClosedLoan(
     address indexed lsa,
@@ -33,19 +33,21 @@ interface ILoan {
     uint256 indexed cbBTCAmount
   );
 
-  event Loan__LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
+  event Loan__LoanVaultFactoryUpdated(address indexed newFactory);
 
-  event Loan__EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
+  event Loan__EscrowUpdated(address indexed newEscrow);
 
-  event Loan__SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
+  event Loan__SwapAdapterUpdated(address indexed newSwapAdapter);
 
-  event Loan__ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
+  event Loan__ZQuoterUpdated(address indexed newZQuoter);
 
-  event Loan__LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+  event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
-  event Loan__LoanDataUpdated(address indexed lsa, uint256 timestamp);
+  event Loan__LoanDataUpdated(address indexed lsa, bytes data);
 
-  event Loan__PremiumCollectorUpdated(address newPremiumCollector);
+  event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
+
+  event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
 
   // ============ Main Functions ============
 
@@ -57,6 +59,7 @@ interface ILoan {
    * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
    * @param duration Loan duration in months
    * @param insuranceID Insurance/Order ID for tracking this loan
+   * @param onBehalfOf User address on whose behalf of this loan will be created.
    * @return lsa Address of the created Loan Specific Address
    */
   function initializeLoan(
@@ -64,7 +67,8 @@ interface ILoan {
     uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
-    uint256 insuranceID
+    uint256 insuranceID,
+    address onBehalfOf
   ) external returns (address lsa);
 
   /**
@@ -144,16 +148,12 @@ interface ILoan {
 
   /**
    * @notice Allows borrower to repay their loan with `amount` USDC
-   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastDueTimestamp, nextDueTimestamp)
+   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp)
    * @param lsa The Loan Specific Address
    * @param amount Amount of USDC to repay (6 decimals)
    * @return finalAmountRepaid The actual amount repaid
-   * @return nextDueTimestamp The next due timestamp
    */
-  function repay(
-    address lsa,
-    uint256 amount
-  ) external returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp);
+  function repay(address lsa, uint256 amount) external returns (uint256 finalAmountRepaid);
 
   /**
    * @notice Allows borrower to withdraw collateral from their LSA
@@ -175,12 +175,6 @@ interface ILoan {
    * @param newFactory New factory address
    */
   function setLoanVaultFactory(address newFactory) external;
-
-  /**
-   * @notice Updates the escrow contract address
-   * @param newEscrow New escrow address
-   */
-  function setEscrow(address newEscrow) external;
 
   /**
    * @notice Updates the swap adapter contract address
@@ -214,4 +208,25 @@ interface ILoan {
    * @param newPremiumCollector New premium collector address
    */
   function setPremiumCollector(address newPremiumCollector) external;
+
+  /**
+   * @notice Get the premium collector address
+   */
+  function getPremiumCollector() external view returns (address premiumCollector);
+
+  /**
+   * @notice Updates the grace period for microLiquidation.
+   * @param gracePeriod New grace period in `days`
+   */
+  function setGracePeriod(uint256 gracePeriod) external;
+
+  /**
+   * @notice Returns the `s_gracePeriod`.
+   */
+  function getGracePeriod() external view returns (uint256 gracePeriod);
+
+  /**
+   * @notice Returns `LOAN_REPAYMENT_INTERVAL` constant value.
+   */
+  function getRepaymentInterval() external view returns (uint256);
 }

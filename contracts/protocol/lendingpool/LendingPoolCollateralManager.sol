@@ -323,6 +323,7 @@ contract LendingPoolCollateralManager is
 
     DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
+    // TODO! : Fix this logic to get the remaining debt from the lsa vdt balance
     vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < loanData.loanAmount
       ? loanData.estimatedMonthlyPayment
       : loanData.loanAmount;
@@ -425,9 +426,9 @@ contract LendingPoolCollateralManager is
       emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
     }
 
-    loanData.loanAmount = loanData.loanAmount.sub(vars.actualDebtToLiquidate);
-    loanData.collateralAmount = loanData.collateralAmount.sub(vars.maxCollateralToLiquidate);
-    loanData.nextDueTimestamp = loanData.nextDueTimestamp.add(30 days);
+    // Reduce loan duration by 1 month.
+    loanData.duration = loanData.duration.sub(1);
+    loanData.lastPaymentTimestamp = block.timestamp;
 
     ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
 

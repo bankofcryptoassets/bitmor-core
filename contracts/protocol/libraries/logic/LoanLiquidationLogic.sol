@@ -66,7 +66,12 @@ library LoanLiquidationLogic {
     }
 
     // If the EMI is not overdue → no liquidation
-    if (loanData.nextDueTimestamp >= block.timestamp) {
+    if (
+      loanData.lastPaymentTimestamp +
+        ILoan(bitmorLoan).getGracePeriod() +
+        ILoan(bitmorLoan).getRepaymentInterval() >=
+      block.timestamp
+    ) {
       return 0;
     }
 

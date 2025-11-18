@@ -71,11 +71,18 @@ library BitmorLendingPoolLogic {
     return aToken;
   }
 
-  function getUserCurrentDebt(
+  /**
+   * @notice Get the latest position value of the `lsa` in `bitmorPool`.
+   * @param bitmorPool Bitmor Lending Pool address
+   * @param lsa Loan Vault Address
+   * @return totalCollateral Total collateral asset value in USD hold by LSA
+   * @return totalDebt Total debt asset value in USD hold by LSA
+   */
+  function getUserPositions(
     address bitmorPool,
     address lsa
-  ) internal view returns (uint256 totalDebt) {
-    (, totalDebt, , , , ) = ILendingPool(bitmorPool).getUserAccountData(lsa);
+  ) internal view returns (uint256 totalCollateral, uint256 totalDebt) {
+    (totalCollateral, totalDebt, , , , ) = ILendingPool(bitmorPool).getUserAccountData(lsa);
   }
 
   function closeLoan(
@@ -110,7 +117,7 @@ library BitmorLendingPoolLogic {
 
     // TODO!: Implement Loan State Change
 
-    loan.lastDueTimestamp = block.timestamp;
+    loan.lastPaymentTimestamp = block.timestamp;
     loan.status = DataTypes.LoanStatus.Completed;
 
     return (finalAmountRepaid, amountWithdrawn);
@@ -118,14 +125,13 @@ library BitmorLendingPoolLogic {
 
   /**
    * @notice Executes loan repayment on Aave V2 and updates loan state
-   * @dev Updates loanAmount, lastDueTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
+   * @dev Updates loanAmount, lastPaymentTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
    * @param loan Storage reference to the loan being repaid
    * @param bitmorPool Bitmor Lending Pool address
    * @param debtAsset USDC token address (debt asset)
    * @param lsa Loan Specific Address (the borrower address on Aave)
    * @param amount Maximum amount to repay (actual repaid may be less if debt is smaller)
    * @return finalAmountRepaid Actual amount repaid to Aave
-   * @return nextDueTimestamp Updated next payment due timestamp (or current if fully repaid)
    */
   function executeLoanRepayment(
     DataTypes.LoanData storage loan,
@@ -133,7 +139,7 @@ library BitmorLendingPoolLogic {
     address debtAsset,
     address lsa,
     uint256 amount
-  ) internal returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
+  ) internal returns (uint256 finalAmountRepaid) {
     // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
     // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
 
@@ -144,13 +150,13 @@ library BitmorLendingPoolLogic {
     // Update accounting
     uint256 afterDebt = beforeDebt - finalAmountRepaid;
     loan.loanAmount = afterDebt;
-    loan.lastDueTimestamp = block.timestamp;
+    loan.lastPaymentTimestamp = block.timestamp;
 
     // Advance schedule only if loan remains active
     if (afterDebt == 0) {
       // Fully repaid
-      nextDueTimestamp = loan.nextDueTimestamp;
       loan.status = DataTypes.LoanStatus.Completed;
+      loan.duration = 0;
     } else {
       uint256 emp = loan.estimatedMonthlyPayment;
       uint256 periods = 1;
@@ -161,10 +167,7 @@ library BitmorLendingPoolLogic {
           periods = 1;
         }
       }
-      nextDueTimestamp = loan.nextDueTimestamp + (periods * (30 days));
-      loan.nextDueTimestamp = nextDueTimestamp;
+      loan.duration -= periods;
     }
-
-    return (finalAmountRepaid, nextDueTimestamp);
   }
 }

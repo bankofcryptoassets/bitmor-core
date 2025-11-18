@@ -40,15 +40,13 @@ interface ILoan {
 
   event Loan__ZQuoterUpdated(address indexed newZQuoter);
 
-  event Loan__LoanRepaid(
-    address indexed lsa,
-    uint256 indexed amountRepaid,
-    uint256 indexed nextDueTimestamp
-  );
+  event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
   event Loan__LoanDataUpdated(address indexed lsa, bytes data);
 
   event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
+
+  event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
 
   // ============ Main Functions ============
 
@@ -149,16 +147,12 @@ interface ILoan {
 
   /**
    * @notice Allows borrower to repay their loan with `amount` USDC
-   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastDueTimestamp, nextDueTimestamp)
+   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp)
    * @param lsa The Loan Specific Address
    * @param amount Amount of USDC to repay (6 decimals)
    * @return finalAmountRepaid The actual amount repaid
-   * @return nextDueTimestamp The next due timestamp
    */
-  function repay(
-    address lsa,
-    uint256 amount
-  ) external returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp);
+  function repay(address lsa, uint256 amount) external returns (uint256 finalAmountRepaid);
 
   /**
    * @notice Allows borrower to withdraw collateral from their LSA
@@ -213,4 +207,25 @@ interface ILoan {
    * @param newPremiumCollector New premium collector address
    */
   function setPremiumCollector(address newPremiumCollector) external;
+
+  /**
+   * @notice Get the premium collector address
+   */
+  function getPremiumCollector() external view returns (address premiumCollector);
+
+  /**
+   * @notice Updates the grace period for microLiquidation.
+   * @param gracePeriod New grace period in `days`
+   */
+  function setGracePeriod(uint256 gracePeriod) external;
+
+  /**
+   * @notice Returns the `s_gracePeriod`.
+   */
+  function getGracePeriod() external view returns (uint256 gracePeriod);
+
+  /**
+   * @notice Returns `LOAN_REPAYMENT_INTERVAL` constant value.
+   */
+  function getRepaymentInterval() external view returns (uint256);
 }

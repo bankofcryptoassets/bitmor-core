@@ -95,15 +95,28 @@ library DataTypes {
     uint256 amount;
   }
 
-  struct ExecuteCloseParams {
+  struct ExecuteCloseLoanParams {
     address lsa;
     uint256 amount;
   }
 
-  struct CloseContext {
+  struct CloseLoanContext {
     address bitmorPool;
     address debtAsset;
     address collateralAsset;
+  }
+
+  struct CloseLoanWithFLContext {
+    address bitmorPool;
+    address oracle;
+    address debtAsset;
+    address collateralAsset;
+    uint256 preClosureFeeBps;
+  }
+
+  struct CloseLoanWithFLParams {
+    address lsa;
+    bool withdrawInCollateralAsset;
   }
 
   // ============ Loan Data Structure ============
@@ -118,8 +131,7 @@ library DataTypes {
    * @param duration Loan term length in months
    * @param createdAt Unix timestamp when loan was created
    * @param insuranceID Insurance/Order ID for tracking this loan
-   * @param nextDueTimestamp Unix timestamp of the next payment due date (updated during repayments)
-   * @param lastDueTimestamp Unix timestamp when the last payment was made (0 if no payments yet, updated during repayments)
+   * @param lastPaymentTimestamp Timestamp at which last payment was made.
    * @param status Current lifecycle status of the loan
    */
   struct LoanData {
@@ -131,8 +143,7 @@ library DataTypes {
     uint256 duration;
     uint256 createdAt;
     uint256 insuranceID;
-    uint256 nextDueTimestamp;
-    uint256 lastDueTimestamp;
+    uint256 lastPaymentTimestamp;
     LoanStatus status;
   }
 

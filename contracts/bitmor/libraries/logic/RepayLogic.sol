@@ -17,7 +17,7 @@ library RepayLogic {
     address debtAsset,
     DataTypes.ExecuteRepayParams memory params,
     mapping(address => DataTypes.LoanData) storage loansByLSA
-  ) internal returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
+  ) internal returns (uint256 finalAmountRepaid) {
     if (params.lsa == address(0)) revert Errors.ZeroAddress();
     if (params.amount == 0) revert Errors.ZeroAmount();
 
@@ -36,7 +36,7 @@ library RepayLogic {
     IERC20(debtAsset).forceApprove(bitmorPool, maxRepayableAmt);
 
     // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-    (finalAmountRepaid, nextDueTimestamp) = BitmorLendingPoolLogic.executeLoanRepayment(
+    finalAmountRepaid = BitmorLendingPoolLogic.executeLoanRepayment(
       loan,
       bitmorPool,
       debtAsset,
@@ -49,6 +49,6 @@ library RepayLogic {
       IERC20(debtAsset).safeTransfer(msg.sender, maxRepayableAmt - finalAmountRepaid);
     }
 
-    emit ILoan.Loan__LoanRepaid(params.lsa, finalAmountRepaid, nextDueTimestamp);
+    emit ILoan.Loan__LoanRepaid(params.lsa, finalAmountRepaid);
   }
 }

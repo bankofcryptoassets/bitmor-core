@@ -9,7 +9,7 @@ import {IPriceOracleGetter} from '../interfaces/IPriceOracleGetter.sol';
 import {ILoan} from '../interfaces/ILoan.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
-import {CloseLogic} from '../libraries/logic/CloseLogic.sol';
+import {CloseLoanLogic} from '../libraries/logic/CloseLoanLogic.sol';
 import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
@@ -216,8 +216,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
   function repay(
     address lsa,
     uint256 amount
-  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp) {
-    (finalAmountRepaid, nextDueTimestamp) = RepayLogic.executeRepay(
+  ) external override nonReentrant returns (uint256 finalAmountRepaid) {
+    finalAmountRepaid = RepayLogic.executeRepay(
       i_BITMOR_POOL,
       i_DEBT_ASSET,
       DataTypes.ExecuteRepayParams(lsa, amount),
@@ -225,7 +225,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     );
   }
 
-  // ============ Withdrawal Function ============
+  // ============ Close Loan Function  ============
 
   /// @inheritdoc ILoan
   function closeLoan(
@@ -240,17 +240,37 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     checkIfLoanExists(lsa)
     returns (uint256 finalAmountRepaid, uint256 amountWithdrawn)
   {
-    DataTypes.CloseContext memory ctx = DataTypes.CloseContext(
+    DataTypes.CloseLoanContext memory ctx = DataTypes.CloseLoanContext(
       i_BITMOR_POOL,
       i_DEBT_ASSET,
       i_COLLATERAL_ASSET
     );
 
-    (finalAmountRepaid, amountWithdrawn) = CloseLogic.executeClose(
+    (finalAmountRepaid, amountWithdrawn) = CloseLoanLogic.executeClose(
       ctx,
-      DataTypes.ExecuteCloseParams(lsa, amount),
+      DataTypes.ExecuteCloseLoanParams(lsa, amount),
       s_loansByLSA
     );
+  }
+
+  function closeLoanWithFlashLoan(
+    address lsa,
+    bool withdrawInCollateralAsset
+  ) external nonReentrant {
+    /**
+     * Flow
+     * 1. Check user vdtBalance
+     * 2. Check user collateral amount
+     * 3. Compare the (debtUSD + pre-closure fee + flashloan premium) and collateralUSD
+     * 4. Take flash loan of debtUSD value
+     * 5. Repay to Bitmor Lending pool with debtUSD
+     * 6. Withdraw collateral asset
+     * 7. Deduct the pre closure fee
+     * 8. if `withdrawInCollateralAsset` is true, swap for debtUSD worth of debt asset, else swap complete collateral balance to debt asset.
+     * 9. repay the flash loan
+     * 10. Update the state of the LSA
+     * 11. send the collateral/debtAsset asset to the `loan.borrower`
+     */
   }
 
   // ============ Admin Functions ============
@@ -312,6 +332,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     );
   }
 
+  function getGracePeriod() external view override returns (uint256) {
+    return s_gracePeriod;
+  }
+
+  function getPremiumCollector() external view override returns (address) {
+    return s_premiumCollector;
+  }
+
   /// @inheritdoc ILoan
   function setPremiumCollector(
     address newPremiumCollector
@@ -320,13 +348,24 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     emit Loan__PremiumCollectorUpdated(s_premiumCollector);
   }
 
-  function _checkZeroAmount(uint256 amt) internal view {
+  function setGracePeriod(
+    uint256 gracePeriod
+  ) external override checkZeroAmount(gracePeriod) onlyOwner {
+    s_gracePeriod = gracePeriod;
+    emit Loan__GracePeriodUpdated(gracePeriod);
+  }
+
+  function getRepaymentInterval() external view returns (uint256) {
+    return LOAN_REPAYMENT_INTERVAL;
+  }
+
+  function _checkZeroAmount(uint256 amt) internal pure {
     if (amt == 0) {
       revert Errors.ZeroAmount();
     }
   }
 
-  function _checkZeroAddress(address _add) internal view {
+  function _checkZeroAddress(address _add) internal pure {
     if (_add == address(0)) {
       revert Errors.ZeroAddress();
     }

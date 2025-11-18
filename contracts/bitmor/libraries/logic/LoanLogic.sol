@@ -49,9 +49,6 @@ library LoanLogic {
     // Create LSA via factory using CREATE2 for deterministic address
     lsa = ILoanVaultFactory(ctx.loanVaultFactory).createLoanVault(params.user, block.timestamp);
 
-    // Calculate payment timestamps (30 days = 1 month)
-    uint256 firstPaymentDue = block.timestamp + ctx.loanRepaymentInterval;
-
     // Store loan data on-chain
     loansByLSA[lsa] = DataTypes.LoanData({
       borrower: params.user,
@@ -62,8 +59,7 @@ library LoanLogic {
       duration: params.duration,
       createdAt: block.timestamp,
       insuranceID: params.insuranceID,
-      nextDueTimestamp: firstPaymentDue,
-      lastDueTimestamp: 0,
+      lastPaymentTimestamp: 0,
       status: DataTypes.LoanStatus.Active
     });
 

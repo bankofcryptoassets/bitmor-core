@@ -39,7 +39,10 @@ contract LoanStorage {
   address public s_zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
 
   /// @notice Collects insurance premium amount.
-  address public s_premiumCollector;
+  address internal s_premiumCollector;
+
+  /// @notice Grace period for monthly installments in `days`
+  uint256 internal s_gracePeriod;
 
   // ============ Storage Mappings ============
 
@@ -61,7 +64,7 @@ contract LoanStorage {
   uint256 public constant MAX_SLIPPAGE_BPS = 200;
 
   /// @notice Loan repayment interval in seconds (30 days)
-  uint256 public constant LOAN_REPAYMENT_INTERVAL = 30 days;
+  uint256 internal constant LOAN_REPAYMENT_INTERVAL = 30 days;
 
   /// @notice MAX collateral amount user can take.
   uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
