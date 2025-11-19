@@ -10,6 +10,8 @@ import {ILoanVault} from '../../interfaces/ILoanVault.sol';
  * @notice Handles LSA credit delegation (for Aave V2 borrowing)
  */
 library LSALogic {
+  uint256 internal constant MAX_U256 = type(uint256).max;
+
   /**
    * @notice Approve credit delegation on LSA before borrowing
    * @dev This MUST be called BEFORE Protocol borrows on behalf of LSA
@@ -42,5 +44,24 @@ library LSALogic {
 
     // Use LSA's execute() function to call variableDebtToken.approveDelegation()
     ILoanVault(lsa).execute(variableDebtToken, data);
+  }
+
+  function withdrawCollateral(
+    address bitmorPool,
+    address lsa,
+    address collateralAsset,
+    address recipient
+  ) internal returns (uint256 amountWithdrawn) {
+    bytes memory withdrawData = abi.encodeWithSignature(
+      'withdraw(address,uint256,address)',
+      collateralAsset,
+      MAX_U256,
+      recipient
+    );
+
+    bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
+
+    // Decode the actual amount withdrawn
+    amountWithdrawn = abi.decode(result, (uint256));
   }
 }

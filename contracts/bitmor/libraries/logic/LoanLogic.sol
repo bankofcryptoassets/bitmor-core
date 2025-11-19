@@ -161,6 +161,9 @@ library LoanLogic {
       address(this) // Protocol is the delegatee
     );
 
+    // Approve Aave V2 pool to spend asset
+    IERC20(ctx.collateralAsset).forceApprove(ctx.bitmorPool, amountReceived);
+
     BitmorLendingPoolLogic.depositCollateral(
       ctx.bitmorPool,
       ctx.collateralAsset,

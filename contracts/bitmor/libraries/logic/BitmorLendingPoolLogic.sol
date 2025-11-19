@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
-import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
-import {DataTypes} from '../types/DataTypes.sol';
-import {ILoanVault} from '../../interfaces/ILoanVault.sol';
 
 /**
  * @title BitmorLendingPoolLogic
@@ -13,9 +9,6 @@ import {ILoanVault} from '../../interfaces/ILoanVault.sol';
  */
 
 library BitmorLendingPoolLogic {
-  using SafeERC20 for IERC20;
-
-  uint256 constant MAX_U256 = type(uint256).max;
   uint256 constant RATE_MODE = 2;
   uint16 constant REFERRAL = 0;
 
@@ -33,9 +26,6 @@ library BitmorLendingPoolLogic {
     uint256 amount,
     address onBehalfOf
   ) internal {
-    // Approve Aave V2 pool to spend asset
-    IERC20(asset).forceApprove(bitmorPool, amount);
-
     ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
   }
 
@@ -58,22 +48,7 @@ library BitmorLendingPoolLogic {
   }
 
   /**
-   * @notice Retrieves aToken address for given asset
-   * @dev Used to get acbBTC address for collateral locking
-   * @param bitmorPool Bitmor Lending Pool address
-   * @param asset Underlying asset (cbBTC)
-   * @return aToken address (acbBTC)
-   */
-  function getATokenAddress(address bitmorPool, address asset) internal view returns (address) {
-    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(asset);
-    address aToken = reserveData.aTokenAddress;
-
-    return aToken;
-  }
-
-  /**
    * @notice Get the latest position value of the `lsa` in `bitmorPool`.
-   * @param bitmorPool Bitmor Lending Pool address
    * @param lsa Loan Vault Address
    * @return totalCollateral Total collateral asset value in USD hold by LSA
    * @return totalDebt Total debt asset value in USD hold by LSA
@@ -85,48 +60,9 @@ library BitmorLendingPoolLogic {
     (totalCollateral, totalDebt, , , , ) = ILendingPool(bitmorPool).getUserAccountData(lsa);
   }
 
-  function closeLoan(
-    address bitmorPool,
-    address lsa,
-    address debtAsset,
-    address cbBTC,
-    address recipient,
-    uint256 repaymentAmount,
-    DataTypes.LoanData storage loan
-  ) internal returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
-    finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, repaymentAmount, RATE_MODE, lsa);
-
-    // LSA calls bitmorPool.withdraw(cbBTC, amount, recipient)
-    // This will:
-    //   - Burn acbBTC from LSA
-    //   - Send cbBTC to recipient
-    //   - Validate health factor > 1.0 (Aave's built-in check) @Note @TODO: This is something which we may have to remove as we have insurance in place.
-    bytes memory withdrawData = abi.encodeWithSignature(
-      'withdraw(address,uint256,address)',
-      cbBTC,
-      MAX_U256,
-      recipient
-    );
-
-    bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
-
-    // Decode the actual amount withdrawn
-    amountWithdrawn = abi.decode(result, (uint256));
-
-    require(amountWithdrawn > 0, 'WithdrawalLogic: withdrawal failed');
-
-    // TODO!: Implement Loan State Change
-
-    loan.lastPaymentTimestamp = block.timestamp;
-    loan.status = DataTypes.LoanStatus.Completed;
-
-    return (finalAmountRepaid, amountWithdrawn);
-  }
-
   /**
    * @notice Executes loan repayment on Aave V2 and updates loan state
    * @dev Updates loanAmount, lastPaymentTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
-   * @param loan Storage reference to the loan being repaid
    * @param bitmorPool Bitmor Lending Pool address
    * @param debtAsset USDC token address (debt asset)
    * @param lsa Loan Specific Address (the borrower address on Aave)
@@ -134,7 +70,6 @@ library BitmorLendingPoolLogic {
    * @return finalAmountRepaid Actual amount repaid to Aave
    */
   function executeLoanRepayment(
-    DataTypes.LoanData storage loan,
     address bitmorPool,
     address debtAsset,
     address lsa,
@@ -142,32 +77,6 @@ library BitmorLendingPoolLogic {
   ) internal returns (uint256 finalAmountRepaid) {
     // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
     // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
-
-    uint256 beforeDebt = loan.loanAmount;
-
     finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, amount, RATE_MODE, lsa);
-
-    // Update accounting
-    uint256 afterDebt = beforeDebt - finalAmountRepaid;
-    loan.loanAmount = afterDebt;
-    loan.lastPaymentTimestamp = block.timestamp;
-
-    // Advance schedule only if loan remains active
-    if (afterDebt == 0) {
-      // Fully repaid
-      loan.status = DataTypes.LoanStatus.Completed;
-      loan.duration = 0;
-    } else {
-      uint256 emp = loan.estimatedMonthlyPayment;
-      uint256 periods = 1;
-      if (emp > 0) {
-        // ceilDiv: (a + b - 1) / b
-        periods = (finalAmountRepaid + emp - 1) / (emp);
-        if (periods == 0) {
-          periods = 1;
-        }
-      }
-      loan.duration -= periods;
-    }
   }
 }

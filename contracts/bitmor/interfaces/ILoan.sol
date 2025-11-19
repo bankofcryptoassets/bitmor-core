@@ -155,16 +155,16 @@ interface ILoan {
   function repay(address lsa, uint256 amount) external returns (uint256 finalAmountRepaid);
 
   /**
-   * @notice Allows borrower to withdraw collateral from their LSA
+   * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
    * @dev Withdraws from escrow where excess collateral is locked
    * @param lsa The Loan Specific Address
-   * @param amount USDC amount to transfer
+   * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
    * @return finalAmountRepaid Actual amount of USDC repaid
    * @return amountWithdrawn Actual amount of cbBTC withdrawn
    */
   function closeLoan(
     address lsa,
-    uint256 amount
+    bool withdrawInCollateralAsset
   ) external returns (uint256 finalAmountRepaid, uint256 amountWithdrawn);
 
   // ============ Admin Functions ============

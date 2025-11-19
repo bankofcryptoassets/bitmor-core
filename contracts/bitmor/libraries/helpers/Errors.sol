@@ -10,7 +10,6 @@ library Errors {
   error ZeroAddress();
   error LoanDoesNotExists();
   error LoanIsNotActive();
-  error InsufficientAmountSuppliedForClosure(uint256 amountRequired, uint256 amountSupplied);
   error IndexOutOfBounds();
   error InvalidAssetPrice();
   error CallerIsNotAAVEPool();
@@ -20,4 +19,5 @@ library Errors {
   error InsufficientCollateral();
   error InsufficientDeposit();
   error GreaterThanMaxCollateralAllowed();
+  error CollateralWithdrawFailed();
 }

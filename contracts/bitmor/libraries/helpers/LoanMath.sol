@@ -10,7 +10,6 @@ import {Errors} from './Errors.sol';
  */
 library LoanMath {
   uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
-  uint256 private constant USDC_DECIMALS = 1e6; // USDC has 6 decimals
   uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
   uint256 private constant MONTHS_PER_YEAR = 12;
   uint256 private constant MIN_DEPOSIT_PERCENTAGE = 30_00; // 30% as per basis points
@@ -72,8 +71,8 @@ library LoanMath {
     uint256 collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION;
 
     // Convert deposit amount to USD value
-    // depositValueUSD = (depositAmount * debtPriceUSD) / USDC_DECIMALS
-    uint256 depositValueUSD = (depositAmount * debtPriceUSD) / USDC_DECIMALS;
+    // depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION
+    uint256 depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION;
 
     // Ensure collateral value exceeds deposit
     if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
@@ -82,15 +81,15 @@ library LoanMath {
 
     if (minDepositRequiredUSD >= depositValueUSD) revert Errors.InsufficientDeposit();
 
-    minDepositRequired = (minDepositRequiredUSD * USDC_DECIMALS) / debtPriceUSD;
+    minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / debtPriceUSD;
 
     // Calculate loan amount in USD
     // loanValueUSD = collateralValueUSD - depositValueUSD
     uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
     // Convert loan value back to USDC
-    // loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD
-    loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD;
+    // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
+    loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD;
 
     // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
     // Handle zero interest rate case (simple division)
@@ -154,15 +153,15 @@ library LoanMath {
     // Ensure collateral value exceeds deposit
     if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-    minDepositRequired = (minDepositRequiredUSD * USDC_DECIMALS) / debtPriceUSD;
+    minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / debtPriceUSD;
 
     // Calculate loan amount in USD
     // loanValueUSD = collateralValueUSD - depositValueUSD
     uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
     // Convert loan value back to USDC
-    // loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD
-    loanAmount = (loanValueUSD * USDC_DECIMALS) / debtPriceUSD;
+    // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
+    loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD;
 
     // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
 
