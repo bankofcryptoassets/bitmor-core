@@ -9,6 +9,7 @@ contract DeployLoan is Script {
   function _deployLoanUsingConfig(
     address bitmorPool,
     address aaveV3Pool,
+    address aaveAddressesProvider,
     address oracle,
     address collateralAsset,
     address debtAsset,
@@ -16,7 +17,16 @@ contract DeployLoan is Script {
     address zQuoter
   ) internal {
     vm.startBroadcast();
-    new Loan(bitmorPool, aaveV3Pool, oracle, collateralAsset, debtAsset, swapAdapter, zQuoter);
+    new Loan(
+      aaveV3Pool,
+      aaveAddressesProvider,
+      bitmorPool,
+      oracle,
+      collateralAsset,
+      debtAsset,
+      swapAdapter,
+      zQuoter
+    );
     vm.stopBroadcast();
   }
 
@@ -25,6 +35,7 @@ contract DeployLoan is Script {
     (
       address bitmorPool,
       address aaveV3Pool,
+      address aaveAddressesProvider,
       address oracle,
       address collateralAsset,
       address debtAsset,
@@ -34,6 +45,7 @@ contract DeployLoan is Script {
     _deployLoanUsingConfig(
       bitmorPool,
       aaveV3Pool,
+      aaveAddressesProvider,
       oracle,
       collateralAsset,
       debtAsset,

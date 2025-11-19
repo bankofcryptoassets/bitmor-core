@@ -25,6 +25,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
   /**
    * @notice Initializes the Loan contract with protocol addresses and configuration
    * @param _aaveV3Pool Aave V3 pool address for flash loans
+   * @param _aaveAddressesProvider Addresses Provider for flash loan operations
    * @param _bitmorPool Bitmor Lending Pool
    * @param _oracle Price Oracle
    * @param _collateralAsset cbBTC address

@@ -11,6 +11,7 @@ contract HelperConfig is Script {
   struct NetworkConfig {
     address bitmorPool;
     address aaveV3Pool;
+    address aaveAddressesProvider;
     address oracle;
     address collateralAsset;
     address debtAsset;
@@ -30,6 +31,7 @@ contract HelperConfig is Script {
   uint256 constant INSURANCE_ID = 1;
   uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
   address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
+  address constant AAVE_V3_ADDRESSES_PROVIDER = address(0);
   address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x913336CecD657bB7dA46548bcb1a967EecBEAC62;
   address constant ZQUOTER_BASE_SEPOLIA = address(0);
   address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
@@ -45,6 +47,7 @@ contract HelperConfig is Script {
     config = NetworkConfig({
       bitmorPool: getBitmorPool(),
       aaveV3Pool: getAaveV3Pool(),
+      aaveAddressesProvider: getAaveAddressesProvider(),
       oracle: getOracle(),
       collateralAsset: getCollateralAsset(),
       debtAsset: getDebtAsset(),
@@ -61,6 +64,12 @@ contract HelperConfig is Script {
   function getAaveV3Pool() public view returns (address) {
     if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
       return AAVE_V3_POOL_BASE_SEPOLIA;
+    }
+  }
+
+  function getAaveAddressesProvider() public view returns (address) {
+    if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
+      return AAVE_V3_ADDRESSES_PROVIDER;
     }
   }
 
