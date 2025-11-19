@@ -2,6 +2,8 @@
 pragma solidity 0.8.30;
 
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
+import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
+import {DataTypes} from '../types/DataTypes.sol';
 
 /**
  * @title BitmorLendingPoolLogic
@@ -48,16 +50,50 @@ library BitmorLendingPoolLogic {
   }
 
   /**
+   * Returns the amount of vdtTokens `lsa` holds.
+   * @param bitmorPool Bitmor Lending Pool address
+   * @param debtAsset Debt asset token address
+   * @param lsa The loan vault address
+   * @return vdtTokenAmount The aomunt of variable debt token.
+   */
+  function getVDTTokenAmount(
+    address bitmorPool,
+    address debtAsset,
+    address lsa
+  ) internal view returns (uint256 vdtTokenAmount) {
+    DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(debtAsset);
+
+    vdtTokenAmount = IERC20(data.variableDebtTokenAddress).balanceOf(lsa);
+  }
+
+  /**
+   * Returns the amount of aToken `lsa` holds.
+   * @param bitmorPool Bitmor Lending Pool address
+   * @param collateralAsset Collateral asset token address
+   * @param lsa The loan vault address
+   * @return aTokenAmount The aomunt of  aToken.
+   */
+  function getATokenAmount(
+    address bitmorPool,
+    address collateralAsset,
+    address lsa
+  ) internal view returns (uint256 aTokenAmount) {
+    DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(collateralAsset);
+
+    aTokenAmount = IERC20(data.aTokenAddress).balanceOf(lsa);
+  }
+
+  /**
    * @notice Get the latest position value of the `lsa` in `bitmorPool`.
    * @param lsa Loan Vault Address
-   * @return totalCollateral Total collateral asset value in USD hold by LSA
-   * @return totalDebt Total debt asset value in USD hold by LSA
+   * @return totalCollateralUSD Total collateral asset value in USD hold by LSA
+   * @return totalDebtUSD Total debt asset value in USD hold by LSA
    */
   function getUserPositions(
     address bitmorPool,
     address lsa
-  ) internal view returns (uint256 totalCollateral, uint256 totalDebt) {
-    (totalCollateral, totalDebt, , , , ) = ILendingPool(bitmorPool).getUserAccountData(lsa);
+  ) internal view returns (uint256 totalCollateralUSD, uint256 totalDebtUSD) {
+    (totalCollateralUSD, totalDebtUSD, , , , ) = ILendingPool(bitmorPool).getUserAccountData(lsa);
   }
 
   /**

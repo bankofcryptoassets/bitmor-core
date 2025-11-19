@@ -36,7 +36,7 @@ library RepayLogic {
     if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
     // Cap the requested amount to outstanding principal so we never custody more than needed
-    (, uint256 totalDebt) = BitmorLendingPoolLogic.getUserPositions(bitmorPool, params.lsa);
+    uint256 totalDebt = BitmorLendingPoolLogic.getVDTTokenAmount(bitmorPool, debtAsset, params.lsa);
     uint256 maxRepayableAmt = LoanMath.min(params.amount, totalDebt);
 
     // Pull only what might be needed from the borrower
@@ -54,8 +54,9 @@ library RepayLogic {
     );
 
     // Update accounting
-    (, uint256 totalDebtRemaining) = BitmorLendingPoolLogic.getUserPositions(
+    uint256 totalDebtRemaining = BitmorLendingPoolLogic.getVDTTokenAmount(
       bitmorPool,
+      debtAsset,
       params.lsa
     );
 
