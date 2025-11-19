@@ -11,13 +11,15 @@ import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
 import {CloseLoanLogic} from '../libraries/logic/CloseLoanLogic.sol';
 import {Errors} from '../libraries/helpers/Errors.sol';
+import {IFlashLoanSimpleReceiver} from '../interfaces/IFlashLoanSimpleReceiver.sol';
+import {IPool, IPoolAddressesProvider} from '../interfaces/IPool.sol';
 
 /**
  * @title Loan
  * @notice Main contract for Bitmor Protocol loan creation and management
  * @dev Implements ILoan interface with full loan lifecycle management
  */
-contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
+contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleReceiver {
   // ============ Constructor ============
 
   /**
@@ -32,6 +34,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
    */
   constructor(
     address _aaveV3Pool,
+    address _aaveAddressesProvider,
     address _bitmorPool,
     address _oracle,
     address _collateralAsset,
@@ -39,7 +42,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     address _swapAdapter,
     address _zQuoter
   )
-    LoanStorage(_aaveV3Pool, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
+    LoanStorage(
+      _aaveV3Pool,
+      _aaveAddressesProvider,
+      _bitmorPool,
+      _oracle,
+      _collateralAsset,
+      _debtAsset
+    )
     Ownable(msg.sender)
   {
     if (_swapAdapter == address(0)) revert Errors.ZeroAddress();
@@ -150,14 +160,16 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
   // ============ Flash Loan Callback ============
 
-  /// @inheritdoc ILoan
+  /// @inheritdoc IFlashLoanSimpleReceiver
   function executeOperation(
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata premiums,
+    address asset,
+    uint256 amount,
+    uint256 premium,
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
+    //! TODO: Check if decode first params from params;
+
     DataTypes.FLOperationContext memory ctx = DataTypes.FLOperationContext(
       i_AAVE_V3_POOL,
       i_BITMOR_POOL,
@@ -169,9 +181,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
     );
 
     DataTypes.FLOperationParams memory flOpParams = DataTypes.FLOperationParams(
-      assets,
-      amounts,
-      premiums,
+      asset,
+      amount,
+      premium,
       initiator,
       params
     );
@@ -282,6 +294,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard {
 
   function getRepaymentInterval() external view returns (uint256) {
     return LOAN_REPAYMENT_INTERVAL;
+  }
+
+  function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
+    return IPoolAddressesProvider(address(0));
+  }
+
+  function POOL() external view override returns (IPool) {
+    return IPool(i_AAVE_V3_POOL);
   }
 
   // ============ Admin Functions ============

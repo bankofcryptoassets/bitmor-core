@@ -10,10 +10,11 @@ import {ILoanVaultFactory} from '../../interfaces/ILoanVaultFactory.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
-import {BitmorLendingPoolLogic} from '../logic/BitmorLendingPoolLogic.sol';
 
-import {SwapLogic} from '../logic/SwapLogic.sol';
-import {LSALogic} from '../logic/LSALogic.sol';
+import {BitmorLendingPoolLogic} from './BitmorLendingPoolLogic.sol';
+import {SwapLogic} from './SwapLogic.sol';
+import {LSALogic} from './LSALogic.sol';
+import {AavePoolLogic} from './AavePoolLogic.sol';
 
 /**
  * @title LoanLogic
@@ -81,28 +82,35 @@ library LoanLogic {
     }
 
     // Flash loan execution flow
-    {
-      address[] memory assets = new address[](1);
-      assets[0] = ctx.debtAsset;
 
-      uint256[] memory amounts = new uint256[](1);
-      amounts[0] = loanAmount;
+    // address[] memory assets = new address[](1);
+    // assets[0] = ctx.debtAsset;
 
-      uint256[] memory modes = new uint256[](1);
-      modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
+    // uint256[] memory amounts = new uint256[](1);
+    // amounts[0] = loanAmount;
 
-      bytes memory paramsForFL = abi.encode(lsa, params.collateralAmount);
+    // uint256[] memory modes = new uint256[](1);
+    // modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
 
-      ILendingPool(ctx.aavePool).flashLoan(
-        address(this), // receiver address
-        assets, // assets to borrow
-        amounts, // amounts to borrow the assets
-        modes, // modes of the debt to open if the flash loan is not returned
-        lsa, // onbehalf of address
-        paramsForFL, // params to pass to the receiver
-        uint16(0) // referral code
-      );
-    }
+    bytes memory paramsForFL = abi.encode(lsa, params.collateralAmount);
+
+    // ILendingPool(ctx.aavePool).flashLoan(
+    //   address(this), // receiver address
+    //   assets, // assets to borrow
+    //   amounts, // amounts to borrow the assets
+    //   modes, // modes of the debt to open if the flash loan is not returned
+    //   lsa, // onbehalf of address
+    //   paramsForFL, // params to pass to the receiver
+    //   uint16(0) // referral code
+    // );
+
+    AavePoolLogic.executeFlashLoan(
+      ctx.aavePool,
+      address(this),
+      ctx.debtAsset,
+      loanAmount,
+      paramsForFL
+    );
 
     // Emit loan creation event
     emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount);
@@ -125,8 +133,8 @@ library LoanLogic {
     // Retrieve loan data from storage
     DataTypes.LoanData storage loan = loansByLSA[lsa];
 
-    uint256 flashLoanAmount = params.amounts[0];
-    uint256 flashLoanPremium = params.premiums[0];
+    uint256 flashLoanAmount = params.amount;
+    uint256 flashLoanPremium = params.premium;
     uint256 totalSwapAmount = loan.depositAmount + flashLoanAmount;
 
     uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(

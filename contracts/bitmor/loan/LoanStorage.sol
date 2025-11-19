@@ -15,6 +15,9 @@ contract LoanStorage {
   /// @notice Aave V3 pool address for flash loan operations
   address public immutable i_AAVE_V3_POOL;
 
+  /// @notice Adddress provider required for flash loan compatibility
+  address public immutable i_AAVE_ADDRESSES_PROVIDER;
+
   /// @notice Bitmor Lending Pool address for collateral deposits and debt borrowing
   address public immutable i_BITMOR_POOL;
 
@@ -81,6 +84,7 @@ contract LoanStorage {
    */
   constructor(
     address _aaveV3Pool,
+    address _aaveAddressesProvider,
     address _bitmorPool,
     address _oracle,
     address _collateralAsset,
@@ -99,5 +103,6 @@ contract LoanStorage {
     i_ORACLE = _oracle;
     i_COLLATERAL_ASSET = _collateralAsset;
     i_DEBT_ASSET = _debtAsset;
+    i_AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
   }
 }

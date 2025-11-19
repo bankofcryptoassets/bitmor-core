@@ -73,9 +73,9 @@ library DataTypes {
   }
 
   struct FLOperationParams {
-    address[] assets;
-    uint256[] amounts;
-    uint256[] premiums;
+    address asset;
+    uint256 amount;
+    uint256 premium;
     address initiator;
     bytes params;
   }
@@ -95,26 +95,16 @@ library DataTypes {
     uint256 amount;
   }
 
-  struct ExecuteCloseLoanParams {
-    address lsa;
-    uint256 amount;
-  }
-
-  struct CloseLoanContext {
+  struct ExecuteCloseLoanContext {
     address bitmorPool;
-    address debtAsset;
-    address collateralAsset;
-  }
-
-  struct CloseLoanWithFLContext {
-    address bitmorPool;
+    address aavePool;
     address oracle;
     address debtAsset;
     address collateralAsset;
     uint256 preClosureFeeBps;
   }
 
-  struct CloseLoanWithFLParams {
+  struct ExecuteCloseLoanParams {
     address lsa;
     bool withdrawInCollateralAsset;
   }

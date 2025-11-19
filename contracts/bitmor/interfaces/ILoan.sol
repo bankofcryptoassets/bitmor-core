@@ -70,24 +70,6 @@ interface ILoan {
     address onBehalfOf
   ) external returns (address lsa);
 
-  /**
-   * @notice Aave V3 flash loan callback function
-   * @dev Called by Aave pool during flash loan execution to swap USDC, deposit collateral, and borrow
-   * @param assets Array of asset addresses being flash loaned
-   * @param amounts Array of flash loan amounts
-   * @param premiums Array of flash loan premiums (fees)
-   * @param initiator Address that initiated the flash loan
-   * @param params Encoded parameters (LSA address and collateral amount)
-   * @return True if execution successful
-   */
-  function executeOperation(
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata premiums,
-    address initiator,
-    bytes calldata params
-  ) external returns (bool);
-
   // ============ View Functions ============
 
   /**
