@@ -9,8 +9,8 @@ import {ILoan} from '../../interfaces/ILoan.sol';
 import {ILoanVaultFactory} from '../../interfaces/ILoanVaultFactory.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
+import {IERC20Metadata} from '../../dependencies/openzeppelin/IERC20Metadata.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
-
 import {AavePoolLogic} from './AavePoolLogic.sol';
 
 /**
@@ -35,13 +35,17 @@ library LoanLogic {
       revert Errors.GreaterThanMaxCollateralAllowed();
 
     (uint256 loanAmount, uint256 monthlyPayment, ) = calculateLoanAmountAndMonthlyPayment(
-      ctx.bitmorPool,
-      ctx.oracle,
-      ctx.collateralAsset,
-      ctx.debtAsset,
-      params.depositAmount,
-      params.collateralAmount,
-      params.duration
+      DataTypes.CalculateLoanAmountAndMonthlyPayment(
+        ctx.bitmorPool,
+        ctx.oracle,
+        ctx.collateralAsset,
+        ctx.debtAsset,
+        params.depositAmount,
+        IERC20Metadata(ctx.debtAsset).decimals(),
+        params.collateralAmount,
+        IERC20Metadata(ctx.collateralAsset).decimals(),
+        params.duration
+      )
     );
 
     // Create LSA via factory using CREATE2 for deterministic address
@@ -119,50 +123,44 @@ library LoanLogic {
   /**
    * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
    * @dev Fetch oracle price for the assets
-   * @param bitmorPool Bitmor Lending Pool address
-   * @param _oracle Price Oracle address
-   * @param collateralAsset cbBTC address
-   * @param debtAsset USDC address
-   * @param depositAmount User's USDC deposit (6 decimals)
-   * @param collateralAmount Desired cbBTC collateral (8 decimals)
-   * @param duration Loan duration in months
+   * @param data Params to calculate the loan details based on deposit amount
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)
    * @return minDepositRequired Minimum deposit requried amount
    */
   function calculateLoanAmountAndMonthlyPayment(
-    address bitmorPool,
-    address _oracle,
-    address collateralAsset,
-    address debtAsset,
-    uint256 depositAmount,
-    uint256 collateralAmount,
-    uint256 duration
+    DataTypes.CalculateLoanAmountAndMonthlyPayment memory data
   )
     internal
     view
     returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
   {
     // Get oracle prices
-    IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
-    uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
-    uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+    IPriceOracleGetter oracle = IPriceOracleGetter(data.oracle);
+    uint256 collateralPriceUSD = oracle.getAssetPrice(data.collateralAsset);
+    uint256 debtPriceUSD = oracle.getAssetPrice(data.debtAsset);
 
     if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
     // Fetch current variable borrow rate from Aave V2 USDC reserve
-    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+    DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(
+      data.debtAsset
+    );
 
     uint256 interestRate = reserveData.currentVariableBorrowRate;
 
     // Calculate loan amount and monthly payment using fetched rate
     (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
-      depositAmount,
-      collateralAmount,
-      collateralPriceUSD,
-      debtPriceUSD,
-      interestRate,
-      duration
+      DataTypes.CalculateLoanAmt(
+        data.depositAmount,
+        data.debtAssetDecimals,
+        data.collateralAmount,
+        data.collateralAssetDecimals,
+        collateralPriceUSD,
+        debtPriceUSD,
+        interestRate,
+        data.duration
+      )
     );
   }
 
@@ -193,7 +191,9 @@ library LoanLogic {
     (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
       collateralAmount,
       collateralPriceUSD,
+      IERC20Metadata(collateralAsset).decimals(),
       debtPriceUSD,
+      IERC20Metadata(debtAsset).decimals(),
       interestRate,
       duration
     );

@@ -27,11 +27,7 @@ interface ILoan {
 
   event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
 
-  event Loan__ClosedLoan(
-    address indexed lsa,
-    uint256 indexed debtAmount,
-    uint256 indexed cbBTCAmount
-  );
+  event Loan__ClosedLoan(address indexed lsa);
 
   event Loan__LoanVaultFactoryUpdated(address indexed newFactory);
 
@@ -48,6 +44,8 @@ interface ILoan {
   event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
 
   event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
+
+  event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
   // ============ Main Functions ============
 
@@ -70,24 +68,6 @@ interface ILoan {
     uint256 insuranceID,
     address onBehalfOf
   ) external returns (address lsa);
-
-  /**
-   * @notice Aave V3 flash loan callback function
-   * @dev Called by Aave pool during flash loan execution to swap USDC, deposit collateral, and borrow
-   * @param assets Array of asset addresses being flash loaned
-   * @param amounts Array of flash loan amounts
-   * @param premiums Array of flash loan premiums (fees)
-   * @param initiator Address that initiated the flash loan
-   * @param params Encoded parameters (LSA address and collateral amount)
-   * @return True if execution successful
-   */
-  function executeOperation(
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata premiums,
-    address initiator,
-    bytes calldata params
-  ) external returns (bool);
 
   // ============ View Functions ============
 
@@ -156,17 +136,12 @@ interface ILoan {
   function repay(address lsa, uint256 amount) external returns (uint256 finalAmountRepaid);
 
   /**
-   * @notice Allows borrower to withdraw collateral from their LSA
+   * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
    * @dev Withdraws from escrow where excess collateral is locked
    * @param lsa The Loan Specific Address
-   * @param amount USDC amount to transfer
-   * @return finalAmountRepaid Actual amount of USDC repaid
-   * @return amountWithdrawn Actual amount of cbBTC withdrawn
+   * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
    */
-  function closeLoan(
-    address lsa,
-    uint256 amount
-  ) external returns (uint256 finalAmountRepaid, uint256 amountWithdrawn);
+  function closeLoan(address lsa, bool withdrawInCollateralAsset) external;
 
   // ============ Admin Functions ============
 
@@ -229,4 +204,27 @@ interface ILoan {
    * @notice Returns `LOAN_REPAYMENT_INTERVAL` constant value.
    */
   function getRepaymentInterval() external view returns (uint256);
+
+  /**
+   * @notice Returns the loan pre-closure fee (in bps)
+   */
+  function getPreClosureFee() external view returns (uint256);
+
+  /**
+   * @notice Updates the pre-closure fee (in bps)
+   */
+  function setPreClosureFee(uint256 newFee) external;
+
+  /**
+   * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
+   * @param collateralAmount Collateral asset amount
+   * @param duration Duration of the loan
+   * @return loanAmount Debt asset amount
+   * @return monthlyPayment estimated monthly payment amount in debt asset
+   * @return minDepositRequired Minimum deposit required in debt asset to initialize loan
+   */
+  function getLoanDetails(
+    uint256 collateralAmount,
+    uint256 duration
+  ) external view returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
 }

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Errors} from './Errors.sol';
+import {DataTypes} from '../types/DataTypes.sol';
 
 /**
  * @title LoanMath
@@ -47,32 +48,23 @@ library LoanMath {
   /**
    * @notice Calculates the loan amount and monthly payment based on collateral and deposit
    * @dev TODO: Please verify this logic.
-   * @dev Uses SafeMath for all calculations to prevent overflow/underflow
-   * @param depositAmount User's deposit in USDC (6 decimals)
-   * @param collateralAmount Desired BTC collateral amount (8 decimals)
-   * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
-   * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
-   * @param interestRate Interest rate from Aave V2 reserve (27 decimals - ray)
-   * @param duration Loan duration in months
+   * @param data Params to calculate loan details.
    * @return loanAmount The calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
    * @return minDepositRequired Minimum deposit requried amount
    */
   function calculateLoanAmt(
-    uint256 depositAmount,
-    uint256 collateralAmount,
-    uint256 collateralPriceUSD,
-    uint256 debtPriceUSD,
-    uint256 interestRate,
-    uint256 duration
+    DataTypes.CalculateLoanAmt memory data
   ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
     // Convert collateral amount to USD value
     // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
-    uint256 collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION;
+    uint256 collateralValueUSD = (data.collateralAmount * data.collateralPriceUSD) /
+      (PRICE_PRECISION * (10 ** data.collateralAssetDecimals));
 
     // Convert deposit amount to USD value
     // depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION
-    uint256 depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION;
+    uint256 depositValueUSD = (data.depositAmount * data.debtPriceUSD) /
+      (PRICE_PRECISION * (10 ** data.debtAssetDecimals));
 
     // Ensure collateral value exceeds deposit
     if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
@@ -81,7 +73,7 @@ library LoanMath {
 
     if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
-    minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / debtPriceUSD;
+    minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / data.debtPriceUSD;
 
     // Calculate loan amount in USD
     // loanValueUSD = collateralValueUSD - depositValueUSD
@@ -89,25 +81,27 @@ library LoanMath {
 
     // Convert loan value back to USDC
     // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
-    loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD;
+    loanAmount =
+      (loanValueUSD * PRICE_PRECISION * (10 ** data.debtAssetDecimals)) /
+      data.debtPriceUSD;
 
     // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
     // Handle zero interest rate case (simple division)
-    if (interestRate == 0) {
-      monthlyPayAmt = loanAmount / duration;
+    if (data.interestRate == 0) {
+      monthlyPayAmt = loanAmount / data.duration;
       return (loanAmount, monthlyPayAmt, minDepositRequired);
     }
 
     // Convert annual interest rate (ray) to monthly interest rate (ray)
     // monthlyRate = interestRate / 12
-    uint256 monthlyRate = interestRate / MONTHS_PER_YEAR;
+    uint256 monthlyRate = data.interestRate / MONTHS_PER_YEAR;
 
     // Calculate (1 + r) in RAY precision
     // onePlusRate = RAY + monthlyRate
     uint256 onePlusRate = RAY + monthlyRate;
 
     // Calculate (1 + r)^n using rayPow
-    uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
+    uint256 onePlusRatePowN = rayPow(onePlusRate, data.duration);
 
     // Calculate numerator: P × r × (1 + r)^n
     // First: loanAmount × monthlyRate (result in ray precision)
@@ -138,13 +132,16 @@ library LoanMath {
   function calculateLoanDetails(
     uint256 collateralAmount,
     uint256 collateralPriceUSD,
+    uint256 collateralAssetDecimals,
     uint256 debtPriceUSD,
+    uint256 debtAssetDecimals,
     uint256 interestRate,
     uint256 duration
   ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
     // Convert collateral amount to USD value
     // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
-    uint256 collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION;
+    uint256 collateralValueUSD = (collateralAmount * collateralPriceUSD) /
+      (PRICE_PRECISION * (10 ** collateralAssetDecimals));
 
     uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
 
@@ -153,7 +150,9 @@ library LoanMath {
     // Ensure collateral value exceeds deposit
     if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-    minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / debtPriceUSD;
+    minDepositRequired =
+      (minDepositRequiredUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) /
+      debtPriceUSD;
 
     // Calculate loan amount in USD
     // loanValueUSD = collateralValueUSD - depositValueUSD
@@ -161,7 +160,7 @@ library LoanMath {
 
     // Convert loan value back to USDC
     // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
-    loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD;
+    loanAmount = (loanValueUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) / debtPriceUSD;
 
     // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
 
