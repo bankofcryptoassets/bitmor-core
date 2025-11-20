@@ -89,7 +89,9 @@ library LoanLogic {
     // uint256[] memory modes = new uint256[](1);
     // modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
 
-    bytes memory paramsForFL = abi.encode(lsa, params.collateralAmount);
+    bool initializingLoan = true;
+    bytes memory flData = abi.encode(lsa, params.collateralAmount);
+    bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
     // ILendingPool(ctx.aavePool).flashLoan(
     //   address(this), // receiver address

@@ -15,6 +15,7 @@ contract DeployLoan is Script {
     address debtAsset,
     address swapAdapter,
     address zQuoter,
+    address premiumCollector,
     uint256 preClosureFee
   ) internal {
     vm.startBroadcast();
@@ -27,6 +28,7 @@ contract DeployLoan is Script {
       debtAsset,
       swapAdapter,
       zQuoter,
+      premiumCollector,
       preClosureFee
     );
     vm.stopBroadcast();
@@ -43,6 +45,7 @@ contract DeployLoan is Script {
       address debtAsset,
       address swapAdapter,
       address zQuoter,
+      address premiumCollector,
       uint256 preClosureFee
     ) = config.networkConfig();
     _deployLoanUsingConfig(
@@ -54,6 +57,7 @@ contract DeployLoan is Script {
       debtAsset,
       swapAdapter,
       zQuoter,
+      premiumCollector,
       preClosureFee
     );
   }

@@ -17,6 +17,7 @@ contract HelperConfig is Script {
     address debtAsset;
     address swapAdapter;
     address zQuoter;
+    address premiumCollector;
     uint256 preClosureFeeBps;
   }
 
@@ -55,8 +56,13 @@ contract HelperConfig is Script {
       debtAsset: getDebtAsset(),
       swapAdapter: getSwapAdapter(),
       zQuoter: getZQuoter(),
+      premiumCollector: getPremiumCollector(),
       preClosureFeeBps: getPreClosureFee()
     });
+  }
+
+  function getPremiumCollector() public returns (address) {
+    return makeAddr('premium');
   }
 
   function getPreClosureFee() public view returns (uint256) {

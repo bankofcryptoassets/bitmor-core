@@ -44,6 +44,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     address _debtAsset,
     address _swapAdapter,
     address _zQuoter,
+    address _premiumCollector,
     uint256 _preClosureFeeBps
   )
     LoanStorage(
@@ -56,10 +57,11 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     )
     Ownable(msg.sender)
   {
-    if (_swapAdapter == address(0)) revert Errors.ZeroAddress();
+    if (_swapAdapter == address(0) || _premiumCollector == address(0)) revert Errors.ZeroAddress();
 
     s_swapAdapter = _swapAdapter;
     s_zQuoter = _zQuoter;
+    s_premiumCollector = _premiumCollector;
     s_preClosureFeeBps = _preClosureFeeBps;
   }
 
@@ -134,24 +136,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
   // ============ Close Loan Function  ============
 
   /// @inheritdoc ILoan
-  function closeLoan(
-    address lsa,
-    bool withdrawInCollateralAsset
-  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
-    /**
-     * Flow
-     * 1. Check user vdtBalance
-     * 2. Check user collateral amount
-     * 3. Compare the (debtUSD + pre-closure fee + flashloan premium) and collateralUSD
-     * 4. Take flash loan of debtUSD value
-     * 5. Repay to Bitmor Lending pool with debtUSD
-     * 6. Withdraw collateral asset
-     * 7. Deduct the pre closure fee
-     * 8. if `withdrawInCollateralAsset` is true, swap for debtUSD worth of debt asset, else swap complete collateral balance to debt asset.
-     * 9. repay the flash loan
-     * 10. Update the state of the LSA
-     * 11. send the collateral/debtAsset asset to the `loan.borrower`
-     */
+  function closeLoan(address lsa, bool withdrawInCollateralAsset) external override nonReentrant {
     DataTypes.ExecuteCloseLoanContext memory ctx = DataTypes.ExecuteCloseLoanContext(
       i_BITMOR_POOL,
       i_AAVE_V3_POOL,
@@ -317,7 +302,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
 
   /// @inheritdoc IFlashLoanSimpleReceiver
   function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
-    return IPoolAddressesProvider(address(0));
+    return IPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER);
   }
 
   /// @inheritdoc IFlashLoanSimpleReceiver
