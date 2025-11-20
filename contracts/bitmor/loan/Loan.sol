@@ -88,8 +88,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
-    uint256 insuranceID,
-    address onBehalfOf
+    uint256 insuranceID
   ) external override nonReentrant returns (address lsa) {
     DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
       bitmorPool: i_BITMOR_POOL,
@@ -106,7 +105,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     lsa = LoanLogic.executeInitializeLoan(
       ctx,
       DataTypes.ExecuteInitializeLoanParams(
-        onBehalfOf,
+        msg.sender,
         depositAmount,
         premiumAmount,
         collateralAmount,
