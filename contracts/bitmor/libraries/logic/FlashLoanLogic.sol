@@ -148,13 +148,13 @@ library FlashLoanLogic {
     // Sends the pre-closure fee to the fee collector
     IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFee);
 
-    // =========== Swap the remaining to the debt asset ==========
+    // =========== Swap the required amount to debt asset ==========
 
-    if (vars.withdrawInCollateralAsset) {
-      vars.collateralAmountToSwap -= vars.preClosureFee;
-    } else {
+    if (!vars.withdrawInCollateralAsset) {
+      // When not withdrawing in collateral asset, swap all remaining after fee
       vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
     }
+    // When withdrawInCollateralAsset=true, use the amount calculated in CloseLoanLogic
 
     vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
       ctx.zQuoter,
@@ -180,20 +180,27 @@ library FlashLoanLogic {
     // =========== Send the remaining assets back to the `loan.borrower` ==========
     vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
 
-    if (vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt > 0) {
+    // Ensure we have enough to repay the flash loan
+    if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
+      revert Errors.LessThanMinimumAmtReceived();
+    }
+
+    // Send excess debt asset to borrower (if any)
+    if (vars.debtAssetAmtReceived > vars.totalFlashLoanBorrowedAmt) {
       IERC20(ctx.debtAsset).safeTransfer(
         loan.borrower,
         vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt
       );
     }
-    if (
-      vars.withdrawInCollateralAsset &&
-      ((vars.collateralAmountWithdrawn - vars.collateralAmountToSwap) > 0)
-    ) {
-      IERC20(ctx.collateralAsset).safeTransfer(
-        loan.borrower,
-        vars.collateralAmountWithdrawn - vars.collateralAmountToSwap
-      );
+
+    // Send remaining collateral to borrower when withdrawing in collateral asset
+    if (vars.withdrawInCollateralAsset) {
+      uint256 remainingCollateral = vars.collateralAmountWithdrawn -
+        vars.collateralAmountToSwap -
+        vars.preClosureFee;
+      if (remainingCollateral > 0) {
+        IERC20(ctx.collateralAsset).safeTransfer(loan.borrower, remainingCollateral);
+      }
     }
     // ===============================================================
 
