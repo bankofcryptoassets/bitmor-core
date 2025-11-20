@@ -31,8 +31,9 @@ library CloseLoanLogic {
     uint256 flashLoanPremiumBps;
     uint256 flashLoanPremiumAmount;
     uint256 flashLoanPremiumAmountUSD;
-    uint256 totalCollateralAmtToSwapUSD;
     uint256 totalCollateralAmtToSwap;
+    uint256 remainingCollateralAssetBal;
+    uint256 remainingDebtAssetBal;
   }
 
   function executeCloseLoan(
@@ -117,6 +118,16 @@ library CloseLoanLogic {
       vars.debtAmt,
       paramsForFL
     );
+
+    vars.remainingCollateralAssetBal = IERC20(ctx.collateralAsset).balanceOf(address(this));
+    vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this));
+
+    if (vars.remainingCollateralAssetBal > 0) {
+      IERC20(ctx.collateralAsset).safeTransfer(loan.borrower, vars.remainingCollateralAssetBal);
+    }
+    if (vars.remainingDebtAssetBal > 0) {
+      IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);
+    }
 
     emit ILoan.Loan__ClosedLoan(params.lsa);
   }

@@ -177,29 +177,8 @@ library FlashLoanLogic {
     );
     // ===============================================================
 
-    // =========== Send the remaining assets back to the `loan.borrower` ==========
-    vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
-
-    // Send excess debt asset to borrower (if any)
-    if (vars.debtAssetAmtReceived > vars.totalFlashLoanBorrowedAmt) {
-      IERC20(ctx.debtAsset).safeTransfer(
-        loan.borrower,
-        vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt
-      );
-    }
-
-    // Send remaining collateral to borrower when withdrawing in collateral asset
-    if (vars.withdrawInCollateralAsset) {
-      uint256 remainingCollateral = vars.collateralAmountWithdrawn -
-        vars.collateralAmountToSwap -
-        vars.preClosureFee;
-      if (remainingCollateral > 0) {
-        IERC20(ctx.collateralAsset).safeTransfer(loan.borrower, remainingCollateral);
-      }
-    }
-    // ===============================================================
-
     // To allow aavePool to withdraw borrow amount
+    vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
     IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);
   }
 }
