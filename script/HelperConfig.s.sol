@@ -17,6 +17,7 @@ contract HelperConfig is Script {
     address debtAsset;
     address swapAdapter;
     address zQuoter;
+    uint256 preClosureFeeBps;
   }
 
   NetworkConfig public networkConfig;
@@ -28,6 +29,7 @@ contract HelperConfig is Script {
   uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
   uint256 constant COLLATERL_AMT = 1 * DECIMAL_CBBTC;
   uint256 constant DURATION_IN_MONTHS = 12;
+  uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
   uint256 constant INSURANCE_ID = 1;
   uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
   address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
@@ -52,8 +54,13 @@ contract HelperConfig is Script {
       collateralAsset: getCollateralAsset(),
       debtAsset: getDebtAsset(),
       swapAdapter: getSwapAdapter(),
-      zQuoter: getZQuoter()
+      zQuoter: getZQuoter(),
+      preClosureFeeBps: getPreClosureFee()
     });
+  }
+
+  function getPreClosureFee() public view returns (uint256) {
+    return PRE_CLOSURE_FEE;
   }
 
   function getBitmorPool() public returns (address) {
