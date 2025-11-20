@@ -111,6 +111,29 @@ library DataTypes {
     bool withdrawInCollateralAsset;
   }
 
+  struct CalculateLoanAmountAndMonthlyPayment {
+    address bitmorPool;
+    address oracle;
+    address collateralAsset;
+    address debtAsset;
+    uint256 depositAmount;
+    uint256 debtAssetDecimals;
+    uint256 collateralAmount;
+    uint256 collateralAssetDecimals;
+    uint256 duration;
+  }
+
+  struct CalculateLoanAmt {
+    uint256 depositAmount;
+    uint256 debtAssetDecimals;
+    uint256 collateralAmount;
+    uint256 collateralAssetDecimals;
+    uint256 collateralPriceUSD;
+    uint256 debtPriceUSD;
+    uint256 interestRate;
+    uint256 duration;
+  }
+
   // ============ Loan Data Structure ============
 
   /**
