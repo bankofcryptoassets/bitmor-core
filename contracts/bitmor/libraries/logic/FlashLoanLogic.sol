@@ -151,9 +151,9 @@ library FlashLoanLogic {
     // =========== Swap the remaining to the debt asset ==========
 
     if (vars.withdrawInCollateralAsset) {
-      vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
-    } else {
       vars.collateralAmountToSwap -= vars.preClosureFee;
+    } else {
+      vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
     }
 
     vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
@@ -186,7 +186,10 @@ library FlashLoanLogic {
         vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt
       );
     }
-    if (vars.collateralAmountWithdrawn - vars.collateralAmountToSwap > 0) {
+    if (
+      vars.withdrawInCollateralAsset &&
+      ((vars.collateralAmountWithdrawn - vars.collateralAmountToSwap) > 0)
+    ) {
       IERC20(ctx.collateralAsset).safeTransfer(
         loan.borrower,
         vars.collateralAmountWithdrawn - vars.collateralAmountToSwap
