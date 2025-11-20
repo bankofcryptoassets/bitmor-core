@@ -180,11 +180,6 @@ library FlashLoanLogic {
     // =========== Send the remaining assets back to the `loan.borrower` ==========
     vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
 
-    // Ensure we have enough to repay the flash loan
-    if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
-      revert Errors.LessThanMinimumAmtReceived();
-    }
-
     // Send excess debt asset to borrower (if any)
     if (vars.debtAssetAmtReceived > vars.totalFlashLoanBorrowedAmt) {
       IERC20(ctx.debtAsset).safeTransfer(
