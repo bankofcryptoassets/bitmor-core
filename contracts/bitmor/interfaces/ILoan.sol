@@ -15,37 +15,36 @@ interface ILoan {
     address indexed borrower,
     address indexed lsa,
     uint256 loanAmount,
-    uint256 collateralAmount,
-    uint256 createdAt
+    uint256 collateralAmount
   );
 
   event Loan__LoanStatusUpdated(
     address indexed lsa,
-    DataTypes.LoanStatus oldStatus,
-    DataTypes.LoanStatus newStatus
+    DataTypes.LoanStatus indexed oldStatus,
+    DataTypes.LoanStatus indexed newStatus
   );
 
-  event Loan__MaxLoanAmountUpdated(uint256 oldAmount, uint256 newAmount);
+  event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
 
-  event Loan__ClosedLoan(
-    address indexed lsa,
-    uint256 indexed debtAmount,
-    uint256 indexed cbBTCAmount
-  );
+  event Loan__ClosedLoan(address indexed lsa);
 
-  event Loan__LoanVaultFactoryUpdated(address indexed oldFactory, address indexed newFactory);
+  event Loan__LoanVaultFactoryUpdated(address indexed newFactory);
 
-  event Loan__EscrowUpdated(address indexed oldEscrow, address indexed newEscrow);
+  event Loan__EscrowUpdated(address indexed newEscrow);
 
-  event Loan__SwapAdapterUpdated(address indexed oldSwapAdapter, address indexed newSwapAdapter);
+  event Loan__SwapAdapterUpdated(address indexed newSwapAdapter);
 
-  event Loan__ZQuoterUpdated(address indexed oldZQuoter, address indexed newZQuoter);
+  event Loan__ZQuoterUpdated(address indexed newZQuoter);
 
-  event Loan__LoanRepaid(address lsa, uint256 amountRepaid, uint256 nextDueTimestamp);
+  event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
-  event Loan__LoanDataUpdated(address indexed lsa, uint256 timestamp);
+  event Loan__LoanDataUpdated(address indexed lsa, bytes data);
 
-  event Loan__PremiumCollectorUpdated(address newPremiumCollector);
+  event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
+
+  event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
+
+  event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
   // ============ Main Functions ============
 
@@ -57,6 +56,7 @@ interface ILoan {
    * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
    * @param duration Loan duration in months
    * @param insuranceID Insurance/Order ID for tracking this loan
+   * @param onBehalfOf User address on whose behalf of this loan will be created.
    * @return lsa Address of the created Loan Specific Address
    */
   function initializeLoan(
@@ -64,26 +64,9 @@ interface ILoan {
     uint256 premiumAmount,
     uint256 collateralAmount,
     uint256 duration,
-    uint256 insuranceID
+    uint256 insuranceID,
+    address onBehalfOf
   ) external returns (address lsa);
-
-  /**
-   * @notice Aave V3 flash loan callback function
-   * @dev Called by Aave pool during flash loan execution to swap USDC, deposit collateral, and borrow
-   * @param assets Array of asset addresses being flash loaned
-   * @param amounts Array of flash loan amounts
-   * @param premiums Array of flash loan premiums (fees)
-   * @param initiator Address that initiated the flash loan
-   * @param params Encoded parameters (LSA address and collateral amount)
-   * @return True if execution successful
-   */
-  function executeOperation(
-    address[] calldata assets,
-    uint256[] calldata amounts,
-    uint256[] calldata premiums,
-    address initiator,
-    bytes calldata params
-  ) external returns (bool);
 
   // ============ View Functions ============
 
@@ -144,49 +127,33 @@ interface ILoan {
 
   /**
    * @notice Allows borrower to repay their loan with `amount` USDC
-   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastDueTimestamp, nextDueTimestamp)
+   * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp)
    * @param lsa The Loan Specific Address
    * @param amount Amount of USDC to repay (6 decimals)
    * @return finalAmountRepaid The actual amount repaid
-   * @return nextDueTimestamp The next due timestamp
    */
-  function repay(
-    address lsa,
-    uint256 amount
-  ) external returns (uint256 finalAmountRepaid, uint256 nextDueTimestamp);
+  function repay(address lsa, uint256 amount) external returns (uint256 finalAmountRepaid);
 
   /**
-   * @notice Allows borrower to withdraw collateral from their LSA
+   * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
    * @dev Withdraws from escrow where excess collateral is locked
    * @param lsa The Loan Specific Address
-   * @param amount USDC amount to transfer
+   * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
    * @return finalAmountRepaid Actual amount of USDC repaid
    * @return amountWithdrawn Actual amount of cbBTC withdrawn
    */
   function closeLoan(
     address lsa,
-    uint256 amount
+    bool withdrawInCollateralAsset
   ) external returns (uint256 finalAmountRepaid, uint256 amountWithdrawn);
 
   // ============ Admin Functions ============
-
-  /**
-   * @notice Updates the maximum loan amount
-   * @param newMaxLoanAmount New maximum loan amount (6 decimals for USDC)
-   */
-  function setMaxLoanAmount(uint256 newMaxLoanAmount) external;
 
   /**
    * @notice Updates the loan vault factory address
    * @param newFactory New factory address
    */
   function setLoanVaultFactory(address newFactory) external;
-
-  /**
-   * @notice Updates the escrow contract address
-   * @param newEscrow New escrow address
-   */
-  function setEscrow(address newEscrow) external;
 
   /**
    * @notice Updates the swap adapter contract address
@@ -220,4 +187,48 @@ interface ILoan {
    * @param newPremiumCollector New premium collector address
    */
   function setPremiumCollector(address newPremiumCollector) external;
+
+  /**
+   * @notice Get the premium collector address
+   */
+  function getPremiumCollector() external view returns (address premiumCollector);
+
+  /**
+   * @notice Updates the grace period for microLiquidation.
+   * @param gracePeriod New grace period in `days`
+   */
+  function setGracePeriod(uint256 gracePeriod) external;
+
+  /**
+   * @notice Returns the `s_gracePeriod`.
+   */
+  function getGracePeriod() external view returns (uint256 gracePeriod);
+
+  /**
+   * @notice Returns `LOAN_REPAYMENT_INTERVAL` constant value.
+   */
+  function getRepaymentInterval() external view returns (uint256);
+
+  /**
+   * @notice Returns the loan pre-closure fee (in bps)
+   */
+  function getPreClosureFee() external view returns (uint256);
+
+  /**
+   * @notice Updates the pre-closure fee (in bps)
+   */
+  function setPreClosureFee(uint256 newFee) external;
+
+  /**
+   * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
+   * @param collateralAmount Collateral asset amount
+   * @param duration Duration of the loan
+   * @return loanAmount Debt asset amount
+   * @return monthlyPayment estimated monthly payment amount in debt asset
+   * @return minDepositRequired Minimum deposit required in debt asset to initialize loan
+   */
+  function getLoanDetails(
+    uint256 collateralAmount,
+    uint256 duration
+  ) external view returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
 }

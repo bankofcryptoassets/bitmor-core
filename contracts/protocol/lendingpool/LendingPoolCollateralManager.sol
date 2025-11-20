@@ -96,13 +96,15 @@ contract LendingPoolCollateralManager is
 
     LiquidationCallLocalVars memory vars;
 
+    address oracle = _addressesProvider.getPriceOracle();
+
     (, , , , vars.healthFactor) = GenericLogic.calculateUserAccountData(
       user,
       _reserves,
       userConfig,
       _reservesList,
       _reservesCount,
-      _addressesProvider.getPriceOracle()
+      oracle
     );
 
     (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
@@ -111,8 +113,7 @@ contract LendingPoolCollateralManager is
       user,
       _reserves,
       vars.healthFactor,
-      _reservesList,
-      _addressesProvider.getPriceOracle(),
+      oracle,
       _addressesProvider.getBitmorLoan()
     );
 
@@ -297,7 +298,6 @@ contract LendingPoolCollateralManager is
       user,
       _reserves,
       vars.healthFactor,
-      _reservesList,
       _addressesProvider.getPriceOracle(),
       _addressesProvider.getBitmorLoan()
     );
@@ -323,6 +323,7 @@ contract LendingPoolCollateralManager is
 
     DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
+    // TODO! : Fix this logic to get the remaining debt from the lsa vdt balance
     vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < loanData.loanAmount
       ? loanData.estimatedMonthlyPayment
       : loanData.loanAmount;
@@ -425,9 +426,9 @@ contract LendingPoolCollateralManager is
       emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
     }
 
-    loanData.loanAmount = loanData.loanAmount.sub(vars.actualDebtToLiquidate);
-    loanData.collateralAmount = loanData.collateralAmount.sub(vars.maxCollateralToLiquidate);
-    loanData.nextDueTimestamp = loanData.nextDueTimestamp.add(30 days);
+    // Reduce loan duration by 1 month.
+    loanData.duration = loanData.duration.sub(1);
+    loanData.lastPaymentTimestamp = block.timestamp;
 
     ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
 
@@ -449,6 +450,33 @@ contract LendingPoolCollateralManager is
     );
 
     return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
+  }
+
+  /**
+   * Returns the type of Liquidation
+   * 0 => No Liquidation
+   * 1 => Full Liquidation
+   * 2 => MicroLiquidation
+   * @param user Address of the borrower
+   */
+  function checkTypeOfLiquidation(address user) external override returns (uint256) {
+    address oracle = _addressesProvider.getPriceOracle();
+    (, , , , uint256 hf) = GenericLogic.calculateUserAccountData(
+      user,
+      _reserves,
+      _usersConfig[user],
+      _reservesList,
+      _reservesCount,
+      oracle
+    );
+    return
+      LoanLiquidationLogic.checkTypeOfLiquidation(
+        user,
+        _reserves,
+        hf,
+        oracle,
+        _addressesProvider.getBitmorLoan()
+      );
   }
 
   struct AvailableCollateralToLiquidateLocalVars {

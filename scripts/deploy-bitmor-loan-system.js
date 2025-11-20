@@ -37,7 +37,7 @@ async function main() {
   const config = {
     aaveV3Pool: "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
     aaveV2Pool: aaveV2.LendingPool.sepolia.address,
-    aaveAddressesProvider: aaveV2.LendingPoolAddressesProvider.sepolia.address,
+    oracle: aaveV2.AaveOracle.sepolia.address,
     collateralAsset: cbbtcDeployment.address,
     debtAsset: usdcDeployment.address,
     swapAdapter: swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address,
@@ -48,6 +48,7 @@ async function main() {
   console.log("Configuration:");
   console.log("  Aave V3 Pool:", config.aaveV3Pool);
   console.log("  Aave V2 Pool:", config.aaveV2Pool);
+  console.log("  Oracle:", config.oracle);
   console.log("  Collateral (cbBTC):", config.collateralAsset);
   console.log("  Debt (USDC):", config.debtAsset);
   console.log("  Swap Adapter:", config.swapAdapter);
@@ -65,7 +66,7 @@ async function main() {
   }
 
   // Step 1: Deploy LoanVault Implementation
-  console.log("1/3 Deploying LoanVault Implementation...");
+  console.log("1/5 Deploying LoanVault Implementation...");
   const LoanVaultImpl = await hre.ethers.getContractFactory("LoanVault");
   const loanVaultImpl = await LoanVaultImpl.deploy();
   await loanVaultImpl.deployed();
@@ -78,12 +79,12 @@ async function main() {
   };
 
   // Step 2: Deploy Loan Contract
-  console.log("\n2/3 Deploying Loan Contract...");
+  console.log("\n2/5 Deploying Loan Contract...");
   const Loan = await hre.ethers.getContractFactory("Loan");
   const loan = await Loan.deploy(
     config.aaveV3Pool,
     config.aaveV2Pool,
-    config.aaveAddressesProvider,
+    config.oracle,
     config.collateralAsset,
     config.debtAsset,
     config.swapAdapter,
@@ -100,7 +101,7 @@ async function main() {
     constructorArgs: {
       aaveV3Pool: config.aaveV3Pool,
       aaveV2Pool: config.aaveV2Pool,
-      aaveAddressesProvider: config.aaveAddressesProvider,
+      oracle: config.oracle,
       collateralAsset: config.collateralAsset,
       debtAsset: config.debtAsset,
       swapAdapter: config.swapAdapter,
@@ -110,7 +111,7 @@ async function main() {
   };
 
   // Step 3: Deploy LoanVaultFactory
-  console.log("\n3/3 Deploying LoanVaultFactory...");
+  console.log("\n3/5 Deploying LoanVaultFactory...");
   const Factory = await hre.ethers.getContractFactory("LoanVaultFactory");
   const factory = await Factory.deploy(loanVaultImpl.address, loan.address);
   await factory.deployed();
@@ -125,16 +126,37 @@ async function main() {
   };
 
   // Step 4: Initialize Loan Contract
-  console.log("\n4/4 Initializing Loan Contract...");
+  console.log("\n4/5 Initializing Loan Contract...");
 
   console.log("    Setting LoanVaultFactory...");
-  const setFactoryTx = await loan.setLoanVaultFactory(factory.address);
+  const setFactoryTx = await loan.setLoanVaultFactory(factory.address, {
+    gasLimit: 500000
+  });
   await setFactoryTx.wait();
   console.log("    Factory set successfully");
+
+  // Step 5: Register Loan in AddressesProvider
+  console.log("\n5/5 Registering Loan in AddressesProvider...");
+  const addressesProvider = await hre.ethers.getContractAt(
+    "contracts/protocol/configuration/LendingPoolAddressesProvider.sol:LendingPoolAddressesProvider",
+    aaveV2.LendingPoolAddressesProvider.sepolia.address
+  );
+
+  const currentBitmorLoan = await addressesProvider.getBitmorLoan();
+  console.log("    Current Bitmor Loan in provider:", currentBitmorLoan);
+  
+  if (currentBitmorLoan.toLowerCase() !== loan.address.toLowerCase()) {
+    const setBitmorLoanTx = await addressesProvider.setBitmorLoan(loan.address, { gasLimit: 100000 });
+    await setBitmorLoanTx.wait();
+    console.log("    Bitmor Loan registered successfully");
+  } else {
+    console.log("    Bitmor Loan already registered");
+  }
 
   // Verification
   console.log("\nVerifying Setup...");
   console.log("    LoanVaultFactory initialized correctly");
+  console.log("    Loan registered in AddressesProvider");
 
   // Save all Bitmor contracts to centralized file
   fs.writeFileSync(bitmorContractsPath, JSON.stringify(bitmorContracts, null, 2));
@@ -150,6 +172,8 @@ async function main() {
   console.log("\nNext Steps:");
   console.log("  1. Verify contracts: npx hardhat run scripts/verify-all-contracts.js --network sepolia");
   console.log("  2. Initialize loan: npx hardhat run scripts/initialize-loan.js --network sepolia\n");
+  console.log("  3. Repay loan: npx hardhat run scripts/repay-loan.js --network sepolia\n");
+  console.log("  4. Close loan: npx hardhat run scripts/close-loan.js --network sepolia\n");
 }
 
 main()

@@ -7,6 +7,19 @@ pragma solidity 0.8.30;
  * @dev Used by Loan contract to create new LSAs (Loan Specific Addresses)
  */
 interface ILoanVaultFactory {
+  // ============ Events ============
+
+  event LoanVaultFactory__VaultCreated(
+    address indexed vault,
+    address indexed borrower,
+    bytes32 salt
+  );
+
+  event LoanVaultFactory__LoanContractUpdated(
+    address indexed oldContract,
+    address indexed newContract
+  );
+
   /**
    * @notice Creates a new LoanVault using CREATE2
    * @dev Can only be called by the authorized Loan contract

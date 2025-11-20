@@ -3,6 +3,8 @@ pragma solidity 0.8.30;
 
 import {Clones} from '../dependencies/openzeppelin/Clones.sol';
 import {ILoanVault} from '../interfaces/ILoanVault.sol';
+import {ILoanVaultFactory} from '../interfaces/ILoanVaultFactory.sol';
+import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
  * @title LoanVaultFactory
@@ -10,33 +12,19 @@ import {ILoanVault} from '../interfaces/ILoanVault.sol';
  * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment
  * Produces deterministic addresses that can be computed before deployment
  */
-contract LoanVaultFactory {
+contract LoanVaultFactory is ILoanVaultFactory {
   // ============ State Variables ============
 
   /// @notice The LoanVault implementation contract to clone
   address public immutable i_IMPLEMENTATION;
 
   /// @notice The Loan contract authorized to create vaults
-  address public s_loanContract; // This will be our Loan.sol contract address
-
-  // ============ Events ============
-
-  event LoanVaultFactory__VaultCreated(
-    address indexed vault,
-    address indexed borrower,
-    uint256 timestamp,
-    bytes32 salt
-  );
-
-  event LoanVaultFactory__LoanContractUpdated(
-    address indexed oldContract,
-    address indexed newContract
-  );
+  address public immutable i_LOAN; // This will be our Loan.sol contract address
 
   // ============ Modifiers ============
 
   modifier onlyLoanContract() {
-    require(msg.sender == s_loanContract, 'LoanVaultFactory: caller not authorized');
+    if (msg.sender != i_LOAN) revert Errors.UnauthorizedCaller();
     _;
   }
 
@@ -45,13 +33,14 @@ contract LoanVaultFactory {
   /**
    * @notice Initializes the factory with implementation
    * @param implementation The LoanVault implementation address to clone
-   * @param _loanContract The Loan contract address authorized to create vaults
+   * @param loanContract The Loan contract address authorized to create vaults
    */
-  constructor(address implementation, address _loanContract) public {
-    require(implementation != address(0), 'LoanVaultFactory: invalid implementation');
-    require(_loanContract != address(0), 'LoanVaultFactory: invalid loan contract');
+  constructor(address implementation, address loanContract) {
+    if (implementation == address(0)) revert Errors.ZeroAddress();
+    if (loanContract == address(0)) revert Errors.ZeroAddress();
+
     i_IMPLEMENTATION = implementation;
-    s_loanContract = _loanContract;
+    i_LOAN = loanContract;
   }
 
   // ============ Public Functions ============
@@ -79,8 +68,6 @@ contract LoanVaultFactory {
     address borrower,
     uint256 timestamp
   ) external onlyLoanContract returns (address vault) {
-    require(borrower != address(0), 'LoanVaultFactory: invalid borrower');
-
     // Generate deterministic salt from borrower and timestamp
     bytes32 salt = _generateSalt(borrower, timestamp);
 
@@ -88,9 +75,9 @@ contract LoanVaultFactory {
     vault = Clones.cloneDeterministic(i_IMPLEMENTATION, salt);
 
     // Initialize the vault
-    ILoanVault(vault).initialize(s_loanContract, borrower);
+    ILoanVault(vault).initialize(i_LOAN, borrower);
 
-    emit LoanVaultFactory__VaultCreated(vault, borrower, timestamp, salt);
+    emit LoanVaultFactory__VaultCreated(vault, borrower, salt);
 
     return vault;
   }

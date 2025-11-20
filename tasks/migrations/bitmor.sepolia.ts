@@ -5,7 +5,7 @@ import { printContracts } from '../../helpers/misc-utils';
 import { usingTenderly } from '../../helpers/tenderly-utils';
 import { getLendingPoolConfiguratorProxy } from '../../helpers/contracts-getters';
 
-task('bitmor:mainnet', 'Deploy Bitmor lending pool')
+task('bitmor:sepolia', 'Deploy Bitmor lending pool')
   .addFlag('verify', 'Verify contracts at Etherscan')
   .addFlag('skipRegistry', 'Skip addresses provider registration at Addresses Provider Registry')
   .setAction(async ({ verify, skipRegistry }, DRE) => {

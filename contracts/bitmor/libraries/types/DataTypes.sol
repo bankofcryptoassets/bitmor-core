@@ -50,6 +50,67 @@ library DataTypes {
     STABLE,
     VARIABLE
   }
+
+  struct ExecuteInitializeLoanParams {
+    address user;
+    uint256 depositAmount;
+    uint256 premiumAmount;
+    uint256 collateralAmount;
+    uint256 duration;
+    uint256 insuranceID;
+  }
+
+  struct InitializeLoanContext {
+    address bitmorPool;
+    address oracle;
+    address collateralAsset;
+    address debtAsset;
+    address aavePool;
+    address loanVaultFactory;
+    address premiumCollector;
+    uint256 maxCollateralAmt;
+    uint256 loanRepaymentInterval;
+  }
+
+  struct ExecuteFLOperationParams {
+    address asset;
+    uint256 amount;
+    uint256 premium;
+    address initiator;
+    bytes params;
+  }
+
+  struct ExecuteFLOperationContext {
+    address aavePool;
+    address bitmorPool;
+    address zQuoter;
+    address debtAsset;
+    address collateralAsset;
+    address swapAdapter;
+    address feeCollector;
+    uint256 maxSlippage;
+  }
+
+  struct ExecuteRepayParams {
+    address lsa;
+    uint256 amount;
+  }
+
+  struct ExecuteCloseLoanContext {
+    address bitmorPool;
+    address aavePool;
+    address oracle;
+    address debtAsset;
+    address collateralAsset;
+    uint256 preClosureFeeBps;
+    uint256 maxSlippage;
+  }
+
+  struct ExecuteCloseLoanParams {
+    address lsa;
+    bool withdrawInCollateralAsset;
+  }
+
   // ============ Loan Data Structure ============
 
   /**
@@ -62,8 +123,7 @@ library DataTypes {
    * @param duration Loan term length in months
    * @param createdAt Unix timestamp when loan was created
    * @param insuranceID Insurance/Order ID for tracking this loan
-   * @param nextDueTimestamp Unix timestamp of the next payment due date (updated during repayments)
-   * @param lastDueTimestamp Unix timestamp when the last payment was made (0 if no payments yet, updated during repayments)
+   * @param lastPaymentTimestamp Timestamp at which last payment was made.
    * @param status Current lifecycle status of the loan
    */
   struct LoanData {
@@ -75,8 +135,7 @@ library DataTypes {
     uint256 duration;
     uint256 createdAt;
     uint256 insuranceID;
-    uint256 nextDueTimestamp;
-    uint256 lastDueTimestamp;
+    uint256 lastPaymentTimestamp;
     LoanStatus status;
   }
 

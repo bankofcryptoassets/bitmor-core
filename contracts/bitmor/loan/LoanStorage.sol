@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {DataTypes} from '../libraries/types/DataTypes.sol';
+import {Errors} from '../libraries/helpers/Errors.sol';
 
 /**
  * @title LoanStorage
@@ -14,25 +15,25 @@ contract LoanStorage {
   /// @notice Aave V3 pool address for flash loan operations
   address public immutable i_AAVE_V3_POOL;
 
-  /// @notice Aave V2 lending pool address for collateral deposits and debt borrowing
-  address public immutable i_AAVE_V2_POOL;
-
-  /// @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
+  /// @notice Adddress provider required for flash loan compatibility
   address public immutable i_AAVE_ADDRESSES_PROVIDER;
 
+  /// @notice Bitmor Lending Pool address for collateral deposits and debt borrowing
+  address public immutable i_BITMOR_POOL;
+
+  /// @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
+  address public immutable i_ORACLE;
+
   /// @notice Collateral asset address (cbBTC)
-  address internal immutable i_collateralAsset;
+  address internal immutable i_COLLATERAL_ASSET;
 
   /// @notice Debt asset address (USDC)
-  address internal immutable i_debtAsset;
+  address internal immutable i_DEBT_ASSET;
 
   // ============ Protocol Contract Addresses ============
 
   /// @notice Factory contract for deploying Loan Specific Address (LSAs)
   address public s_loanVaultFactory;
-
-  /// @notice Escrow contract for holding locked collateral
-  address public s_escrow;
 
   /// @notice Swap adapter contract for executing token swaps
   address public s_swapAdapter;
@@ -41,7 +42,13 @@ contract LoanStorage {
   address public s_zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
 
   /// @notice Collects insurance premium amount.
-  address public s_premiumCollector;
+  address internal s_premiumCollector;
+
+  /// @notice Grace period for monthly installments in `days`
+  uint256 internal s_gracePeriod;
+
+  /// @notice Fee for pre closing loan. (in bps)
+  uint256 internal s_preClosureFeeBps;
 
   // ============ Storage Mappings ============
 
@@ -57,50 +64,48 @@ contract LoanStorage {
   /// @dev Enables retrieval of user's Nth loan: s_userLoanAtIndex[user][0] returns first loan's LSA
   mapping(address => mapping(uint256 => address)) public s_userLoanAtIndex;
 
-  // ============ Protocol Parameters ============
-
-  /// @notice Maximum loan amount allowed per loan (6 decimals for USDC)
-  /// @dev Can be updated by admin to manage protocol risk
-  uint256 public s_maxLoanAmount;
-
   // ============ Constants ============
-
-  /// @notice Basis points denominator for percentage calculations (10000 = 100%)
-  uint256 internal constant BASIS_POINTS = 10000;
 
   /// @notice Maximum slippage tolerance in basis points (200 = 2%)
   uint256 public constant MAX_SLIPPAGE_BPS = 200;
 
   /// @notice Loan repayment interval in seconds (30 days)
-  uint256 public constant LOAN_REPAYMENT_INTERVAL = 30 days;
+  uint256 internal constant LOAN_REPAYMENT_INTERVAL = 30 days;
+
+  /// @notice MAX collateral amount user can take.
+  uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
 
   // ============ Constructor ============
 
   /**
    * @notice Initializes the storage contract with immutable protocol addresses
    * @param _aaveV3Pool Aave V3 pool address (for flash loans)
-   * @param _aaveV2Pool Aave V2 lending pool address (for BTC/USDC reserves)
-   * @param _aaveAddressesProvider Aave V2 addresses provider address
+   * @param _bitmorPool Bitmor Lending Pool
+   * @param _oracle Price Oracle
    * @param _collateralAsset Collateral asset address (cbBTC)
    * @param _debtAsset Debt asset address (USDC)
    */
   constructor(
     address _aaveV3Pool,
-    address _aaveV2Pool,
     address _aaveAddressesProvider,
+    address _bitmorPool,
+    address _oracle,
     address _collateralAsset,
     address _debtAsset
   ) {
-    require(_aaveV3Pool != address(0), 'LoanStorage: Invalid Aave V3 pool');
-    require(_aaveV2Pool != address(0), 'LoanStorage: Invalid Aave V2 pool');
-    require(_aaveAddressesProvider != address(0), 'LoanStorage: Invalid addresses provider');
-    require(_collateralAsset != address(0), 'LoanStorage: Invalid collateral asset');
-    require(_debtAsset != address(0), 'LoanStorage: Invalid debt asset');
+    if (
+      _aaveV3Pool == address(0) ||
+      _bitmorPool == address(0) ||
+      _oracle == address(0) ||
+      _collateralAsset == address(0) ||
+      _debtAsset == address(0)
+    ) revert Errors.ZeroAddress();
 
     i_AAVE_V3_POOL = _aaveV3Pool;
-    i_AAVE_V2_POOL = _aaveV2Pool;
+    i_BITMOR_POOL = _bitmorPool;
+    i_ORACLE = _oracle;
+    i_COLLATERAL_ASSET = _collateralAsset;
+    i_DEBT_ASSET = _debtAsset;
     i_AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
-    i_collateralAsset = _collateralAsset;
-    i_debtAsset = _debtAsset;
   }
 }

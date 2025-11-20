@@ -68,6 +68,7 @@ export interface TestEnv {
   registry: LendingPoolAddressesProviderRegistry;
   wethGateway: WETHGateway;
   flashLiquidationAdapter: FlashLiquidationAdapter;
+  
 }
 
 let buidlerevmSnapshotId: string = '0x1';

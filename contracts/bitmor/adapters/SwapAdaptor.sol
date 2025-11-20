@@ -21,7 +21,7 @@ contract SwapAdaptor {
     uint256 amountOut
   );
 
-  constructor(address _zRouter) public {
+  constructor(address _zRouter) {
     require(_zRouter != address(0), 'SwapAdaptor: invalid zRouter');
     i_ZROUTER = IzRouter(_zRouter);
   }

@@ -17,11 +17,13 @@ library LoanLiquidationLogic {
   using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
 
   struct LiquidationVars {
-    uint256 cbBTCDecimals;
-    uint256 usdcDecimals;
-    address usdcVariableDebtTokenAddress;
-    uint256 cbBTCUnitPrice;
-    uint256 usdcUnitPrice;
+    address collateralAsset;
+    address debtAsset;
+    uint256 collateralDecimals;
+    uint256 debtDecimals;
+    address debtVariableDebtTokenAddress;
+    uint256 collateralUnitPrice;
+    uint256 debtUnitPrice;
     uint256 collateralValueInUSD;
     uint256 currentDebtBalance;
     uint256 amountToBeDeducted;
@@ -42,7 +44,6 @@ library LoanLiquidationLogic {
    * @param user The address of the LSA
    * @param reservesData Data of all the reserves
    * @param hf Health Factor of the user
-   * @param reserves The list of the available reserves
    * @param oracle The price oracle address
    * @param bitmorLoan The Bitmor Protocol Loan provider address
    */
@@ -50,25 +51,26 @@ library LoanLiquidationLogic {
     address user,
     mapping(address => DataTypes.ReserveData) storage reservesData,
     uint256 hf,
-    mapping(uint256 => address) storage reserves,
     address oracle,
     address bitmorLoan
   ) internal view returns (uint256) {
     DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
-    // TODO: Implement this function in the Loan Provider
-    // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
-    uint256 bufferBPS = 50;
+    if (loanData.status != DataTypes.LoanStatus.Active) {
+      return 0;
+    }
 
     // If user is uninsured AND HF < threshold → full liquidation
-    if (!(loanData.insuranceID > 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
+    if ((loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
       return 1;
     }
 
     // If the EMI is not overdue → no liquidation
     if (
-      (loanData.nextDueTimestamp >= block.timestamp) &&
-      (loanData.status != DataTypes.LoanStatus.Active)
+      loanData.lastPaymentTimestamp +
+        ILoan(bitmorLoan).getGracePeriod() +
+        ILoan(bitmorLoan).getRepaymentInterval() >=
+      block.timestamp
     ) {
       return 0;
     }
@@ -76,25 +78,32 @@ library LoanLiquidationLogic {
     // Working variables packed in a memory struct to avoid "stack too deep"
     LiquidationVars memory v;
 
-    // reserves
-    // TODO!: Implement a constant variable to have the cbBTC reserve.
-    (v.cbBTCDecimals, v.usdcDecimals, v.usdcVariableDebtTokenAddress) = _getDecimals(
-      reservesData,
-      reserves[0],
-      reserves[1]
-    );
+    // TODO!: Implement this function in the Loan Provider
+    // uint256 bufferBPS = bitmorLoan.getLiquidationBufferBPS();
+    uint256 bufferBPS = 50;
+
+    v.collateralAsset = ILoan(bitmorLoan).getCollateralAsset();
+    v.debtAsset = ILoan(bitmorLoan).getDebtAsset();
+
+    // reserves: fetch decimals and variable debt token using collateral/debt asset addresses
+    DataTypes.ReserveData storage collateralReserve = reservesData[v.collateralAsset];
+    DataTypes.ReserveData storage debtReserve = reservesData[v.debtAsset];
+
+    v.collateralDecimals = collateralReserve.configuration.getDecimals();
+    v.debtDecimals = debtReserve.configuration.getDecimals();
+    v.debtVariableDebtTokenAddress = debtReserve.variableDebtTokenAddress;
 
     // TODO: confirm if the IPriceOracleGetter returns with the reserve address or the underlying asset address.
-    v.cbBTCUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(reserves[0]);
-    v.usdcUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(reserves[1]);
+    v.collateralUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.collateralAsset);
+    v.debtUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.debtAsset);
 
     // collateral value in quote (USD if your oracle is USD)
-    v.collateralValueInUSD = loanData.collateralAmount.mul(v.cbBTCUnitPrice).div(
-      10 ** v.cbBTCDecimals
+    v.collateralValueInUSD = loanData.collateralAmount.mul(v.collateralUnitPrice).div(
+      10 ** v.collateralDecimals
     );
 
     // current debt = balance of VARIABLE debt token
-    v.currentDebtBalance = IERC20(v.usdcVariableDebtTokenAddress).balanceOf(user);
+    v.currentDebtBalance = IERC20(v.debtVariableDebtTokenAddress).balanceOf(user);
 
     // compute capped principal payment for this micro-liq
     v.amountToBeDeducted = _min(loanData.estimatedMonthlyPayment, v.currentDebtBalance);
@@ -103,8 +112,8 @@ library LoanLiquidationLogic {
     v.totalAmtToBeDeducted = v.amountToBeDeducted.add(v.amountToBeDeducted.percentMul(bufferBPS));
 
     // convert the outflow to USD (or quote)
-    v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.usdcUnitPrice).div(
-      10 ** v.usdcDecimals
+    v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(
+      10 ** v.debtDecimals
     );
 
     // If the collateral cannot even cover this micro-liq outflow → full liquidation
@@ -120,7 +129,7 @@ library LoanLiquidationLogic {
 
     // guard = debtAfter * (1 + bufferBPS)
     v.guardAmount = v.debtBalanceAfter.add(v.debtBalanceAfter.percentMul(bufferBPS));
-    v.guardAmountInUSD = v.guardAmount.mul(v.usdcUnitPrice).div(10 ** v.usdcDecimals);
+    v.guardAmountInUSD = v.guardAmount.mul(v.debtUnitPrice).div(10 ** v.debtDecimals);
 
     if (v.remainingCollateralInUSD >= v.guardAmountInUSD) {
       // type 2 := micro-liquidation is sufficient
@@ -133,20 +142,5 @@ library LoanLiquidationLogic {
 
   function _min(uint256 a, uint256 b) private pure returns (uint256) {
     return a < b ? a : b;
-  }
-
-  function _getDecimals(
-    mapping(address => DataTypes.ReserveData) storage reservesData,
-    address cbBTCReserveAddress,
-    address usdcReserveAddress
-  ) internal view returns (uint256, uint256, address) {
-    // reserveData
-    DataTypes.ReserveData storage cbBTCReserve = reservesData[cbBTCReserveAddress];
-    DataTypes.ReserveData storage usdcReserve = reservesData[usdcReserveAddress];
-
-    uint256 cbBTCDecimals = cbBTCReserve.configuration.getDecimals();
-    uint256 usdcDecimals = usdcReserve.configuration.getDecimals();
-
-    return (cbBTCDecimals, usdcDecimals, usdcReserve.variableDebtTokenAddress);
   }
 }

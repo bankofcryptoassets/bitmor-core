@@ -90,4 +90,13 @@ interface ILendingPoolCollateralManager {
    * @param data Microliquidation call data
    */
   function microLiquidationCall(bytes calldata data) external returns (uint256, string memory);
+
+  /**
+   * Returns the type of Liquidation
+   * 0 => No Liquidation
+   * 1 => Full Liquidation
+   * 2 => MicroLiquidation
+   * @param user Address of the borrower
+   */
+  function checkTypeOfLiquidation(address user) external returns (uint256);
 }

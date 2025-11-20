@@ -1,7 +1,7 @@
 {
   "LendingPoolAddressesProvider": {
     "sepolia": {
-      "address": "0x0F2a2Ea45C278727cBd73012297Bb2c690f834d9",
+      "address": "0xB4DF23Bb81A58697bf224479A020d7Dd9181dB83",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     },
     "hardhat": {
@@ -11,7 +11,7 @@
   },
   "ReserveLogic": {
     "sepolia": {
-      "address": "0x79f580cf2685d7289336756495849aA7A483fC10",
+      "address": "0xE515db4236c19729dcfC6A7bB33CcDa6F74904bD",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     },
     "hardhat": {
@@ -21,7 +21,7 @@
   },
   "GenericLogic": {
     "sepolia": {
-      "address": "0x2ea14B9F92E2bCC0243b3D5CeFDaF24032Da603E",
+      "address": "0x3346864C92C63bA221733A7F9E73316d3575CB1e",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     },
     "hardhat": {
@@ -31,7 +31,7 @@
   },
   "ValidationLogic": {
     "sepolia": {
-      "address": "0x58A65bec5Dc07361d734152e772cA7E615B35163",
+      "address": "0x387F8C67096c64E9B27de63075b46CBf36Ad0bd2",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     },
     "hardhat": {
@@ -41,7 +41,7 @@
   },
   "LendingPoolImpl": {
     "sepolia": {
-      "address": "0x7e5B94f7661b0737cB0B4013637FFEAFdBf8dF3f"
+      "address": "0xe5B8f946D8167FED6cEE9C8f43694bD1Abd275Ec"
     },
     "hardhat": {
       "address": "0x93C1e99C8dD990D77232821f9476c308FBad47f5"
@@ -49,7 +49,7 @@
   },
   "LendingPool": {
     "sepolia": {
-      "address": "0x64688EAa8cBC3029D303b61D7e77f986E34742b3"
+      "address": "0x188436A4430e31712b9F3b61456348212ea9e9e2"
     },
     "hardhat": {
       "address": "0xA94B05395Ce35DAA627af9749c7D864C99Dd7903"
@@ -57,7 +57,7 @@
   },
   "LendingPoolConfiguratorImpl": {
     "sepolia": {
-      "address": "0xef6151908F1A299eD869Fc24E0aF841b746dF431"
+      "address": "0x4ff2ac8CEB25cE2eE10E5701859C0134516db56c"
     },
     "hardhat": {
       "address": "0xBbC60A8fAf66552554e460d55Ac0563Fb9e76c01"
@@ -65,7 +65,7 @@
   },
   "LendingPoolConfigurator": {
     "sepolia": {
-      "address": "0x8079A669c2AB6CD89A833309A5352768755A73E2"
+      "address": "0x9025753eB263e4ED58C4551D48463A4C2609Ccb5"
     },
     "hardhat": {
       "address": "0x04CF53EA58285d0831E16A2571f5225DD9a7B046"
@@ -73,7 +73,7 @@
   },
   "LendingPoolAddressesProviderRegistry": {
     "sepolia": {
-      "address": "0xB512F2Fe43fC41351bD7fda2Ad52C82Db3732ce0",
+      "address": "0xC9a037E89Ba4a6B9b5F18e5acA34a87426029980",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     },
     "hardhat": {
@@ -345,7 +345,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x8883EEb620A9f7C8871000994bFBAe7287545350",
+      "address": "0xEC8Cdd8f48C23528E5f9C36AB4293AC2d3241d63",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -355,7 +355,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x3eF758436d5ce6c2A8F043548290CD2CA648302e",
+      "address": "0x65552b3b3B139c2351010286c12ff00cd87B9F8D",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -365,7 +365,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0xb53dE131d5d4d4761126b7a5796df482C7E0a832",
+      "address": "0xe247A96bA2d111F6F541A68eaEd1E52389343AcC",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -385,7 +385,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x447213d1FD1F316198218aac1E6D583cb23F5236",
+      "address": "0x5e410B3F5cd56d0b98eeBC39d148ad824F0e7Ce7",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -395,7 +395,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0xeb6000Ba0FbD81886B441617C35a4cCF66aa1adF",
+      "address": "0x016fA08d22660257CA775613d974020DFcEaa6e2",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -411,7 +411,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0xad1c7cF24EA8cb201B639CB96D0B67ccB6e4b6f4",
+      "address": "0x03697f2e44e13F9E4cF26F618Ca770cA666Aeeb3",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -421,7 +421,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0xdDa04c79e6bA7CEb638F0D897E617378E61563a4",
+      "address": "0x29354b3ECf11e4c6e2292EBBF9aAbA63BB79cB08",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -431,7 +431,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0xcCb4fa053709C9714f1215770369dfAD89fFDf46",
+      "address": "0x58B7C5cc9fdee45FDff3A88C0A4bF8EcF465b3DA",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -441,7 +441,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x10103304D033E6c9a15DE74a80523A0da3c05a9B",
+      "address": "0x002C0aA3BE3431343e8cC2A1f8D80b765FF248CF",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -450,7 +450,7 @@
       "address": "0x854161Fa77C3B0fF7A26e2AFcb72680d9eCB686E"
     },
     "sepolia": {
-      "address": "0x0984F48B074aB83333aa073d6c863fC1849D669f",
+      "address": "0xeF1b1c53A4Cefb00E6B5A7d994d5F198949A901f",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -460,7 +460,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16",
+      "address": "0x0d69521e95c5E41D4464455bAA7e03Da3ae0F398",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -514,7 +514,7 @@
       "address": "0xA0AB1cB92A4AF81f84dCd258155B5c25D247b54E"
     },
     "sepolia": {
-      "address": "0x62694103479A761e64F769dB340CEB4A79D5b6db"
+      "address": "0x3B066a1579A32CDCe17d037aCE14355BC4677E43"
     }
   },
   "LendingPoolCollateralManager": {
@@ -523,7 +523,7 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x62694103479A761e64F769dB340CEB4A79D5b6db",
+      "address": "0x3B066a1579A32CDCe17d037aCE14355BC4677E43",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
@@ -538,29 +538,29 @@
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     },
     "sepolia": {
-      "address": "0x7C6Dcb4095A5616352f12ee543de3F88A53eA9C1",
+      "address": "0x755786e97baa90f49C857B623E42f3197e72dD68",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "rateStrategyUSDC": {
     "sepolia": {
-      "address": "0xE8bB2bBf3C9350465069c3b945D993F6744B77DD"
+      "address": "0x490900c10aa9F7eF5e12C7C237378CE8b47F4837"
     }
   },
   "rateStrategyCBBTC": {
     "sepolia": {
-      "address": "0x1fd7473B919b15dD537F37db137521DFabd07B16"
+      "address": "0x0d69521e95c5E41D4464455bAA7e03Da3ae0F398"
     }
   },
   "UiPoolDataProvider": {
     "sepolia": {
-      "address": "0xA37FbE5A98EE167d5B711330Bec9efA57b5BEb27",
+      "address": "0x5765373368A8CD4D03c0b174e19Ab4FB9146Aba3",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "UiIncentiveDataProviderV2V3": {
     "sepolia": {
-      "address": "0x8D5B46c6f2A90edD790840Af55d9f9759CD79e0d",
+      "address": "0xaA66586C7BC70c9EF0DbEfA8A9393E17ac558276",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },

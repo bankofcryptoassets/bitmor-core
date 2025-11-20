@@ -106,6 +106,7 @@ library Errors {
   string public constant LP_MICRO_LIQUIDATION_FAILED = '81';
   string public constant LPCM_CANNOT_MICRO_LIQUIDATE = '82';
   string public constant LPCM_CANNOT_FULL_LIQUIDATE = '83';
+  string public constant LP_CHECK_TYPE_OF_LIQUIDATION_FAILED = '84';
 
   enum CollateralManagerErrors {
     NO_ERROR,

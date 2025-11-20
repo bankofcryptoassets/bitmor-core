@@ -1,0 +1,17 @@
+{
+  "network": "base-sepolia",
+  "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
+  "deployedAt": "2025-11-12T16:23:59.218Z",
+  "aggregators": {
+    "USDC": {
+      "address": "0x45EA2E641164835014F46B70F011504FD22ec19A",
+      "initialPrice": "100000000",
+      "decimals": 8
+    },
+    "cbBTC": {
+      "address": "0xC6F89E85Ce021cf8Ab900EbD51579710EE91bb2F",
+      "initialPrice": "10000000000000",
+      "decimals": 8
+    }
+  }
+}

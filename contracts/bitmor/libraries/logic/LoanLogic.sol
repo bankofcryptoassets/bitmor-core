@@ -2,10 +2,16 @@
 pragma solidity 0.8.30;
 
 import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
-import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
-import {DataTypes} from '../../libraries/types/DataTypes.sol';
-import {LoanMath} from './LoanMath.sol';
+import {DataTypes} from '../types/DataTypes.sol';
+import {LoanMath} from '../helpers/LoanMath.sol';
+import {ILoan} from '../../interfaces/ILoan.sol';
+import {ILoanVaultFactory} from '../../interfaces/ILoanVaultFactory.sol';
+import {Errors} from '../helpers/Errors.sol';
+import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
+import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
+
+import {AavePoolLogic} from './AavePoolLogic.sol';
 
 /**
  * @title LoanLogic
@@ -13,51 +19,181 @@ import {LoanMath} from './LoanMath.sol';
  * @dev Handles fetching prices and interest rates from Aave V2, delegates math to LoanMath
  */
 library LoanLogic {
+  using SafeERC20 for IERC20;
+
+  function executeInitializeLoan(
+    DataTypes.InitializeLoanContext memory ctx,
+    DataTypes.ExecuteInitializeLoanParams memory params,
+    mapping(address => DataTypes.LoanData) storage loansByLSA,
+    mapping(address => uint256) storage userLoanCount,
+    mapping(address => mapping(uint256 => address)) storage userLoanAtIndex
+  ) internal returns (address lsa) {
+    if (params.depositAmount == 0 || params.collateralAmount == 0 || params.duration == 0)
+      revert Errors.ZeroAmount();
+
+    if (params.collateralAmount > ctx.maxCollateralAmt)
+      revert Errors.GreaterThanMaxCollateralAllowed();
+
+    (uint256 loanAmount, uint256 monthlyPayment, ) = calculateLoanAmountAndMonthlyPayment(
+      ctx.bitmorPool,
+      ctx.oracle,
+      ctx.collateralAsset,
+      ctx.debtAsset,
+      params.depositAmount,
+      params.collateralAmount,
+      params.duration
+    );
+
+    // Create LSA via factory using CREATE2 for deterministic address
+    lsa = ILoanVaultFactory(ctx.loanVaultFactory).createLoanVault(params.user, block.timestamp);
+
+    // Store loan data on-chain
+    loansByLSA[lsa] = DataTypes.LoanData({
+      borrower: params.user,
+      depositAmount: params.depositAmount,
+      loanAmount: loanAmount,
+      collateralAmount: params.collateralAmount,
+      estimatedMonthlyPayment: monthlyPayment,
+      duration: params.duration,
+      createdAt: block.timestamp,
+      insuranceID: params.insuranceID,
+      lastPaymentTimestamp: 0,
+      status: DataTypes.LoanStatus.Active
+    });
+
+    // Update user loan indexing for multi-loan support
+    uint256 loanIndex = userLoanCount[params.user];
+    userLoanAtIndex[params.user][loanIndex] = lsa;
+    userLoanCount[params.user] = loanIndex + 1;
+
+    // Transfer deposit from user to contract
+    IERC20(ctx.debtAsset).safeTransferFrom(params.user, address(this), params.depositAmount);
+
+    // Transfer premium amount to premium collector
+    if (params.premiumAmount > 0) {
+      IERC20(ctx.debtAsset).safeTransferFrom(
+        params.user,
+        ctx.premiumCollector,
+        params.premiumAmount
+      );
+    }
+
+    // Flash loan execution flow
+
+    // address[] memory assets = new address[](1);
+    // assets[0] = ctx.debtAsset;
+
+    // uint256[] memory amounts = new uint256[](1);
+    // amounts[0] = loanAmount;
+
+    // uint256[] memory modes = new uint256[](1);
+    // modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
+
+    bytes memory paramsForFL = abi.encode(lsa, params.collateralAmount);
+
+    // ILendingPool(ctx.aavePool).flashLoan(
+    //   address(this), // receiver address
+    //   assets, // assets to borrow
+    //   amounts, // amounts to borrow the assets
+    //   modes, // modes of the debt to open if the flash loan is not returned
+    //   lsa, // onbehalf of address
+    //   paramsForFL, // params to pass to the receiver
+    //   uint16(0) // referral code
+    // );
+
+    AavePoolLogic.executeFlashLoan(
+      ctx.aavePool,
+      address(this),
+      ctx.debtAsset,
+      loanAmount,
+      paramsForFL
+    );
+
+    // Emit loan creation event
+    emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount);
+    return lsa;
+  }
+
   /**
    * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
    * @dev Fetch oracle price for the assets
-   * @param aaveV2Pool Aave V2 lending pool address
-   * @param addressesProvider Aave V2 addresses provider for oracle access
+   * @param bitmorPool Bitmor Lending Pool address
+   * @param _oracle Price Oracle address
    * @param collateralAsset cbBTC address
    * @param debtAsset USDC address
    * @param depositAmount User's USDC deposit (6 decimals)
-   * @param maxLoanAmount Maximum allowed loan amount (6 decimals)
    * @param collateralAmount Desired cbBTC collateral (8 decimals)
    * @param duration Loan duration in months
    * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
    * @return monthlyPayAmt Estimated monthly payment (6 decimals)
-   * @return interestRate Current Aave V2 variable borrow rate (27 decimals - ray)
+   * @return minDepositRequired Minimum deposit requried amount
    */
   function calculateLoanAmountAndMonthlyPayment(
-    address aaveV2Pool,
-    ILendingPoolAddressesProvider addressesProvider,
+    address bitmorPool,
+    address _oracle,
     address collateralAsset,
     address debtAsset,
     uint256 depositAmount,
-    uint256 maxLoanAmount,
     uint256 collateralAmount,
     uint256 duration
-  ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 interestRate) {
+  )
+    internal
+    view
+    returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+  {
     // Get oracle prices
-    IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
+    IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
     uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
     uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
 
+    if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+
     // Fetch current variable borrow rate from Aave V2 USDC reserve
-    DataTypes.ReserveData memory reserveData = ILendingPool(aaveV2Pool).getReserveData(debtAsset);
-    interestRate = reserveData.currentVariableBorrowRate;
+    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+
+    uint256 interestRate = reserveData.currentVariableBorrowRate;
 
     // Calculate loan amount and monthly payment using fetched rate
-    (exactLoanAmt, monthlyPayAmt) = LoanMath.calculateLoanAmt(
+    (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
       depositAmount,
       collateralAmount,
       collateralPriceUSD,
       debtPriceUSD,
-      maxLoanAmount,
       interestRate,
       duration
     );
+  }
 
-    return (exactLoanAmt, monthlyPayAmt, interestRate);
+  function calculateLoanDetails(
+    address bitmorPool,
+    address _oracle,
+    address collateralAsset,
+    address debtAsset,
+    uint256 collateralAmount,
+    uint256 duration
+  )
+    internal
+    view
+    returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+  {
+    // Get oracle prices
+    IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
+    uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
+    uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+
+    if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+
+    // Fetch current variable borrow rate from Aave V2 USDC reserve
+    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+    uint256 interestRate = reserveData.currentVariableBorrowRate;
+
+    // Calculate loan amount and monthly payment using fetched rate
+    (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
+      collateralAmount,
+      collateralPriceUSD,
+      debtPriceUSD,
+      interestRate,
+      duration
+    );
   }
 }
