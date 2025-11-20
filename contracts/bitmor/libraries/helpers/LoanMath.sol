@@ -79,7 +79,7 @@ library LoanMath {
 
     uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
 
-    if (minDepositRequiredUSD >= depositValueUSD) revert Errors.InsufficientDeposit();
+    if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
     minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / debtPriceUSD;
 

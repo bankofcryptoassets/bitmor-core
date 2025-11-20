@@ -139,13 +139,8 @@ interface ILoan {
    * @dev Withdraws from escrow where excess collateral is locked
    * @param lsa The Loan Specific Address
    * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
-   * @return finalAmountRepaid Actual amount of USDC repaid
-   * @return amountWithdrawn Actual amount of cbBTC withdrawn
    */
-  function closeLoan(
-    address lsa,
-    bool withdrawInCollateralAsset
-  ) external returns (uint256 finalAmountRepaid, uint256 amountWithdrawn);
+  function closeLoan(address lsa, bool withdrawInCollateralAsset) external;
 
   // ============ Admin Functions ============
 

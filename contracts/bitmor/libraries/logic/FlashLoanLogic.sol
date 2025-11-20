@@ -164,7 +164,7 @@ library FlashLoanLogic {
     );
 
     // Approve SwapAdaptor to spend tokens
-    IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, vars.collateralAmountToSwap);
+    IERC20(ctx.collateralAsset).forceApprove(ctx.swapAdapter, vars.collateralAmountToSwap);
 
     vars.debtAssetAmtReceived = SwapLogic.executeSwap(
       ctx.swapAdapter,
