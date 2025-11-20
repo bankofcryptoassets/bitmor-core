@@ -93,10 +93,8 @@ library CloseLoanLogic {
 
     if (params.withdrawInCollateralAsset) {
       vars.totalCollateralAmtToSwap =
-        (vars.totalCollateralAmtToSwapUSD *
-          vars.collateralAssetDecimals *
-          (BASIS_POINTS + ctx.maxSlippage)) /
-        (vars.collateralAssetPrice * BASIS_POINTS);
+        (vars.totalCollateralAmtToSwapUSD * vars.collateralAssetDecimals) /
+        (vars.collateralAssetPrice);
     } else {
       vars.totalCollateralAmtToSwap = vars.collateralAmt - vars.preClosureFee;
     }
