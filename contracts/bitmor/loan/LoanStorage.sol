@@ -47,6 +47,9 @@ contract LoanStorage {
   /// @notice Grace period for monthly installments in `days`
   uint256 internal s_gracePeriod;
 
+  /// @notice Fee for pre closing loan. (in bps)
+  uint256 internal s_preClosureFeeBps;
+
   // ============ Storage Mappings ============
 
   /// @notice Maps LSA addresses to their loan data

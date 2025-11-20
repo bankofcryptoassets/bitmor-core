@@ -11,9 +11,6 @@ import {Errors} from '../helpers/Errors.sol';
 import {IERC20} from '../../dependencies/openzeppelin/IERC20.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/SafeERC20.sol';
 
-import {BitmorLendingPoolLogic} from './BitmorLendingPoolLogic.sol';
-import {SwapLogic} from './SwapLogic.sol';
-import {LSALogic} from './LSALogic.sol';
 import {AavePoolLogic} from './AavePoolLogic.sol';
 
 /**
@@ -115,73 +112,6 @@ library LoanLogic {
     // Emit loan creation event
     emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount);
     return lsa;
-  }
-
-  function executeFLOperation(
-    DataTypes.FLOperationContext memory ctx,
-    DataTypes.FLOperationParams memory params,
-    mapping(address => DataTypes.LoanData) storage loansByLSA
-  ) internal {
-    if (msg.sender != ctx.aavePool) revert Errors.CallerIsNotAAVEPool();
-    if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
-
-    // Flash loan execution logic will be implemented here
-    // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
-
-    (address lsa, uint256 collateralAmount) = abi.decode(params.params, (address, uint256));
-
-    // Retrieve loan data from storage
-    DataTypes.LoanData storage loan = loansByLSA[lsa];
-
-    uint256 flashLoanAmount = params.amount;
-    uint256 flashLoanPremium = params.premium;
-    uint256 totalSwapAmount = loan.depositAmount + flashLoanAmount;
-
-    uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
-      ctx.zQuoter,
-      ctx.debtAsset, // tokenIn
-      ctx.collateralAsset, // tokenOut
-      totalSwapAmount, // amountIn
-      collateralAmount,
-      ctx.maxSlippage
-    );
-
-    // Approve SwapAdaptor to spend tokens
-    IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
-
-    uint256 amountReceived = SwapLogic.executeSwap(
-      ctx.swapAdapter,
-      ctx.debtAsset,
-      ctx.collateralAsset,
-      totalSwapAmount,
-      minimumAcceptable
-    );
-
-    if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
-
-    uint256 borrowAmount = flashLoanAmount + flashLoanPremium;
-
-    LSALogic.approveCreditDelegation(
-      lsa,
-      ctx.bitmorPool,
-      ctx.debtAsset,
-      borrowAmount,
-      address(this) // Protocol is the delegatee
-    );
-
-    // Approve Aave V2 pool to spend asset
-    IERC20(ctx.collateralAsset).forceApprove(ctx.bitmorPool, amountReceived);
-
-    BitmorLendingPoolLogic.depositCollateral(
-      ctx.bitmorPool,
-      ctx.collateralAsset,
-      amountReceived,
-      lsa
-    );
-
-    BitmorLendingPoolLogic.borrowDebt(ctx.bitmorPool, ctx.debtAsset, borrowAmount, lsa);
-
-    IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, borrowAmount);
   }
 
   /**

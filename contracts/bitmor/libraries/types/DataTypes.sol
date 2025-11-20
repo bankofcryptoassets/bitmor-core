@@ -72,7 +72,7 @@ library DataTypes {
     uint256 loanRepaymentInterval;
   }
 
-  struct FLOperationParams {
+  struct ExecuteFLOperationParams {
     address asset;
     uint256 amount;
     uint256 premium;
@@ -80,13 +80,14 @@ library DataTypes {
     bytes params;
   }
 
-  struct FLOperationContext {
+  struct ExecuteFLOperationContext {
     address aavePool;
     address bitmorPool;
     address zQuoter;
     address debtAsset;
     address collateralAsset;
     address swapAdapter;
+    address feeCollector;
     uint256 maxSlippage;
   }
 
@@ -102,6 +103,7 @@ library DataTypes {
     address debtAsset;
     address collateralAsset;
     uint256 preClosureFeeBps;
+    uint256 maxSlippage;
   }
 
   struct ExecuteCloseLoanParams {

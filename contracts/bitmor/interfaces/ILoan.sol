@@ -26,11 +26,7 @@ interface ILoan {
 
   event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
 
-  event Loan__ClosedLoan(
-    address indexed lsa,
-    uint256 indexed debtAmount,
-    uint256 indexed cbBTCAmount
-  );
+  event Loan__ClosedLoan(address indexed lsa);
 
   event Loan__LoanVaultFactoryUpdated(address indexed newFactory);
 
@@ -47,6 +43,8 @@ interface ILoan {
   event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
 
   event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
+
+  event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
   // ============ Main Functions ============
 
@@ -210,4 +208,27 @@ interface ILoan {
    * @notice Returns `LOAN_REPAYMENT_INTERVAL` constant value.
    */
   function getRepaymentInterval() external view returns (uint256);
+
+  /**
+   * @notice Returns the loan pre-closure fee (in bps)
+   */
+  function getPreClosureFee() external view returns (uint256);
+
+  /**
+   * @notice Updates the pre-closure fee (in bps)
+   */
+  function setPreClosureFee(uint256 newFee) external;
+
+  /**
+   * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
+   * @param collateralAmount Collateral asset amount
+   * @param duration Duration of the loan
+   * @return loanAmount Debt asset amount
+   * @return monthlyPayment estimated monthly payment amount in debt asset
+   * @return minDepositRequired Minimum deposit required in debt asset to initialize loan
+   */
+  function getLoanDetails(
+    uint256 collateralAmount,
+    uint256 duration
+  ) external view returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
 }

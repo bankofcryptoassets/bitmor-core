@@ -10,6 +10,7 @@ import {ILoan} from '../interfaces/ILoan.sol';
 import {DataTypes} from '../libraries/types/DataTypes.sol';
 import {RepayLogic} from '../libraries/logic/RepayLogic.sol';
 import {CloseLoanLogic} from '../libraries/logic/CloseLoanLogic.sol';
+import {FlashLoanLogic} from '../libraries/logic/FlashLoanLogic.sol';
 import {Errors} from '../libraries/helpers/Errors.sol';
 import {IFlashLoanSimpleReceiver} from '../interfaces/IFlashLoanSimpleReceiver.sol';
 import {IPool, IPoolAddressesProvider} from '../interfaces/IPool.sol';
@@ -133,14 +134,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
   function closeLoan(
     address lsa,
     bool withdrawInCollateralAsset
-  )
-    external
-    override
-    nonReentrant
-    checkZeroAddress(lsa)
-    checkIfLoanExists(lsa)
-    returns (uint256 finalAmountRepaid, uint256 amountWithdrawn)
-  {
+  ) external override nonReentrant returns (uint256 finalAmountRepaid, uint256 amountWithdrawn) {
     /**
      * Flow
      * 1. Check user vdtBalance
@@ -155,8 +149,20 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
      * 10. Update the state of the LSA
      * 11. send the collateral/debtAsset asset to the `loan.borrower`
      */
-    // DataTypes.CloseLoanWithContext memory ctx =
-    // CloseLoanLogic.executeCloseLoanWithFlashLoan();
+    DataTypes.ExecuteCloseLoanContext memory ctx = DataTypes.ExecuteCloseLoanContext(
+      i_BITMOR_POOL,
+      i_AAVE_V3_POOL,
+      i_ORACLE,
+      i_DEBT_ASSET,
+      i_COLLATERAL_ASSET,
+      s_preClosureFeeBps,
+      MAX_SLIPPAGE_BPS
+    );
+    DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(
+      lsa,
+      withdrawInCollateralAsset
+    );
+    CloseLoanLogic.executeCloseLoan(ctx, params, s_loansByLSA);
   }
 
   // ============ Flash Loan Callback ============
@@ -169,27 +175,32 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     address initiator,
     bytes calldata params
   ) external override returns (bool) {
-    //! TODO: Check if decode first params from params;
+    (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
-    DataTypes.FLOperationContext memory ctx = DataTypes.FLOperationContext(
+    DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext(
       i_AAVE_V3_POOL,
       i_BITMOR_POOL,
       s_zQuoter,
       i_DEBT_ASSET,
       i_COLLATERAL_ASSET,
       s_swapAdapter,
+      s_premiumCollector,
       MAX_SLIPPAGE_BPS
     );
 
-    DataTypes.FLOperationParams memory flOpParams = DataTypes.FLOperationParams(
+    DataTypes.ExecuteFLOperationParams memory flOpParams = DataTypes.ExecuteFLOperationParams(
       asset,
       amount,
       premium,
       initiator,
-      params
+      flData
     );
 
-    LoanLogic.executeFLOperation(ctx, flOpParams, s_loansByLSA);
+    if (initializingLoan) {
+      FlashLoanLogic.executeFLOperationInitiailizingLoan(ctx, flOpParams, s_loansByLSA);
+    } else {
+      FlashLoanLogic.executeFLOperationCloseLoan(ctx, flOpParams, s_loansByLSA);
+    }
 
     return true;
   }
@@ -271,6 +282,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     strikePrice = LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
   }
 
+  /// @inheritdoc ILoan
   function getLoanDetails(
     uint256 collateralAmount,
     uint256 duration
@@ -285,24 +297,34 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     );
   }
 
+  /// @inheritdoc ILoan
   function getGracePeriod() external view override returns (uint256) {
     return s_gracePeriod;
   }
 
+  /// @inheritdoc ILoan
   function getPremiumCollector() external view override returns (address) {
     return s_premiumCollector;
   }
 
+  /// @inheritdoc ILoan
   function getRepaymentInterval() external view returns (uint256) {
     return LOAN_REPAYMENT_INTERVAL;
   }
 
+  /// @inheritdoc IFlashLoanSimpleReceiver
   function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
     return IPoolAddressesProvider(address(0));
   }
 
+  /// @inheritdoc IFlashLoanSimpleReceiver
   function POOL() external view override returns (IPool) {
     return IPool(i_AAVE_V3_POOL);
+  }
+
+  /// @inheritdoc ILoan
+  function getPreClosureFee() external view override returns (uint256) {
+    return s_preClosureFeeBps;
   }
 
   // ============ Admin Functions ============
@@ -358,11 +380,16 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     emit Loan__PremiumCollectorUpdated(s_premiumCollector);
   }
 
-  function setGracePeriod(
-    uint256 gracePeriod
-  ) external override checkZeroAmount(gracePeriod) onlyOwner {
+  /// @inheritdoc ILoan
+  function setGracePeriod(uint256 gracePeriod) external override onlyOwner {
     s_gracePeriod = gracePeriod;
     emit Loan__GracePeriodUpdated(gracePeriod);
+  }
+
+  /// @inheritdoc ILoan
+  function setPreClosureFee(uint256 newFee) external override onlyOwner {
+    s_preClosureFeeBps = newFee;
+    emit Loan__PreClosureFeeUpdated(newFee);
   }
 
   // ============ Internal Functions ============
