@@ -150,8 +150,10 @@ library FlashLoanLogic {
 
     // =========== Swap the remaining to the debt asset ==========
 
-    if (!vars.withdrawInCollateralAsset) {
+    if (vars.withdrawInCollateralAsset) {
       vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
+    } else {
+      vars.collateralAmountToSwap -= vars.preClosureFee;
     }
 
     vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
