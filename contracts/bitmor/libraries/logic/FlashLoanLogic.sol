@@ -46,8 +46,8 @@ library FlashLoanLogic {
       ctx.zQuoter,
       ctx.debtAsset, // tokenIn
       ctx.collateralAsset, // tokenOut
+      ctx.oracle,
       totalSwapAmount, // amountIn
-      collateralAmount,
       ctx.maxSlippage
     );
 
@@ -158,8 +158,8 @@ library FlashLoanLogic {
       ctx.zQuoter,
       ctx.collateralAsset, // tokenIn
       ctx.debtAsset, // tokenOut
+      ctx.oracle,
       vars.collateralAmountToSwap, // amountIn
-      loan.collateralAmount,
       ctx.maxSlippage
     );
 

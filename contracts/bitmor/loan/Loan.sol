@@ -172,6 +172,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
       i_COLLATERAL_ASSET,
       s_swapAdapter,
       s_premiumCollector,
+      i_ORACLE,
       MAX_SLIPPAGE_BPS
     );
 
