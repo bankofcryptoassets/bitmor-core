@@ -33,6 +33,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
    * @param _debtAsset USDC address
    * @param _swapAdapter SwapAdapter contract address for token swaps
    * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
+   * @param _preClosureFeeBps Loan pre-closure fee (in bps)
    */
   constructor(
     address _aaveV3Pool,
@@ -42,7 +43,8 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     address _collateralAsset,
     address _debtAsset,
     address _swapAdapter,
-    address _zQuoter
+    address _zQuoter,
+    uint256 _preClosureFeeBps
   )
     LoanStorage(
       _aaveV3Pool,
@@ -58,6 +60,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
 
     s_swapAdapter = _swapAdapter;
     s_zQuoter = _zQuoter;
+    s_preClosureFeeBps = _preClosureFeeBps;
   }
 
   modifier checkZeroAmount(uint256 amt) {
