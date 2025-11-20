@@ -4,6 +4,8 @@ pragma solidity 0.8.30;
 import {IzQuoter} from '../../interfaces/IzQuoter.sol';
 import {ISwapAdaptor} from '../../interfaces/ISwapAdaptor.sol';
 import {Errors} from '../helpers/Errors.sol';
+import {IPriceOracleGetter} from '../../interfaces/IPriceOracleGetter.sol';
+import {IERC20Metadata} from '../../dependencies/openzeppelin/IERC20Metadata.sol';
 
 /**
  * @title SwapLogic
@@ -15,6 +17,7 @@ library SwapLogic {
   bool constant EXACT_OUT = false;
   bool constant SUSHI = false;
   bool constant STABLE = false;
+  uint256 constant PRICE_PRECISION = 1e8;
 
   /**
    * @notice Execute swap via SwapAdaptor with optional zQuoter validation
@@ -51,8 +54,8 @@ library SwapLogic {
     address zQuoter,
     address tokenIn,
     address tokenOut,
+    address oracle,
     uint256 amountIn,
-    uint256 collateralAmount,
     uint256 maxSlippageBps
   ) internal returns (uint256 minAcceptable) {
     if (zQuoter != address(0)) {
@@ -70,8 +73,15 @@ library SwapLogic {
       // Calculate protocol's minimum acceptable output with slippage protection
       minAcceptable = (expectedOut * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;
     } else {
-      // minAcceptable = minAmountOut * (100% - slippage%) = minAmountOut * (10000 - 200) / 10000
-      minAcceptable = (collateralAmount * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;
+      uint256 tokenInPrice = IPriceOracleGetter(oracle).getAssetPrice(tokenIn);
+      uint256 tokenOutPrice = IPriceOracleGetter(oracle).getAssetPrice(tokenOut);
+      uint256 tokenInDecimals = 10 ** IERC20Metadata(tokenIn).decimals();
+      uint256 tokenOutDecimals = 10 ** IERC20Metadata(tokenOut).decimals();
+
+      uint256 tokenInUSDValue = (amountIn * tokenInPrice) / tokenInDecimals;
+      uint256 tokenOutAmt = (tokenInUSDValue * tokenOutDecimals) / tokenOutPrice;
+
+      minAcceptable = (tokenOutAmt * (BASIS_POINTS - maxSlippageBps)) / BASIS_POINTS;
     }
     return minAcceptable;
   }

@@ -88,6 +88,7 @@ library DataTypes {
     address collateralAsset;
     address swapAdapter;
     address feeCollector;
+    address oracle;
     uint256 maxSlippage;
   }
 
