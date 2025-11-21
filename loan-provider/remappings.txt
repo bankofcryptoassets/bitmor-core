@@ -1,4 +1,4 @@
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 ds-test/=node_modules/ds-test/src/
 forge-std/=lib/forge-std/src/
-@bitmor/=contracts/bitmor/
+@bitmor/=src/
