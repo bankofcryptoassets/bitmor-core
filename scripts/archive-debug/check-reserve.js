@@ -1,14 +1,17 @@
 const hre = require("hardhat");
 
 async function main() {
-  const AAVE_V2_POOL = "0x64688EAa8cBC3029D303b61D7e77f986E34742b3";
-  const USDC = "0x562937072309F8c929206a58e72732dFCA5b67D6";
+
+  const deployedContracts = require("../../deployed-contracts.json");
+  const usdcDeployment = require("../../deployments/sepolia-usdc.json");
+  const AAVE_V2_POOL = deployedContracts.LendingPool.sepolia.address;
+  const USDC = usdcDeployment.address;
 
   console.log("========================================");
   console.log("  CHECKING USDC RESERVE CONFIGURATION");
   console.log("========================================\n");
 
-  const pool = await hre.ethers.getContractAt("ILendingPool", AAVE_V2_POOL);
+  const pool = await hre.ethers.getContractAt("contracts/bitmor/interfaces/ILendingPool.sol:ILendingPool", AAVE_V2_POOL);
   const reserveData = await pool.getReserveData(USDC);
 
   console.log("USDC Reserve Data:");
@@ -51,8 +54,8 @@ async function main() {
   console.log();
 
   // Check liquidity
-  const usdc = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", USDC);
-  const aToken = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", reserveData.aTokenAddress);
+  const usdc = await hre.ethers.getContractAt("contracts/bitmor/dependencies/openzeppelin/IERC20.sol:IERC20", USDC);
+  const aToken = await hre.ethers.getContractAt("contracts/bitmor/dependencies/openzeppelin/IERC20.sol:IERC20", reserveData.aTokenAddress);
   const totalLiquidity = await usdc.balanceOf(reserveData.aTokenAddress);
   console.log("Reserve Liquidity:", hre.ethers.utils.formatUnits(totalLiquidity, 6), "USDC");
   console.log();

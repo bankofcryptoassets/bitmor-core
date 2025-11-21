@@ -7,9 +7,9 @@ async function main() {
   console.log("  INITIALIZE LOAN");
   console.log("========================================\n");
 
-  const [deployer] = await ethers.getSigners();
-  console.log("Caller address:", deployer.address);
-  console.log("Caller balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
+  const [user1, user2, user3, user4, user5] = await ethers.getSigners();
+  console.log("Caller address:", user5.address);
+  console.log("Caller balance:", ethers.utils.formatEther(await user5.getBalance()), "ETH\n");
 
   // Load deployment files
   const bitmorContractsPath = path.join(__dirname, "../bitmor-deployed-contracts.json");
@@ -43,16 +43,10 @@ async function main() {
   console.log("  Premium Collector:", PREMIUM_COLLECTOR);
   console.log();
 
-  const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS);
-  const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS);
+  const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS, user5);
+  const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS, user5);
 
-  console.log("Setting premium collector...");
-  const setPremiumTx = await loan.setPremiumCollector(PREMIUM_COLLECTOR);
-  await setPremiumTx.wait();
-  console.log("Premium collector set");
-  console.log();
-
-  const usdcBalance = await usdc.balanceOf(deployer.address);
+  const usdcBalance = await usdc.balanceOf(user5.address);
   console.log("Your USDC balance:", ethers.utils.formatUnits(usdcBalance, 6), "USDC");
 
   const totalAmount = DEPOSIT_AMOUNT.add(PREMIUM_AMOUNT);

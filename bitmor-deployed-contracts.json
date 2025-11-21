@@ -1,32 +1,34 @@
 {
   "LoanVaultImplementation": {
     "sepolia": {
-      "address": "0x4388D64f146Af1C58fd1463A0465344D1B9ee3d3",
+      "address": "0x57c720097cb2292468553FeC03a5794f6e1f9C9D",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F"
     }
   },
   "Loan": {
     "sepolia": {
-      "address": "0x155b116E9Dd6C8a3c85cD612C65143A99BE6B56f",
+      "address": "0x9363F379e454C2Ae1dC3f05FeF45C432d54125A5",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
       "constructorArgs": {
         "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
-        "aaveV2Pool": "0x188436A4430e31712b9F3b61456348212ea9e9e2",
-        "oracle": "0x29354b3ECf11e4c6e2292EBBF9aAbA63BB79cB08",
+        "aaveAddressesProvider": "0x78f324F9F31D4Cd29B9139f5D9334bcC68A5e0cF",
+        "bitmorPool": "0x0610952a63cA69372e6E92d7656D5697dC67Db0F",
+        "oracle": "0x8951BfA783F21a3Af6FCaaC61381f222109E0887",
         "collateralAsset": "0x39eF420a0467F8705D15065d4D542bC80ceA0356",
         "debtAsset": "0x562937072309F8c929206a58e72732dFCA5b67D6",
-        "swapAdapter": "0x913336CecD657bB7dA46548bcb1a967EecBEAC62",
+        "swapAdapter": "0x595F812987Ac6b46C2Ad0071735e818e9f6ae7C0",
         "zQuoter": "0x0000000000000000000000000000000000000000",
-        "maxLoanAmount": "1000000000000"
+        "premiumCollector": "0x64e4e1d6ea4d7d4be5022510408bec5b24765176",
+        "preClosureFeeBps": "10"
       }
     }
   },
   "LoanVaultFactory": {
     "sepolia": {
-      "address": "0x4F9781665066eEF4A02b8EC9d55E0D429e58c8fB",
+      "address": "0x4e04d133aCc066a0d39E53dF819ccfA6ED789d45",
       "deployer": "0x0D4bb706404cCB1f4D8740C205ce2149caE6CF9F",
-      "implementation": "0x4388D64f146Af1C58fd1463A0465344D1B9ee3d3",
-      "loanContract": "0x155b116E9Dd6C8a3c85cD612C65143A99BE6B56f"
+      "implementation": "0x57c720097cb2292468553FeC03a5794f6e1f9C9D",
+      "loanContract": "0x9363F379e454C2Ae1dC3f05FeF45C432d54125A5"
     }
   }
 }

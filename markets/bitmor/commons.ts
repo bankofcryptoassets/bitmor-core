@@ -92,8 +92,8 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
   ChainlinkAggregator: {
     [eBaseNetwork.base]: {},
     [eBaseNetwork.sepolia]: {
-      USDC: '0x45EA2E641164835014F46B70F011504FD22ec19A',
-      cbBTC: '0xC6F89E85Ce021cf8Ab900EbD51579710EE91bb2F',
+      USDC: '0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165',
+      cbBTC: '0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298',
     },
   },
   ReserveAssets: {

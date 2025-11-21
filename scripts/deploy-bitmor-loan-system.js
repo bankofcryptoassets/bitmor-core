@@ -36,23 +36,27 @@ async function main() {
   // Configuration
   const config = {
     aaveV3Pool: "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
-    aaveV2Pool: aaveV2.LendingPool.sepolia.address,
+    aaveAddressesProvider: aaveV2.LendingPoolAddressesProvider.sepolia.address,
+    bitmorPool: aaveV2.LendingPool.sepolia.address,
     oracle: aaveV2.AaveOracle.sepolia.address,
     collateralAsset: cbbtcDeployment.address,
     debtAsset: usdcDeployment.address,
     swapAdapter: swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address,
     zQuoter: "0x0000000000000000000000000000000000000000",
-    maxLoanAmount: "1000000000000", // 1M USDC
+    premiumCollector: "0x64e4e1d6ea4d7d4be5022510408bec5b24765176",
+    preClosureFeeBps: "10", // 0.1% pre-closure fee (10 basis points)
   };
 
   console.log("Configuration:");
   console.log("  Aave V3 Pool:", config.aaveV3Pool);
-  console.log("  Aave V2 Pool:", config.aaveV2Pool);
+  console.log("  Aave Addresses Provider:", config.aaveAddressesProvider);
+  console.log("  Bitmor Pool:", config.bitmorPool);
   console.log("  Oracle:", config.oracle);
   console.log("  Collateral (cbBTC):", config.collateralAsset);
   console.log("  Debt (USDC):", config.debtAsset);
   console.log("  Swap Adapter:", config.swapAdapter);
-  console.log("  Max Loan:", ethers.utils.formatUnits(config.maxLoanAmount, 6), "USDC\n");
+  console.log("  Premium Collector:", config.premiumCollector);
+  console.log("  Pre-closure Fee:", config.preClosureFeeBps, "bps (basis points)\n");
 
   // Load existing Bitmor contracts file or create new one
   const bitmorContractsPath = path.join(__dirname, "../bitmor-deployed-contracts.json");
@@ -83,13 +87,15 @@ async function main() {
   const Loan = await hre.ethers.getContractFactory("Loan");
   const loan = await Loan.deploy(
     config.aaveV3Pool,
-    config.aaveV2Pool,
+    config.aaveAddressesProvider,
+    config.bitmorPool,
     config.oracle,
     config.collateralAsset,
     config.debtAsset,
     config.swapAdapter,
     config.zQuoter,
-    config.maxLoanAmount
+    config.premiumCollector,
+    config.preClosureFeeBps
   );
   await loan.deployed();
   console.log("    Deployed Loan:", loan.address);
@@ -100,13 +106,15 @@ async function main() {
     deployer: deployer.address,
     constructorArgs: {
       aaveV3Pool: config.aaveV3Pool,
-      aaveV2Pool: config.aaveV2Pool,
+      aaveAddressesProvider: config.aaveAddressesProvider,
+      bitmorPool: config.bitmorPool,
       oracle: config.oracle,
       collateralAsset: config.collateralAsset,
       debtAsset: config.debtAsset,
       swapAdapter: config.swapAdapter,
       zQuoter: config.zQuoter,
-      maxLoanAmount: config.maxLoanAmount,
+      premiumCollector: config.premiumCollector,
+      preClosureFeeBps: config.preClosureFeeBps,
     },
   };
 

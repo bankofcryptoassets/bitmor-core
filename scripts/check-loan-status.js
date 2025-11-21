@@ -7,7 +7,7 @@ async function main() {
   console.log("  CHECK LOAN STATUS");
   console.log("========================================\n");
 
-  const [deployer] = await hre.ethers.getSigners();
+  const [user1, user2, user3, user4, deployer] = await hre.ethers.getSigners();
   console.log("Checking loans for:", deployer.address);
   console.log();
 

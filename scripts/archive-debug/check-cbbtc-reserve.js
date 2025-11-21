@@ -1,8 +1,8 @@
 const hre = require("hardhat");
 
 async function main() {
-  const deployedContracts = require("../deployed-contracts.json");
-  const cbBTCDeployment = require("../deployments/sepolia-cbbtc.json");
+  const deployedContracts = require("../../deployed-contracts.json");
+  const cbBTCDeployment = require("../../deployments/sepolia-cbbtc.json");
   
   const AAVE_V2_POOL = deployedContracts.LendingPool.sepolia.address;
   const cbBTC = cbBTCDeployment.address;
@@ -14,7 +14,7 @@ async function main() {
   console.log("cbBTC:", cbBTC);
   console.log();
 
-  const pool = await hre.ethers.getContractAt("ILendingPool", AAVE_V2_POOL);
+  const pool = await hre.ethers.getContractAt("contracts/bitmor/interfaces/ILendingPool.sol:ILendingPool", AAVE_V2_POOL);
   const reserveData = await pool.getReserveData(cbBTC);
 
   console.log("cbBTC Reserve Data:");
@@ -26,7 +26,7 @@ async function main() {
   console.log();
 
   // Check liquidity
-  const cbBTCToken = await hre.ethers.getContractAt("@openzeppelin/contracts/token/ERC20/IERC20.sol:IERC20", cbBTC);
+  const cbBTCToken = await hre.ethers.getContractAt("contracts/bitmor/dependencies/openzeppelin/IERC20.sol:IERC20", cbBTC);
   const totalLiquidity = await cbBTCToken.balanceOf(reserveData.aTokenAddress);
   
   console.log("🔍 CRITICAL:");
