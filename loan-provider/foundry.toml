@@ -1,6 +1,6 @@
 # Fast development profile (default) - NO model checker
 [profile.default]
-src = "contracts"
+src = "src"
 out = "forge-out"
 libs = ["node_modules", "lib"]
 optimizer = true
