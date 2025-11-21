@@ -1,0 +1,9 @@
+[submodule "loan-provider/lib/foundry-devops"]
+	path = loan-provider/lib/foundry-devops
+	url = https://github.com/Cyfrin/foundry-devops
+[submodule "loan-provider/lib/forge-std"]
+	path = loan-provider/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "loan-provider/lib/openzeppelin-contracts"]
+	path = loan-provider/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
