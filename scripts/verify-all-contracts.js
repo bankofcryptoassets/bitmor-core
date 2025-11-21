@@ -70,13 +70,15 @@ async function main() {
       const loanAddress = bitmorContracts.Loan.sepolia.address;
       const loanArgs = [
         bitmorContracts.Loan.sepolia.constructorArgs.aaveV3Pool,
-        bitmorContracts.Loan.sepolia.constructorArgs.aaveV2Pool,
         bitmorContracts.Loan.sepolia.constructorArgs.aaveAddressesProvider,
+        bitmorContracts.Loan.sepolia.constructorArgs.bitmorPool,
+        bitmorContracts.Loan.sepolia.constructorArgs.oracle,
         bitmorContracts.Loan.sepolia.constructorArgs.collateralAsset,
         bitmorContracts.Loan.sepolia.constructorArgs.debtAsset,
         bitmorContracts.Loan.sepolia.constructorArgs.swapAdapter,
         bitmorContracts.Loan.sepolia.constructorArgs.zQuoter,
-        bitmorContracts.Loan.sepolia.constructorArgs.maxLoanAmount,
+        bitmorContracts.Loan.sepolia.constructorArgs.premiumCollector,
+        bitmorContracts.Loan.sepolia.constructorArgs.preClosureFeeBps,
       ];
       const result2 = await verifyContract(loanAddress, loanArgs, "Loan", "contracts/bitmor/loan/Loan.sol:Loan");
       results.push(result2);

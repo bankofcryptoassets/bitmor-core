@@ -148,13 +148,13 @@ library FlashLoanLogic {
     // Sends the pre-closure fee to the fee collector
     IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFee);
 
-    // =========== Swap the remaining to the debt asset ==========
+    // =========== Swap the required amount to debt asset ==========
 
-    if (vars.withdrawInCollateralAsset) {
+    if (!vars.withdrawInCollateralAsset) {
+      // When not withdrawing in collateral asset, swap all remaining after fee
       vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
-    } else {
-      vars.collateralAmountToSwap -= vars.preClosureFee;
     }
+    // When withdrawInCollateralAsset=true, use the amount calculated in CloseLoanLogic
 
     vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
       ctx.zQuoter,
@@ -177,24 +177,8 @@ library FlashLoanLogic {
     );
     // ===============================================================
 
-    // =========== Send the remaining assets back to the `loan.borrower` ==========
-    vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
-
-    if (vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt > 0) {
-      IERC20(ctx.debtAsset).safeTransfer(
-        loan.borrower,
-        vars.debtAssetAmtReceived - vars.totalFlashLoanBorrowedAmt
-      );
-    }
-    if (vars.collateralAmountWithdrawn - vars.collateralAmountToSwap > 0) {
-      IERC20(ctx.collateralAsset).safeTransfer(
-        loan.borrower,
-        vars.collateralAmountWithdrawn - vars.collateralAmountToSwap
-      );
-    }
-    // ===============================================================
-
     // To allow aavePool to withdraw borrow amount
+    vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
     IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);
   }
 }

@@ -8,7 +8,7 @@ async function main() {
   console.log("  (Uninsured Loan + Price Crash)");
   console.log("========================================\n");
 
-  const [liquidator] = await ethers.getSigners();
+  const [user1, user2, liquidator] = await ethers.getSigners();
   console.log("Liquidator address:", liquidator.address);
   console.log("Liquidator balance:", ethers.utils.formatEther(await liquidator.getBalance()), "ETH\n");
 

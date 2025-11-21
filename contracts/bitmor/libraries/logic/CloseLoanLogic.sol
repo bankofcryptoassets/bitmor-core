@@ -31,8 +31,9 @@ library CloseLoanLogic {
     uint256 flashLoanPremiumBps;
     uint256 flashLoanPremiumAmount;
     uint256 flashLoanPremiumAmountUSD;
-    uint256 totalCollateralAmtToSwapUSD;
     uint256 totalCollateralAmtToSwap;
+    uint256 remainingCollateralAssetBal;
+    uint256 remainingDebtAssetBal;
   }
 
   function executeCloseLoan(
@@ -85,19 +86,18 @@ library CloseLoanLogic {
       vars.debtAssetDecimals;
 
     if (
-      vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD >=
+      vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD >
       vars.totalCollateralUSD
     ) revert Errors.InsufficientCollateral();
 
-    vars.totalCollateralAmtToSwapUSD = vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD;
-
     if (params.withdrawInCollateralAsset) {
+      // Only swap enough collateral to repay flash loan (debt + premium in debt asset terms)
+      uint256 flashLoanRepaymentAmount = vars.debtAmt + vars.flashLoanPremiumAmount;
       vars.totalCollateralAmtToSwap =
-        (vars.totalCollateralAmtToSwapUSD *
-          vars.collateralAssetDecimals *
-          (BASIS_POINTS + ctx.maxSlippage)) /
-        (vars.collateralAssetPrice * BASIS_POINTS);
+        (flashLoanRepaymentAmount * vars.debtAssetPrice * vars.collateralAssetDecimals) /
+        (vars.collateralAssetPrice * vars.debtAssetDecimals);
     } else {
+      // Swap all collateral minus pre-closure fee to debt asset
       vars.totalCollateralAmtToSwap = vars.collateralAmt - vars.preClosureFee;
     }
 
@@ -118,6 +118,16 @@ library CloseLoanLogic {
       vars.debtAmt,
       paramsForFL
     );
+
+    vars.remainingCollateralAssetBal = IERC20(ctx.collateralAsset).balanceOf(address(this));
+    vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this));
+
+    if (vars.remainingCollateralAssetBal > 0) {
+      IERC20(ctx.collateralAsset).safeTransfer(loan.borrower, vars.remainingCollateralAssetBal);
+    }
+    if (vars.remainingDebtAssetBal > 0) {
+      IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);
+    }
 
     emit ILoan.Loan__ClosedLoan(params.lsa);
   }

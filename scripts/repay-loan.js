@@ -7,7 +7,7 @@ async function main() {
   console.log("  REPAY LOAN");
   console.log("========================================\n");
 
-  const [deployer] = await hre.ethers.getSigners();
+  const [user1, user2, user3, user4, deployer] = await hre.ethers.getSigners();
   console.log("Caller address:", deployer.address);
   console.log("Caller balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
@@ -31,8 +31,8 @@ async function main() {
   console.log();
 
   // Get contract instances
-  const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS);
-  const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS);
+  const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS, deployer);
+  const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS, deployer);
 
   // Get user's loan count
   const loanCount = await loan.getUserLoanCount(deployer.address);
@@ -61,7 +61,7 @@ async function main() {
   console.log("  Estimated Monthly Payment:", ethers.utils.formatUnits(loanData.estimatedMonthlyPayment, 6), "USDC");
   console.log("  Duration:", loanData.duration.toString(), "months");
   console.log("  Status:", loanData.status === 0 ? "Active" : loanData.status === 1 ? "Completed" : "Liquidated");
-  console.log("  Next Due Timestamp:", new Date(loanData.nextDueTimestamp.toNumber() * 1000).toLocaleString());
+  console.log("  Last Payment Timestamp:", loanData.lastPaymentTimestamp.eq(0) ? "No payments yet" : new Date(loanData.lastPaymentTimestamp.toNumber() * 1000).toLocaleString());
   console.log();
 
   // Check if loan is active
@@ -108,13 +108,12 @@ async function main() {
     console.log();
 
     // Find LoanRepaid event
-    const loanRepaidEvent = receipt.events?.find(e => e.event === "LoanRepaid");
+    const loanRepaidEvent = receipt.events?.find(e => e.event === "Loan__LoanRepaid");
     if (loanRepaidEvent) {
-      const { lsa, amountRepaid, nextDueTimestamp } = loanRepaidEvent.args;
+      const { lsa, amountRepaid } = loanRepaidEvent.args;
       console.log("Loan Repayment Successful!");
       console.log("  LSA:", lsa);
       console.log("  Amount Repaid:", ethers.utils.formatUnits(amountRepaid, 6), "USDC");
-      console.log("  Next Due Date:", new Date(nextDueTimestamp.toNumber() * 1000).toLocaleString());
     } else {
       console.log("Repayment successful!");
       console.log("Note: Event details not captured");
@@ -126,7 +125,8 @@ async function main() {
     const updatedLoanData = await loan.getLoanByLSA(lsaAddress);
     console.log("Updated Loan Status:", updatedLoanData.status === 0 ? "Active" : updatedLoanData.status === 1 ? "Completed" : "Liquidated");
     if (updatedLoanData.status === 0) {
-      console.log("Next Due Timestamp:", new Date(updatedLoanData.nextDueTimestamp.toNumber() * 1000).toLocaleString());
+      console.log("Last Payment Timestamp:", new Date(updatedLoanData.lastPaymentTimestamp.toNumber() * 1000).toLocaleString());
+      console.log("Remaining Duration:", updatedLoanData.duration.toString(), "months");
     }
     console.log();
 

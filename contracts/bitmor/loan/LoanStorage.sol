@@ -66,8 +66,8 @@ contract LoanStorage {
 
   // ============ Constants ============
 
-  /// @notice Maximum slippage tolerance in basis points (200 = 2%)
-  uint256 public constant MAX_SLIPPAGE_BPS = 200;
+  /// @notice Maximum slippage tolerance in basis points (50 = 0.5%)
+  uint256 public constant MAX_SLIPPAGE_BPS = 50;
 
   /// @notice Loan repayment interval in seconds (30 days)
   uint256 internal constant LOAN_REPAYMENT_INTERVAL = 30 days;

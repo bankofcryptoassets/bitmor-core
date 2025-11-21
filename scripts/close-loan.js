@@ -7,7 +7,7 @@ async function main() {
     console.log("  CLOSE LOAN");
     console.log("========================================\n");
 
-    const [deployer] = await ethers.getSigners();
+    const [user1, user2, user3, user4, deployer] = await ethers.getSigners();
     console.log("Caller address:", deployer.address);
     console.log("Caller balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH\n");
 
@@ -33,9 +33,9 @@ async function main() {
     console.log("  cbBTC Address:", CBBTC_ADDRESS);
     console.log();
 
-    const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS);
-    const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS);
-    const cbbtc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", CBBTC_ADDRESS);
+    const loan = await hre.ethers.getContractAt("Loan", LOAN_ADDRESS, deployer);
+    const usdc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", USDC_ADDRESS, deployer);
+    const cbbtc = await hre.ethers.getContractAt("contracts/dependencies/openzeppelin/contracts/IERC20.sol:IERC20", CBBTC_ADDRESS, deployer);
 
     const loanCount = await loan.getUserLoanCount(deployer.address);
     console.log("Your total loans:", loanCount.toString());
@@ -67,44 +67,21 @@ async function main() {
         return;
     }
 
-    console.log("Fetching current debt from Aave V2...");
-    const aaveV2Pool = await hre.ethers.getContractAt(
-        "contracts/protocol/lendingpool/LendingPool.sol:LendingPool",
-        bitmorContracts.Loan.sepolia.constructorArgs.aaveV2Pool
-    );
-
-    const accountData = await aaveV2Pool.getUserAccountData(lsaAddress);
-    const currentTotalDebt = accountData[1];
-
-    console.log("Current Total Debt (from Aave):", ethers.utils.formatUnits(currentTotalDebt, 8), "USD");
-    console.log();
-
     console.log("Close Loan Configuration:");
-    console.log("  Amount to Provide:", ethers.utils.formatUnits(currentTotalDebt, 8), "USD");
     console.log("  Expected Collateral Return:", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
+    console.log("  Withdraw in collateral asset (cbBTC): true");
     console.log();
-
-    const usdcBalance = await usdc.balanceOf(deployer.address);
-    console.log("Your USDC balance:", ethers.utils.formatUnits(usdcBalance, 6), "USDC");
-
-    if (usdcBalance.lt(currentTotalDebt)) {
-        console.log("\nInsufficient USDC balance. You need at least", ethers.utils.formatUnits(currentTotalDebt, 6), "USDC");
-        return;
-    }
 
     const cbbtcBalanceBefore = await cbbtc.balanceOf(deployer.address);
     console.log("Your cbBTC balance (before):", ethers.utils.formatUnits(cbbtcBalanceBefore, 8), "cbBTC");
     console.log();
 
-    console.log("Approving USDC...");
-    const approveTx = await usdc.approve(LOAN_ADDRESS, currentTotalDebt);
-    await approveTx.wait();
-    console.log("USDC approved");
-    console.log();
-
     console.log("Calling closeLoan()...");
+    console.log("Note: The contract will handle debt repayment via flash loan");
+    console.log();
     try {
-        const tx = await loan.closeLoan(lsaAddress, currentTotalDebt, { gasLimit: 3000000 });
+        const withdrawInCollateralAsset = true; // Set to false if you want USDC instead
+        const tx = await loan.closeLoan(lsaAddress, withdrawInCollateralAsset, { gasLimit: 5000000 });
         console.log("Transaction hash:", tx.hash);
         console.log("Waiting for confirmation...");
 
@@ -114,24 +91,22 @@ async function main() {
 
         const loanClosedEvent = receipt.events?.find(e => e.event === "Loan__ClosedLoan");
         if (loanClosedEvent) {
-            const { lsa, debtAmount, cbBTCAmount } = loanClosedEvent.args;
+            const { lsa } = loanClosedEvent.args;
             console.log("Loan Closed Successfully!");
             console.log("  LSA:", lsa);
-            console.log("  Debt Repaid:", ethers.utils.formatUnits(debtAmount, 6), "USDC");
-            console.log("  Collateral Withdrawn:", ethers.utils.formatUnits(cbBTCAmount, 8), "cbBTC");
         } else {
             console.log("Loan closed successfully!");
             console.log("Note: Event details not captured");
         }
         console.log();
 
-        const usdcBalanceAfter = await usdc.balanceOf(deployer.address);
         const cbbtcBalanceAfter = await cbbtc.balanceOf(deployer.address);
+        const usdcBalanceAfter = await usdc.balanceOf(deployer.address);
 
         console.log("Final Balances:");
-        console.log("  USDC balance:", ethers.utils.formatUnits(usdcBalanceAfter, 6), "USDC");
         console.log("  cbBTC balance:", ethers.utils.formatUnits(cbbtcBalanceAfter, 8), "cbBTC");
         console.log("  cbBTC received:", ethers.utils.formatUnits(cbbtcBalanceAfter.sub(cbbtcBalanceBefore), 8), "cbBTC");
+        console.log("  USDC balance:", ethers.utils.formatUnits(usdcBalanceAfter, 6), "USDC");
         console.log();
 
     } catch (error) {
