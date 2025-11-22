@@ -1,0 +1,148 @@
+{
+  "timestamp": "2025-11-21T08:09:39.672Z",
+  "network": "Base Sepolia",
+  "results": [
+    {
+      "contract": "LoanVaultImplementation",
+      "status": "success",
+      "address": "0x57c720097cb2292468553FeC03a5794f6e1f9C9D"
+    },
+    {
+      "contract": "Loan",
+      "status": "success",
+      "address": "0x9363F379e454C2Ae1dC3f05FeF45C432d54125A5"
+    },
+    {
+      "contract": "LoanVaultFactory",
+      "status": "success",
+      "address": "0x4e04d133aCc066a0d39E53dF819ccfA6ED789d45"
+    },
+    {
+      "contract": "UniswapV4SwapAdapterWrapper",
+      "status": "success",
+      "address": "0x595F812987Ac6b46C2Ad0071735e818e9f6ae7C0"
+    },
+    {
+      "contract": "LendingPoolAddressesProvider",
+      "status": "success",
+      "address": "0x78f324F9F31D4Cd29B9139f5D9334bcC68A5e0cF"
+    },
+    {
+      "contract": "ReserveLogic",
+      "status": "success",
+      "address": "0xB0ce72c287873FF1854D5A7850E0FDB07ccc7904"
+    },
+    {
+      "contract": "GenericLogic",
+      "status": "success",
+      "address": "0x0d55091E4b34706F039A41B1A95e01DbA1Efa328"
+    },
+    {
+      "contract": "ValidationLogic",
+      "status": "failed",
+      "address": "0xfeBCDA087BA95Ba7b020E68c3857a2F4Ca13454e",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
+    },
+    {
+      "contract": "LendingPoolImpl",
+      "status": "success",
+      "address": "0x1528Df59eBF8A63B5558f81212f0B1c4806431D3"
+    },
+    {
+      "contract": "LendingPoolConfiguratorImpl",
+      "status": "success",
+      "address": "0x6eCf16D896e6d314a948955924BC0cB306eE386a"
+    },
+    {
+      "contract": "LendingPoolAddressesProviderRegistry",
+      "status": "success",
+      "address": "0x75cE516b8e143441BD69a5c1c5EB19B2De644a1E"
+    },
+    {
+      "contract": "StableAndVariableTokensHelper",
+      "status": "success",
+      "address": "0x7c927eE7EB68638Be9F587ff0e5fE128B885A327"
+    },
+    {
+      "contract": "ATokensAndRatesHelper",
+      "status": "success",
+      "address": "0x2333D09Fb7336CD3A26471d0029bAb1174083FFe"
+    },
+    {
+      "contract": "AToken",
+      "status": "success",
+      "address": "0xa062007f7D2B3d6a80a2f542BF8e5836E0533555"
+    },
+    {
+      "contract": "DelegationAwareAToken",
+      "status": "success",
+      "address": "0xBb626F80f1c06F187D4f3763663b6f81186Af6f0"
+    },
+    {
+      "contract": "StableDebtToken",
+      "status": "success",
+      "address": "0xFd8b05a142E75c798eb05e71cDEEaCe1D367f07f"
+    },
+    {
+      "contract": "VariableDebtToken",
+      "status": "success",
+      "address": "0xd0CA2b96190De5AD8C2e9Fa6f43bD50bebee5d8F"
+    },
+    {
+      "contract": "WETHMocked",
+      "status": "success",
+      "address": "0x4b075f2157e4ff5112EC9f29A4Ba30014d8c0e1A"
+    },
+    {
+      "contract": "AaveOracle",
+      "status": "success",
+      "address": "0x8951BfA783F21a3Af6FCaaC61381f222109E0887"
+    },
+    {
+      "contract": "LendingRateOracle",
+      "status": "success",
+      "address": "0x09D4F1eF09aBC0855d85ae68915b54454a51f343"
+    },
+    {
+      "contract": "WETHGateway",
+      "status": "success",
+      "address": "0x49c732D05fC84fd1bd99d49Ce8D5A00F54dc9Cee"
+    },
+    {
+      "contract": "AaveProtocolDataProvider",
+      "status": "success",
+      "address": "0x14e42ed0C6B6044a9E8679843B941DD4b36b1EC2"
+    },
+    {
+      "contract": "DefaultReserveInterestRateStrategy (USDC)",
+      "status": "success",
+      "address": "0x44c801Fc0b404a11e57553400B22cE4cB6605499"
+    },
+    {
+      "contract": "DefaultReserveInterestRateStrategy (cbBTC)",
+      "status": "success",
+      "address": "0x766B7399BD4Cb68be1F9B84c7Ed9c8712CCCCC67"
+    },
+    {
+      "contract": "LendingPoolCollateralManagerImpl",
+      "status": "success",
+      "address": "0x141B6Fdb256aefaAE9c24D9a2f3aA8c7f7D85E1b"
+    },
+    {
+      "contract": "WalletBalanceProvider",
+      "status": "success",
+      "address": "0xa52f6520e758FC8e6041a030AfbEfE2FC1A568A3"
+    },
+    {
+      "contract": "UiPoolDataProvider",
+      "status": "failed",
+      "address": "0x328284CaC3270a0D98A48C194cD1794C279D7571",
+      "error": "The address provided as argument contains a contract, but its bytecode doesn't match any of your local contracts.\n\nPossible causes are:\n  - The artifact for that contract is outdated or missing. You can try compiling the project again with the --force flag before re-running the verification.\n  - The contract's code changed after the deployment was executed. Sometimes this happens by changes in seemingly unrelated contracts.\n  - The solidity compiler settings were modified after the deployment was executed (like the optimizer, target EVM, etc.)\n  - The given address is wrong.\n  - The selected network (sepolia) is wrong."
+    },
+    {
+      "contract": "UiIncentiveDataProviderV2V3",
+      "status": "success",
+      "address": "0xeBA7082f7f339E4626AD299bf6131db039Df6b21"
+    }
+  ]
+}
