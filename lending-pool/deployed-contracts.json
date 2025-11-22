@@ -569,5 +569,17 @@
       "address": "0x053568617FFccEe2F75073975CC0e1549Ff9db71",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
+  },
+  "bUSDC": {
+    "sepolia": {
+      "address": "0x639Db9Ab413312faEBCFB0B3a1147104aB22A177",
+      "deployer": "0xc617C587122256e940e10FA46d30f610139A818E"
+    }
+  },
+  "bcbBTC": {
+    "sepolia": {
+      "address": "0x5E38D1c52D886E654923239deEf4b549AFb9e5aA",
+      "deployer": "0xc617C587122256e940e10FA46d30f610139A818E"
+    }
   }
 }

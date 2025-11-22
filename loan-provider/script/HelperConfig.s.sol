@@ -66,11 +66,11 @@ contract HelperConfig is Script {
         return makeAddr("premium");
     }
 
-    function getPreClosureFee() public view returns (uint256) {
+    function getPreClosureFee() public pure returns (uint256) {
         return PRE_CLOSURE_FEE;
     }
 
-    function getBitmorPool() public returns (address) {
+    function getBitmorPool() public view returns (address) {
         string memory contractName = "LendingPool";
         return _readAddress(contractName);
     }
@@ -87,30 +87,30 @@ contract HelperConfig is Script {
         }
     }
 
-    function getOracle() public returns (address) {
+    function getOracle() public view returns (address) {
         string memory contractName = "AaveOracle";
         return _readAddress(contractName);
     }
 
-    function getAddressesProvider() public returns (address) {
+    function getAddressesProvider() public view returns (address) {
         string memory contractName = "LendingPoolAddressesProvider";
         return _readAddress(contractName);
     }
 
-    function getLoanVaultImplementation() public returns (address) {
+    function getLoanVaultImplementation() public view returns (address) {
         return _getAddress("LoanVault");
     }
 
-    function getLoanVaultFactory() public returns (address) {
+    function getLoanVaultFactory() public view returns (address) {
         return _getAddress("LoanVaultFactory");
     }
 
-    function getCollateralAsset() public returns (address) {
-        return _getAddress("MockCbBTC");
+    function getCollateralAsset() public view returns (address) {
+        return _readAddress("bcbBTC");
     }
 
-    function getDebtAsset() public returns (address) {
-        return _getAddress("MockUSDC");
+    function getDebtAsset() public view returns (address) {
+        return _readAddress("bUSDC");
     }
 
     function getSwapAdapter() public view returns (address) {
@@ -125,13 +125,13 @@ contract HelperConfig is Script {
         }
     }
 
-    function getLoan() public returns (address) {
+    function getLoan() public view returns (address) {
         return _getAddress("Loan");
     }
 
     function getLoanConfig()
         public
-        view
+        pure
         returns (
             uint256 depositAmt,
             uint256 premiumAmt,
@@ -160,7 +160,10 @@ contract HelperConfig is Script {
         }
 
         // Read the JSON file from repo root
-        string memory path = string.concat(vm.projectRoot(), "/deployed-contracts.json");
+        string memory path = string.concat(
+            vm.projectRoot(),
+            "/../lending-pool/deployed-contracts.json"
+        );
         string memory json = vm.readFile(path);
 
         // Build jsonpath like: .LendingPool.sepolia.address

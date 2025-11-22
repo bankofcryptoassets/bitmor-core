@@ -35,11 +35,12 @@ format :; forge fmt
 
 anvil :; anvil -m 'test test test test test test test test test test test junk' --steps-tracing --block-time 1
 
+# DO NOT DEPLOY MOCK TOKENS while setup. Mocks tokens are deployed in the Lending Pool.
 deployMockTokens:
 	forge script script/deployment/DeployMockTokens.s.sol:DeployMockTokens --rpc-url base_sepolia --broadcast  --verify --verifier sourcify  --account bitmor_owner
 
 mintTokens: 
-	forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_owner
+	forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_owner && forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_user 
 
 depositDebtTokenToBitmorLendingPool: 
 	forge script script/interaction/MockToken.s.sol:MockToken_AddToLendingPool --rpc-url base_sepolia --broadcast --account bitmor_owner
@@ -60,7 +61,7 @@ setBitmorLoan:
 	forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 setup:
-	make deployMockTokens && make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoanVaultFactory && make deployLoan && make setLoanVaultFactory && make setBitmorLoan
+	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoanVaultFactory && make deployLoan && make setLoanVaultFactory && make setBitmorLoan
 
 initializeLoan: 
 	forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user
