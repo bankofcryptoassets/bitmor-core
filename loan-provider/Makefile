@@ -51,11 +51,14 @@ depositDebtTokenToBitmorLendingPool:
 deployLoanVault:
 	forge script script/deployment/DeployLoanVault.s.sol:DeployLoanVault --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
+deployLoan:
+	forge script script/deployment/DeployLoan.s.sol:DeployLoan --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
+
 deployLoanVaultFactory:
 	forge script script/deployment/DeployLoanVaultFactory.s.sol:DeployLoanVaultFactory --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
-deployLoan:
-	forge script script/deployment/DeployLoan.s.sol:DeployLoan --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
+saveAddresses:
+	forge script script/deployment/SaveDeployedAddresses.s.sol:SaveDeployedAddresses --rpc-url base_sepolia
 
 setLoanVaultFactory: 
 	forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory --rpc-url base_sepolia --broadcast --account bitmor_owner
@@ -64,7 +67,7 @@ setBitmorLoan:
 	forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 setup:
-	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoanVaultFactory && make deployLoan && make setLoanVaultFactory && make setBitmorLoan
+	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses
 
 initializeLoan: 
 	forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user

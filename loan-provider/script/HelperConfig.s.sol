@@ -27,9 +27,9 @@ contract HelperConfig is Script {
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
     uint256 public constant DECIMAL_USDC = 1e6;
     uint256 public constant DECIMAL_CBBTC = 1e8;
-    uint256 constant DEPOSIT_AMT = 30_000 * DECIMAL_USDC;
+    uint256 constant DEPOSIT_AMT = 1e8 * DECIMAL_USDC;
     uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
-    uint256 constant COLLATERL_AMT = 1 * DECIMAL_CBBTC;
+    uint256 constant COLLATERL_AMT = 1e8 * DECIMAL_CBBTC;
     uint256 constant DURATION_IN_MONTHS = 12;
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
@@ -120,16 +120,22 @@ contract HelperConfig is Script {
     }
 
     function getSwapAdapterWrapper() public view returns (address) {
-        try vm.readFile(
-            string.concat(
-                vm.projectRoot(),
-                "/broadcast/DeploySwapAdapterWrapper.s.sol/",
-                vm.toString(block.chainid),
-                "/run-latest.json"
+        try
+            vm.readFile(
+                string.concat(
+                    vm.projectRoot(),
+                    "/broadcast/DeploySwapAdapterWrapper.s.sol/",
+                    vm.toString(block.chainid),
+                    "/run-latest.json"
+                )
             )
-        ) returns (string memory) {
+        returns (string memory) {
             // If file exists, try to get the deployment
-            return DevOpsTools.get_most_recent_deployment("UniswapV4SwapAdapterWrapper", block.chainid);
+            return
+                DevOpsTools.get_most_recent_deployment(
+                    "UniswapV4SwapAdapterWrapper",
+                    block.chainid
+                );
         } catch {
             return address(0); // Not deployed yet
         }
