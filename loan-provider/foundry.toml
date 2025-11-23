@@ -11,6 +11,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" }
 ]
 
 # Security analysis profile - WITH model checker (use: FOUNDRY_PROFILE=security forge build)

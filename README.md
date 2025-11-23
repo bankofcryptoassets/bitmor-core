@@ -18,38 +18,22 @@ npx hardhat run scripts/deploy-tokens.js --network sepolia
 ### Deploy Bitmor Lending Pool 
 We need to deploy Lending Pool with mock tokens as reserve assets.
 
-In `lending-pool`
+In `lending-pool`:
 ```bash
 npm run aave:baseSepolia:full:migration
 ```
 
-### Deploy Mock Swap Adapter
-This will act as our custom dex. Since we are using **zRouter** which is not available for the *baseSepolia* we need a custom dec which will serve the minimal functionality, i.e., swapping the tokens.
-
-In `loan-proivder`:
+To verify all the contracts on explorer:
 ```bash
-make deploySwapAdapterWrapper
+npx hardhat run scripts/verify-all-contracts.js 
 ```
-
-### Mint Mock Tokens 
-Mint mock tokens to the `owner` and `user` addresses.
-
-In `loan-provider`:
-```bash
-make mintTokens
-```
-
-### Deposit Mock Tokens in the Bitmor Lending Pool
-It deposits mock USDC, *bUSDC*, in the Lending Pool.
-
-In `loan-provider`:
-```bash
-make depositDebtTokenToBitmorLendingPool`
-```
-
 
 ### Deploy Bitmor Loan Provider
+Deploy the Bitmor Loan Provider System.
 
 In `loan-provider`:
 ```bash
-make 
+make setup
+```
+
+This will you mock tokens, add them to the Lending Pool, deploy all the contracts and save it in the `./loan-provider/deployments.json`
