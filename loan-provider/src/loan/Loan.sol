@@ -31,7 +31,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
      * @param _oracle Price Oracle
      * @param _collateralAsset cbBTC address
      * @param _debtAsset USDC address
-     * @param _swapAdapter SwapAdapter contract address for token swaps
+     * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
      * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
      */
@@ -42,17 +42,25 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
         address _oracle,
         address _collateralAsset,
         address _debtAsset,
-        address _swapAdapter,
+        address _swapAdapterWrapper,
         address _zQuoter,
         address _premiumCollector,
         uint256 _preClosureFeeBps
     )
-        LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
+        LoanStorage(
+            _aaveV3Pool,
+            _aaveAddressesProvider,
+            _bitmorPool,
+            _oracle,
+            _collateralAsset,
+            _debtAsset
+        )
         Ownable(msg.sender)
     {
-        if (_swapAdapter == address(0) || _premiumCollector == address(0)) revert Errors.ZeroAddress();
+        if (_swapAdapterWrapper == address(0) || _premiumCollector == address(0))
+            revert Errors.ZeroAddress();
 
-        s_swapAdapter = _swapAdapter;
+        s_swapAdapter = _swapAdapterWrapper;
         s_zQuoter = _zQuoter;
         s_premiumCollector = _premiumCollector;
         s_preClosureFeeBps = _preClosureFeeBps;
@@ -98,7 +106,12 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
         lsa = LoanLogic.executeInitializeLoan(
             ctx,
             DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, collateralAmount, duration, insuranceID
+                msg.sender,
+                depositAmount,
+                premiumAmount,
+                collateralAmount,
+                duration,
+                insuranceID
             ),
             s_loansByLSA,
             s_userLoanCount,
@@ -107,9 +120,16 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function repay(address lsa, uint256 amount) external override nonReentrant returns (uint256 finalAmountRepaid) {
+    function repay(
+        address lsa,
+        uint256 amount
+    ) external override nonReentrant returns (uint256 finalAmountRepaid) {
         finalAmountRepaid = RepayLogic.executeRepay(
-            i_BITMOR_POOL, i_DEBT_ASSET, i_COLLATERAL_ASSET, DataTypes.ExecuteRepayParams(lsa, amount), s_loansByLSA
+            i_BITMOR_POOL,
+            i_DEBT_ASSET,
+            i_COLLATERAL_ASSET,
+            DataTypes.ExecuteRepayParams(lsa, amount),
+            s_loansByLSA
         );
     }
 
@@ -126,19 +146,23 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
             s_preClosureFeeBps,
             MAX_SLIPPAGE_BPS
         );
-        DataTypes.ExecuteCloseLoanParams memory params =
-            DataTypes.ExecuteCloseLoanParams(lsa, withdrawInCollateralAsset);
+        DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(
+            lsa,
+            withdrawInCollateralAsset
+        );
         CloseLoanLogic.executeCloseLoan(ctx, params, s_loansByLSA);
     }
 
     // ============ Flash Loan Callback ============
 
     /// @inheritdoc IFlashLoanSimpleReceiver
-    function executeOperation(address asset, uint256 amount, uint256 premium, address initiator, bytes calldata params)
-        external
-        override
-        returns (bool)
-    {
+    function executeOperation(
+        address asset,
+        uint256 amount,
+        uint256 premium,
+        address initiator,
+        bytes calldata params
+    ) external override returns (bool) {
         (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext(
@@ -153,8 +177,13 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
             MAX_SLIPPAGE_BPS
         );
 
-        DataTypes.ExecuteFLOperationParams memory flOpParams =
-            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData);
+        DataTypes.ExecuteFLOperationParams memory flOpParams = DataTypes.ExecuteFLOperationParams(
+            asset,
+            amount,
+            premium,
+            initiator,
+            flData
+        );
 
         if (initializingLoan) {
             FlashLoanLogic.executeFLOperationInitiailizingLoan(ctx, flOpParams, s_loansByLSA);
@@ -168,7 +197,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     // ============ View Functions ============
 
     /// @inheritdoc ILoan
-    function getLoanByLSA(address lsa)
+    function getLoanByLSA(
+        address lsa
+    )
         external
         view
         override
@@ -180,30 +211,25 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function getUserLoanCount(address user) external view override checkZeroAddress(user) returns (uint256) {
+    function getUserLoanCount(
+        address user
+    ) external view override checkZeroAddress(user) returns (uint256) {
         return s_userLoanCount[user];
     }
 
     /// @inheritdoc ILoan
-    function getUserLoanAtIndex(address user, uint256 index)
-        external
-        view
-        override
-        checkZeroAddress(user)
-        returns (address)
-    {
+    function getUserLoanAtIndex(
+        address user,
+        uint256 index
+    ) external view override checkZeroAddress(user) returns (address) {
         if (index >= s_userLoanCount[user]) revert Errors.IndexOutOfBounds();
         return s_userLoanAtIndex[user][index];
     }
 
     /// @inheritdoc ILoan
-    function getUserAllLoans(address user)
-        external
-        view
-        override
-        checkZeroAddress(user)
-        returns (DataTypes.LoanData[] memory)
-    {
+    function getUserAllLoans(
+        address user
+    ) external view override checkZeroAddress(user) returns (DataTypes.LoanData[] memory) {
         uint256 count = s_userLoanCount[user];
         DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
@@ -226,7 +252,10 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit)
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    )
         external
         view
         override
@@ -243,13 +272,21 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 collateralAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
         (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
-            i_BITMOR_POOL, i_ORACLE, i_COLLATERAL_ASSET, i_DEBT_ASSET, collateralAmount, duration
+            i_BITMOR_POOL,
+            i_ORACLE,
+            i_COLLATERAL_ASSET,
+            i_DEBT_ASSET,
+            collateralAmount,
+            duration
         );
     }
 
@@ -286,37 +323,44 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     // ============ Admin Functions ============
 
     /// @inheritdoc ILoan
-    function setLoanVaultFactory(address newFactory) external override checkZeroAddress(newFactory) onlyOwner {
+    function setLoanVaultFactory(
+        address newFactory
+    ) external override checkZeroAddress(newFactory) onlyOwner {
         s_loanVaultFactory = newFactory;
         emit Loan__LoanVaultFactoryUpdated(newFactory);
     }
 
     /// @inheritdoc ILoan
-    function setSwapAdapter(address newSwapAdapter) external override checkZeroAddress(newSwapAdapter) onlyOwner {
+    function setSwapAdapter(
+        address newSwapAdapter
+    ) external override checkZeroAddress(newSwapAdapter) onlyOwner {
         s_swapAdapter = newSwapAdapter;
         emit Loan__SwapAdapterUpdated(newSwapAdapter);
     }
 
     /// @inheritdoc ILoan
-    function setZQuoter(address newZQuoter) external override checkZeroAddress(newZQuoter) onlyOwner {
+    function setZQuoter(
+        address newZQuoter
+    ) external override checkZeroAddress(newZQuoter) onlyOwner {
         s_zQuoter = newZQuoter;
         emit Loan__ZQuoterUpdated(newZQuoter);
     }
 
     /// @inheritdoc ILoan
-    function updateLoanStatus(address lsa, DataTypes.LoanStatus newStatus)
-        external
-        override
-        checkIfLoanExists(lsa)
-        onlyOwner
-    {
+    function updateLoanStatus(
+        address lsa,
+        DataTypes.LoanStatus newStatus
+    ) external override checkIfLoanExists(lsa) onlyOwner {
         DataTypes.LoanStatus oldStatus = s_loansByLSA[lsa].status;
         s_loansByLSA[lsa].status = newStatus;
         emit Loan__LoanStatusUpdated(lsa, oldStatus, newStatus);
     }
 
     /// @inheritdoc ILoan
-    function updateLoanData(bytes calldata _data, address _lsa) external override checkZeroAddress(_lsa) onlyOwner {
+    function updateLoanData(
+        bytes calldata _data,
+        address _lsa
+    ) external override checkZeroAddress(_lsa) onlyOwner {
         DataTypes.LoanData memory data = abi.decode(_data, (DataTypes.LoanData));
         s_loansByLSA[_lsa] = data;
 
@@ -324,12 +368,9 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function setPremiumCollector(address newPremiumCollector)
-        external
-        override
-        checkZeroAddress(newPremiumCollector)
-        onlyOwner
-    {
+    function setPremiumCollector(
+        address newPremiumCollector
+    ) external override checkZeroAddress(newPremiumCollector) onlyOwner {
         s_premiumCollector = newPremiumCollector;
         emit Loan__PremiumCollectorUpdated(s_premiumCollector);
     }

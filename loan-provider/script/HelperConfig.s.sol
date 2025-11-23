@@ -16,7 +16,7 @@ contract HelperConfig is Script {
         address oracle;
         address collateralAsset;
         address debtAsset;
-        address swapAdapter;
+        address getSwapAdapterWrapper;
         address zQuoter;
         address premiumCollector;
         uint256 preClosureFeeBps;
@@ -36,7 +36,7 @@ contract HelperConfig is Script {
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
     address constant AAVE_V3_ADDRESSES_PROVIDER = address(0);
-    address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x913336CecD657bB7dA46548bcb1a967EecBEAC62;
+    address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
@@ -55,7 +55,7 @@ contract HelperConfig is Script {
             oracle: getOracle(),
             collateralAsset: getCollateralAsset(),
             debtAsset: getDebtAsset(),
-            swapAdapter: getSwapAdapter(),
+            getSwapAdapterWrapper: getSwapAdapterWrapper(),
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee()
@@ -116,6 +116,22 @@ contract HelperConfig is Script {
     function getSwapAdapter() public view returns (address) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             return SWAP_ADAPTER_BASE_SEPOLIA;
+        }
+    }
+
+    function getSwapAdapterWrapper() public view returns (address) {
+        try vm.readFile(
+            string.concat(
+                vm.projectRoot(),
+                "/broadcast/DeploySwapAdapterWrapper.s.sol/",
+                vm.toString(block.chainid),
+                "/run-latest.json"
+            )
+        ) returns (string memory) {
+            // If file exists, try to get the deployment
+            return DevOpsTools.get_most_recent_deployment("UniswapV4SwapAdapterWrapper", block.chainid);
+        } catch {
+            return address(0); // Not deployed yet
         }
     }
 
