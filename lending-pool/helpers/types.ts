@@ -267,7 +267,8 @@ export interface iAssetBase<T> {
   STAKE: T;
   xSUSHI: T;
   WAVAX: T;
-  cbBTC: T;
+  bcbBTC: T;
+  bUSDC: T
 }
 
 export type iAssetsWithoutETH<T> = Omit<iAssetBase<T>, 'ETH'>;
@@ -339,7 +340,7 @@ export type iAvalanchePoolAssets<T> = Pick<
   'WETH' | 'DAI' | 'USDT' | 'AAVE' | 'WBTC' | 'WAVAX' | 'USDC'
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'USDC' | 'cbBTC'>;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bcbBTC'>;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 
@@ -389,7 +390,8 @@ export enum TokenContractId {
   STAKE = 'STAKE',
   xSUSHI = 'xSUSHI',
   WAVAX = 'WAVAX',
-  cbBTC = 'cbBTC',
+  bcbBTC = 'bcbBTC',
+  bUSDC = 'bUSDC'
 }
 
 export interface IReserveParams extends IReserveBorrowParams, IReserveCollateralParams {
@@ -438,8 +440,8 @@ export type iParamsPerNetwork<T> =
 
 export interface iParamsPerNetworkAll<T>
   extends iEthereumParamsPerNetwork<T>,
-    iPolygonParamsPerNetwork<T>,
-    iXDaiParamsPerNetwork<T> {}
+  iPolygonParamsPerNetwork<T>,
+  iXDaiParamsPerNetwork<T> { }
 
 export interface iEthereumParamsPerNetwork<T> {
   [eEthereumNetwork.coverage]: T;

@@ -15,7 +15,7 @@ async function deployToken(name, symbol, decimals) {
 
   console.log(`${symbol} deployed to:`, token.address);
 
-  // Save deployment address
+  // Save deployment address to individual file
   const deploymentDir = path.join(__dirname, '../deployments');
   if (!fs.existsSync(deploymentDir)) {
     fs.mkdirSync(deploymentDir, { recursive: true });
@@ -35,6 +35,26 @@ async function deployToken(name, symbol, decimals) {
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentData, null, 2));
   console.log('Deployment info saved to:', deploymentFile);
 
+  // Update deployed-contracts.json
+  const deployedContractsPath = path.join(__dirname, '../deployed-contracts.json');
+  let deployedContracts = {};
+
+  if (fs.existsSync(deployedContractsPath)) {
+    deployedContracts = JSON.parse(fs.readFileSync(deployedContractsPath, 'utf8'));
+  }
+
+  if (!deployedContracts[symbol]) {
+    deployedContracts[symbol] = {};
+  }
+
+  deployedContracts[symbol][hre.network.name] = {
+    address: token.address,
+    deployer: deployer.address
+  };
+
+  fs.writeFileSync(deployedContractsPath, JSON.stringify(deployedContracts, null, 2));
+  console.log('Address added to deployed-contracts.json');
+
   return { address: token.address, contract: token };
 }
 
@@ -47,14 +67,14 @@ async function main() {
   console.log('Balance:', (await deployer.getBalance()).toString());
 
   // Deploy USDC
-  const usdc = await deployToken('USD Coin', 'USDC', 6);
+  const usdc = await deployToken('Bitmor USDC', 'bUSDC', 6);
 
   // Deploy cbBTC
-  const cbBTC = await deployToken('Coinbase Wrapped BTC', 'cbBTC', 8);
+  const cbBTC = await deployToken('Bitmor cbBTC', 'bcbBTC', 8);
 
   console.log('\nDeployment Summary:');
-  console.log('USDC:', usdc.address);
-  console.log('cbBTC:', cbBTC.address);
+  console.log('bUSDC:', usdc.address);
+  console.log('bcbBTC:', cbBTC.address);
 
   return {
     usdc: usdc.address,

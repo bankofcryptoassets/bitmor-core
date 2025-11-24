@@ -13,7 +13,7 @@ contract DeployLoan is Script {
         address oracle,
         address collateralAsset,
         address debtAsset,
-        address swapAdapter,
+        address swapAdapterWrapper,
         address zQuoter,
         address premiumCollector,
         uint256 preClosureFee
@@ -26,7 +26,7 @@ contract DeployLoan is Script {
             oracle,
             collateralAsset,
             debtAsset,
-            swapAdapter,
+            swapAdapterWrapper,
             zQuoter,
             premiumCollector,
             preClosureFee
@@ -43,7 +43,7 @@ contract DeployLoan is Script {
             address oracle,
             address collateralAsset,
             address debtAsset,
-            address swapAdapter,
+            address swapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFee
@@ -55,7 +55,7 @@ contract DeployLoan is Script {
             oracle,
             collateralAsset,
             debtAsset,
-            swapAdapter,
+            swapAdapterWrapper,
             zQuoter,
             premiumCollector,
             preClosureFee

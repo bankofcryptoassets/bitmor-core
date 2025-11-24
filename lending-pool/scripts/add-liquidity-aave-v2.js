@@ -13,7 +13,7 @@ async function main() {
 
   // Load deployment files
   const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
-  const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
+  const usdcPath = path.join(__dirname, "../deployments/sepolia-busdc.json");
 
   if (!fs.existsSync(deployedContractsPath)) {
     throw new Error("deployed-contracts.json not found");
@@ -29,7 +29,7 @@ async function main() {
   const LENDING_POOL = deployedContracts.LendingPool.sepolia.address;
   const USDC_ADDRESS = usdcDeployment.address;
   const DATA_PROVIDER = deployedContracts.AaveProtocolDataProvider.sepolia.address;
-  
+
   // Amount to deposit
   const DEPOSIT_AMOUNT = process.env.DEPOSIT_AMOUNT || "100000000000";
   const amountToDeposit = ethers.utils.parseUnits(DEPOSIT_AMOUNT, 6);
@@ -57,7 +57,7 @@ async function main() {
     const mintTx = await usdc.mint(mintAmount);
     await mintTx.wait();
     console.log("  Minted:", ethers.utils.formatUnits(mintAmount, 6), "USDC");
-    
+
     const newBalance = await usdc.balanceOf(deployer.address);
     console.log("  New USDC balance:", ethers.utils.formatUnits(newBalance, 6), "USDC");
   } else {
@@ -67,7 +67,7 @@ async function main() {
   // Step 3: Approve LendingPool to spend USDC
   console.log("\nStep 3: Approving LendingPool to spend USDC...");
   const currentAllowance = await usdc.allowance(deployer.address, LENDING_POOL);
-  
+
   if (currentAllowance.lt(amountToDeposit)) {
     const approveTx = await usdc.approve(LENDING_POOL, amountToDeposit);
     await approveTx.wait();
@@ -93,7 +93,7 @@ async function main() {
     amountToDeposit,
     deployer.address,
     0 // referralCode
-  ,{gasLimit: 5000000});
+    , { gasLimit: 5000000 });
   const receipt = await depositTx.wait();
   console.log("  Deposit successful!");
   console.log("  Transaction hash:", receipt.transactionHash);

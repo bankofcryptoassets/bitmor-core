@@ -13,8 +13,8 @@ async function main() {
 
   // Load required deployment files
   const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
-  const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
-  const cbbtcPath = path.join(__dirname, "../deployments/sepolia-cbbtc.json");
+  const usdcPath = path.join(__dirname, "../deployments/sepolia-busdc.json");
+  const cbbtcPath = path.join(__dirname, "../deployments/sepolia-bcbbtc.json");
   const swapAdapterPath = path.join(__dirname, "../deployments/uniswap-v4-swap-adapter-wrapper-sepolia.json");
 
   // Validate prerequisites
@@ -152,7 +152,7 @@ async function main() {
 
   const currentBitmorLoan = await addressesProvider.getBitmorLoan();
   console.log("    Current Bitmor Loan in provider:", currentBitmorLoan);
-  
+
   if (currentBitmorLoan.toLowerCase() !== loan.address.toLowerCase()) {
     const setBitmorLoanTx = await addressesProvider.setBitmorLoan(loan.address, { gasLimit: 100000 });
     await setBitmorLoanTx.wait();

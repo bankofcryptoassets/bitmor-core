@@ -238,8 +238,8 @@ async function main() {
   // 22. AaveOracle
   if (deployedContracts.AaveOracle?.sepolia) {
     const address = deployedContracts.AaveOracle.sepolia.address;
-    const USDC = "0x562937072309F8c929206a58e72732dFCA5b67D6";
-    const CBBTC = "0x39eF420a0467F8705D15065d4D542bC80ceA0356";
+    const USDC = deployedContracts.bUSDC?.sepolia?.address || "0x562937072309F8c929206a58e72732dFCA5b67D6";
+    const CBBTC = deployedContracts.bcbBTC?.sepolia?.address || "0x39eF420a0467F8705D15065d4D542bC80ceA0356";
     const USD_BASE = "0x10F7Fc1F91Ba351f9C629c5947AD69bD03C05b96";
 
     // Constructor: assets[], sources[], fallbackOracle, baseCurrency, baseCurrencyUnit

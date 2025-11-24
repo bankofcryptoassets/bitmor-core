@@ -16,7 +16,7 @@ contract HelperConfig is Script {
         address oracle;
         address collateralAsset;
         address debtAsset;
-        address swapAdapter;
+        address getSwapAdapterWrapper;
         address zQuoter;
         address premiumCollector;
         uint256 preClosureFeeBps;
@@ -27,16 +27,16 @@ contract HelperConfig is Script {
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
     uint256 public constant DECIMAL_USDC = 1e6;
     uint256 public constant DECIMAL_CBBTC = 1e8;
-    uint256 constant DEPOSIT_AMT = 30_000 * DECIMAL_USDC;
+    uint256 constant DEPOSIT_AMT = 1e8 * DECIMAL_USDC;
     uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
-    uint256 constant COLLATERL_AMT = 1 * DECIMAL_CBBTC;
+    uint256 constant COLLATERL_AMT = 1e8 * DECIMAL_CBBTC;
     uint256 constant DURATION_IN_MONTHS = 12;
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
     address constant AAVE_V3_ADDRESSES_PROVIDER = address(0);
-    address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x913336CecD657bB7dA46548bcb1a967EecBEAC62;
+    address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
@@ -55,7 +55,7 @@ contract HelperConfig is Script {
             oracle: getOracle(),
             collateralAsset: getCollateralAsset(),
             debtAsset: getDebtAsset(),
-            swapAdapter: getSwapAdapter(),
+            getSwapAdapterWrapper: getSwapAdapterWrapper(),
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee()
@@ -66,11 +66,11 @@ contract HelperConfig is Script {
         return makeAddr("premium");
     }
 
-    function getPreClosureFee() public view returns (uint256) {
+    function getPreClosureFee() public pure returns (uint256) {
         return PRE_CLOSURE_FEE;
     }
 
-    function getBitmorPool() public returns (address) {
+    function getBitmorPool() public view returns (address) {
         string memory contractName = "LendingPool";
         return _readAddress(contractName);
     }
@@ -87,35 +87,57 @@ contract HelperConfig is Script {
         }
     }
 
-    function getOracle() public returns (address) {
+    function getOracle() public view returns (address) {
         string memory contractName = "AaveOracle";
         return _readAddress(contractName);
     }
 
-    function getAddressesProvider() public returns (address) {
+    function getAddressesProvider() public view returns (address) {
         string memory contractName = "LendingPoolAddressesProvider";
         return _readAddress(contractName);
     }
 
-    function getLoanVaultImplementation() public returns (address) {
+    function getLoanVaultImplementation() public view returns (address) {
         return _getAddress("LoanVault");
     }
 
-    function getLoanVaultFactory() public returns (address) {
+    function getLoanVaultFactory() public view returns (address) {
         return _getAddress("LoanVaultFactory");
     }
 
-    function getCollateralAsset() public returns (address) {
-        return _getAddress("MockCbBTC");
+    function getCollateralAsset() public view returns (address) {
+        return _readAddress("bcbBTC");
     }
 
-    function getDebtAsset() public returns (address) {
-        return _getAddress("MockUSDC");
+    function getDebtAsset() public view returns (address) {
+        return _readAddress("bUSDC");
     }
 
     function getSwapAdapter() public view returns (address) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             return SWAP_ADAPTER_BASE_SEPOLIA;
+        }
+    }
+
+    function getSwapAdapterWrapper() public view returns (address) {
+        try
+            vm.readFile(
+                string.concat(
+                    vm.projectRoot(),
+                    "/broadcast/DeploySwapAdapterWrapper.s.sol/",
+                    vm.toString(block.chainid),
+                    "/run-latest.json"
+                )
+            )
+        returns (string memory) {
+            // If file exists, try to get the deployment
+            return
+                DevOpsTools.get_most_recent_deployment(
+                    "UniswapV4SwapAdapterWrapper",
+                    block.chainid
+                );
+        } catch {
+            return address(0); // Not deployed yet
         }
     }
 
@@ -125,13 +147,13 @@ contract HelperConfig is Script {
         }
     }
 
-    function getLoan() public returns (address) {
+    function getLoan() public view returns (address) {
         return _getAddress("Loan");
     }
 
     function getLoanConfig()
         public
-        view
+        pure
         returns (
             uint256 depositAmt,
             uint256 premiumAmt,
@@ -160,7 +182,10 @@ contract HelperConfig is Script {
         }
 
         // Read the JSON file from repo root
-        string memory path = string.concat(vm.projectRoot(), "/deployed-contracts.json");
+        string memory path = string.concat(
+            vm.projectRoot(),
+            "/../lending-pool/deployed-contracts.json"
+        );
         string memory json = vm.readFile(path);
 
         // Build jsonpath like: .LendingPool.sepolia.address
