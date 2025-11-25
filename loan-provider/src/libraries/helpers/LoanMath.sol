@@ -1,0 +1,216 @@
+// SPDX-License-Identifier: agpl-3.0
+pragma solidity 0.8.30;
+
+import {Errors} from "./Errors.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+
+/**
+ * @title LoanMath
+ * @notice Library for loan calculation mathematics
+ * @dev Contains pure mathematical functions for interest rate calculations, loan amortization, and EMI computation using RAY precision (27 decimals)
+ */
+library LoanMath {
+    uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
+    uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
+    uint256 private constant MONTHS_PER_YEAR = 12;
+    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 30_00; // 30% as per basis points
+    uint256 private constant BASIS_POINTS = 100_00;
+
+    /**
+     * @notice Calculates power of a number with fixed-point precision using RAY
+     * @dev Implements exponentiation by squaring for (base)^exponent
+     * @param base The base number in RAY precision (27 decimals)
+     * @param exponent The exponent (whole number)
+     * @return result The result in RAY precision
+     */
+    function rayPow(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
+        result = RAY;
+
+        if (exponent == 0) {
+            return result;
+        }
+
+        uint256 tempBase = base;
+        uint256 tempExponent = exponent;
+
+        // Exponentiation by squaring
+        while (tempExponent > 0) {
+            if (tempExponent & 1 != 0) {
+                result = (result * tempBase) / (RAY);
+            }
+            tempBase = (tempBase * tempBase) / (RAY);
+            tempExponent >>= 1;
+        }
+
+        return result;
+    }
+
+    /**
+     * @notice Calculates the loan amount and monthly payment based on collateral and deposit
+     * @dev TODO: Please verify this logic.
+     * @param data Params to calculate loan details.
+     * @return loanAmount The calculated loan amount in USDC (6 decimals)
+     * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
+     * @return minDepositRequired Minimum deposit requried amount
+     */
+    function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
+        internal
+        pure
+        returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
+        // Convert collateral amount to USD value
+        // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
+        uint256 collateralValueUSD = (data.collateralAmount * data.collateralPriceUSD)
+            / (PRICE_PRECISION * (10 ** data.collateralAssetDecimals));
+
+        // Convert deposit amount to USD value
+        // depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION
+        uint256 depositValueUSD =
+            (data.depositAmount * data.debtPriceUSD) / (PRICE_PRECISION * (10 ** data.debtAssetDecimals));
+
+        // Ensure collateral value exceeds deposit
+        if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
+
+        uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
+
+        if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
+
+        minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / data.debtPriceUSD;
+
+        // Calculate loan amount in USD
+        // loanValueUSD = collateralValueUSD - depositValueUSD
+        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+
+        // Convert loan value back to USDC
+        // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
+        loanAmount = (loanValueUSD * PRICE_PRECISION * (10 ** data.debtAssetDecimals)) / data.debtPriceUSD;
+
+        // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
+        // Handle zero interest rate case (simple division)
+        if (data.interestRate == 0) {
+            monthlyPayAmt = loanAmount / data.duration;
+            return (loanAmount, monthlyPayAmt, minDepositRequired);
+        }
+
+        // Convert annual interest rate (ray) to monthly interest rate (ray)
+        // monthlyRate = interestRate / 12
+        uint256 monthlyRate = data.interestRate / MONTHS_PER_YEAR;
+
+        // Calculate (1 + r) in RAY precision
+        // onePlusRate = RAY + monthlyRate
+        uint256 onePlusRate = RAY + monthlyRate;
+
+        // Calculate (1 + r)^n using rayPow
+        uint256 onePlusRatePowN = rayPow(onePlusRate, data.duration);
+
+        // Calculate numerator: P × r × (1 + r)^n
+        // First: loanAmount × monthlyRate (result in ray precision)
+        uint256 numerator = (loanAmount * monthlyRate) / RAY;
+        // Then: multiply by (1 + r)^n
+        numerator = (numerator * onePlusRatePowN) / RAY;
+
+        // Calculate denominator: (1 + r)^n - 1
+        uint256 denominator = onePlusRatePowN - RAY;
+
+        // Calculate EMI: numerator / denominator
+        monthlyPayAmt = (numerator * RAY) / denominator;
+    }
+
+    /**
+     * @notice Calculates the loan amount and monthly payment based on collateral and deposit
+     * @dev TODO: Please verify this logic.
+     * @dev Uses SafeMath for all calculations to prevent overflow/underflow
+     * @param collateralAmount Desired BTC collateral amount (8 decimals)
+     * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
+     * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
+     * @param interestRate Interest rate from Aave V2 reserve (27 decimals - ray)
+     * @param duration Loan duration in months
+     * @return loanAmount The calculated loan amount in USDC (6 decimals)
+     * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
+     * @return minDepositRequired Minimum deposit requried amount
+     */
+    function calculateLoanDetails(
+        uint256 collateralAmount,
+        uint256 collateralPriceUSD,
+        uint256 collateralAssetDecimals,
+        uint256 debtPriceUSD,
+        uint256 debtAssetDecimals,
+        uint256 interestRate,
+        uint256 duration
+    ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+        // Convert collateral amount to USD value
+        // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
+        uint256 collateralValueUSD =
+            (collateralAmount * collateralPriceUSD) / (PRICE_PRECISION * (10 ** collateralAssetDecimals));
+
+        uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
+
+        uint256 depositValueUSD = minDepositRequiredUSD;
+
+        // Ensure collateral value exceeds deposit
+        if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
+
+        minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) / debtPriceUSD;
+
+        // Calculate loan amount in USD
+        // loanValueUSD = collateralValueUSD - depositValueUSD
+        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+
+        // Convert loan value back to USDC
+        // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
+        loanAmount = (loanValueUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) / debtPriceUSD;
+
+        // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
+
+        // Handle zero interest rate case (simple division)
+        if (interestRate == 0) {
+            monthlyPayAmt = loanAmount / duration;
+            return (loanAmount, monthlyPayAmt, minDepositRequired);
+        }
+
+        // Convert annual interest rate (ray) to monthly interest rate (ray)
+        // monthlyRate = interestRate / 12
+        uint256 monthlyRate = interestRate / MONTHS_PER_YEAR;
+
+        // Calculate (1 + r) in RAY precision
+        // onePlusRate = RAY + monthlyRate
+        uint256 onePlusRate = RAY + monthlyRate;
+
+        // Calculate (1 + r)^n using rayPow
+        uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
+
+        // Calculate numerator: P × r × (1 + r)^n
+        // First: loanAmount × monthlyRate (result in ray precision)
+        uint256 numerator = (loanAmount * monthlyRate) / RAY;
+        // Then: multiply by (1 + r)^n
+        numerator = (numerator * onePlusRatePowN) / RAY;
+
+        // Calculate denominator: (1 + r)^n - 1
+        uint256 denominator = onePlusRatePowN - RAY;
+
+        // Calculate EMI: numerator / denominator
+        monthlyPayAmt = (numerator * RAY) / denominator;
+    }
+
+    /**
+     * @notice Returns the minimum of two uint256 values
+     * @param a The first value
+     * @param b The second value
+     * @return The minimum of the two values
+     */
+    function min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
+        internal
+        pure
+        returns (uint256 strikePrice)
+    {
+        uint256 totalAmount = loanAmount + deposit;
+
+        strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
+
+        return strikePrice;
+    }
+}

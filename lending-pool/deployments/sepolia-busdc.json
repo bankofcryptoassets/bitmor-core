@@ -1,0 +1,9 @@
+{
+  "network": "sepolia",
+  "address": "0xFDff41B1c6354d36785847611957545A4B0cc6c0",
+  "deployer": "0xc617C587122256e940e10FA46d30f610139A818E",
+  "timestamp": "2025-11-23T12:58:04.382Z",
+  "decimals": 6,
+  "symbol": "bUSDC",
+  "name": "USD Coin"
+}
