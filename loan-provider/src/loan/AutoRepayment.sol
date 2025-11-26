@@ -27,11 +27,11 @@ contract AutoRepayment is IAutoRepayment, ReentrancyGuard, Ownable {
         _;
     }
 
-    /**                                                                                                                                        ╎│
-     * @notice Initializes the AutoRepayment contract                                                                                          ╎│
-     * @param loanContract Address of the Loan contract                                                                                        ╎│
-     * @param debtAsset Address of the debt asset (USDC)                                                                                       ╎│
-     * @param executorAddress Address of the backend executor wallet                                                                           ╎│
+    /**
+     * @notice Initializes the AutoRepayment contract
+     * @param loanContract Address of the Loan contract
+     * @param debtAsset Address of the debt asset (USDC)
+     * @param executorAddress Address of the backend executor wallet
      */
     constructor(
         address loanContract,
