@@ -9,9 +9,7 @@ contract AddressesProvider_SetBitmorLoan is Script {
 
     function _setBitmorLoanWithConfig(address addressesProvider, address loan) internal {
         vm.broadcast();
-        (bool success, ) = addressesProvider.call(
-            abi.encodeWithSignature("setBitmorLoan(address)", loan)
-        );
+        (bool success,) = addressesProvider.call(abi.encodeWithSignature("setBitmorLoan(address)", loan));
         require(success, "ERR: SET BITMOR LOAN FAILED");
     }
 

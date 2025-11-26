@@ -20,12 +20,10 @@ contract MockToken_MintTokens is Script {
         uint256 collateralAssetAmt
     ) internal {
         vm.startBroadcast();
-        (bool success, ) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", debtAssetAmt));
+        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", debtAssetAmt));
         if (!success) revert();
 
-        (success, ) = collateralAsset.call(
-            abi.encodeWithSignature("mint(uint256)", collateralAssetAmt)
-        );
+        (success,) = collateralAsset.call(abi.encodeWithSignature("mint(uint256)", collateralAssetAmt));
         if (!success) revert();
 
         vm.stopBroadcast();
@@ -36,8 +34,7 @@ contract MockToken_MintTokens is Script {
         address collateralAsset = config.getCollateralAsset();
         address debtAsset = config.getDebtAsset();
 
-        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, , ) = config
-            .getLoanConfig();
+        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt,,) = config.getLoanConfig();
 
         _mintTokensUsingConfig(collateralAsset, debtAsset, depositAmt + premiumAmt, collateralAmt);
     }
@@ -50,11 +47,7 @@ contract MockToken_MintTokens is Script {
 contract MockToken_AddToLendingPool is Script {
     HelperConfig config;
 
-    function _addToLendingPoolUsingConfig(
-        address debtAsset,
-        address lendingPool,
-        uint256 amount
-    ) internal {
+    function _addToLendingPoolUsingConfig(address debtAsset, address lendingPool, uint256 amount) internal {
         vm.startBroadcast();
 
         IERC20(debtAsset).approve(lendingPool, amount);
