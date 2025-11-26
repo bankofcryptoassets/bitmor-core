@@ -2,3 +2,4 @@
 ds-test/=node_modules/ds-test/src/
 forge-std/=lib/forge-std/src/
 @bitmor/=src/
+@solady/=lib/solady/src/
