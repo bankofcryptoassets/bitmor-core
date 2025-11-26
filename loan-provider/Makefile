@@ -25,9 +25,9 @@ update:; forge update
 
 build:; forge build
 
-FORK_NETWORK_ARGS := --fork-url base_sepolia 
+FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(BLOCK_NUMBER) --etherscan-api-key etherscan_api_key
 
-test :; forge test $(FORK_NETWORK_ARGS)
+test :; forge test $(FORK_NETWORK_ARGS) -vvvvv
 
 snapshot :; forge snapshot
 
@@ -63,14 +63,21 @@ saveAddresses:
 setLoanVaultFactory: 
 	forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory --rpc-url base_sepolia --broadcast --account bitmor_owner
 
+setGracePeriod:
+	forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod --rpc-url base_sepolia --broadcast --account bitmor_owner
+
 setBitmorLoan: 
 	forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 setup:
-	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses
+	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setGracePeriod && make setBitmorLoan && make saveAddresses
 
 initializeLoan: 
 	forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user
 
-initializeLoanOnFork: 
+initializeLoanOnFork:
 	forge script script/interaction/Interaction.s.sol:LoanInteraction $(FORK_NETWORK_ARGS) --account bitmor_user -vvvvv
+
+verifyAll:
+	@echo "🔍 Verifying all deployed contracts..."
+	forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
