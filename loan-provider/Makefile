@@ -27,13 +27,21 @@ build:; forge build
 
 FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(BLOCK_NUMBER) --etherscan-api-key etherscan_api_key
 
-test :; forge test $(FORK_NETWORK_ARGS) -vvvvv
+test :; forge test $(FORK_NETWORK_ARGS) -vvvv
 
 snapshot :; forge snapshot
 
 format :; forge fmt
 
 anvil :; anvil -m 'test test test test test test test test test test test junk' --steps-tracing --block-time 1
+
+gasReport:
+	forge test $(FORK_NETWORK_ARGS) --gas-report
+
+coverage:
+	forge coverage $(FORK_NETWORK_ARGS)
+
+# =============== SETUP Commands ================
 
 # !DO NOT DEPLOY MOCK TOKENS while setup. Mocks tokens are deployed in the Lending Pool.
 deployMockTokens:
@@ -69,15 +77,23 @@ setGracePeriod:
 setBitmorLoan: 
 	forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
 
+verifyAll:
+	@echo "🔍 Verifying all deployed contracts..."
+	forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
+
 setup:
-	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setGracePeriod && make setBitmorLoan && make saveAddresses
+	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
+
+# ==============================================================
+
+# =============================== Test Commands ===============================
+
+testLoanInitialization:
+	forge test --mt test_initializeLoan $(FORK_NETWORK_ARGS) -vvvv
+# ==============================================================	
 
 initializeLoan: 
 	forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user
 
 initializeLoanOnFork:
 	forge script script/interaction/Interaction.s.sol:LoanInteraction $(FORK_NETWORK_ARGS) --account bitmor_user -vvvvv
-
-verifyAll:
-	@echo "🔍 Verifying all deployed contracts..."
-	forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
