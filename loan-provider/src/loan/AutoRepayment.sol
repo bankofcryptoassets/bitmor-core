@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {ReentrancyGuard} from "../dependencies/openzeppelin/ReentrancyGuard.sol";
 import {Ownable} from "../dependencies/openzeppelin/Ownable.sol";
 import {IERC20} from "../dependencies/openzeppelin/IERC20.sol";
 import {SafeERC20} from "../dependencies/openzeppelin/SafeERC20.sol";
@@ -14,7 +13,7 @@ import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
  * @notice Contract for automatic repayment of loans
  * @dev Implements IAutoRepayment interface
  */
-contract AutoRepayment is IAutoRepayment, ReentrancyGuard, Ownable {
+contract AutoRepayment is IAutoRepayment, Ownable {
     using SafeERC20 for IERC20;
 
     mapping(address => mapping(address => bytes32)) public repaymentHash;
@@ -33,11 +32,7 @@ contract AutoRepayment is IAutoRepayment, ReentrancyGuard, Ownable {
      * @param debtAsset Address of the debt asset (USDC)
      * @param executorAddress Address of the backend executor wallet
      */
-    constructor(
-        address loanContract,
-        address debtAsset,
-        address executorAddress
-    ) Ownable(msg.sender) {
+    constructor(address loanContract, address debtAsset, address executorAddress) Ownable(msg.sender) {
         if (loanContract == address(0) || debtAsset == address(0)) revert Errors.ZeroAddress();
         i_LOAN_CONTRACT = loanContract;
         i_DEBT_ASSET = debtAsset;
@@ -45,7 +40,7 @@ contract AutoRepayment is IAutoRepayment, ReentrancyGuard, Ownable {
     }
 
     /// @inheritdoc IAutoRepayment
-    function createRepaymentHash(address lsa) external nonReentrant returns (bytes32) {
+    function createRepaymentHash(address lsa) external returns (bytes32) {
         if (lsa == address(0)) revert Errors.ZeroAddress();
         bytes32 hash = keccak256(abi.encodePacked(lsa, msg.sender));
         repaymentHash[lsa][msg.sender] = hash;
@@ -54,13 +49,10 @@ contract AutoRepayment is IAutoRepayment, ReentrancyGuard, Ownable {
     }
 
     /// @inheritdoc IAutoRepayment
-    function executeRepayment(
-        address lsa,
-        address user,
-        uint256 amount
-    ) external nonReentrant onlyExecutor {
-        if (repaymentHash[lsa][user] != keccak256(abi.encodePacked(lsa, user)))
+    function executeRepayment(address lsa, address user, uint256 amount) external onlyExecutor {
+        if (repaymentHash[lsa][user] != keccak256(abi.encodePacked(lsa, user))) {
             revert Errors.InvalidRepaymentHash();
+        }
         IERC20(i_DEBT_ASSET).safeTransferFrom(user, address(this), amount);
         IERC20(i_DEBT_ASSET).forceApprove(i_LOAN_CONTRACT, amount);
         uint256 amountRepaid = ILoan(i_LOAN_CONTRACT).repay(lsa, amount);
