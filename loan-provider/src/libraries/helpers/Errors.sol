@@ -20,4 +20,6 @@ library Errors {
     error InsufficientDeposit();
     error GreaterThanMaxCollateralAllowed();
     error CollateralWithdrawFailed();
+    error InvalidExecutor();
+    error InvalidRepaymentHash();
 }
