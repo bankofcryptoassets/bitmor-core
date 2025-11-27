@@ -1,0 +1,33 @@
+repos:
+  - repo: local
+    hooks:
+      - id: forge-fmt
+        name: Forge format check
+        entry: bash -c 'cd loan-provider && forge fmt --check'
+        language: system
+        types: [solidity]
+        pass_filenames: false
+
+      - id: forge-build
+        name: Forge build
+        entry: bash -c 'cd loan-provider && forge build'
+        language: system
+        files: '^loan-provider/.*\.sol$'
+        pass_filenames: false
+
+      - id: forge-test
+        name: Forge test
+        entry: bash -c 'cd loan-provider && forge test'
+        language: system
+        files: '^loan-provider/.*\.sol$'
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict

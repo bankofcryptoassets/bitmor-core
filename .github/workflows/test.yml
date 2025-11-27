@@ -1,37 +1,89 @@
-name: CI
+name: Loan Provider CI
 
 permissions:
-  contents: read
+    contents: read
 
 on:
-  push:
-  pull_request:
-  workflow_dispatch:
+    push:
+    pull_request:
+    workflow_dispatch:
 
 env:
-  FOUNDRY_PROFILE: ci
+    FOUNDRY_PROFILE: ci
 
 jobs:
-  check:
-    name: Foundry project
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-          submodules: recursive
+    loan-provider-tests:
+        name: Loan Provider Tests
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: loan-provider
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  persist-credentials: false
+                  submodules: recursive
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+            - name: Install Foundry
+              uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Show Forge version
-        run: forge --version
+            - name: Show Forge version
+              run: forge --version
 
-      - name: Run Forge fmt
-        run: forge fmt --check
+            - name: Run Forge fmt check
+              run: forge fmt --check
 
-      - name: Run Forge build
-        run: forge build --sizes
+            - name: Run Forge build
+              run: forge build --sizes
 
-      - name: Run Forge tests
-        run: forge test -vvv
+            - name: Run Forge tests
+              run: forge test -vvv
+
+            - name: Generate gas report
+              run: forge test --gas-report
+
+    security-checks:
+        name: Security Checks
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: loan-provider
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  persist-credentials: false
+                  submodules: recursive
+
+            - name: Install Foundry
+              uses: foundry-rs/foundry-toolchain@v1
+
+            - name: Install Slither
+              run: pip3 install slither-analyzer
+
+            - name: Run Slither analysis
+              run: slither . --exclude-dependencies
+              continue-on-error: true
+
+    coverage:
+        name: Coverage Report
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: loan-provider
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  persist-credentials: false
+                  submodules: recursive
+
+            - name: Install Foundry
+              uses: foundry-rs/foundry-toolchain@v1
+
+            - name: Generate coverage report
+              run: forge coverage --report lcov
+
+            - name: Upload coverage to Codecov
+              uses: codecov/codecov-action@v3
+              with:
+                  file: ./loan-provider/lcov.info
+                  fail_ci_if_error: false
