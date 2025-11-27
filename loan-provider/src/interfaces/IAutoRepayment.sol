@@ -41,6 +41,13 @@ interface IAutoRepayment {
         bytes32 indexed hash
     );
 
+    /**
+     * @notice Emitted when a repayment hash is cancelled
+     * @param lsa Loan Specific Address
+     * @param user User address whose loan was cancelled
+     */
+    event AutoRepayment__RepaymentHashCancelled(address indexed lsa, address indexed user);
+
     // ============ Main Functions ============
 
     /**
@@ -50,6 +57,13 @@ interface IAutoRepayment {
      * @return hash The generated repayment hash
      */
     function createRepaymentHash(address lsa) external returns (bytes32 hash);
+
+    /**
+     * @notice Cancels a repayment hash for a user's loan
+     * @dev User can call this to disable auto-repayments for their loan
+     * @param lsa Loan Specific Address
+     */
+    function cancelRepaymentHash(address lsa) external;
 
     /**
      * @notice Executes automatic repayment for a user's loan

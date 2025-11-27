@@ -49,6 +49,13 @@ contract AutoRepayment is IAutoRepayment, Ownable {
     }
 
     /// @inheritdoc IAutoRepayment
+    function cancelRepaymentHash(address lsa) external {
+        if (repaymentHash[lsa][msg.sender] == bytes32(0)) revert Errors.InvalidRepaymentHash();
+        repaymentHash[lsa][msg.sender] = bytes32(0);
+        emit AutoRepayment__RepaymentHashCancelled(lsa, msg.sender);
+    }
+
+    /// @inheritdoc IAutoRepayment
     function executeRepayment(address lsa, address user, uint256 amount) external onlyExecutor {
         if (repaymentHash[lsa][user] != keccak256(abi.encodePacked(lsa, user))) {
             revert Errors.InvalidRepaymentHash();
