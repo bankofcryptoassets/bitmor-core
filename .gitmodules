@@ -7,9 +7,6 @@
 [submodule "loan-provider/lib/openzeppelin-contracts"]
 	path = loan-provider/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/forge-std"]
-	path = lib/forge-std
-	url = https://github.com/foundry-rs/forge-std
 [submodule "loan-provider/lib/solady"]
 	path = loan-provider/lib/solady
 	url = https://github.com/vectorized/solady

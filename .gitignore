@@ -15,5 +15,5 @@ coverage
 .coverage_contracts
 
 forge-out
-lib
+*/lib/
 broadcast
