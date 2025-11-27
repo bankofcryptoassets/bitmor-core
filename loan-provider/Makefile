@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: all test clean deploy fund help install snapshot format anvil 
+.PHONY: all test clean deploy fund help install snapshot format anvil
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
@@ -41,6 +41,9 @@ gasReport:
 coverage:
 	forge coverage $(FORK_NETWORK_ARGS)
 
+coverageLCOV:
+	forge coverage $(FORK_NETWORK_ARGS) --report lcov
+
 # =============== SETUP Commands ================
 
 # !DO NOT DEPLOY MOCK TOKENS while setup. Mocks tokens are deployed in the Lending Pool.
@@ -50,10 +53,10 @@ deployMockTokens:
 deploySwapAdapterWrapper:
 	forge script script/deployment/DeploySwapAdapterWrapper.s.sol:DeploySwapAdapterWrapper --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
-mintTokens: 
-	forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_owner && forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_user 
+mintTokens:
+	forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_owner && forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_user
 
-depositDebtTokenToBitmorLendingPool: 
+depositDebtTokenToBitmorLendingPool:
 	forge script script/interaction/MockToken.s.sol:MockToken_AddToLendingPool --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 deployLoanVault:
@@ -68,13 +71,13 @@ deployLoanVaultFactory:
 saveAddresses:
 	forge script script/deployment/SaveDeployedAddresses.s.sol:SaveDeployedAddresses --rpc-url base_sepolia
 
-setLoanVaultFactory: 
+setLoanVaultFactory:
 	forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 setGracePeriod:
 	forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod --rpc-url base_sepolia --broadcast --account bitmor_owner
 
-setBitmorLoan: 
+setBitmorLoan:
 	forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
 
 verifyAll:
@@ -96,10 +99,10 @@ testRepay:
 
 testCloseLoan:
 	forge test --mt test_closeLoan $(FORK_NETWORK_ARGS) -vvvv
-	
-# ==============================================================	
 
-initializeLoan: 
+# ==============================================================
+
+initializeLoan:
 	forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user
 
 initializeLoanOnFork:

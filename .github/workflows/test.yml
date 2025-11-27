@@ -27,6 +27,19 @@ jobs:
             - name: Install Foundry
               uses: foundry-rs/foundry-toolchain@v1
 
+            - name: Cache Foundry dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.foundry
+                      lib
+                  key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml', '**/remappings.txt') }}
+                  restore-keys: |
+                      ${{ runner.os }}-foundry-
+
+            - name: Install dependencies
+              run: forge install
+
             - name: Show Forge version
               run: forge --version
 
@@ -37,10 +50,10 @@ jobs:
               run: forge build --sizes
 
             - name: Run Forge tests
-              run: forge test -vvv
+              run: make test -vvv
 
             - name: Generate gas report
-              run: forge test --gas-report
+              run: make gasReport
 
     security-checks:
         name: Security Checks
@@ -56,6 +69,19 @@ jobs:
 
             - name: Install Foundry
               uses: foundry-rs/foundry-toolchain@v1
+
+            - name: Cache Foundry dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.foundry
+                      lib
+                  key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml', '**/remappings.txt') }}
+                  restore-keys: |
+                      ${{ runner.os }}-foundry-
+
+            - name: Install dependencies
+              run: forge install
 
             - name: Install Slither
               run: pip3 install slither-analyzer
@@ -79,8 +105,21 @@ jobs:
             - name: Install Foundry
               uses: foundry-rs/foundry-toolchain@v1
 
+            - name: Cache Foundry dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.foundry
+                      lib
+                  key: ${{ runner.os }}-foundry-${{ hashFiles('**/foundry.toml', '**/remappings.txt') }}
+                  restore-keys: |
+                      ${{ runner.os }}-foundry-
+
+            - name: Install dependencies
+              run: forge install
+
             - name: Generate coverage report
-              run: forge coverage --report lcov
+              run: make coverageLCOV
 
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
