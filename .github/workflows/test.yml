@@ -29,6 +29,7 @@ jobs:
 
             - name: Cache Foundry dependencies
               uses: actions/cache@v3
+              if: ${{ !env.ACT }}
               with:
                   path: |
                       ~/.foundry
@@ -72,6 +73,7 @@ jobs:
 
             - name: Cache Foundry dependencies
               uses: actions/cache@v3
+              if: ${{ !env.ACT }}
               with:
                   path: |
                       ~/.foundry
@@ -96,6 +98,9 @@ jobs:
         defaults:
             run:
                 working-directory: loan-provider
+        env:
+            BLOCK_NUMBER: 34198223
+            BASE_SEPOLIA_RPC_URL: https://sepolia.base.org
         steps:
             - uses: actions/checkout@v5
               with:
@@ -107,6 +112,7 @@ jobs:
 
             - name: Cache Foundry dependencies
               uses: actions/cache@v3
+              if: ${{ !env.ACT }}
               with:
                   path: |
                       ~/.foundry
@@ -116,13 +122,14 @@ jobs:
                       ${{ runner.os }}-foundry-
 
             - name: Install dependencies
-              run: forge install
+              run: make install
 
             - name: Generate coverage report
               run: make coverageLCOV
 
             - name: Upload coverage to Codecov
               uses: codecov/codecov-action@v3
+              if: ${{ !env.ACT }}
               with:
                   file: ./loan-provider/lcov.info
                   fail_ci_if_error: false
