@@ -18,7 +18,7 @@ clean  :; forge clean
 # Remove modules
 remove :; rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
 
-install :; forge install Cyfrin/foundry-devops && forge install foundry-rs/forge-std && forge install OpenZeppelin/openzeppelin-contracts
+install :; forge install Cyfrin/foundry-devops && forge install foundry-rs/forge-std && forge install OpenZeppelin/openzeppelin-contracts && forge install vectorized/solady
 
 # Update Dependencies
 update:; forge update
@@ -90,6 +90,13 @@ setup:
 
 testLoanInitialization:
 	forge test --mt test_initializeLoan $(FORK_NETWORK_ARGS) -vvvv
+
+testRepay:
+	forge test --mt test_repay $(FORK_NETWORK_ARGS) -vvvv
+
+testCloseLoan:
+	forge test --mt test_closeLoan $(FORK_NETWORK_ARGS) -vvvv
+	
 # ==============================================================	
 
 initializeLoan: 

@@ -9,9 +9,11 @@ import {LoanMath} from "../helpers/LoanMath.sol";
 import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
 import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
 import {LSALogic} from "./LSALogic.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 library RepayLogic {
     using SafeERC20 for IERC20;
+    using FixedPointMathLib for uint256;
 
     /**
      * Execute Repay checks the `params.lsa` debt position and calculates and repay the `maxRepayableAmt` to the Bitmor Lending Pool. With `finalAmountRepaid` the duration of the Loan is changed accordingly, i.e, if there's no remainig debt then the `loan` status updated to `Completed` and `duration` sets to zero, else the duration is deducted based on the no of `periods` `maxRepayableAmt` has covered.
@@ -66,15 +68,7 @@ library RepayLogic {
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
         } else {
-            uint256 emp = loan.estimatedMonthlyPayment;
-            uint256 periods = 1;
-            if (emp > 0) {
-                // ceilDiv: (a + b - 1) / b
-                periods = (finalAmountRepaid + emp - 1) / (emp);
-                if (periods == 0) {
-                    periods = 1;
-                }
-            }
+            uint256 periods = finalAmountRepaid.mulDiv(1, loan.estimatedMonthlyPayment);
             loan.duration -= periods;
         }
 
