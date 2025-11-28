@@ -20,35 +20,19 @@ contract Loan_InitializeLoan is Script {
         ILoan loan = ILoan(loanAddress);
 
         vm.broadcast();
-        lsa = loan.initializeLoan(
-            depositAmt,
-            premiumAmt,
-            collateralAmt,
-            durationInMonths,
-            insuranceID
-        );
+        lsa = loan.initializeLoan(depositAmt, premiumAmt, collateralAmt, durationInMonths, insuranceID);
 
         console2.log("LSA address:", lsa);
     }
 
     function _initializeLoan() internal returns (address lsa) {
-        (
-            uint256 depositAmt,
-            uint256 premiumAmt,
-            uint256 collateralAmt,
-            uint256 durationInMonths,
-            uint256 insuranceID
-        ) = config.getLoanConfig();
+        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, uint256 insuranceID) =
+            config.getLoanConfig();
 
         address loanAddress = config.getLoan();
 
         lsa = _initializeLoanWithConfigs(
-            loanAddress,
-            depositAmt,
-            premiumAmt,
-            collateralAmt,
-            durationInMonths,
-            insuranceID
+            loanAddress, depositAmt, premiumAmt, collateralAmt, durationInMonths, insuranceID
         );
     }
 
@@ -60,10 +44,7 @@ contract Loan_InitializeLoan is Script {
 contract Loan_SetLoanVaultFactory is Script {
     HelperConfig config = new HelperConfig();
 
-    function _setLoanVaultFactoryWithConfigs(
-        address loanAddress,
-        address loanVaultFactory
-    ) internal {
+    function _setLoanVaultFactoryWithConfigs(address loanAddress, address loanVaultFactory) internal {
         ILoan loan = ILoan(loanAddress);
 
         vm.broadcast();
@@ -79,5 +60,27 @@ contract Loan_SetLoanVaultFactory is Script {
 
     function run() public {
         _setLoanVaultFactory();
+    }
+}
+
+contract Loan_SetGracePeriod is Script {
+    HelperConfig config = new HelperConfig();
+
+    function _setGracePeriodWithConfigs(address loanAddress, uint256 gracePeriod) internal {
+        ILoan loan = ILoan(loanAddress);
+
+        vm.broadcast();
+        loan.setGracePeriod(gracePeriod);
+    }
+
+    function _setGracePeriod() internal {
+        address loanAddress = config.getLoan();
+        uint256 gracePeriod = config.getGracePeriod();
+
+        _setGracePeriodWithConfigs(loanAddress, gracePeriod);
+    }
+
+    function run() public {
+        _setGracePeriod();
     }
 }

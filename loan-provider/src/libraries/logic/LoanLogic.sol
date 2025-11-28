@@ -81,29 +81,9 @@ library LoanLogic {
         }
 
         // Flash loan execution flow
-
-        // address[] memory assets = new address[](1);
-        // assets[0] = ctx.debtAsset;
-
-        // uint256[] memory amounts = new uint256[](1);
-        // amounts[0] = loanAmount;
-
-        // uint256[] memory modes = new uint256[](1);
-        // modes[0] = 0; // don't open any debt, just revert if funds can't be transferred from the receiver
-
         bool initializingLoan = true;
         bytes memory flData = abi.encode(lsa, params.collateralAmount);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
-
-        // ILendingPool(ctx.aavePool).flashLoan(
-        //   address(this), // receiver address
-        //   assets, // assets to borrow
-        //   amounts, // amounts to borrow the assets
-        //   modes, // modes of the debt to open if the flash loan is not returned
-        //   lsa, // onbehalf of address
-        //   paramsForFL, // params to pass to the receiver
-        //   uint16(0) // referral code
-        // );
 
         AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
 

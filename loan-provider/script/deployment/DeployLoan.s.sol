@@ -16,7 +16,8 @@ contract DeployLoan is Script {
         address swapAdapterWrapper,
         address zQuoter,
         address premiumCollector,
-        uint256 preClosureFee
+        uint256 preClosureFee,
+        uint256 gracePeriod
     ) internal {
         vm.startBroadcast();
         new Loan(
@@ -29,7 +30,8 @@ contract DeployLoan is Script {
             swapAdapterWrapper,
             zQuoter,
             premiumCollector,
-            preClosureFee
+            preClosureFee,
+            gracePeriod
         );
         vm.stopBroadcast();
     }
@@ -46,7 +48,8 @@ contract DeployLoan is Script {
             address swapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
-            uint256 preClosureFee
+            uint256 preClosureFee,
+            uint256 gracePeriod
         ) = config.networkConfig();
         _deployLoanUsingConfig(
             bitmorPool,
@@ -58,7 +61,8 @@ contract DeployLoan is Script {
             swapAdapterWrapper,
             zQuoter,
             premiumCollector,
-            preClosureFee
+            preClosureFee,
+            gracePeriod
         );
     }
 

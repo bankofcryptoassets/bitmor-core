@@ -88,3 +88,10 @@ main()
     console.error(error);
     process.exit(1);
   });
+
+/**
+ * !TODO: If new mock tokens are deployed, they need to be set in the deployed oracle. The caller will be the deployer address. 
+ * Params will be:
+ * assets:[debtAssetAddress, collateralAssetAddress]
+ * sources: ["0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165","0x0fb99723aee6f420bead13e6bbb79b7e6f034298"]
+ */

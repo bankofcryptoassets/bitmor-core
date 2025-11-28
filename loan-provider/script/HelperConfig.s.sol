@@ -20,6 +20,7 @@ contract HelperConfig is Script {
         address zQuoter;
         address premiumCollector;
         uint256 preClosureFeeBps;
+        uint256 gracePeriod;
     }
 
     NetworkConfig public networkConfig;
@@ -34,8 +35,9 @@ contract HelperConfig is Script {
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
+    uint256 constant GRACE_PERIOD = 7 days;
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
-    address constant AAVE_V3_ADDRESSES_PROVIDER = address(0);
+    address constant AAVE_V3_ADDRESSES_PROVIDER = 0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a;
     address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
@@ -58,8 +60,13 @@ contract HelperConfig is Script {
             getSwapAdapterWrapper: getSwapAdapterWrapper(),
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
-            preClosureFeeBps: getPreClosureFee()
+            preClosureFeeBps: getPreClosureFee(),
+            gracePeriod: getGracePeriod()
         });
+    }
+
+    function getGracePeriod() public pure returns (uint256) {
+        return GRACE_PERIOD;
     }
 
     function getPremiumCollector() public returns (address) {
@@ -120,22 +127,18 @@ contract HelperConfig is Script {
     }
 
     function getSwapAdapterWrapper() public view returns (address) {
-        try
-            vm.readFile(
-                string.concat(
-                    vm.projectRoot(),
-                    "/broadcast/DeploySwapAdapterWrapper.s.sol/",
-                    vm.toString(block.chainid),
-                    "/run-latest.json"
-                )
+        try vm.readFile(
+            string.concat(
+                vm.projectRoot(),
+                "/broadcast/DeploySwapAdapterWrapper.s.sol/",
+                vm.toString(block.chainid),
+                "/run-latest.json"
             )
-        returns (string memory) {
+        ) returns (
+            string memory
+        ) {
             // If file exists, try to get the deployment
-            return
-                DevOpsTools.get_most_recent_deployment(
-                    "UniswapV4SwapAdapterWrapper",
-                    block.chainid
-                );
+            return DevOpsTools.get_most_recent_deployment("UniswapV4SwapAdapterWrapper", block.chainid);
         } catch {
             return address(0); // Not deployed yet
         }
@@ -182,10 +185,7 @@ contract HelperConfig is Script {
         }
 
         // Read the JSON file from repo root
-        string memory path = string.concat(
-            vm.projectRoot(),
-            "/../lending-pool/deployed-contracts.json"
-        );
+        string memory path = string.concat(vm.projectRoot(), "/../lending-pool/deployed-contracts.json");
         string memory json = vm.readFile(path);
 
         // Build jsonpath like: .LendingPool.sepolia.address

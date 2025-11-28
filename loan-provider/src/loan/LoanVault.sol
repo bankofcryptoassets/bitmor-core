@@ -145,11 +145,11 @@ contract LoanVault is ILoanVault {
         return IERC20(token).balanceOf(address(this));
     }
 
-    function _notInitialized() internal {
+    function _notInitialized() internal view {
         require(!s_initialized, "LoanVault: already initialized");
     }
 
-    function _onlyOwner() internal {
+    function _onlyOwner() internal view {
         require(msg.sender == s_owner, "LoanVault: caller is not owner");
     }
 

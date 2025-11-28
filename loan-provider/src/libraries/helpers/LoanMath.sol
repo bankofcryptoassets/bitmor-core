@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Errors} from "./Errors.sol";
 import {DataTypes} from "../types/DataTypes.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /**
  * @title LoanMath
@@ -10,7 +11,8 @@ import {DataTypes} from "../types/DataTypes.sol";
  * @dev Contains pure mathematical functions for interest rate calculations, loan amortization, and EMI computation using RAY precision (27 decimals)
  */
 library LoanMath {
-    uint256 private constant PRICE_PRECISION = 1e8; // Oracle prices use 8 decimals
+    using FixedPointMathLib for uint256;
+
     uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
     uint256 private constant MONTHS_PER_YEAR = 12;
     uint256 private constant MIN_DEPOSIT_PERCENTAGE = 30_00; // 30% as per basis points
@@ -24,6 +26,7 @@ library LoanMath {
      * @return result The result in RAY precision
      */
     function rayPow(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
+        // TODO!: Remove this function for cleaner and more precise version.
         result = RAY;
 
         if (exponent == 0) {
@@ -59,36 +62,31 @@ library LoanMath {
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
         // Convert collateral amount to USD value
-        // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
-        uint256 collateralValueUSD = (data.collateralAmount * data.collateralPriceUSD)
-            / (PRICE_PRECISION * (10 ** data.collateralAssetDecimals));
+        uint256 collateralValueUSD =
+            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
 
         // Convert deposit amount to USD value
-        // depositValueUSD = (depositAmount * debtPriceUSD) / PRICE_PRECISION
-        uint256 depositValueUSD =
-            (data.depositAmount * data.debtPriceUSD) / (PRICE_PRECISION * (10 ** data.debtAssetDecimals));
+        uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
 
         // Ensure collateral value exceeds deposit
         if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
-        minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION) / data.debtPriceUSD;
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
-        // loanValueUSD = collateralValueUSD - depositValueUSD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
-        // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
-        loanAmount = (loanValueUSD * PRICE_PRECISION * (10 ** data.debtAssetDecimals)) / data.debtPriceUSD;
+        loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
         // Handle zero interest rate case (simple division)
         if (data.interestRate == 0) {
-            monthlyPayAmt = loanAmount / data.duration;
+            monthlyPayAmt = loanAmount.fullMulDivUp(1, data.duration);
             return (loanAmount, monthlyPayAmt, minDepositRequired);
         }
 
@@ -139,32 +137,26 @@ library LoanMath {
         uint256 duration
     ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         // Convert collateral amount to USD value
-        // collateralValueUSD = (collateralAmount * collateralPriceUSD) / PRICE_PRECISION
-        uint256 collateralValueUSD =
-            (collateralAmount * collateralPriceUSD) / (PRICE_PRECISION * (10 ** collateralAssetDecimals));
+        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
 
-        uint256 minDepositRequiredUSD = (collateralValueUSD * MIN_DEPOSIT_PERCENTAGE) / BASIS_POINTS;
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        // Ensure collateral value exceeds deposit
-        if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
-
-        minDepositRequired = (minDepositRequiredUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) / debtPriceUSD;
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
         // Calculate loan amount in USD
-        // loanValueUSD = collateralValueUSD - depositValueUSD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
-        // loanAmount = (loanValueUSD * PRICE_PRECISION) / debtPriceUSD
-        loanAmount = (loanValueUSD * PRICE_PRECISION * (10 ** debtAssetDecimals)) / debtPriceUSD;
+        loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
         // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
 
         // Handle zero interest rate case (simple division)
         if (interestRate == 0) {
-            monthlyPayAmt = loanAmount / duration;
+            // monthlyPayAmt = loanAmount / duration;
+            monthlyPayAmt = loanAmount.fullMulDivUp(1, duration);
             return (loanAmount, monthlyPayAmt, minDepositRequired);
         }
 
