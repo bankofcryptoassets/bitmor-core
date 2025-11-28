@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
-import {LoanVaultFactory} from "@bitmor/loan/LoanVaultFactory.sol";
+import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 
 contract DeployLoanVaultFactory is Script {
     HelperConfig config;
