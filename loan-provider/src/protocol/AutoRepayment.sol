@@ -29,24 +29,24 @@ contract AutoRepayment is IAutoRepayment, Ownable {
     }
 
     /// @inheritdoc IAutoRepayment
-    function createRepayment(address lsa) external override {
+    function createAutoRepayment(address lsa) external override {
         if (lsa == address(0)) revert Errors.ZeroAddress();
 
         isAuthorized[msg.sender][lsa] = true;
 
         // Return hash for interface compatibility (though not stored)
-        emit AutoRepayment__RepaymentHashCreated(lsa, msg.sender);
+        emit AutoRepayment__RepaymentCreated(lsa, msg.sender);
     }
 
     /// @inheritdoc IAutoRepayment
-    function cancelRepayment(address lsa) external {
+    function cancelAutoRepayment(address lsa) external {
         if (!isAuthorized[msg.sender][lsa]) revert Errors.InvalidRepaymentHash();
         isAuthorized[msg.sender][lsa] = false;
-        emit AutoRepayment__RepaymentHashCancelled(lsa, msg.sender);
+        emit AutoRepayment__RepaymentCancelled(lsa, msg.sender);
     }
 
     /// @inheritdoc IAutoRepayment
-    function executeRepayment(address lsa, address user, uint256 amount) external {
+    function executeAutoRepayment(address lsa, address user, uint256 amount) external {
         if (!isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash();
 
         IERC20(i_DEBT_ASSET).safeTransferFrom(user, address(this), amount);

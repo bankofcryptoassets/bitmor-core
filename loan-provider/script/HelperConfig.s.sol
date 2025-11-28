@@ -82,15 +82,15 @@ contract HelperConfig is Script {
         return _readAddress(contractName);
     }
 
-    function getAaveV3Pool() public view returns (address) {
+    function getAaveV3Pool() public view returns (address aavePool) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            return AAVE_V3_POOL_BASE_SEPOLIA;
+            aavePool = AAVE_V3_POOL_BASE_SEPOLIA;
         }
     }
 
-    function getAaveAddressesProvider() public view returns (address) {
+    function getAaveAddressesProvider() public view returns (address addressesProvider) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            return AAVE_V3_ADDRESSES_PROVIDER;
+            addressesProvider = AAVE_V3_ADDRESSES_PROVIDER;
         }
     }
 
@@ -120,9 +120,9 @@ contract HelperConfig is Script {
         return _readAddress("bUSDC");
     }
 
-    function getSwapAdapter() public view returns (address) {
+    function getSwapAdapter() public view returns (address swapAdapter) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            return SWAP_ADAPTER_BASE_SEPOLIA;
+            swapAdapter = SWAP_ADAPTER_BASE_SEPOLIA;
         }
     }
 
@@ -144,9 +144,9 @@ contract HelperConfig is Script {
         }
     }
 
-    function getZQuoter() public view returns (address) {
+    function getZQuoter() public view returns (address zQuoter) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            return ZQUOTER_BASE_SEPOLIA;
+            zQuoter = ZQUOTER_BASE_SEPOLIA;
         }
     }
 

@@ -27,7 +27,7 @@ build:; forge build
 
 FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(BLOCK_NUMBER) --etherscan-api-key etherscan_api_key
 
-test :; forge test $(FORK_NETWORK_ARGS) -vvvv
+test :; forge test $(FORK_NETWORK_ARGS)
 
 snapshot :; forge snapshot
 
@@ -99,6 +99,12 @@ testRepay:
 
 testCloseLoan:
 	forge test --mt test_closeLoan $(FORK_NETWORK_ARGS) -vvvv
+
+testCreateAutoRepayment:
+	forge test --mt test_createAutoRepayment $(FORK_NETWORK_ARGS) -vvvv
+
+testExecuteRepayment:
+	forge test --mt test_executeAutoRepayment $(FORK_NETWORK_ARGS) -vvvv
 
 # ==============================================================
 

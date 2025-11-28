@@ -31,14 +31,14 @@ interface IAutoRepayment {
      * @param lsa Loan Specific Address
      * @param user User address whose loan was repaid
      */
-    event AutoRepayment__RepaymentHashCreated(address indexed lsa, address indexed user);
+    event AutoRepayment__RepaymentCreated(address indexed lsa, address indexed user);
 
     /**
      * @notice Emitted when a repayment hash is cancelled
      * @param lsa Loan Specific Address
      * @param user User address whose loan was cancelled
      */
-    event AutoRepayment__RepaymentHashCancelled(address indexed lsa, address indexed user);
+    event AutoRepayment__RepaymentCancelled(address indexed lsa, address indexed user);
 
     // ============ Main Functions ============
 
@@ -47,14 +47,14 @@ interface IAutoRepayment {
      * @dev User must call this to authorize auto-repayments for their loan
      * @param lsa Loan Specific Address
      */
-    function createRepayment(address lsa) external;
+    function createAutoRepayment(address lsa) external;
 
     /**
      * @notice Cancels a repayment hash for a user's loan
      * @dev User can call this to disable auto-repayments for their loan
      * @param lsa Loan Specific Address
      */
-    function cancelRepayment(address lsa) external;
+    function cancelAutoRepayment(address lsa) external;
 
     /**
      * @notice Executes automatic repayment for a user's loan
@@ -64,7 +64,7 @@ interface IAutoRepayment {
      * @param user User address whose loan is being repaid
      * @param amount Amount to repay
      */
-    function executeRepayment(address lsa, address user, uint256 amount) external;
+    function executeAutoRepayment(address lsa, address user, uint256 amount) external;
 
     /**
      * @notice Updates the executor address
