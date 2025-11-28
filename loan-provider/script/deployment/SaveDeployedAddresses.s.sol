@@ -39,14 +39,8 @@ contract SaveDeployedAddresses is Script {
         string memory chainId = vm.toString(block.chainid);
 
         // Build deployment data for current network
-        string memory networkDeployment = _buildNetworkDeployment(
-            swapAdapterWrapper,
-            loanVault,
-            loan,
-            loanVaultFactory,
-            mockUSDC,
-            mockCbBTC
-        );
+        string memory networkDeployment =
+            _buildNetworkDeployment(swapAdapterWrapper, loanVault, loan, loanVaultFactory, mockUSDC, mockCbBTC);
 
         // Read existing JSON file if it exists and build complete structure
         string memory completeJson;
@@ -55,13 +49,7 @@ contract SaveDeployedAddresses is Script {
             completeJson = _overwriteChainData(existingContent, chainId, networkDeployment);
         } catch {
             // File doesn't exist, create new structure
-            completeJson = string.concat(
-                '{"deployments":{"',
-                chainId,
-                '":',
-                networkDeployment,
-                "}}"
-            );
+            completeJson = string.concat('{"deployments":{"', chainId, '":', networkDeployment, "}}");
         }
 
         // Write the complete JSON structure, overwriting the entire file
@@ -82,10 +70,7 @@ contract SaveDeployedAddresses is Script {
     ) internal view returns (string memory) {
         // Build JSON for current network deployment
         string memory json = _buildNetworkInfo();
-        json = string.concat(
-            json,
-            _buildDeployedContracts(swapAdapterWrapper, loanVault, loan, loanVaultFactory)
-        );
+        json = string.concat(json, _buildDeployedContracts(swapAdapterWrapper, loanVault, loan, loanVaultFactory));
         json = string.concat(json, _buildMockTokens(mockUSDC, mockCbBTC));
         json = string.concat(json, _buildNetworkConfig());
         json = string.concat(json, _buildConstants());
@@ -103,30 +88,26 @@ contract SaveDeployedAddresses is Script {
         address loanVault,
         address loan,
         address loanVaultFactory
-    ) internal view returns (string memory) {
-        return
-            string.concat(
-                ',"deployedContracts":{',
-                '"swapAdapterWrapper":"',
-                vm.toString(swapAdapterWrapper),
-                '",',
-                '"loanVault":"',
-                vm.toString(loanVault),
-                '",',
-                '"loan":"',
-                vm.toString(loan),
-                '",',
-                '"loanVaultFactory":"',
-                vm.toString(loanVaultFactory),
-                '"',
-                "}"
-            );
+    ) internal pure returns (string memory) {
+        return string.concat(
+            ',"deployedContracts":{',
+            '"swapAdapterWrapper":"',
+            vm.toString(swapAdapterWrapper),
+            '",',
+            '"loanVault":"',
+            vm.toString(loanVault),
+            '",',
+            '"loan":"',
+            vm.toString(loan),
+            '",',
+            '"loanVaultFactory":"',
+            vm.toString(loanVaultFactory),
+            '"',
+            "}"
+        );
     }
 
-    function _buildMockTokens(
-        address mockUSDC,
-        address mockCbBTC
-    ) internal view returns (string memory) {
+    function _buildMockTokens(address mockUSDC, address mockCbBTC) internal view returns (string memory) {
         if (mockUSDC == address(0) && mockCbBTC == address(0)) {
             return "";
         }
@@ -158,7 +139,8 @@ contract SaveDeployedAddresses is Script {
             address getSwapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
-            uint256 preClosureFeeBps
+            uint256 preClosureFeeBps,
+            uint256 gracePeriod
         ) = helperConfig.networkConfig();
 
         string memory json = string.concat(
@@ -193,26 +175,23 @@ contract SaveDeployedAddresses is Script {
             '",'
         );
 
-        return
-            string.concat(
-                json,
-                '"premiumCollector":"',
-                vm.toString(premiumCollector),
-                '",',
-                '"preClosureFeeBps":',
-                vm.toString(preClosureFeeBps),
-                "}"
-            );
+        return string.concat(
+            json,
+            '"premiumCollector":"',
+            vm.toString(premiumCollector),
+            '",',
+            '"preClosureFeeBps":',
+            vm.toString(preClosureFeeBps),
+            '",',
+            '"gracePeriod":',
+            vm.toString(gracePeriod),
+            "}"
+        );
     }
 
     function _buildConstants() internal view returns (string memory) {
-        (
-            uint256 depositAmt,
-            uint256 premiumAmt,
-            uint256 collateralAmt,
-            uint256 durationInMonths,
-            uint256 insuranceId
-        ) = helperConfig.getLoanConfig();
+        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, uint256 insuranceId) =
+            helperConfig.getLoanConfig();
 
         string memory json = string.concat(
             ',"constants":{',
@@ -246,17 +225,16 @@ contract SaveDeployedAddresses is Script {
             ","
         );
 
-        return
-            string.concat(
-                json,
-                '"bitmorOwner":"',
-                vm.toString(helperConfig.BITMOR_OWNER()),
-                '",',
-                '"bitmorUser":"',
-                vm.toString(helperConfig.BITMOR_USER()),
-                '"',
-                "}"
-            );
+        return string.concat(
+            json,
+            '"bitmorOwner":"',
+            vm.toString(helperConfig.BITMOR_OWNER()),
+            '",',
+            '"bitmorUser":"',
+            vm.toString(helperConfig.BITMOR_USER()),
+            '"',
+            "}"
+        );
     }
 
     function _getAddress(string memory contractName) internal view returns (address) {
@@ -265,16 +243,13 @@ contract SaveDeployedAddresses is Script {
 
     function _getAddressOptional(string memory contractName) internal view returns (address) {
         // Check if broadcast file exists before attempting to get deployment
-        try
-            vm.readFile(
-                string.concat(
-                    vm.projectRoot(),
-                    "/broadcast/DeployMockTokens.s.sol/",
-                    vm.toString(block.chainid),
-                    "/run-latest.json"
-                )
+        try vm.readFile(
+            string.concat(
+                vm.projectRoot(), "/broadcast/DeployMockTokens.s.sol/", vm.toString(block.chainid), "/run-latest.json"
             )
-        returns (string memory) {
+        ) returns (
+            string memory
+        ) {
             // File exists, try to get the deployment
             return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
         } catch {
@@ -283,11 +258,11 @@ contract SaveDeployedAddresses is Script {
         }
     }
 
-    function _overwriteChainData(
-        string memory existingContent,
-        string memory chainId,
-        string memory newDeployment
-    ) internal pure returns (string memory) {
+    function _overwriteChainData(string memory existingContent, string memory chainId, string memory newDeployment)
+        internal
+        pure
+        returns (string memory)
+    {
         // Check if the file uses the proper "deployments" wrapper structure
         int256 deploymentsPos = _indexOf(existingContent, '"deployments":{');
 
@@ -301,27 +276,16 @@ contract SaveDeployedAddresses is Script {
                 uint256 startPos = uint256(chainIdPosition) + searchPattern.length;
                 uint256 endPos = _findObjectEnd(existingContent, startPos);
 
-                string memory beforePart = _substring(
-                    existingContent,
-                    0,
-                    uint256(chainIdPosition) + searchPattern.length
-                );
-                string memory afterPart = _substring(
-                    existingContent,
-                    endPos,
-                    bytes(existingContent).length
-                );
+                string memory beforePart =
+                    _substring(existingContent, 0, uint256(chainIdPosition) + searchPattern.length);
+                string memory afterPart = _substring(existingContent, endPos, bytes(existingContent).length);
 
                 return string.concat(beforePart, newDeployment, afterPart);
             } else {
                 // Chain doesn't exist in deployments, add it
                 uint256 insertPos = uint256(deploymentsPos) + bytes('"deployments":{').length;
                 string memory beforePart = _substring(existingContent, 0, insertPos);
-                string memory afterPart = _substring(
-                    existingContent,
-                    insertPos,
-                    bytes(existingContent).length
-                );
+                string memory afterPart = _substring(existingContent, insertPos, bytes(existingContent).length);
 
                 bytes memory afterBytes = bytes(afterPart);
                 bool isEmpty = afterBytes.length > 0 && afterBytes[0] == "}";
@@ -329,16 +293,7 @@ contract SaveDeployedAddresses is Script {
                 if (isEmpty) {
                     return string.concat(beforePart, '"', chainId, '":', newDeployment, afterPart);
                 } else {
-                    return
-                        string.concat(
-                            beforePart,
-                            '"',
-                            chainId,
-                            '":',
-                            newDeployment,
-                            ",",
-                            afterPart
-                        );
+                    return string.concat(beforePart, '"', chainId, '":', newDeployment, ",", afterPart);
                 }
             }
         } else {
@@ -372,11 +327,7 @@ contract SaveDeployedAddresses is Script {
         return -1;
     }
 
-    function _substring(
-        string memory str,
-        uint256 start,
-        uint256 end
-    ) internal pure returns (string memory) {
+    function _substring(string memory str, uint256 start, uint256 end) internal pure returns (string memory) {
         bytes memory strBytes = bytes(str);
         bytes memory result = new bytes(end - start);
 

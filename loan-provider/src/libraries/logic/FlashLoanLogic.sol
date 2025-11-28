@@ -37,7 +37,7 @@ library FlashLoanLogic {
         // Flash loan execution logic will be implemented here
         // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
 
-        (address lsa, uint256 collateralAmount) = abi.decode(params.params, (address, uint256));
+        (address lsa,) = abi.decode(params.params, (address, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[lsa];
