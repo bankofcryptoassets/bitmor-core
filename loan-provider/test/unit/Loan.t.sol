@@ -3,9 +3,9 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {Loan} from "@bitmor/loan/Loan.sol";
-import {LoanVault} from "@bitmor/loan/LoanVault.sol";
-import {LoanVaultFactory} from "@bitmor/loan/LoanVaultFactory.sol";
+import {Loan} from "@bitmor/protocol/Loan.sol";
+import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
+import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
