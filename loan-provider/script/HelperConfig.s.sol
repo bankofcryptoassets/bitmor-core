@@ -21,6 +21,7 @@ contract HelperConfig is Script {
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
+        uint256 liquidationBuffer;
     }
 
     NetworkConfig public networkConfig;
@@ -34,14 +35,17 @@ contract HelperConfig is Script {
     uint256 constant DURATION_IN_MONTHS = 12;
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
+    uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
+    uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
     address constant AAVE_V3_ADDRESSES_PROVIDER = 0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a;
     address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
+    bytes public constant DATA = "0xLOAN";
 
     constructor() {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
@@ -61,12 +65,17 @@ contract HelperConfig is Script {
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee(),
-            gracePeriod: getGracePeriod()
+            gracePeriod: getGracePeriod(),
+            liquidationBuffer: getLiquidationBuffer()
         });
     }
 
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
+    }
+
+    function getLiquidationBuffer() public pure returns (uint256) {
+        return LIQUIDATION_BUFFER;
     }
 
     function getPremiumCollector() public returns (address) {
@@ -162,10 +171,10 @@ contract HelperConfig is Script {
             uint256 premiumAmt,
             uint256 collateralAmt,
             uint256 durationInMonths,
-            uint256 insuranceID
+            bytes memory data
         )
     {
-        return (DEPOSIT_AMT, PREMIUM_AMT, COLLATERL_AMT, DURATION_IN_MONTHS, INSURANCE_ID);
+        return (DEPOSIT_AMT, PREMIUM_AMT, COLLATERL_AMT, DURATION_IN_MONTHS, DATA);
     }
 
     function _getAddress(string memory contractName) internal view returns (address) {

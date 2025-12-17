@@ -50,6 +50,9 @@ contract LoanStorage {
     /// @notice Fee for pre closing loan. (in bps)
     uint256 internal s_preClosureFeeBps;
 
+    /// @notice Buffer while liquidation
+    uint256 internal s_liquidationBuffer;
+
     // ============ Storage Mappings ============
 
     /// @notice Maps LSA addresses to their loan data
@@ -74,6 +77,9 @@ contract LoanStorage {
 
     /// @notice MAX collateral amount user can take.
     uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
+
+    /// @notice Initial Insurance ID
+    uint256 public constant INITIAL_INSURANCE_ID = 0;
 
     // ============ Constructor ============
 

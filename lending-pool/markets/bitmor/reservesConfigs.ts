@@ -5,7 +5,7 @@ export const strategyUSDC: IReserveParams = {
   strategy: rateStrategyUSDC,
   baseLTVAsCollateral: '8000',
   liquidationThreshold: '8500',
-  liquidationBonus: '10500',
+  liquidationBonus: '10300', // 103% => 3% liquidation bonus
   borrowingEnabled: true,
   stableBorrowRateEnabled: false,
   reserveDecimals: '6',
@@ -17,7 +17,7 @@ export const strategyCBBTC: IReserveParams = {
   strategy: rateStrategyCBBTC,
   baseLTVAsCollateral: '7000',
   liquidationThreshold: '7500',
-  liquidationBonus: '11000',
+  liquidationBonus: '10300', // 103% => 3% liquidation bonus
   borrowingEnabled: true,
   stableBorrowRateEnabled: false,
   reserveDecimals: '8',

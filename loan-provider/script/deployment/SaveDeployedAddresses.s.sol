@@ -140,7 +140,8 @@ contract SaveDeployedAddresses is Script {
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFeeBps,
-            uint256 gracePeriod
+            uint256 gracePeriod,
+            uint256 liquidationBuffer
         ) = helperConfig.networkConfig();
 
         string memory json = string.concat(
@@ -185,12 +186,15 @@ contract SaveDeployedAddresses is Script {
             '",',
             '"gracePeriod":',
             vm.toString(gracePeriod),
+            '",',
+            '"liquidationBuffer":',
+            vm.toString(liquidationBuffer),
             "}"
         );
     }
 
     function _buildConstants() internal view returns (string memory) {
-        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, uint256 insuranceId) =
+        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, bytes memory data) =
             helperConfig.getLoanConfig();
 
         string memory json = string.concat(
@@ -220,8 +224,8 @@ contract SaveDeployedAddresses is Script {
             '"preClosureFee":',
             vm.toString(helperConfig.getPreClosureFee()),
             ",",
-            '"insuranceId":',
-            vm.toString(insuranceId),
+            '"data":',
+            vm.toString(data),
             ","
         );
 

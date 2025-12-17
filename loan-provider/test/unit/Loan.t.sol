@@ -29,7 +29,7 @@ contract LoanTest is Test {
     uint256 PREMIUM_AMOUNT = 1000e6;
     /// @dev Insurance id is arbitary. Anything greater than 0 indicates that user had opted in for insurance.
     uint256 INSURANCE_ID = 1;
-
+    bytes DATA = "0xLOAN";
     uint256 DEBT_ASSET_TO_MINT_TO_USER = 1_000_000 * 1e6;
 
     function setUp() public {
@@ -51,7 +51,8 @@ contract LoanTest is Test {
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFeeBps,
-            uint256 gracePeriod
+            uint256 gracePeriod,
+            uint256 liquidationBuffer
         ) = config.networkConfig();
 
         debtAsset = debtAssetAddr;
@@ -69,7 +70,8 @@ contract LoanTest is Test {
             zQuoter,
             premiumCollector,
             preClosureFeeBps,
-            gracePeriod
+            gracePeriod,
+            liquidationBuffer
         );
 
         address loanVaultImplementation = address(new LoanVault());
@@ -104,7 +106,7 @@ contract LoanTest is Test {
         (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.broadcast(user);
-        address lsa = loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, INSURANCE_ID);
+        address lsa = loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
 
@@ -121,7 +123,7 @@ contract LoanTest is Test {
 
         vm.broadcast(user);
         vm.expectRevert(Errors.InsufficientDeposit.selector);
-        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, INSURANCE_ID);
+        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
     function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired() public mintDebtAssetToUser {
@@ -133,8 +135,7 @@ contract LoanTest is Test {
         (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.broadcast(user);
-        address lsa =
-            loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, collateralAmount, duration, INSURANCE_ID);
+        address lsa = loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
 
@@ -315,6 +316,6 @@ contract LoanTest is Test {
         (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.broadcast(user);
-        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, INSURANCE_ID);
+        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 }

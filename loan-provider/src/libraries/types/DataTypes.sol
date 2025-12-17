@@ -58,6 +58,7 @@ library DataTypes {
         uint256 collateralAmount;
         uint256 duration;
         uint256 insuranceID;
+        bytes data;
     }
 
     struct InitializeLoanContext {
