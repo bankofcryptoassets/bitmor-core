@@ -32,6 +32,8 @@ contract AutoRepaymentTest is Test {
     /// @dev Insurance id is arbitary. Anything greater than 0 indicates that user had opted in for insurance.
     uint256 INSURANCE_ID = 1;
 
+    bytes DATA = "0xLOAN";
+
     uint256 DEBT_ASSET_TO_MINT_TO_USER = 1_000_000 * 1e6;
 
     function setUp() public {
@@ -154,7 +156,7 @@ contract AutoRepaymentTest is Test {
         (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.broadcast(user);
-        lsa = loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, INSURANCE_ID);
+        lsa = loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
     function _setupAutoRepayment() internal {

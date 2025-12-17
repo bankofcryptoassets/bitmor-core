@@ -12,7 +12,7 @@ interface ILoan {
     // ============ Events ============
 
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount
+        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
     );
 
     event Loan__LoanStatusUpdated(
@@ -50,7 +50,7 @@ interface ILoan {
      * @param premiumAmount USDC premium amount (6 decimals)
      * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
      * @param duration Loan duration in months
-     * @param insuranceID Insurance/Order ID for tracking this loan
+     * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
      */
     function initializeLoan(
@@ -58,7 +58,7 @@ interface ILoan {
         uint256 premiumAmount,
         uint256 collateralAmount,
         uint256 duration,
-        uint256 insuranceID
+        bytes calldata data
     ) external returns (address lsa);
 
     // ============ View Functions ============

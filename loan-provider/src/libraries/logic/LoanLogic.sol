@@ -88,7 +88,7 @@ library LoanLogic {
         AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
 
         // Emit loan creation event
-        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount);
+        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
         return lsa;
     }
 
