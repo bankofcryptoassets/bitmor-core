@@ -52,7 +52,7 @@ async function main() {
   // Get loan data
   console.log("Fetching loan details...");
   const loanData = await loan.getLoanByLSA(lsaAddress);
-  
+
   console.log("Loan Details:");
   console.log("  Borrower:", loanData.borrower);
   console.log("  Deposit Amount:", ethers.utils.formatUnits(loanData.depositAmount, 6), "USDC");

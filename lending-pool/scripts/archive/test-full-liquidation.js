@@ -75,7 +75,7 @@ async function main() {
   console.log("Step 3: Crashing cbBTC price by 50% (keeping 50% of value)...");
   const newPrice = currentPrice.mul(40).div(100); // Keep 50% of value
   console.log("  New Price:", ethers.utils.formatUnits(newPrice, 8), "USD");
-  
+
   const updateTx = await cbBTCAggregator.updateAnswer(newPrice);
   await updateTx.wait();
   console.log("  Price updated!");
@@ -107,15 +107,15 @@ async function main() {
   console.log("Step 6: Preparing liquidator funds...");
   const debtAmountUSD = userData.totalDebtETH; // 8 decimals USD
   console.log("  Total debt:", ethers.utils.formatUnits(debtAmountUSD, 8), "USD");
-  
+
   // Convert USD debt to USDC amount (USDC has 6 decimals, debt is 8 decimals USD)
   const debtAmountUSDC = debtAmountUSD.div(100); // Convert from 8 to 6 decimals
-  
+
   const mintTx = await usdc.mint(debtAmountUSDC);
   await mintTx.wait();
   console.log("  Minted:", ethers.utils.formatUnits(debtAmountUSDC, 6), "USDC");
   console.log("  Debt to cover:", ethers.utils.formatUnits(debtAmountUSDC, 6), "USDC");
-  
+
   const approveTx = await usdc.approve(LENDING_POOL, debtAmountUSDC);
   await approveTx.wait();
   console.log("  Approved LendingPool");
@@ -123,10 +123,10 @@ async function main() {
 
   // Step 7: Execute full liquidation (force send)
   console.log("Step 7: Executing full liquidation ...");
-  
+
   let liquidationTx;
   let receipt;
-  
+
   try {
     liquidationTx = await lendingPool.liquidationCall(
       CBBTC_ADDRESS,
@@ -145,10 +145,10 @@ async function main() {
     }
     throw error;
   }
-  
+
   console.log("  Check on Tenderly: https://dashboard.tenderly.co/tx/base-sepolia/" + liquidationTx.hash);
   console.log();
-  
+
   console.log("  Waiting for confirmation...");
   try {
     receipt = await liquidationTx.wait();
@@ -169,7 +169,7 @@ async function main() {
   console.log("Step 8: Verifying results...");
   const newUserData = await lendingPool.getUserAccountData(LSA_ADDRESS);
   const newLoanData = await loan.getLoanByLSA(LSA_ADDRESS);
-  
+
   console.log("  New Total Debt:", ethers.utils.formatUnits(newUserData.totalDebtETH, 8), "USD");
   console.log("  New Health Factor:", ethers.utils.formatUnits(newUserData.healthFactor, 18));
   console.log("  New Collateral Amount:", ethers.utils.formatUnits(newLoanData.collateralAmount, 8), "cbBTC");
@@ -186,4 +186,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

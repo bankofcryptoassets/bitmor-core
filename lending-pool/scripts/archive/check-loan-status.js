@@ -63,12 +63,12 @@ async function main() {
     console.log("insuranceID:             ", loanData.insuranceID.toString());
     console.log("createdAt:               ", new Date(loanData.createdAt.toNumber() * 1000).toLocaleString());
     console.log("nextDueTimestamp:        ", new Date(loanData.nextDueTimestamp.toNumber() * 1000).toLocaleString());
-    
-    const lastPaymentText = loanData.lastDueTimestamp.eq(0) 
-      ? "No payments made yet" 
+
+    const lastPaymentText = loanData.lastDueTimestamp.eq(0)
+      ? "No payments made yet"
       : new Date(loanData.lastDueTimestamp.toNumber() * 1000).toLocaleString();
     console.log("lastDueTimestamp:        ", lastPaymentText);
-    
+
     const statusText = loanData.status === 0 ? "Active" : loanData.status === 1 ? "Completed" : "Liquidated";
     console.log("status:                  ", statusText, `(${loanData.status})`);
     console.log("─────────────────────────────────────────");
@@ -77,14 +77,14 @@ async function main() {
     // Additional calculated info
     const now = Math.floor(Date.now() / 1000);
     const nextDue = loanData.nextDueTimestamp.toNumber();
-    
+
     if (loanData.status === 0) { // Active
       const daysUntilNextPayment = Math.floor((nextDue - now) / 86400);
-      
+
       console.log("TIME INFO:");
       console.log("─────────────────────────────────────────");
       console.log("Days until next payment: ", daysUntilNextPayment, "days");
-      
+
       if (daysUntilNextPayment < 0) {
         console.log("⚠️  Payment is OVERDUE by", Math.abs(daysUntilNextPayment), "days!");
       } else if (daysUntilNextPayment < 7) {
@@ -115,4 +115,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-
