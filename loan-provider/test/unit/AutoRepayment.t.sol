@@ -56,7 +56,8 @@ contract AutoRepaymentTest is Test {
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFeeBps,
-            uint256 gracePeriod
+            uint256 gracePeriod,
+            uint256 liquidationBuffer
         ) = config.networkConfig();
 
         debtAsset = debtAssetAddr;
@@ -74,7 +75,8 @@ contract AutoRepaymentTest is Test {
             zQuoter,
             premiumCollector,
             preClosureFeeBps,
-            gracePeriod
+            gracePeriod,
+            liquidationBuffer
         );
 
         address loanVaultImplementation = address(new LoanVault());

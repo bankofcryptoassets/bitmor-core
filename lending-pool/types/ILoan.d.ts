@@ -27,6 +27,7 @@ interface ILoanInterface extends ethers.utils.Interface {
     "getCollateralAsset()": FunctionFragment;
     "getDebtAsset()": FunctionFragment;
     "getGracePeriod()": FunctionFragment;
+    "getLiquidationBuffer()": FunctionFragment;
     "getLoanByLSA(address)": FunctionFragment;
     "getLoanDetails(uint256,uint256)": FunctionFragment;
     "getPreClosureFee()": FunctionFragment;
@@ -38,6 +39,7 @@ interface ILoanInterface extends ethers.utils.Interface {
     "initializeLoan(uint256,uint256,uint256,uint256,uint256)": FunctionFragment;
     "repay(address,uint256)": FunctionFragment;
     "setGracePeriod(uint256)": FunctionFragment;
+    "setLiquidationBuffer(uint256)": FunctionFragment;
     "setLoanVaultFactory(address)": FunctionFragment;
     "setPreClosureFee(uint256)": FunctionFragment;
     "setPremiumCollector(address)": FunctionFragment;
@@ -65,6 +67,10 @@ interface ILoanInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getGracePeriod",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getLiquidationBuffer",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -118,6 +124,10 @@ interface ILoanInterface extends ethers.utils.Interface {
     values: [BigNumberish]
   ): string;
   encodeFunctionData(
+    functionFragment: "setLiquidationBuffer",
+    values: [BigNumberish]
+  ): string;
+  encodeFunctionData(
     functionFragment: "setLoanVaultFactory",
     values: [string]
   ): string;
@@ -161,6 +171,10 @@ interface ILoanInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "getLiquidationBuffer",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "getLoanByLSA",
     data: BytesLike
   ): Result;
@@ -199,6 +213,10 @@ interface ILoanInterface extends ethers.utils.Interface {
   decodeFunctionResult(functionFragment: "repay", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "setGracePeriod",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "setLiquidationBuffer",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -329,6 +347,14 @@ export class ILoan extends Contract {
 
     "getGracePeriod()"(overrides?: CallOverrides): Promise<{
       gracePeriod: BigNumber;
+      0: BigNumber;
+    }>;
+
+    getLiquidationBuffer(overrides?: CallOverrides): Promise<{
+      0: BigNumber;
+    }>;
+
+    "getLiquidationBuffer()"(overrides?: CallOverrides): Promise<{
       0: BigNumber;
     }>;
 
@@ -566,6 +592,16 @@ export class ILoan extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
+    setLiquidationBuffer(
+      newBuffer: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "setLiquidationBuffer(uint256)"(
+      newBuffer: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
     setLoanVaultFactory(
       newFactory: string,
       overrides?: Overrides
@@ -676,6 +712,10 @@ export class ILoan extends Contract {
   getGracePeriod(overrides?: CallOverrides): Promise<BigNumber>;
 
   "getGracePeriod()"(overrides?: CallOverrides): Promise<BigNumber>;
+
+  getLiquidationBuffer(overrides?: CallOverrides): Promise<BigNumber>;
+
+  "getLiquidationBuffer()"(overrides?: CallOverrides): Promise<BigNumber>;
 
   getLoanByLSA(
     lsa: string,
@@ -882,6 +922,16 @@ export class ILoan extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  setLiquidationBuffer(
+    newBuffer: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "setLiquidationBuffer(uint256)"(
+    newBuffer: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
   setLoanVaultFactory(
     newFactory: string,
     overrides?: Overrides
@@ -992,6 +1042,10 @@ export class ILoan extends Contract {
     getGracePeriod(overrides?: CallOverrides): Promise<BigNumber>;
 
     "getGracePeriod()"(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getLiquidationBuffer(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "getLiquidationBuffer()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     getLoanByLSA(
       lsa: string,
@@ -1201,6 +1255,16 @@ export class ILoan extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    setLiquidationBuffer(
+      newBuffer: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    "setLiquidationBuffer(uint256)"(
+      newBuffer: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     setLoanVaultFactory(
       newFactory: string,
       overrides?: CallOverrides
@@ -1354,6 +1418,10 @@ export class ILoan extends Contract {
 
     "getGracePeriod()"(overrides?: CallOverrides): Promise<BigNumber>;
 
+    getLiquidationBuffer(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "getLiquidationBuffer()"(overrides?: CallOverrides): Promise<BigNumber>;
+
     getLoanByLSA(lsa: string, overrides?: CallOverrides): Promise<BigNumber>;
 
     "getLoanByLSA(address)"(
@@ -1454,6 +1522,16 @@ export class ILoan extends Contract {
 
     "setGracePeriod(uint256)"(
       gracePeriod: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    setLiquidationBuffer(
+      newBuffer: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    "setLiquidationBuffer(uint256)"(
+      newBuffer: BigNumberish,
       overrides?: Overrides
     ): Promise<BigNumber>;
 
@@ -1572,6 +1650,14 @@ export class ILoan extends Contract {
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
+    getLiquidationBuffer(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "getLiquidationBuffer()"(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
     getLoanByLSA(
       lsa: string,
       overrides?: CallOverrides
@@ -1685,6 +1771,16 @@ export class ILoan extends Contract {
 
     "setGracePeriod(uint256)"(
       gracePeriod: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    setLiquidationBuffer(
+      newBuffer: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "setLiquidationBuffer(uint256)"(
+      newBuffer: BigNumberish,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 

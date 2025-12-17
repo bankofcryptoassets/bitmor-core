@@ -17,7 +17,8 @@ contract DeployLoan is Script {
         address zQuoter,
         address premiumCollector,
         uint256 preClosureFee,
-        uint256 gracePeriod
+        uint256 gracePeriod,
+        uint256 liquidationBuffer
     ) internal {
         vm.startBroadcast();
         new Loan(
@@ -31,7 +32,8 @@ contract DeployLoan is Script {
             zQuoter,
             premiumCollector,
             preClosureFee,
-            gracePeriod
+            gracePeriod,
+            liquidationBuffer
         );
         vm.stopBroadcast();
     }
@@ -49,7 +51,8 @@ contract DeployLoan is Script {
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFee,
-            uint256 gracePeriod
+            uint256 gracePeriod,
+            uint256 liquidationBuffer
         ) = config.networkConfig();
         _deployLoanUsingConfig(
             bitmorPool,
@@ -62,7 +65,8 @@ contract DeployLoan is Script {
             zQuoter,
             premiumCollector,
             preClosureFee,
-            gracePeriod
+            gracePeriod,
+            liquidationBuffer
         );
     }
 

@@ -21,6 +21,7 @@ contract HelperConfig is Script {
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
+        uint256 liquidationBuffer;
     }
 
     NetworkConfig public networkConfig;
@@ -37,6 +38,7 @@ contract HelperConfig is Script {
     uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
+    uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
     address constant AAVE_V3_ADDRESSES_PROVIDER = 0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a;
     address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
@@ -63,12 +65,17 @@ contract HelperConfig is Script {
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee(),
-            gracePeriod: getGracePeriod()
+            gracePeriod: getGracePeriod(),
+            liquidationBuffer: getLiquidationBuffer()
         });
     }
 
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
+    }
+
+    function getLiquidationBuffer() public pure returns (uint256) {
+        return LIQUIDATION_BUFFER;
     }
 
     function getPremiumCollector() public returns (address) {
