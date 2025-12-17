@@ -1,36 +1,41 @@
 {
-  "84532": {
-    "network": "base-sepolia",
-    "deployedContracts": {
-      "swapAdapterWrapper": "0x91fbfb3a96fd34e6d73647418ca0849c28d8898d",
-      "loanVault": "0x59fd21ffe0bf630a658752525c4b24eb6bb02f76",
-      "loan": "0x8d0f34e67125fbe74b018f93bdd13ad9f538e6b7",
-      "loanVaultFactory": "0x0bef105e72e2213d649a17da0287931c24dc8304"
-    },
-    "networkConfig": {
-      "bitmorPool": "0xFD32a8d113cB5c6DBe1A26e0096bF905120F3E32",
-      "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
-      "aaveAddressesProvider": "0x0000000000000000000000000000000000000000",
-      "oracle": "0xD145Db28aF6b522B55C8405fcb6831c7A4D06e35",
-      "collateralAsset": "0x2DF1a547b78B08cA8a31CDB24E6EFdD653eBF247",
-      "debtAsset": "0xFDff41B1c6354d36785847611957545A4B0cc6c0",
-      "swapAdapterWrapper": "0xbc07f743F58d9A9D1DE56B8386A3f3448B6FDDE7",
-      "zQuoter": "0x0000000000000000000000000000000000000000",
-      "premiumCollector": "0x90ecb33dF1Fff5c041d2708839336d41e171B3fA",
-      "preClosureFeeBps": 10
-    },
-    "constants": {
-      "decimalUSDC": 1000000,
-      "decimalCbBTC": 100000000,
-      "depositAmt": "100000000000000",
-      "premiumAmt": "5000000000",
-      "collateralAmt": "10000000000000000",
-      "durationInMonths": 12,
-      "preClosureFee": 10,
-      "insuranceId": 1,
-      "bitmorOwner": "0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6",
-      "bitmorUser": "0xAe773320F12d18c93acAA4C2054340620b748E3a"
-    },
-    "timestamp": "2025-12-17T11:41:50.376Z"
-  }
+    "deployments": {
+        "84532": {
+            "network": "base-sepolia",
+            "deployedContracts": {
+                "swapAdapterWrapper": "0x204fC5AD7D18b2fcBE86959A30A81ca28F831262",
+                "loanVault": "0x836cAFef99d89Cf58f8335D841A39F59B559F010",
+                "loan": "0xd31ae989c3aC42035eB118F253EE53a4D54aCbAE",
+                "loanVaultFactory": "0x44f2ab64FdfdEC31b0BCFE6A15b927fcB65DD06c"
+            },
+            "networkConfig": {
+                "bitmorPool": "0xFD32a8d113cB5c6DBe1A26e0096bF905120F3E32",
+                "aaveV3Pool": "0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B",
+                "aaveAddressesProvider": "0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a",
+                "oracle": "0xD145Db28aF6b522B55C8405fcb6831c7A4D06e35",
+                "collateralAsset": "0x2DF1a547b78B08cA8a31CDB24E6EFdD653eBF247",
+                "debtAsset": "0xFDff41B1c6354d36785847611957545A4B0cc6c0",
+                "swapAdapterWrapper": "0x204fC5AD7D18b2fcBE86959A30A81ca28F831262",
+                "zQuoter": "0x0000000000000000000000000000000000000000",
+                "premiumCollector": "0x90ecb33dF1Fff5c041d2708839336d41e171B3fA",
+                "preClosureFeeBps": "10",
+                "gracePeriod": "604800",
+                "liquidationBuffer": "50"
+            },
+            "constants": {
+                "decimalUSDC": "1000000",
+                "decimalCbBTC": "100000000",
+                "depositAmt": "100000000000000",
+                "premiumAmt": "5000000000",
+                "collateralAmt": "10000000000000000",
+                "durationInMonths": "12",
+                "preClosureFee": "10",
+                "data": "0x30784c4f414e",
+                "bitmorOwner": "0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6",
+                "bitmorUser": "0xAe773320F12d18c93acAA4C2054340620b748E3a"
+            },
+            "timestamp": "1765984224",
+            "blockNumber": "35107968"
+        }
+    }
 }

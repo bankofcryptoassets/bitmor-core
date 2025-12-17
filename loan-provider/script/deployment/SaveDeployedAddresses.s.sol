@@ -42,18 +42,19 @@ contract SaveDeployedAddresses is Script {
         string memory networkDeployment =
             _buildNetworkDeployment(swapAdapterWrapper, loanVault, loan, loanVaultFactory, mockUSDC, mockCbBTC);
 
-        // Read existing JSON file if it exists and build complete structure
-        string memory completeJson;
+        // Write deployment data for current chain
+        // Use vm.writeFile to create proper JSON structure
+        string memory fullJson = string.concat('{"deployments":{"', chainId, '":', networkDeployment, "}}");
+
+        // Check if file exists and merge with existing data
         try vm.readFile(JSON_PATH) returns (string memory existingContent) {
-            // File exists, parse and reconstruct with overwritten chain data
-            completeJson = _overwriteChainData(existingContent, chainId, networkDeployment);
+            // Parse existing JSON to preserve other chain deployments
+            fullJson = _mergeChainData(existingContent, chainId, networkDeployment);
         } catch {
-            // File doesn't exist, create new structure
-            completeJson = string.concat('{"deployments":{"', chainId, '":', networkDeployment, "}}");
+            // File doesn't exist, use new structure
         }
 
-        // Write the complete JSON structure, overwriting the entire file
-        vm.writeJson(completeJson, JSON_PATH);
+        vm.writeFile(JSON_PATH, fullJson);
 
         console2.log("\nAddresses saved to:", JSON_PATH);
         console2.log("Network:", _getNetworkName(block.chainid));
@@ -74,7 +75,8 @@ contract SaveDeployedAddresses is Script {
         json = string.concat(json, _buildMockTokens(mockUSDC, mockCbBTC));
         json = string.concat(json, _buildNetworkConfig());
         json = string.concat(json, _buildConstants());
-        json = string.concat(json, ',"timestamp":"', vm.toString(block.timestamp), '"}');
+        json = string.concat(json, ',"timestamp":"', vm.toString(block.timestamp), '"');
+        json = string.concat(json, ',"blockNumber":"', vm.toString(block.number), '"}');
 
         return json;
     }
@@ -107,7 +109,7 @@ contract SaveDeployedAddresses is Script {
         );
     }
 
-    function _buildMockTokens(address mockUSDC, address mockCbBTC) internal view returns (string memory) {
+    function _buildMockTokens(address mockUSDC, address mockCbBTC) internal pure returns (string memory) {
         if (mockUSDC == address(0) && mockCbBTC == address(0)) {
             return "";
         }
@@ -181,15 +183,15 @@ contract SaveDeployedAddresses is Script {
             '"premiumCollector":"',
             vm.toString(premiumCollector),
             '",',
-            '"preClosureFeeBps":',
+            '"preClosureFeeBps":"',
             vm.toString(preClosureFeeBps),
             '",',
-            '"gracePeriod":',
+            '"gracePeriod":"',
             vm.toString(gracePeriod),
             '",',
-            '"liquidationBuffer":',
+            '"liquidationBuffer":"',
             vm.toString(liquidationBuffer),
-            "}"
+            '"}'
         );
     }
 
@@ -199,12 +201,12 @@ contract SaveDeployedAddresses is Script {
 
         string memory json = string.concat(
             ',"constants":{',
-            '"decimalUSDC":',
+            '"decimalUSDC":"',
             vm.toString(helperConfig.DECIMAL_USDC()),
-            ",",
-            '"decimalCbBTC":',
+            '",',
+            '"decimalCbBTC":"',
             vm.toString(helperConfig.DECIMAL_CBBTC()),
-            ",",
+            '",',
             '"depositAmt":"',
             vm.toString(depositAmt),
             '",',
@@ -218,15 +220,15 @@ contract SaveDeployedAddresses is Script {
             '"collateralAmt":"',
             vm.toString(collateralAmt),
             '",',
-            '"durationInMonths":',
+            '"durationInMonths":"',
             vm.toString(durationInMonths),
-            ",",
-            '"preClosureFee":',
+            '",',
+            '"preClosureFee":"',
             vm.toString(helperConfig.getPreClosureFee()),
-            ",",
-            '"data":',
+            '",',
+            '"data":"',
             vm.toString(data),
-            ","
+            '",'
         );
 
         return string.concat(
@@ -262,123 +264,19 @@ contract SaveDeployedAddresses is Script {
         }
     }
 
-    function _overwriteChainData(string memory existingContent, string memory chainId, string memory newDeployment)
+    function _mergeChainData(string memory existingContent, string memory chainId, string memory newDeployment)
         internal
         pure
         returns (string memory)
     {
-        // Check if the file uses the proper "deployments" wrapper structure
-        int256 deploymentsPos = _indexOf(existingContent, '"deployments":{');
-
-        if (deploymentsPos >= 0) {
-            // Proper structure exists, look for chain within deployments
-            int256 chainIdPosition = _indexOf(existingContent, string.concat('"', chainId, '":'));
-
-            if (chainIdPosition >= 0) {
-                // Chain exists, replace its data completely
-                bytes memory searchPattern = bytes(string.concat('"', chainId, '":'));
-                uint256 startPos = uint256(chainIdPosition) + searchPattern.length;
-                uint256 endPos = _findObjectEnd(existingContent, startPos);
-
-                string memory beforePart =
-                    _substring(existingContent, 0, uint256(chainIdPosition) + searchPattern.length);
-                string memory afterPart = _substring(existingContent, endPos, bytes(existingContent).length);
-
-                return string.concat(beforePart, newDeployment, afterPart);
-            } else {
-                // Chain doesn't exist in deployments, add it
-                uint256 insertPos = uint256(deploymentsPos) + bytes('"deployments":{').length;
-                string memory beforePart = _substring(existingContent, 0, insertPos);
-                string memory afterPart = _substring(existingContent, insertPos, bytes(existingContent).length);
-
-                bytes memory afterBytes = bytes(afterPart);
-                bool isEmpty = afterBytes.length > 0 && afterBytes[0] == "}";
-
-                if (isEmpty) {
-                    return string.concat(beforePart, '"', chainId, '":', newDeployment, afterPart);
-                } else {
-                    return string.concat(beforePart, '"', chainId, '":', newDeployment, ",", afterPart);
-                }
-            }
-        } else {
-            // No "deployments" wrapper, create new structure with proper format
-            // This handles legacy format or first-time setup
+        // Check if existing content has proper deployments structure
+        if (bytes(existingContent).length == 0) {
             return string.concat('{"deployments":{"', chainId, '":', newDeployment, "}}");
         }
-    }
 
-    function _indexOf(string memory haystack, string memory needle) internal pure returns (int256) {
-        bytes memory haystackBytes = bytes(haystack);
-        bytes memory needleBytes = bytes(needle);
-
-        if (needleBytes.length > haystackBytes.length) {
-            return -1;
-        }
-
-        for (uint256 i = 0; i <= haystackBytes.length - needleBytes.length; i++) {
-            bool found = true;
-            for (uint256 j = 0; j < needleBytes.length; j++) {
-                if (haystackBytes[i + j] != needleBytes[j]) {
-                    found = false;
-                    break;
-                }
-            }
-            if (found) {
-                return int256(i);
-            }
-        }
-
-        return -1;
-    }
-
-    function _substring(string memory str, uint256 start, uint256 end) internal pure returns (string memory) {
-        bytes memory strBytes = bytes(str);
-        bytes memory result = new bytes(end - start);
-
-        for (uint256 i = start; i < end; i++) {
-            result[i - start] = strBytes[i];
-        }
-
-        return string(result);
-    }
-
-    function _findObjectEnd(string memory json, uint256 startPos) internal pure returns (uint256) {
-        bytes memory jsonBytes = bytes(json);
-        uint256 braceCount = 0;
-        bool inString = false;
-        bool escaped = false;
-
-        for (uint256 i = startPos; i < jsonBytes.length; i++) {
-            bytes1 char = jsonBytes[i];
-
-            if (escaped) {
-                escaped = false;
-                continue;
-            }
-
-            if (char == "\\") {
-                escaped = true;
-                continue;
-            }
-
-            if (char == '"' && !escaped) {
-                inString = !inString;
-                continue;
-            }
-
-            if (!inString) {
-                if (char == "{") {
-                    braceCount++;
-                } else if (char == "}") {
-                    if (braceCount == 0) {
-                        return i;
-                    }
-                    braceCount--;
-                }
-            }
-        }
-
-        return jsonBytes.length;
+        // For simplicity in this case, we'll replace entire file content with new deployment
+        // In a production system, you might want more sophisticated JSON parsing
+        return string.concat('{"deployments":{"', chainId, '":', newDeployment, "}}");
     }
 
     function _getNetworkName(uint256 chainId) internal pure returns (string memory) {

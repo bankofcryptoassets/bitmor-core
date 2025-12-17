@@ -25,7 +25,10 @@ update:; forge update
 
 build:; forge build
 
-FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(BLOCK_NUMBER) --etherscan-api-key etherscan_api_key
+# Read block from deployment file, fallback to .env
+DEPLOYMENT_BLOCK := $(shell if [ -f "deployments.json" ]; then node -e "try { const d=JSON.parse(require('fs').readFileSync('deployments.json')); const chainData = d.deployments['84532']; console.log(chainData && chainData.blockNumber ? chainData.blockNumber : process.env.BLOCK_NUMBER || 'latest'); } catch(e) { console.log(process.env.BLOCK_NUMBER || 'latest'); }"; else echo $${BLOCK_NUMBER:-latest}; fi)
+
+FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(DEPLOYMENT_BLOCK) --etherscan-api-key etherscan_api_key
 
 test :; forge test $(FORK_NETWORK_ARGS)
 
