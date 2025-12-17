@@ -50,6 +50,9 @@ contract LoanStorage {
     /// @notice Fee for pre closing loan. (in bps)
     uint256 internal s_preClosureFeeBps;
 
+    /// @notice Buffer while liquidation
+    uint256 internal s_liquidationBuffer;
+
     // ============ Storage Mappings ============
 
     /// @notice Maps LSA addresses to their loan data

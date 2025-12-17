@@ -140,7 +140,8 @@ contract SaveDeployedAddresses is Script {
             address zQuoter,
             address premiumCollector,
             uint256 preClosureFeeBps,
-            uint256 gracePeriod
+            uint256 gracePeriod,
+            uint256 liquidationBuffer
         ) = helperConfig.networkConfig();
 
         string memory json = string.concat(
@@ -185,6 +186,9 @@ contract SaveDeployedAddresses is Script {
             '",',
             '"gracePeriod":',
             vm.toString(gracePeriod),
+            '",',
+            '"liquidationBuffer":',
+            vm.toString(liquidationBuffer),
             "}"
         );
     }

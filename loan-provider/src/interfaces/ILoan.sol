@@ -41,6 +41,8 @@ interface ILoan {
 
     event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
+    event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
+
     // ============ Main Functions ============
 
     /**
@@ -203,6 +205,17 @@ interface ILoan {
      * @notice Updates the pre-closure fee (in bps)
      */
     function setPreClosureFee(uint256 newFee) external;
+
+    /**
+     * @notice Updates the buffer required while Liquidation.
+     * @param newBuffer The new buffer (in bps)
+     */
+    function setLiquidationBuffer(uint256 newBuffer) external;
+
+    /**
+     * @notice Returns the buffer required while liquidation.
+     */
+    function getLiquidationBuffer() external view returns (uint256);
 
     /**
      * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
