@@ -21,6 +21,8 @@ import {IPool, IPoolAddressesProvider} from "../interfaces/IPool.sol";
  * @dev Implements ILoan interface with full loan lifecycle management
  */
 contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleReceiver {
+    //! TODO: Access Control required
+
     // ============ Constructor ============
 
     /**
@@ -86,7 +88,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
         uint256 premiumAmount,
         uint256 collateralAmount,
         uint256 duration,
-        uint256 insuranceID
+        bytes calldata data
     ) external override nonReentrant returns (address lsa) {
         DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
             bitmorPool: i_BITMOR_POOL,
@@ -103,7 +105,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
         lsa = LoanLogic.executeInitializeLoan(
             ctx,
             DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, collateralAmount, duration, insuranceID
+                msg.sender, depositAmount, premiumAmount, collateralAmount, duration, INITIAL_INSURANCE_ID, data
             ),
             s_loansByLSA,
             s_userLoanCount,
@@ -309,19 +311,14 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
     }
 
     /// @inheritdoc ILoan
-    function updateLoanStatus(address lsa, DataTypes.LoanStatus newStatus)
-        external
-        override
-        checkIfLoanExists(lsa)
-        onlyOwner
-    {
+    function updateLoanStatus(address lsa, DataTypes.LoanStatus newStatus) external override checkIfLoanExists(lsa) {
         DataTypes.LoanStatus oldStatus = s_loansByLSA[lsa].status;
         s_loansByLSA[lsa].status = newStatus;
         emit Loan__LoanStatusUpdated(lsa, oldStatus, newStatus);
     }
 
     /// @inheritdoc ILoan
-    function updateLoanData(bytes calldata _data, address _lsa) external override checkZeroAddress(_lsa) onlyOwner {
+    function updateLoanData(bytes calldata _data, address _lsa) external override checkZeroAddress(_lsa) {
         DataTypes.LoanData memory data = abi.decode(_data, (DataTypes.LoanData));
         s_loansByLSA[_lsa] = data;
 

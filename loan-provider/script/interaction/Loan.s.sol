@@ -15,25 +15,23 @@ contract Loan_InitializeLoan is Script {
         uint256 premiumAmt,
         uint256 collateralAmt,
         uint256 durationInMonths,
-        uint256 insuranceID
+        bytes memory data
     ) internal returns (address lsa) {
         ILoan loan = ILoan(loanAddress);
 
         vm.broadcast();
-        lsa = loan.initializeLoan(depositAmt, premiumAmt, collateralAmt, durationInMonths, insuranceID);
+        lsa = loan.initializeLoan(depositAmt, premiumAmt, collateralAmt, durationInMonths, data);
 
         console2.log("LSA address:", lsa);
     }
 
     function _initializeLoan() internal returns (address lsa) {
-        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, uint256 insuranceID) =
+        (uint256 depositAmt, uint256 premiumAmt, uint256 collateralAmt, uint256 durationInMonths, bytes memory data) =
             config.getLoanConfig();
 
         address loanAddress = config.getLoan();
 
-        lsa = _initializeLoanWithConfigs(
-            loanAddress, depositAmt, premiumAmt, collateralAmt, durationInMonths, insuranceID
-        );
+        lsa = _initializeLoanWithConfigs(loanAddress, depositAmt, premiumAmt, collateralAmt, durationInMonths, data);
     }
 
     function run() public returns (address) {
