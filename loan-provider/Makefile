@@ -85,7 +85,7 @@ verifyAll:
 	forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
 
 setup:
-	make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
+	make deploySwapAdapterWrapper && make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
 
 # ==============================================================
 
