@@ -1,101 +1,15 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-import {Loan} from "@bitmor/protocol/Loan.sol";
-import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
-import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
+import {Helper} from "./Helper.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-contract LoanTest is Test {
-    using FixedPointMathLib for uint256;
-
-    HelperConfig config;
-    Loan loan;
-
-    address owner;
-    address user;
-    address debtAsset;
-    address aavePool;
-    address collateralAsset;
-
-    /// @dev Premium amount is arbitary as it calculated offchain.
-    /// Premium amount is required in debtAsset, bUSDC, which is of 6 decimals. Therefore 1000e6 = 1000 bUSDC
-    uint256 PREMIUM_AMOUNT = 1000e6;
-    /// @dev Insurance id is arbitary. Anything greater than 0 indicates that user had opted in for insurance.
-    uint256 INSURANCE_ID = 1;
-    bytes DATA = "0xLOAN";
-    uint256 DEBT_ASSET_TO_MINT_TO_USER = 1_000_000 * 1e6;
-
-    function setUp() public {
-        config = new HelperConfig();
-
-        owner = makeAddr("owner");
-        user = makeAddr("user");
-
-        vm.startBroadcast(owner);
-
-        (
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAssetAddr,
-            address debtAssetAddr,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer
-        ) = config.networkConfig();
-
-        debtAsset = debtAssetAddr;
-        aavePool = aaveV3Pool;
-        collateralAsset = collateralAssetAddr;
-
-        loan = new Loan(
-            aaveV3Pool,
-            aaveAddressesProvider,
-            bitmorPool,
-            oracle,
-            collateralAsset,
-            debtAsset,
-            swapAdapterWrapper,
-            zQuoter,
-            premiumCollector,
-            preClosureFeeBps,
-            gracePeriod,
-            liquidationBuffer
-        );
-
-        address loanVaultImplementation = address(new LoanVault());
-
-        address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan)));
-
-        loan.setLoanVaultFactory(loanVaultFactory);
-
-        vm.stopBroadcast();
-    }
-
-    // ============ Modifiers ============
-
-    modifier mintDebtAssetToUser() {
-        _mintDebtAssetToUser();
-        _;
-    }
-
-    modifier setUpLoanForUser() {
-        _setUpLoanForUser();
-        _;
-    }
-
-    // ============ Loan Initialization ============
+/// @title LoanTest
+/// @notice Tests for loan initialization, repayment, and closure functionality
+contract LoanTest is Helper {
+    // ============ Loan Initialization Tests ============
 
     function test_initializeLoan_whenDepositAmountIsEqualToMinimumDepositRequired() public mintDebtAssetToUser {
         /// @dev bcbBTC is of 8 decimals, therefore, 1e8 = 1 bcbBTC
@@ -142,7 +56,7 @@ contract LoanTest is Test {
         assertEq(user, loanData.borrower);
     }
 
-    // ============ Loan Repayment ============
+    // ============ Loan Repayment Tests ============
 
     function test_repay_exactlyEstimatedMonthlyAmount() public setUpLoanForUser {
         /// @dev Since we have set up only one loan in `setUpLoanForUser` the index will be equal to 0;
@@ -170,7 +84,7 @@ contract LoanTest is Test {
         uint256 durationAfter = loanDataAfter.duration;
 
         /// Amount of loan duration the user paid for.
-        uint256 periodsPaidFor = finalAmountRepaid.mulDiv(1, loanDataBefore.estimatedMonthlyPayment);
+        uint256 periodsPaidFor = finalAmountRepaid * 1 / loanDataBefore.estimatedMonthlyPayment;
 
         assertEq(durationBefore - durationAfter, periodsPaidFor);
         assertEq(finalAmountRepaid, repayAmount);
@@ -202,7 +116,7 @@ contract LoanTest is Test {
         uint256 durationAfter = loanDataAfter.duration;
 
         /// Amount of loan duration the user paid for.
-        uint256 periodsPaidFor = finalAmountRepaid.mulDiv(1, loanDataBefore.estimatedMonthlyPayment);
+        uint256 periodsPaidFor = finalAmountRepaid * 1 / loanDataBefore.estimatedMonthlyPayment;
 
         assertEq(durationBefore - durationAfter, periodsPaidFor);
         assertEq(finalAmountRepaid, repayAmount);
@@ -234,13 +148,13 @@ contract LoanTest is Test {
         uint256 durationAfter = loanDataAfter.duration;
 
         /// Amount of loan duration the user paid for.
-        uint256 periodsPaidFor = finalAmountRepaid.mulDiv(1, loanDataBefore.estimatedMonthlyPayment);
+        uint256 periodsPaidFor = finalAmountRepaid * 1 / loanDataBefore.estimatedMonthlyPayment;
 
         assertEq(durationBefore - durationAfter, periodsPaidFor);
         assertEq(finalAmountRepaid, repayAmount);
     }
 
-    // ============ Close Loan ============
+    // ============ Close Loan Tests ============
 
     // TODO!: This is currently testing only the state update. We need to test the exact amount of collateral received.
     function test_closeLoan_withWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
@@ -292,30 +206,5 @@ contract LoanTest is Test {
 
         assertGt(debtAssetAmountAfter - debtAssetAmountBefore, 0);
         assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Completed));
-    }
-
-    // ============ Internal Functions ============
-
-    function _mintDebtAssetToUser() internal {
-        vm.startBroadcast(user);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", DEBT_ASSET_TO_MINT_TO_USER));
-        if (!success) {
-            revert("MINT_ERROR");
-        }
-
-        IERC20(debtAsset).approve(address(loan), DEBT_ASSET_TO_MINT_TO_USER);
-        vm.stopBroadcast();
-    }
-
-    function _setUpLoanForUser() internal {
-        _mintDebtAssetToUser();
-
-        uint256 collateralAmount = 1e8;
-        uint256 duration = 12;
-
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
-
-        vm.broadcast(user);
-        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 }
