@@ -3,10 +3,10 @@
         "84532": {
             "network": "base-sepolia",
             "deployedContracts": {
-                "swapAdapterWrapper": "0x204fC5AD7D18b2fcBE86959A30A81ca28F831262",
-                "loanVault": "0x836cAFef99d89Cf58f8335D841A39F59B559F010",
-                "loan": "0xd31ae989c3aC42035eB118F253EE53a4D54aCbAE",
-                "loanVaultFactory": "0x44f2ab64FdfdEC31b0BCFE6A15b927fcB65DD06c"
+                "swapAdapterWrapper": "0x397E9F370C5C155C8e279FD6B727eE5a1d556b79",
+                "loanVault": "0x1695f4bF858178A33E4794e0316096259f9c8AAB",
+                "loan": "0xC23858eAB2f1950812a9b3355C204cee44D90860",
+                "loanVaultFactory": "0x5dF376f6203BEACFDdd42DFF0F186575f2258820"
             },
             "networkConfig": {
                 "bitmorPool": "0xFD32a8d113cB5c6DBe1A26e0096bF905120F3E32",
@@ -15,7 +15,7 @@
                 "oracle": "0xD145Db28aF6b522B55C8405fcb6831c7A4D06e35",
                 "collateralAsset": "0x2DF1a547b78B08cA8a31CDB24E6EFdD653eBF247",
                 "debtAsset": "0xFDff41B1c6354d36785847611957545A4B0cc6c0",
-                "swapAdapterWrapper": "0x204fC5AD7D18b2fcBE86959A30A81ca28F831262",
+                "swapAdapterWrapper": "0x397E9F370C5C155C8e279FD6B727eE5a1d556b79",
                 "zQuoter": "0x0000000000000000000000000000000000000000",
                 "premiumCollector": "0x90ecb33dF1Fff5c041d2708839336d41e171B3fA",
                 "preClosureFeeBps": "10",
@@ -34,8 +34,8 @@
                 "bitmorOwner": "0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6",
                 "bitmorUser": "0xAe773320F12d18c93acAA4C2054340620b748E3a"
             },
-            "timestamp": "1765984224",
-            "blockNumber": "35107968"
+            "timestamp": "1766077764",
+            "blockNumber": "35154738"
         }
     }
 }

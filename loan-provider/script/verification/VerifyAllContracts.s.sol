@@ -13,97 +13,121 @@ contract VerifyAllContracts is Script {
         address deployedAddress;
     }
 
-    function run() external {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/deployments.json");
-        string memory json = vm.readFile(path);
+    string private deploymentJson;
+    string private deploymentsPath;
 
-        // Get chain ID from environment
+    function run() external {
+        deploymentJson = vm.readFile(string.concat(vm.projectRoot(), "/deployments.json"));
+
         uint256 chainId = block.chainid;
-        string memory chainIdStr = vm.toString(chainId);
+        deploymentsPath = string.concat(".deployments.", vm.toString(chainId), ".deployedContracts");
 
         console.log("Verifying contracts for chain ID:", chainId);
 
-        // Parse deployed contracts for the current chain
-        string memory deploymentsPath = string.concat(".deployments.", chainIdStr, ".deployedContracts");
+        // Build contract list
+        ContractInfo[] memory contracts = _buildContractList();
 
-        // Get all contract addresses
-        string memory swapAdapterWrapper = json.readString(string.concat(deploymentsPath, ".swapAdapterWrapper"));
-        string memory loanVault = json.readString(string.concat(deploymentsPath, ".loanVault"));
-        string memory loan = json.readString(string.concat(deploymentsPath, ".loan"));
-        string memory loanVaultFactory = json.readString(string.concat(deploymentsPath, ".loanVaultFactory"));
+        // Verify each contract
+        _verifyContracts(contracts, chainId);
 
-        // Create contract info array
-        ContractInfo[] memory contracts = new ContractInfo[](4);
+        console.log("Verification process completed!");
+        _logExplorerUrl(chainId);
+    }
 
+    function _buildContractList() internal view returns (ContractInfo[] memory contracts) {
+        contracts = new ContractInfo[](4);
+
+        // Get addresses from deployments.json
+        address swapAdapterWrapper =
+            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".swapAdapterWrapper")));
+        address loanVault = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVault")));
+        address loan = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loan")));
+        address loanVaultFactory =
+            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVaultFactory")));
+
+        // Build contract list - Sourcify auto-detects constructor args
         contracts[0] = ContractInfo({
-            name: "SwapAdapterWrapper",
-            contractPath: "src/dependencies/swap-adapter/SwapAdapterWrapper.sol:SwapAdapterWrapper",
-            deployedAddress: vm.parseAddress(swapAdapterWrapper)
+            name: "UniswapV4SwapAdapterWrapper",
+            contractPath: "src/adapters/UniswapV4SwapAdapterWrapper.sol:UniswapV4SwapAdapterWrapper",
+            deployedAddress: swapAdapterWrapper
         });
 
         contracts[1] = ContractInfo({
-            name: "LoanVault",
-            contractPath: "src/loan/LoanVault.sol:LoanVault",
-            deployedAddress: vm.parseAddress(loanVault)
+            name: "LoanVault", contractPath: "src/protocol/LoanVault.sol:LoanVault", deployedAddress: loanVault
         });
 
-        contracts[2] = ContractInfo({
-            name: "Loan", contractPath: "src/loan/Loan.sol:Loan", deployedAddress: vm.parseAddress(loan)
-        });
+        contracts[2] = ContractInfo({name: "Loan", contractPath: "src/protocol/Loan.sol:Loan", deployedAddress: loan});
 
         contracts[3] = ContractInfo({
             name: "LoanVaultFactory",
-            contractPath: "src/loan/LoanVaultFactory.sol:LoanVaultFactory",
-            deployedAddress: vm.parseAddress(loanVaultFactory)
+            contractPath: "src/protocol/LoanVaultFactory.sol:LoanVaultFactory",
+            deployedAddress: loanVaultFactory
         });
+    }
 
-        // Verify each contract
+    function _verifyContracts(ContractInfo[] memory contracts, uint256 chainId) internal {
         for (uint256 i = 0; i < contracts.length; i++) {
-            ContractInfo memory contractInfo = contracts[i];
+            _verifyContract(contracts[i], chainId);
+        }
+    }
 
-            console.log("=================================");
-            console.log("Verifying contract:", contractInfo.name);
-            console.log("Address:", contractInfo.deployedAddress);
-            console.log("Contract path:", contractInfo.contractPath);
+    function _verifyContract(ContractInfo memory contractInfo, uint256 chainId) internal {
+        console.log("=================================");
+        console.log("Verifying contract:", contractInfo.name);
+        console.log("Address:", contractInfo.deployedAddress);
+        console.log("Contract path:", contractInfo.contractPath);
 
-            // Build verification command
-            string[] memory verifyCommand = new string[](8);
-            verifyCommand[0] = "forge";
-            verifyCommand[1] = "verify-contract";
-            verifyCommand[2] = vm.toString(contractInfo.deployedAddress);
-            verifyCommand[3] = contractInfo.contractPath;
-            verifyCommand[4] = "--chain-id";
-            verifyCommand[5] = chainIdStr;
-            verifyCommand[6] = "--etherscan-api-key";
+        string[] memory verifyCommand = _buildVerifyCommand(contractInfo, chainId);
 
-            if (chainId == 84532) {
-                verifyCommand[7] = "base_sepolia";
-            } else if (chainId == 8453) {
-                verifyCommand[7] = "base";
-            } else {
-                // Fallback to environment variable
-                verifyCommand[7] = vm.envString("ETHERSCAN_KEY");
-            }
-
-            // Execute verification command
-            try vm.ffi(verifyCommand) returns (bytes memory result) {
-                console.log("Verification result:", string(result));
-                console.log("[SUCCESS] Successfully verified:", contractInfo.name);
-            } catch Error(string memory reason) {
-                console.log("[FAILED] Verification failed for", contractInfo.name);
-                console.log("Reason:", reason);
-            } catch {
-                console.log("[FAILED] Verification failed for", contractInfo.name, "- Unknown error");
-            }
-
-            console.log("=================================");
-            console.log("");
+        // Print the full command for debugging
+        console.log("Command:");
+        for (uint256 i = 0; i < verifyCommand.length; i++) {
+            console.log(" ", verifyCommand[i]);
         }
 
-        console.log("Verification process completed!");
-        console.log("Check BaseScan for verification status:");
+        try vm.ffi(verifyCommand) returns (bytes memory result) {
+            string memory output = string(result);
+            console.log("Verification result:", output);
+            console.log("[SUCCESS] Successfully verified:", contractInfo.name);
+        } catch Error(string memory reason) {
+            console.log("[FAILED] Verification failed for", contractInfo.name);
+            console.log("Reason:", reason);
+        } catch (bytes memory lowLevelData) {
+            console.log("[FAILED] Verification failed for", contractInfo.name);
+            console.log("Low-level error:", string(lowLevelData));
+        }
 
+        console.log("=================================");
+        console.log("");
+    }
+
+    function _buildVerifyCommand(ContractInfo memory contractInfo, uint256 chainId)
+        internal
+        pure
+        returns (string[] memory)
+    {
+        // For Sourcify: use --chain-id and --verifier sourcify
+        // Constructor args are NOT passed for Sourcify - it auto-detects them
+        string[] memory cmd = new string[](8);
+
+        cmd[0] = "forge";
+        cmd[1] = "verify-contract";
+        cmd[2] = vm.toString(contractInfo.deployedAddress);
+        cmd[3] = contractInfo.contractPath;
+        cmd[4] = "--chain-id";
+        cmd[5] = vm.toString(chainId);
+        cmd[6] = "--verifier";
+        cmd[7] = "sourcify";
+
+        return cmd;
+    }
+
+    function _logExplorerUrl(uint256 chainId) internal pure {
+        console.log("Verification submitted to Sourcify!");
+        console.log("Check verification status on Sourcify:");
+        console.log("https://repo.sourcify.dev/");
+        console.log("");
+        console.log("Also check block explorer:");
         if (chainId == 84532) {
             console.log("https://sepolia.basescan.org/");
         } else if (chainId == 8453) {
