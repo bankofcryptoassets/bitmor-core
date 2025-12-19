@@ -23,5 +23,6 @@ Take the reference from `.env.example`
 Run the following command in the `loan-provider` directory.
 
 ```bash
+make install
 make setup
 ```

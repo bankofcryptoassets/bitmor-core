@@ -24,6 +24,7 @@ library LoanLiquidationLogic {
         uint256 collateralUnitPrice;
         uint256 debtUnitPrice;
         uint256 collateralValueInUSD;
+        uint256 collateralLiquidationBonus;
         uint256 currentDebtBalance;
         uint256 amountToBeDeducted;
         uint256 totalAmtToBeDeducted;
@@ -75,8 +76,6 @@ library LoanLiquidationLogic {
         // Working variables packed in a memory struct to avoid "stack too deep"
         LiquidationVars memory v;
 
-        uint256 bufferBPS = bitmorLoan.getLiquidationBuffer();
-
         v.collateralAsset = bitmorLoan.getCollateralAsset();
         v.debtAsset = bitmorLoan.getDebtAsset();
 
@@ -86,6 +85,8 @@ library LoanLiquidationLogic {
 
         v.collateralDecimals = collateralReserve.configuration.getDecimals();
         v.debtDecimals = debtReserve.configuration.getDecimals();
+
+        v.collateralLiquidationBonus = collateralReserve.configuration.getLiquidationBonus();
 
         v.collateralUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.collateralAsset);
         v.debtUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.debtAsset);
@@ -100,7 +101,7 @@ library LoanLiquidationLogic {
         v.amountToBeDeducted = _min(loanData.estimatedMonthlyPayment, v.currentDebtBalance);
 
         // total USDC leaving user’s position (principal paid + bonus to liquidator), but never exceed debt + bonus policy
-        v.totalAmtToBeDeducted = v.amountToBeDeducted.add(v.amountToBeDeducted.percentMul(bufferBPS));
+        v.totalAmtToBeDeducted = v.amountToBeDeducted.percentMul(v.collateralLiquidationBonus);
 
         // convert the outflow to USD (or quote)
         v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(10 ** v.debtDecimals);
@@ -116,8 +117,8 @@ library LoanLiquidationLogic {
         // new debt after paying ONLY the principal part
         v.debtBalanceAfter = v.currentDebtBalance.sub(v.amountToBeDeducted);
 
-        // guard = debtAfter * (1 + bufferBPS)
-        v.guardAmount = v.debtBalanceAfter.add(v.debtBalanceAfter.percentMul(bufferBPS));
+        // guard
+        v.guardAmount = v.debtBalanceAfter.percentMul(v.collateralLiquidationBonus);
         v.guardAmountInUSD = v.guardAmount.mul(v.debtUnitPrice).div(10 ** v.debtDecimals);
 
         if (v.remainingCollateralInUSD >= v.guardAmountInUSD) {

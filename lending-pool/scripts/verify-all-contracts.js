@@ -38,78 +38,13 @@ async function verifyContract(address, constructorArgs, contractName, contractPa
 
 async function main() {
   console.log("\n");
-  console.log("═".repeat(70));
-  console.log("  BITMOR PROTOCOL - CONTRACT VERIFICATION");
-  console.log("═".repeat(70));
-  console.log("\n");
 
   const results = [];
 
   // Load deployment files
   const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
-  const bitmorContractsPath = path.join(__dirname, "../bitmor-deployed-contracts.json");
-  const swapAdapterPath = path.join(__dirname, "../deployments/uniswap-v4-swap-adapter-wrapper-sepolia.json");
-
-  console.log("Loading deployment files...\n");
 
   const deployedContracts = JSON.parse(fs.readFileSync(deployedContractsPath, "utf8"));
-
-  // Verify Bitmor Loan System contracts
-  if (fs.existsSync(bitmorContractsPath)) {
-    const bitmorContracts = JSON.parse(fs.readFileSync(bitmorContractsPath, "utf8"));
-
-    // 1. LoanVault Implementation
-    if (bitmorContracts.LoanVaultImplementation?.sepolia) {
-      const implAddress = bitmorContracts.LoanVaultImplementation.sepolia.address;
-      const result1 = await verifyContract(implAddress, [], "LoanVaultImplementation");
-      results.push(result1);
-    }
-
-    // 2. Loan Contract
-    if (bitmorContracts.Loan?.sepolia) {
-      const loanAddress = bitmorContracts.Loan.sepolia.address;
-      const loanArgs = [
-        bitmorContracts.Loan.sepolia.constructorArgs.aaveV3Pool,
-        bitmorContracts.Loan.sepolia.constructorArgs.aaveAddressesProvider,
-        bitmorContracts.Loan.sepolia.constructorArgs.bitmorPool,
-        bitmorContracts.Loan.sepolia.constructorArgs.oracle,
-        bitmorContracts.Loan.sepolia.constructorArgs.collateralAsset,
-        bitmorContracts.Loan.sepolia.constructorArgs.debtAsset,
-        bitmorContracts.Loan.sepolia.constructorArgs.swapAdapter,
-        bitmorContracts.Loan.sepolia.constructorArgs.zQuoter,
-        bitmorContracts.Loan.sepolia.constructorArgs.premiumCollector,
-        bitmorContracts.Loan.sepolia.constructorArgs.preClosureFeeBps,
-      ];
-      const result2 = await verifyContract(loanAddress, loanArgs, "Loan", "contracts/bitmor/loan/Loan.sol:Loan");
-      results.push(result2);
-    }
-
-    // 3. LoanVaultFactory
-    if (bitmorContracts.LoanVaultFactory?.sepolia) {
-      const factoryAddress = bitmorContracts.LoanVaultFactory.sepolia.address;
-      const factoryArgs = [
-        bitmorContracts.LoanVaultFactory.sepolia.implementation,
-        bitmorContracts.LoanVaultFactory.sepolia.loanContract,
-      ];
-      const result3 = await verifyContract(factoryAddress, factoryArgs, "LoanVaultFactory");
-      results.push(result3);
-    }
-  } else {
-    console.log("WARNING: Bitmor contracts file not found at bitmor-deployed-contracts.json");
-  }
-
-  // 4. UniswapV4SwapAdapterWrapper
-  if (fs.existsSync(swapAdapterPath)) {
-    const swapAdapterDeployment = JSON.parse(fs.readFileSync(swapAdapterPath, "utf8"));
-    const swapAdapterAddress = swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.address;
-    const swapAdapterArgs = [
-      swapAdapterDeployment.contracts.UniswapV4SwapAdapterWrapper.uniswapAdapter,
-    ];
-    const result = await verifyContract(swapAdapterAddress, swapAdapterArgs, "UniswapV4SwapAdapterWrapper");
-    results.push(result);
-  } else {
-    console.log("⚠️  UniswapV4SwapAdapterWrapper deployment file not found");
-  }
 
   console.log("\n\n" + "═".repeat(70));
   console.log("  AAVE V2 CONTRACTS VERIFICATION");
