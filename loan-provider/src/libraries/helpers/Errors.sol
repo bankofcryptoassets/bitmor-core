@@ -22,4 +22,9 @@ library Errors {
     error CollateralWithdrawFailed();
     error InvalidExecutor();
     error InvalidRepaymentHash();
+    /// @notice Thrown when invalid input parameters are provided to a function
+    error InvalidInputs();
+
+    /// @notice Thrown when deposit amount is below the minimum required threshold
+    error MinimumAssetRequired();
 }

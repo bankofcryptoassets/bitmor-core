@@ -58,12 +58,12 @@ library SwapLogic {
             // Base Mainnet: Use zQuoter for Aerodrome price validation
             (, uint256 expectedOut) = IzQuoter(zQuoter)
                 .quoteV2(
-                    EXACT_OUT, // exactOut = false (we have exact input)
-                    tokenIn, // USDC
-                    tokenOut, // cbBTC
-                    amountIn, // Amount to swap
-                    SUSHI // sushi = false (Aerodrome is V2-style, not Sushi)
-                );
+                EXACT_OUT, // exactOut = false (we have exact input)
+                tokenIn, // USDC
+                tokenOut, // cbBTC
+                amountIn, // Amount to swap
+                SUSHI // sushi = false (Aerodrome is V2-style, not Sushi)
+            );
 
             if (expectedOut == 0) revert Errors.ZeroAmount();
 
