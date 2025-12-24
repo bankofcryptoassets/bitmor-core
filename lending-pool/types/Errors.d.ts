@@ -48,6 +48,7 @@ interface ErrorsInterface extends ethers.utils.Interface {
     "LPC_RESERVE_LIQUIDITY_NOT_0()": FunctionFragment;
     "LP_CALLER_MUST_BE_AN_ATOKEN()": FunctionFragment;
     "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR()": FunctionFragment;
+    "LP_CALLER_NOT_VAULT()": FunctionFragment;
     "LP_CHECK_TYPE_OF_LIQUIDATION_FAILED()": FunctionFragment;
     "LP_FAILED_COLLATERAL_SWAP()": FunctionFragment;
     "LP_FAILED_REPAY_WITH_COLLATERAL()": FunctionFragment;
@@ -213,6 +214,10 @@ interface ErrorsInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "LP_CALLER_NOT_VAULT",
     values?: undefined
   ): string;
   encodeFunctionData(
@@ -550,6 +555,10 @@ interface ErrorsInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "LP_CALLER_NOT_VAULT",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
@@ -1045,6 +1054,14 @@ export class Errors extends Contract {
     "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR()"(
       overrides?: CallOverrides
     ): Promise<{
+      0: string;
+    }>;
+
+    LP_CALLER_NOT_VAULT(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    "LP_CALLER_NOT_VAULT()"(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
@@ -1711,6 +1728,10 @@ export class Errors extends Contract {
     overrides?: CallOverrides
   ): Promise<string>;
 
+  LP_CALLER_NOT_VAULT(overrides?: CallOverrides): Promise<string>;
+
+  "LP_CALLER_NOT_VAULT()"(overrides?: CallOverrides): Promise<string>;
+
   LP_CHECK_TYPE_OF_LIQUIDATION_FAILED(
     overrides?: CallOverrides
   ): Promise<string>;
@@ -2185,6 +2206,10 @@ export class Errors extends Contract {
     "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR()"(
       overrides?: CallOverrides
     ): Promise<string>;
+
+    LP_CALLER_NOT_VAULT(overrides?: CallOverrides): Promise<string>;
+
+    "LP_CALLER_NOT_VAULT()"(overrides?: CallOverrides): Promise<string>;
 
     LP_CHECK_TYPE_OF_LIQUIDATION_FAILED(
       overrides?: CallOverrides
@@ -2703,6 +2728,10 @@ export class Errors extends Contract {
     "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR()"(
       overrides?: CallOverrides
     ): Promise<BigNumber>;
+
+    LP_CALLER_NOT_VAULT(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "LP_CALLER_NOT_VAULT()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     LP_CHECK_TYPE_OF_LIQUIDATION_FAILED(
       overrides?: CallOverrides
@@ -3283,6 +3312,14 @@ export class Errors extends Contract {
     ): Promise<PopulatedTransaction>;
 
     "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR()"(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    LP_CALLER_NOT_VAULT(
+      overrides?: CallOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "LP_CALLER_NOT_VAULT()"(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 

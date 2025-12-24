@@ -33,6 +33,7 @@ interface ILendingPoolAddressesProviderInterface
     "getMarketId()": FunctionFragment;
     "getPoolAdmin()": FunctionFragment;
     "getPriceOracle()": FunctionFragment;
+    "getUSDCVault()": FunctionFragment;
     "setAddress(bytes32,address)": FunctionFragment;
     "setAddressAsProxy(bytes32,address)": FunctionFragment;
     "setBitmorLoan(address)": FunctionFragment;
@@ -44,6 +45,7 @@ interface ILendingPoolAddressesProviderInterface
     "setMarketId(string)": FunctionFragment;
     "setPoolAdmin(address)": FunctionFragment;
     "setPriceOracle(address)": FunctionFragment;
+    "setUSDCVault(address)": FunctionFragment;
   };
 
   encodeFunctionData(
@@ -87,6 +89,10 @@ interface ILendingPoolAddressesProviderInterface
     values?: undefined
   ): string;
   encodeFunctionData(
+    functionFragment: "getUSDCVault",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
     functionFragment: "setAddress",
     values: [BytesLike, string]
   ): string;
@@ -127,6 +133,10 @@ interface ILendingPoolAddressesProviderInterface
     functionFragment: "setPriceOracle",
     values: [string]
   ): string;
+  encodeFunctionData(
+    functionFragment: "setUSDCVault",
+    values: [string]
+  ): string;
 
   decodeFunctionResult(functionFragment: "getAddress", data: BytesLike): Result;
   decodeFunctionResult(
@@ -163,6 +173,10 @@ interface ILendingPoolAddressesProviderInterface
   ): Result;
   decodeFunctionResult(
     functionFragment: "getPriceOracle",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getUSDCVault",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "setAddress", data: BytesLike): Result;
@@ -206,6 +220,10 @@ interface ILendingPoolAddressesProviderInterface
     functionFragment: "setPriceOracle",
     data: BytesLike
   ): Result;
+  decodeFunctionResult(
+    functionFragment: "setUSDCVault",
+    data: BytesLike
+  ): Result;
 
   events: {
     "AddressSet(bytes32,address,bool)": EventFragment;
@@ -219,6 +237,7 @@ interface ILendingPoolAddressesProviderInterface
     "MarketIdSet(string)": EventFragment;
     "PriceOracleUpdated(address)": EventFragment;
     "ProxyCreated(bytes32,address)": EventFragment;
+    "USDCVaultUpdated(address)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "AddressSet"): EventFragment;
@@ -236,6 +255,7 @@ interface ILendingPoolAddressesProviderInterface
   getEvent(nameOrSignatureOrTopic: "MarketIdSet"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "PriceOracleUpdated"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProxyCreated"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "USDCVaultUpdated"): EventFragment;
 }
 
 export class ILendingPoolAddressesProvider extends Contract {
@@ -335,6 +355,14 @@ export class ILendingPoolAddressesProvider extends Contract {
     }>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
@@ -451,6 +479,16 @@ export class ILendingPoolAddressesProvider extends Contract {
       priceOracle: string,
       overrides?: Overrides
     ): Promise<ContractTransaction>;
+
+    setUSDCVault(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
   };
 
   getAddress(id: BytesLike, overrides?: CallOverrides): Promise<string>;
@@ -497,6 +535,10 @@ export class ILendingPoolAddressesProvider extends Contract {
   getPriceOracle(overrides?: CallOverrides): Promise<string>;
 
   "getPriceOracle()"(overrides?: CallOverrides): Promise<string>;
+
+  getUSDCVault(overrides?: CallOverrides): Promise<string>;
+
+  "getUSDCVault()"(overrides?: CallOverrides): Promise<string>;
 
   setAddress(
     id: BytesLike,
@@ -612,6 +654,16 @@ export class ILendingPoolAddressesProvider extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  setUSDCVault(
+    usdcVault: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "setUSDCVault(address)"(
+    usdcVault: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
   callStatic: {
     getAddress(id: BytesLike, overrides?: CallOverrides): Promise<string>;
 
@@ -657,6 +709,10 @@ export class ILendingPoolAddressesProvider extends Contract {
     getPriceOracle(overrides?: CallOverrides): Promise<string>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<string>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<string>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<string>;
 
     setAddress(
       id: BytesLike,
@@ -756,6 +812,13 @@ export class ILendingPoolAddressesProvider extends Contract {
       priceOracle: string,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    setUSDCVault(usdcVault: string, overrides?: CallOverrides): Promise<void>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: CallOverrides
+    ): Promise<void>;
   };
 
   filters: {
@@ -784,6 +847,8 @@ export class ILendingPoolAddressesProvider extends Contract {
     PriceOracleUpdated(newAddress: string | null): EventFilter;
 
     ProxyCreated(id: null, newAddress: string | null): EventFilter;
+
+    USDCVaultUpdated(newVaultAddress: string | null): EventFilter;
   };
 
   estimateGas: {
@@ -835,6 +900,10 @@ export class ILendingPoolAddressesProvider extends Contract {
     getPriceOracle(overrides?: CallOverrides): Promise<BigNumber>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     setAddress(
       id: BytesLike,
@@ -937,6 +1006,13 @@ export class ILendingPoolAddressesProvider extends Contract {
       priceOracle: string,
       overrides?: Overrides
     ): Promise<BigNumber>;
+
+    setUSDCVault(usdcVault: string, overrides?: Overrides): Promise<BigNumber>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
   };
 
   populateTransaction: {
@@ -1003,6 +1079,10 @@ export class ILendingPoolAddressesProvider extends Contract {
     "getPriceOracle()"(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     setAddress(
       id: BytesLike,
@@ -1115,6 +1195,16 @@ export class ILendingPoolAddressesProvider extends Contract {
 
     "setPriceOracle(address)"(
       priceOracle: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    setUSDCVault(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
   };

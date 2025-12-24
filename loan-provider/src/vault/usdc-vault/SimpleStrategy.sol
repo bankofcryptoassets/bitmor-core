@@ -160,6 +160,21 @@ contract SimpleStrategy is ISimpleStrategy {
         }
     }
 
+    function reallocateAssets(uint256 amountToWithdraw) external {
+        uint256 currentBalanceInVault = ERC20(asset()).balanceOf(i_vault);
+        console2.log("Current balance in vault: ", currentBalanceInVault);
+        _reallocateAssets(amountToWithdraw, currentBalanceInVault);
+
+        // Move funds from vault to BLP for borrowing
+        uint256 vaultBalance = ERC20(asset()).balanceOf(i_vault);
+        if (vaultBalance >= amountToWithdraw) {
+            address token = asset();
+            token.safeTransferFrom(i_vault, address(this), amountToWithdraw);
+            token.safeApprove(address(i_blp), amountToWithdraw);
+            i_blp.deposit(asset(), amountToWithdraw, address(this), REFERRAL_CODE);
+        }
+    }
+
     /// @notice Withdraws specified amount from external protocols proportionally
     /// @dev Withdraws from Aave and BLP to maintain balance
     /// @param totalBalanceToWithdraw The total amount to withdraw from external protocols

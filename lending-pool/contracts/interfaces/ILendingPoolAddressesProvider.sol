@@ -18,6 +18,7 @@ interface ILendingPoolAddressesProvider {
   event LendingPoolCollateralManagerUpdated(address indexed newAddress);
   event PriceOracleUpdated(address indexed newAddress);
   event BitmorLoanUpdated(address indexed bitmorLoan);
+  event USDCVaultUpdated(address indexed newVaultAddress);
   event LendingRateOracleUpdated(address indexed newAddress);
   event ProxyCreated(bytes32 id, address indexed newAddress);
   event AddressSet(bytes32 id, address indexed newAddress, bool hasProxy);
@@ -63,4 +64,8 @@ interface ILendingPoolAddressesProvider {
   function getBitmorLoan() external view returns (address);
 
   function setBitmorLoan(address bitmorLoan) external;
+
+  function getUSDCVault() external view returns (address);
+
+  function setUSDCVault(address usdcVault) external;
 }

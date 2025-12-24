@@ -27,4 +27,6 @@ interface ISimpleStrategy {
     function totalAssets() external view returns (uint256 balance);
 
     function getTotalBalanceInMarkets() external view returns (uint256 balance);
+
+    function reallocateAssets(uint256 amountToWithdraw) external;
 }

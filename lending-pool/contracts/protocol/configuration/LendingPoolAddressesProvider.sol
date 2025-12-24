@@ -31,6 +31,7 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
     bytes32 private constant PRICE_ORACLE = "PRICE_ORACLE";
     bytes32 private constant LENDING_RATE_ORACLE = "LENDING_RATE_ORACLE";
     bytes32 private constant BITMOR_LOAN = "BITMOR_LOAN";
+    bytes32 private constant USDC_VAULT = "USDC_VAULT";  // ← ADD THIS
 
     /**
      * !TODO: Add functions to get btc vault and usdc vault address.
@@ -196,9 +197,18 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
         return getAddress(BITMOR_LOAN);
     }
 
+    function getUSDCVault() external view override returns (address) {
+        return getAddress(USDC_VAULT);
+    }
+
     function setBitmorLoan(address bitmorLoan) external override onlyOwner {
         _addresses[BITMOR_LOAN] = bitmorLoan;
         emit BitmorLoanUpdated(bitmorLoan);
+    }
+
+    function setUSDCVault(address usdcVault) external override onlyOwner {
+        _addresses[USDC_VAULT] = usdcVault;
+        emit USDCVaultUpdated(usdcVault);
     }
 
     /**

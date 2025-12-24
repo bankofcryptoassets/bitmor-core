@@ -185,6 +185,13 @@ interface ILendingPool {
   event LoanAddressUpdated(address indexed newLoanAddress);
 
   /**
+   * @dev Emitted when funds are withdrawn from the vault to fulfill a borrow
+   * @param asset The address of the underlying asset
+   * @param amount The amount withdrawn from the vault
+   */
+  event VaultWithdrawal(address indexed asset, uint256 amount);
+
+  /**
    * @dev Deposits an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
    * - E.g. User deposits 100 USDC and gets in return 100 aUSDC
    * @param asset The address of the underlying asset to deposit

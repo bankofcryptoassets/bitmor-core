@@ -25,6 +25,7 @@ import {ReserveConfiguration} from "../libraries/configuration/ReserveConfigurat
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
+import {IERC4626} from "../../interfaces/IERC4626.sol";
 
 /**
  * @title LendingPool contract
@@ -110,6 +111,11 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
+        
+        // Access Control (Only vault can deposit in BLP)
+        address usdcVaultAddress = _addressesProvider.getUSDCVault();
+        require(msg.sender == usdcVaultAddress, Errors.LP_CALLER_NOT_VAULT);
+
 
         ValidationLogic.validateDeposit(reserve, amount);
 
@@ -817,6 +823,16 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          *  vault.reallocate(vars.amount);
          * }
          */
+
+        address vaultAddress = _addressesProvider.getUSDCVault();
+        if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
+            uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
+
+            if (vars.amount > availableBalance) {
+                IERC4626(vaultAddress).reallocateAssets(vars.amount);
+                emit VaultWithdrawal(vars.asset, vars.amount);
+            }
+        }
 
         /**
          * !TODO: Disable borrowing for vBTC

@@ -267,18 +267,22 @@ contract SimpleVault is ERC4626 {
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         uint256 fee = _feeOnRaw(assets, getExitFee());
 
-        // Transfer exit fee to fee recipient (if fee exists and recipient is not this contract)
-        if (fee > 0 && s_feeRecipient != address(this)) {
-            i_asset.safeTransfer(s_feeRecipient, fee);
-        }
-
         uint256 assetsToTransfer = assets.rawSub(fee);
 
         // Withdraw assets from strategy
         s_strategy.withdraw(assetsToTransfer);
 
+        // Transfer exit fee to fee recipient (if fee exists and recipient is not this contract)
+        if (fee > 0 && s_feeRecipient != address(this)) {
+            i_asset.safeTransfer(s_feeRecipient, fee);
+        }
+
         // Complete the withdrawal process
         super._withdraw(by, to, owner, assetsToTransfer, shares);
+    }
+
+    function reallocateAssets(uint256 amountToWithdraw) external {
+        s_strategy.reallocateAssets(amountToWithdraw);
     }
 
     /// @dev Calculates the fees that should be added to an amount `assets` that does not already include fees.

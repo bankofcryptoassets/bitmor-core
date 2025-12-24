@@ -32,6 +32,7 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
     "getMarketId()": FunctionFragment;
     "getPoolAdmin()": FunctionFragment;
     "getPriceOracle()": FunctionFragment;
+    "getUSDCVault()": FunctionFragment;
     "owner()": FunctionFragment;
     "renounceOwnership()": FunctionFragment;
     "setAddress(bytes32,address)": FunctionFragment;
@@ -45,6 +46,7 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
     "setMarketId(string)": FunctionFragment;
     "setPoolAdmin(address)": FunctionFragment;
     "setPriceOracle(address)": FunctionFragment;
+    "setUSDCVault(address)": FunctionFragment;
     "transferOwnership(address)": FunctionFragment;
   };
 
@@ -86,6 +88,10 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "getPriceOracle",
+    values?: undefined
+  ): string;
+  encodeFunctionData(
+    functionFragment: "getUSDCVault",
     values?: undefined
   ): string;
   encodeFunctionData(functionFragment: "owner", values?: undefined): string;
@@ -135,6 +141,10 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
     values: [string]
   ): string;
   encodeFunctionData(
+    functionFragment: "setUSDCVault",
+    values: [string]
+  ): string;
+  encodeFunctionData(
     functionFragment: "transferOwnership",
     values: [string]
   ): string;
@@ -174,6 +184,10 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(
     functionFragment: "getPriceOracle",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "getUSDCVault",
     data: BytesLike
   ): Result;
   decodeFunctionResult(functionFragment: "owner", data: BytesLike): Result;
@@ -223,6 +237,10 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
     data: BytesLike
   ): Result;
   decodeFunctionResult(
+    functionFragment: "setUSDCVault",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
     functionFragment: "transferOwnership",
     data: BytesLike
   ): Result;
@@ -240,6 +258,7 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
     "OwnershipTransferred(address,address)": EventFragment;
     "PriceOracleUpdated(address)": EventFragment;
     "ProxyCreated(bytes32,address)": EventFragment;
+    "USDCVaultUpdated(address)": EventFragment;
   };
 
   getEvent(nameOrSignatureOrTopic: "AddressSet"): EventFragment;
@@ -258,6 +277,7 @@ interface LendingPoolAddressesProviderInterface extends ethers.utils.Interface {
   getEvent(nameOrSignatureOrTopic: "OwnershipTransferred"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "PriceOracleUpdated"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "ProxyCreated"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "USDCVaultUpdated"): EventFragment;
 }
 
 export class LendingPoolAddressesProvider extends Contract {
@@ -357,6 +377,14 @@ export class LendingPoolAddressesProvider extends Contract {
     }>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<{
+      0: string;
+    }>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<{
       0: string;
     }>;
 
@@ -486,6 +514,16 @@ export class LendingPoolAddressesProvider extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
+    setUSDCVault(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
     transferOwnership(
       newOwner: string,
       overrides?: Overrides
@@ -541,6 +579,10 @@ export class LendingPoolAddressesProvider extends Contract {
   getPriceOracle(overrides?: CallOverrides): Promise<string>;
 
   "getPriceOracle()"(overrides?: CallOverrides): Promise<string>;
+
+  getUSDCVault(overrides?: CallOverrides): Promise<string>;
+
+  "getUSDCVault()"(overrides?: CallOverrides): Promise<string>;
 
   owner(overrides?: CallOverrides): Promise<string>;
 
@@ -664,6 +706,16 @@ export class LendingPoolAddressesProvider extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
+  setUSDCVault(
+    usdcVault: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "setUSDCVault(address)"(
+    usdcVault: string,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
   transferOwnership(
     newOwner: string,
     overrides?: Overrides
@@ -719,6 +771,10 @@ export class LendingPoolAddressesProvider extends Contract {
     getPriceOracle(overrides?: CallOverrides): Promise<string>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<string>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<string>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<string>;
 
     owner(overrides?: CallOverrides): Promise<string>;
 
@@ -830,6 +886,13 @@ export class LendingPoolAddressesProvider extends Contract {
       overrides?: CallOverrides
     ): Promise<void>;
 
+    setUSDCVault(usdcVault: string, overrides?: CallOverrides): Promise<void>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
     transferOwnership(
       newOwner: string,
       overrides?: CallOverrides
@@ -872,6 +935,8 @@ export class LendingPoolAddressesProvider extends Contract {
     PriceOracleUpdated(newAddress: string | null): EventFilter;
 
     ProxyCreated(id: null, newAddress: string | null): EventFilter;
+
+    USDCVaultUpdated(newVaultAddress: string | null): EventFilter;
   };
 
   estimateGas: {
@@ -923,6 +988,10 @@ export class LendingPoolAddressesProvider extends Contract {
     getPriceOracle(overrides?: CallOverrides): Promise<BigNumber>;
 
     "getPriceOracle()"(overrides?: CallOverrides): Promise<BigNumber>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<BigNumber>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<BigNumber>;
 
     owner(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -1037,6 +1106,13 @@ export class LendingPoolAddressesProvider extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
+    setUSDCVault(usdcVault: string, overrides?: Overrides): Promise<BigNumber>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
     transferOwnership(
       newOwner: string,
       overrides?: Overrides
@@ -1112,6 +1188,10 @@ export class LendingPoolAddressesProvider extends Contract {
     "getPriceOracle()"(
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
+
+    getUSDCVault(overrides?: CallOverrides): Promise<PopulatedTransaction>;
+
+    "getUSDCVault()"(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     owner(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
@@ -1232,6 +1312,16 @@ export class LendingPoolAddressesProvider extends Contract {
 
     "setPriceOracle(address)"(
       priceOracle: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    setUSDCVault(
+      usdcVault: string,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "setUSDCVault(address)"(
+      usdcVault: string,
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 

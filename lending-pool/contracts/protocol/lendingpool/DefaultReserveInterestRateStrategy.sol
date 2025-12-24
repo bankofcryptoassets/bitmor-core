@@ -8,6 +8,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
 import {ILendingRateOracle} from "../../interfaces/ILendingRateOracle.sol";
 import {IERC20} from "../../dependencies/openzeppelin/contracts/IERC20.sol";
+import {IERC4626} from "../../interfaces/IERC4626.sol";
 
 /**
  * @title DefaultReserveInterestRateStrategy contract
@@ -126,7 +127,14 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
          * !TODO: Total available liquidity will be required to be fetched from the vault.
          * vault.totalAssets();
          */
-        uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
+        address vaultAddress = addressesProvider.getUSDCVault();
+        uint256 availableLiquidity;
+        // this is for USDC
+        if (vaultAddress != address(0) && reserve == IERC4626(vaultAddress).asset()) {
+            availableLiquidity = IERC4626(vaultAddress).totalAssets();
+        } else { // for now cbbtc kept as default
+            availableLiquidity = IERC20(reserve).balanceOf(aToken);
+        }
         //avoid stack too deep
         availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
 
