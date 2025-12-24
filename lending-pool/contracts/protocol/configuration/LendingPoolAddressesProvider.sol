@@ -31,7 +31,7 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
     bytes32 private constant PRICE_ORACLE = "PRICE_ORACLE";
     bytes32 private constant LENDING_RATE_ORACLE = "LENDING_RATE_ORACLE";
     bytes32 private constant BITMOR_LOAN = "BITMOR_LOAN";
-    bytes32 private constant USDC_VAULT = "USDC_VAULT";  // ← ADD THIS
+    bytes32 private constant USDC_VAULT = "USDC_VAULT";
 
     /**
      * !TODO: Add functions to get btc vault and usdc vault address.
