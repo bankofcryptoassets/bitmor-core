@@ -15,7 +15,7 @@ library LoanMath {
 
     uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
     uint256 private constant MONTHS_PER_YEAR = 12;
-    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 30_00; // 30% as per basis points
+    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 33_00; // 33% as per basis points
     uint256 private constant BASIS_POINTS = 100_00;
 
     /**

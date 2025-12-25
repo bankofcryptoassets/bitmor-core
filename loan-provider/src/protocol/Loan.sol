@@ -101,6 +101,7 @@ contract Loan is LoanStorage, ILoan, Ownable, ReentrancyGuard, IFlashLoanSimpleR
             aavePool: i_AAVE_V3_POOL,
             loanVaultFactory: s_loanVaultFactory,
             premiumCollector: s_premiumCollector,
+            minCollateralAmt: MIN_COLLATERAL_AMOUNT,
             maxCollateralAmt: MAX_COLLATERAL_AMOUNT,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
         });
