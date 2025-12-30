@@ -6,6 +6,8 @@ pragma solidity 0.8.30;
 /// @dev Defines the standard functions that all strategy implementations must provide
 /// @author megabyte0x.eth
 interface ISimpleStrategy {
+    event SimpleStrategy__MinimumDeltaUpdated(uint256 newMinimumDeltaRequired);
+
     /// @notice Returns the address of the underlying asset
     /// @return The address of the ERC20 token managed by this strategy
     function asset() external view returns (address);
@@ -28,5 +30,5 @@ interface ISimpleStrategy {
 
     function getTotalBalanceInMarkets() external view returns (uint256 balance);
 
-    function reallocateAssets(uint256 amountToWithdraw) external;
+    function reallocateAssets() external;
 }

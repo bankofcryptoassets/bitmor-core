@@ -31,6 +31,9 @@ contract SimpleStrategy is ISimpleStrategy {
     /// @notice The vault contract that owns this strategy
     address public immutable i_vault;
 
+    /// @notice Address of the base `asset` from the vault.
+    address public immutable i_asset;
+
     /// @notice Referral code for Aave deposits (0 = no referral)
     uint16 internal constant REFERRAL_CODE = 0;
 
@@ -40,6 +43,9 @@ contract SimpleStrategy is ISimpleStrategy {
     /// @notice Scale factor for percentage calculations (100%)
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
+    /// @notice Minimum Delta required for reallocation of assets, expressed in basis points.
+    uint256 private s_minimumDeltaRequired;
+
     /// @notice Initializes the strategy with required protocol addresses
     /// @param vault_ The address of the vault that will use this strategy
     /// @param aave_ The address of the Aave lending pool
@@ -48,70 +54,65 @@ contract SimpleStrategy is ISimpleStrategy {
         i_aave = IAave(aave_);
         i_blp = IBLP(blp_);
         i_vault = vault_;
+
+        bytes memory data = i_vault.functionStaticCall(abi.encodeWithSignature("i_asset"));
+
+        i_asset = abi.decode(data, (address));
     }
 
-    /// @notice Returns the underlying asset address by querying the vault
-    /// @dev Uses OpenZeppelin's Address library for safe static calls
+    function updateMinimumDeltarRequired(uint256 newMinimumDeltaRequired) external {
+        s_minimumDeltaRequired = newMinimumDeltaRequired;
+
+        emit SimpleStrategy__MinimumDeltaUpdated(newMinimumDeltaRequired);
+    }
+
+    /// @notice Returns the underlying asset address.
     /// @return assetAddress The address of the underlying ERC20 asset
     function asset() public view returns (address assetAddress) {
-        bytes memory data = i_vault.functionStaticCall(abi.encodeWithSignature("asset()"));
-
-        assetAddress = abi.decode(data, (address));
+        return i_asset;
     }
 
     /// @notice Returns the total assets under management across all positions
     /// @dev Sums vault balance and deployed assets in external protocols
     /// @return totalBalance The total amount of assets managed by this strategy
     function totalAssets() public view returns (uint256 totalBalance) {
-        uint256 balanceInVault = ERC20(asset()).balanceOf(i_vault);
-
-        uint256 totalBalanceInDifferentMarkets = getTotalBalanceInMarkets();
-
-        totalBalance = balanceInVault + totalBalanceInDifferentMarkets;
+        totalBalance = getTotalBalanceInMarkets();
     }
 
     /// @notice Supplies assets to external protocols according to strategy allocation
     /// @dev Deploys 100% of amount in 4:1 ratio between Aave and BLP respectively
     /// @param amount The total amount of assets to be deployed
     function supply(uint256 amount) external {
-        address token = asset();
-
         // Transfer assets from vault to strategy
-        token.safeTransferFrom(i_vault, address(this), amount);
+        i_asset.safeTransferFrom(i_vault, address(this), amount);
 
         // Split 80% Aave and 20% Bitmor Lending Pool
         uint256 amountToDepositInAave = amount.mulDiv(AAVE_ALLOCATION, BASIS_POINT_SCALE);
         uint256 amountToDepositInBLP = amount.rawSub(amountToDepositInAave);
 
         // Supply to Aave
-        token.safeApprove(address(i_aave), amountToDepositInAave);
-        i_aave.supply(asset(), amountToDepositInAave, address(this), REFERRAL_CODE);
+        i_asset.safeApprove(address(i_aave), amountToDepositInAave);
+        i_aave.supply(i_asset, amountToDepositInAave, address(this), REFERRAL_CODE);
 
         // Supply to BLP
-        token.safeApprove(address(i_blp), amountToDepositInBLP);
-        i_blp.deposit(asset(), amountToDepositInBLP, address(this), REFERRAL_CODE);
+        i_asset.safeApprove(address(i_blp), amountToDepositInBLP);
+        i_blp.deposit(i_asset, amountToDepositInBLP, address(this), REFERRAL_CODE);
     }
 
-    /// @notice Withdraws the requested amount by reallocating assets if necessary
-    /// @dev If vault doesn't have enough balance, triggers reallocation from external protocols
-    /// @param amount The amount of assets to make available for withdrawal
+    /// @notice Withdraws the requested amount from AAVE and deposit in BLP.
+    /// @param amount The amount of assets to make available for withdrawal in BLP.
     function withdraw(uint256 amount) external {
-        //! TODO: Remove debug console logs before production
-        console2.log("amount to withdraw: ", amount);
-
-        uint256 currentBalanceInVault = ERC20(asset()).balanceOf(i_vault);
-        console2.log("Current balance in vault: ", currentBalanceInVault);
-
-        // Reallocate assets if vault doesn't have sufficient balance
-        if (amount > currentBalanceInVault) {
-            _reallocateAssets(amount, currentBalanceInVault);
-        }
+        _withdrawFunds(amount);
     }
 
-    /// @notice Withdraws all funds from external protocols back to the vault
+    function reallocateAssets() external {
+        _reallocateAssets();
+    }
+
+    /// @notice Withdraws all funds from AAVE back to the BLP
     /// @dev Called when strategy is being replaced or vault needs to liquidate all positions
     function withdrawFunds() external {
-        _withdrawFunds();
+        _withdrawAllFunds();
     }
 
     /// @notice Returns the total balance deployed across external protocols
@@ -125,7 +126,7 @@ contract SimpleStrategy is ISimpleStrategy {
     /// @dev Queries the aToken balance which represents deposits in Aave
     /// @return balance The amount of assets deposited in Aave
     function _getBalanceInAave() internal view returns (uint256 balance) {
-        address aToken = IAave(i_aave).getReserveAToken(asset());
+        address aToken = IAave(i_aave).getReserveAToken(i_asset);
         balance = ERC20(aToken).balanceOf(address(this));
     }
 
@@ -133,75 +134,73 @@ contract SimpleStrategy is ISimpleStrategy {
     /// @dev Queries the aToken balance from BLP reserve data
     /// @return balance The amount of assets deposited in BLP
     function _getBalanceInBLP() internal view returns (uint256 balance) {
-        DataTypes.ReserveData memory reserveData = i_blp.getReserveData(asset());
+        DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
         address aToken = reserveData.aTokenAddress;
         balance = ERC20(aToken).balanceOf(address(this));
     }
 
-    /// @notice Reallocates assets from external protocols to meet withdrawal requirements
-    /// @dev Withdraws from protocols to meet withdrawal requirements
-    /// @param amountToWithdraw The amount that needs to be withdrawn
-    /// @param currentBalanceInVault The current balance available in the vault
-    function _reallocateAssets(uint256 amountToWithdraw, uint256 currentBalanceInVault) internal {
-        uint256 totalBalance = totalAssets();
+    /// @notice Reallocates assets between Aave and BLP.
+    function _reallocateAssets() internal {
+        uint256 currentBalanceInAave = _getBalanceInAave();
+        uint256 targetBalanceInAave = totalAssets().mulDiv(AAVE_ALLOCATION, BASIS_POINT_SCALE);
 
-        //! TODO: Remove debug console logs before production
-        console2.log("total balance: ", totalBalance);
+        if (targetBalanceInAave >= currentBalanceInAave) {
+            uint256 delta = targetBalanceInAave.rawSub(currentBalanceInAave);
 
-        uint256 totalBalanceAfter = totalBalance.rawSub(amountToWithdraw);
-        console2.log("total balance after: ", totalBalanceAfter);
+            uint256 deltaPercentage = delta.mulDiv(BASIS_POINT_SCALE, targetBalanceInAave);
 
-        // If remaining balance is too small, withdraw everything
-        if (totalBalanceAfter < _singleUnitAsset()) {
-            _withdrawFunds();
-        } else {
-            uint256 amountNeededFromProtocols = amountToWithdraw.rawSub(currentBalanceInVault);
-            _reallocate(amountNeededFromProtocols);
+            if (deltaPercentage >= s_minimumDeltaRequired) {
+                _withdrawFomBLPAndDepositInAAVE(delta);
+            }
+        } else if (targetBalanceInAave < currentBalanceInAave) {
+            uint256 delta = currentBalanceInAave.rawSub(targetBalanceInAave);
+
+            uint256 deltaPercentage = delta.mulDiv(BASIS_POINT_SCALE, targetBalanceInAave);
+
+            if (deltaPercentage >= s_minimumDeltaRequired) {
+                _withdrawFomAaveAndDepositInBLP(delta);
+            }
         }
     }
 
-    function reallocateAssets(uint256 amountToWithdraw) external {
-        uint256 currentBalanceInVault = ERC20(asset()).balanceOf(i_vault);
-        console2.log("Current balance in vault: ", currentBalanceInVault);
-        _reallocateAssets(amountToWithdraw, currentBalanceInVault);
-
-        // Move funds from vault to BLP for borrowing
-        uint256 vaultBalance = ERC20(asset()).balanceOf(i_vault);
-        if (vaultBalance >= amountToWithdraw) {
-            address token = asset();
-            token.safeTransferFrom(i_vault, address(this), amountToWithdraw);
-            token.safeApprove(address(i_blp), amountToWithdraw);
-            i_blp.deposit(asset(), amountToWithdraw, address(this), REFERRAL_CODE);
-        }
-    }
-
-    /// @notice Withdraws specified amount from external protocols proportionally
-    /// @dev Withdraws from Aave and BLP to maintain balance
-    /// @param totalBalanceToWithdraw The total amount to withdraw from external protocols
-    function _reallocate(uint256 totalBalanceToWithdraw) internal {
-        uint256 balanceToWithdrawFromAave = totalBalanceToWithdraw.mulDiv(AAVE_ALLOCATION, BASIS_POINT_SCALE);
-
-        // Withdraw proportional amount from Aave directly to vault
-        i_aave.withdraw(asset(), balanceToWithdrawFromAave, i_vault);
-
-        // Withdraw remaining from BLP directly to vault
-        i_blp.withdraw(asset(), totalBalanceToWithdraw - balanceToWithdrawFromAave, i_vault);
-    }
-
-    /// @notice Internal function to withdraw all funds from external protocols
-    /// @dev Withdraws entire balance from both Aave and BLP back to vault
-    function _withdrawFunds() internal {
+    /// @notice Internal function to withdraw all funds from Aave to BLP
+    function _withdrawAllFunds() internal {
         // Withdraw all from Aave directly to vault
-        i_aave.withdraw(asset(), _getBalanceInAave(), i_vault);
+        _withdrawFomAaveAndDepositInBLP(_getBalanceInAave());
+    }
 
-        // Withdraw all from BLP directly to vault
-        i_blp.withdraw(asset(), _getBalanceInBLP(), i_vault);
+    /**
+     * @notice Calculates, withdraws and deposit the amount required to be present in BLP from AAVE to meet the standard ratio.
+     * @param amountToTransfer Amount to transfer to the user from the BLP.
+     */
+    function _withdrawFunds(uint256 amountToTransfer) internal {
+        uint256 totalBalance = getTotalBalanceInMarkets();
+        uint256 totalBalanceAfter = totalBalance.rawSub(amountToTransfer);
+        uint256 targetBLPAssetsAfter =
+            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(AAVE_ALLOCATION), BASIS_POINT_SCALE);
+        uint256 amountToWithdrawFromAave = targetBLPAssetsAfter + amountToTransfer - _getBalanceInBLP();
+
+        _withdrawFomAaveAndDepositInBLP(amountToWithdrawFromAave);
+    }
+
+    function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
+        uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
+
+        i_asset.safeApprove(address(i_blp), finalAmountWithdrawn);
+        i_blp.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
+    }
+
+    function _withdrawFomBLPAndDepositInAAVE(uint256 amountToWithdrawFromBLP) internal {
+        uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
+
+        i_asset.safeApprove(address(i_aave), finalAmountWithdrawn);
+        i_aave.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }
 
     /// @notice Returns one unit of the underlying asset (1.0 in asset's decimal precision)
     /// @dev Used as a threshold for determining when to withdraw all funds
     /// @return One unit of the asset (e.g., 1e6 for USDC)
     function _singleUnitAsset() internal view returns (uint256) {
-        return 1 * 10 ** ERC20(asset()).decimals();
+        return 1 * 10 ** ERC20(i_asset).decimals();
     }
 }

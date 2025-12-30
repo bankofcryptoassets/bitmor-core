@@ -211,12 +211,10 @@ library Clones {
      * NOTE: Using a non-zero value at creation will require the contract using this function (e.g. a factory)
      * to always have enough balance for new deployments. Consider exposing this function under a payable method.
      */
-    function cloneDeterministicWithImmutableArgs(
-        address implementation,
-        bytes memory args,
-        bytes32 salt,
-        uint256 value
-    ) internal returns (address instance) {
+    function cloneDeterministicWithImmutableArgs(address implementation, bytes memory args, bytes32 salt, uint256 value)
+        internal
+        returns (address instance)
+    {
         bytes memory bytecode = _cloneCodeWithImmutableArgs(implementation, args);
         return Create2.deploy(value, salt, bytecode);
     }

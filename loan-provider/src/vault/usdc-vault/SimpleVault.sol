@@ -281,8 +281,8 @@ contract SimpleVault is ERC4626 {
         super._withdraw(by, to, owner, assetsToTransfer, shares);
     }
 
-    function reallocateAssets(uint256 amountToWithdraw) external {
-        s_strategy.reallocateAssets(amountToWithdraw);
+    function reallocateAssets() external {
+        s_strategy.reallocateAssets();
     }
 
     /// @dev Calculates the fees that should be added to an amount `assets` that does not already include fees.
