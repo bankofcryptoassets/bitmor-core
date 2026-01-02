@@ -25,7 +25,7 @@ import {ReserveConfiguration} from "../libraries/configuration/ReserveConfigurat
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
-import {IERC4626} from "../../interfaces/IERC4626.sol";
+import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
 /**
  * @title LendingPool contract
@@ -111,11 +111,10 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
-        
+
         // Access Control (Only vault can deposit in BLP)
         address usdcVaultAddress = _addressesProvider.getUSDCVault();
         require(msg.sender == usdcVaultAddress, Errors.LP_CALLER_NOT_VAULT);
-
 
         ValidationLogic.validateDeposit(reserve, amount);
 
@@ -502,10 +501,12 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
 
             if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) {
                 _reserves[vars.currentAsset].updateState();
-                _reserves[vars.currentAsset]
-                .cumulateToLiquidityIndex(IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium);
-                _reserves[vars.currentAsset]
-                .updateInterestRates(vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0);
+                _reserves[vars.currentAsset].cumulateToLiquidityIndex(
+                    IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium
+                );
+                _reserves[vars.currentAsset].updateInterestRates(
+                    vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0
+                );
 
                 IERC20(vars.currentAsset)
                     .safeTransferFrom(receiverAddress, vars.currentATokenAddress, vars.currentAmountPlusPremium);
@@ -825,12 +826,11 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          */
 
         address vaultAddress = _addressesProvider.getUSDCVault();
-        if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
+        if (vaultAddress != address(0) && vars.asset == IUSDCVault(vaultAddress).asset() && vars.releaseUnderlying) {
             uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
 
             if (vars.amount > availableBalance) {
-                IERC4626(vaultAddress).reallocateAssets(vars.amount);
-                emit VaultWithdrawal(vars.asset, vars.amount);
+                IUSDCVault(vaultAddress).reallocateAssets(vars.amount);
             }
         }
 

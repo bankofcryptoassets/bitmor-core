@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-/**
- * @title IERC4626
- * @notice Interface for ERC4626 vault standard
- * @dev Minimal interface containing only the methods needed for BLP integration
- */
-interface IERC4626 {
+interface IUSDCVault {
     /**
      * @notice Returns the total amount of underlying assets held by the vault
      * @return Total assets managed by the vault (in vault + deployed to protocols)
@@ -18,6 +13,6 @@ interface IERC4626 {
      * @return Address of the underlying asset (USDC)
      */
     function asset() external view returns (address);
-    
+
     function reallocateAssets(uint256 amountToWithdraw) external;
 }

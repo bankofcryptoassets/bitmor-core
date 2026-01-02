@@ -16,13 +16,15 @@ interface ISimpleStrategy {
     /// @param amount The amount of assets to be deployed
     function supply(uint256 amount) external;
 
-    /// @notice Withdraws assets from external protocols to meet withdrawal demands
-    /// @param amount The amount of assets that need to be made available
+    /**
+     * @notice Withdraw funds from the AAVE and BLP according to the supply ratio.
+     * @param amount The amount of assets that need to be made available
+     */
     function withdraw(uint256 amount) external;
 
     /// @notice Withdraws all funds from external protocols back to the vault
     /// @dev Called when strategy is being replaced or vault needs full liquidity
-    function withdrawFunds() external;
+    function withdrawAllFunds() external;
 
     /// @notice Returns the total assets under management across all positions
     /// @return balance The total amount of assets managed by this strategy
@@ -31,4 +33,8 @@ interface ISimpleStrategy {
     function getTotalBalanceInMarkets() external view returns (uint256 balance);
 
     function reallocateAssets() external;
+
+    function reallocateAssets(uint256 amountToWithdraw) external;
+
+    function updateMinimumDeltaRequired(uint256 newMinimumDeltarRequired) external;
 }

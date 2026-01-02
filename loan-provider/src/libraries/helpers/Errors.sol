@@ -28,4 +28,8 @@ library Errors {
 
     /// @notice Thrown when deposit amount is below the minimum required threshold
     error MinimumAssetRequired();
+
+    error CannotWithdrawFunds();
+
+    error InsufficientBalance();
 }
