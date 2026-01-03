@@ -1,4 +1,4 @@
-import { tEthereumAddress } from './types';
+import { tEthereumAddress } from './types.js';
 import { MockAggregator } from '../types/MockAggregator';
 import { MockTokenMap } from './contracts-helpers';
 

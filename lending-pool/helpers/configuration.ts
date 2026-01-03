@@ -1,11 +1,12 @@
-import {
-  AavePools,
+import { AavePools } from './types.js';
+import type {
   iMultiPoolsAssets,
   IReserveParams,
   PoolConfiguration,
   eNetwork,
   IBaseConfiguration,
-} from './types';
+  tEthereumAddress,
+} from './types.js';
 import { getEthersSignersAddresses, getParamPerPool } from './contracts-helpers';
 import AaveConfig from '../markets/aave';
 import MaticConfig from '../markets/matic';
@@ -15,9 +16,8 @@ import BitmorConfig from '../markets/bitmor';
 
 import { CommonsConfig } from '../markets/aave/commons';
 import { DRE, filterMapBy } from './misc-utils';
-import { tEthereumAddress } from './types';
 import { getParamPerNetwork } from './contracts-helpers';
-import { deployWETHMocked } from './contracts-deployments';
+// import { deployWETHMocked } from './contracts-deployments'; // Removed to break circular dependency
 
 export enum ConfigNames {
   Commons = 'Commons',
@@ -117,8 +117,9 @@ export const getWethAddress = async (config: IBaseConfiguration) => {
   if (currentNetwork.includes('main')) {
     throw new Error('WETH not set at mainnet configuration.');
   }
-  const weth = await deployWETHMocked();
-  return weth.address;
+  // const weth = await deployWETHMocked(); // Commented to break circular dependency
+  // return weth.address;
+  throw new Error('WETH address must be configured - auto-deployment removed to break circular dependency');
 };
 
 export const getWrappedNativeTokenAddress = async (config: IBaseConfiguration) => {
@@ -130,8 +131,9 @@ export const getWrappedNativeTokenAddress = async (config: IBaseConfiguration) =
   if (currentNetwork.includes('main')) {
     throw new Error('WETH not set at mainnet configuration.');
   }
-  const weth = await deployWETHMocked();
-  return weth.address;
+  // const weth = await deployWETHMocked(); // Commented to break circular dependency
+  // return weth.address;
+  throw new Error('WETH address must be configured - auto-deployment removed to break circular dependency');
 };
 
 export const getLendingRateOracles = (poolConfig: IBaseConfiguration) => {

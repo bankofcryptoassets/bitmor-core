@@ -4,7 +4,7 @@ import {
   iMultiPoolsAssets,
   IReserveParams,
   tEthereumAddress,
-} from './types';
+} from './types.js';
 import { AaveProtocolDataProvider } from '../types/AaveProtocolDataProvider';
 import { chunk, getDb, waitForTx } from './misc-utils';
 import {

@@ -1,37 +1,41 @@
-import { Contract, Signer, utils, ethers, BigNumberish } from 'ethers';
+import { ethers, AbiCoder, parseUnits } from 'ethers';
+import type { Contract, Signer, BigNumberish } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
 import BigNumber from 'bignumber.js';
 import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils';
 import {
-  tEthereumAddress,
   eContractid,
-  tStringTokenSmallUnits,
   eEthereumNetwork,
   AavePools,
-  iParamsPerNetwork,
-  iParamsPerPool,
   ePolygonNetwork,
   eXDaiNetwork,
+  eAvalancheNetwork,
+  eBaseNetwork,
+} from './types.js';
+import type {
+  tEthereumAddress,
+  tStringTokenSmallUnits,
+  iParamsPerNetwork,
+  iParamsPerPool,
   eNetwork,
   iEthereumParamsPerNetwork,
   iPolygonParamsPerNetwork,
   iXDaiParamsPerNetwork,
   iAvalancheParamsPerNetwork,
-  eAvalancheNetwork,
-  eBaseNetwork,
   iBaseParamsPerNetwork,
-} from './types';
-import { MintableERC20 } from '../types/MintableERC20';
+} from './types.js';
+import type { MintableERC20 } from '../types/ethers-contracts/index.js';
 import { Artifact } from 'hardhat/types';
-import { Artifact as BuidlerArtifact } from '@nomiclabs/buidler/types';
 import { verifyEtherscanContract } from './etherscan-verification';
-import { getFirstSigner, getIErc20Detailed } from './contracts-getters';
+import { getIErc20Detailed } from './contracts-getters';
 import { usingTenderly, verifyAtTenderly } from './tenderly-utils';
 import { usingPolygon, verifyAtPolygon } from './polygon-utils';
 import { ConfigNames, loadPoolConfig } from './configuration';
 import { ZERO_ADDRESS } from './constants';
 import { getDefenderRelaySigner, usingDefender } from './defender-utils';
+
+const utils = { defaultAbiCoder: AbiCoder.defaultAbiCoder(), parseUnits };
 
 export type MockTokenMap = { [symbol: string]: MintableERC20 };
 
@@ -85,6 +89,8 @@ export const getEthersSigners = async (): Promise<Signer[]> => {
 export const getEthersSignersAddresses = async (): Promise<tEthereumAddress[]> =>
   await Promise.all((await getEthersSigners()).map((signer) => signer.getAddress()));
 
+export const getFirstSigner = async () => (await getEthersSigners())[0];
+
 export const getCurrentBlock = async () => {
   return DRE.ethers.provider.getBlockNumber();
 };
@@ -123,7 +129,7 @@ export const getContract = async <ContractType extends Contract>(
   address: string
 ): Promise<ContractType> => (await DRE.ethers.getContractAt(contractName, address)) as ContractType;
 
-export const linkBytecode = (artifact: BuidlerArtifact | Artifact, libraries: any) => {
+export const linkBytecode = (artifact: Artifact, libraries: any) => {
   let bytecode = artifact.bytecode;
 
   for (const [fileName, fileReferences] of Object.entries(artifact.linkReferences)) {
@@ -223,7 +229,7 @@ export const convertToCurrencyDecimals = async (tokenAddress: tEthereumAddress, 
   const token = await getIErc20Detailed(tokenAddress);
   let decimals = (await token.decimals()).toString();
 
-  return ethers.utils.parseUnits(amount, decimals);
+  return utils.parseUnits(amount, decimals);
 };
 
 export const convertToCurrencyUnits = async (tokenAddress: string, amount: string) => {
@@ -297,7 +303,7 @@ export const buildLiquiditySwapParams = (
   s: (string | Buffer)[],
   useEthPath: boolean[]
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     [
       'address[]',
       'uint256[]',
@@ -334,7 +340,7 @@ export const buildRepayAdapterParams = (
   s: string | Buffer,
   useEthPath: boolean
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint8', 'bytes32', 'bytes32', 'bool'],
     [collateralAsset, collateralAmount, rateMode, permitAmount, deadline, v, r, s, useEthPath]
   );
@@ -347,7 +353,7 @@ export const buildFlashLiquidationAdapterParams = (
   debtToCover: BigNumberish,
   useEthPath: boolean
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     ['address', 'address', 'address', 'uint256', 'bool'],
     [collateralAsset, debtAsset, user, debtToCover, useEthPath]
   );
@@ -365,7 +371,7 @@ export const buildParaSwapLiquiditySwapParams = (
   r: string | Buffer,
   s: string | Buffer
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     [
       'address',
       'uint256',

@@ -1,6 +1,5 @@
 import { formatEther } from '@ethersproject/units';
-import { DefenderRelaySigner, DefenderRelayProvider } from 'defender-relay-client/lib/ethers';
-import { Signer } from 'ethers';
+import type { Signer } from 'ethers';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { DRE, impersonateAccountsHardhat } from './misc-utils';
 import { usingTenderly } from './tenderly-utils';
@@ -14,6 +13,9 @@ export const getDefenderRelaySigner = async () => {
   if (!DEFENDER_API_KEY || !DEFENDER_SECRET_KEY) {
     throw new Error('Defender secrets required');
   }
+
+  // Lazy load defender packages only when needed
+  const { DefenderRelaySigner, DefenderRelayProvider } = await import('defender-relay-client/lib/ethers');
 
   const credentials = { apiKey: DEFENDER_API_KEY, apiSecret: DEFENDER_SECRET_KEY };
 

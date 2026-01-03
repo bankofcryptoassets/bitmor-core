@@ -5,10 +5,10 @@ import {
   iAssetBase,
   iAssetAggregatorBase,
   SymbolMap,
-} from './types';
+} from './types.js';
 
 import { LendingRateOracle } from '../types/LendingRateOracle';
-import { PriceOracle } from '../types/PriceOracle';
+import { PriceOracle } from '../types/PriceOracle.js';
 import { MockAggregator } from '../types/MockAggregator';
 import { deployMockAggregator } from './contracts-deployments';
 import { chunk, waitForTx } from './misc-utils';
@@ -75,6 +75,13 @@ export const setInitialAssetPricesInOracle = async (
     const assetAddressIndex = Object.keys(assetsAddresses).findIndex(
       (value) => value === assetSymbol
     );
+
+    // Skip if asset not found in assetsAddresses
+    if (assetAddressIndex === -1) {
+      console.log(`Skipping price for ${assetSymbol} - not in assetsAddresses`);
+      continue;
+    }
+
     const [, assetAddress] = (Object.entries(assetsAddresses) as [string, string][])[
       assetAddressIndex
     ];

@@ -1,16 +1,14 @@
 import BigNumber from 'bignumber.js';
-import BN = require('bn.js');
+import BN from 'bn.js';
 import low from 'lowdb';
 import FileSync from 'lowdb/adapters/FileSync';
 import { WAD } from './constants';
-import { Wallet, ContractTransaction } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { BuidlerRuntimeEnvironment } from '@nomiclabs/buidler/types';
-import { tEthereumAddress } from './types';
-import { isAddress } from 'ethers/lib/utils';
+import { Wallet, isAddress } from 'ethers';
+import type { ContractTransaction } from 'ethers';
+import type { tEthereumAddress, SignerWithAddress } from './types.js';
 import { isZeroAddress } from 'ethereumjs-util';
-import { SignerWithAddress } from '../test-suites/test-aave/helpers/make-suite';
 import { usingTenderly } from './tenderly-utils';
+import { DRE, setDRE } from './dre';
 
 export const toWad = (value: string | number) => new BigNumber(value).times(WAD).toFixed();
 
@@ -19,11 +17,8 @@ export const stringToBigNumber = (amount: string): BigNumber => new BigNumber(am
 
 export const getDb = () => low(new FileSync('./deployed-contracts.json'));
 
-export let DRE: HardhatRuntimeEnvironment | BuidlerRuntimeEnvironment;
-
-export const setDRE = (_DRE: HardhatRuntimeEnvironment | BuidlerRuntimeEnvironment) => {
-  DRE = _DRE;
-};
+// Re-export DRE for backward compatibility
+export { DRE, setDRE };
 
 export const sleep = (milliseconds: number) => {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));

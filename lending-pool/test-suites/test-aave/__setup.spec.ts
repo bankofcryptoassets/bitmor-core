@@ -1,5 +1,5 @@
-import rawBRE from 'hardhat';
-import { MockContract } from 'ethereum-waffle';
+import hre from 'hardhat';
+import type { MockContract } from 'ethereum-waffle';
 import {
   insertContractAddressInDb,
   getEthersSigners,
@@ -33,9 +33,10 @@ import {
   deployATokenImplementations,
   deployAaveOracle,
 } from '../../helpers/contracts-deployments';
-import { Signer } from 'ethers';
-import { TokenContractId, eContractid, tEthereumAddress, AavePools } from '../../helpers/types';
-import { MintableERC20 } from '../../types/MintableERC20';
+import type { Signer } from 'ethers';
+import { TokenContractId, eContractid, AavePools } from '../../helpers/types.js';
+import type { tEthereumAddress } from '../../helpers/types.js';
+import type { MintableERC20, WETH9Mocked } from '../../types/ethers-contracts/index.js';
 import {
   ConfigNames,
   getReservesConfigByPool,
@@ -49,7 +50,7 @@ import {
   deployAllMockAggregators,
   setInitialMarketRatesInRatesOracleByHelper,
 } from '../../helpers/oracles-helpers';
-import { DRE, waitForTx } from '../../helpers/misc-utils';
+import { DRE, waitForTx, setDRE } from '../../helpers/misc-utils';
 import { initReservesByHelper, configureReservesByHelper } from '../../helpers/init-helpers';
 import AaveConfig from '../../markets/aave';
 import { oneEther, ZERO_ADDRESS } from '../../helpers/constants';
@@ -58,7 +59,6 @@ import {
   getLendingPoolConfiguratorProxy,
   getPairsTokenAggregator,
 } from '../../helpers/contracts-getters';
-import { WETH9Mocked } from '../../types/WETH9Mocked';
 
 const MOCK_USD_PRICE_IN_WEI = AaveConfig.ProtocolGlobalParams.MockUsdPriceInWei;
 const ALL_ASSETS_INITIAL_PRICES = AaveConfig.Mocks.AllAssetsInitialPrices;
@@ -78,7 +78,7 @@ const deployAllMockTokens = async (deployer: Signer) => {
     }
     let decimals = 18;
 
-    let configData = (<any>protoConfigData)[tokenSymbol];
+    let configData = (protoConfigData as any)[tokenSymbol];
 
     if (!configData) {
       decimals = 18;
@@ -312,12 +312,18 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
 };
 
 before(async () => {
-  await rawBRE.run('set-DRE');
+  const { ethers } = await hre.network.connect();
+
+  // Set DRE directly instead of using hre.run()
+  setDRE(hre);
+  console.log('  - Network :', hre.network.name);
+
   const [deployer, secondaryWallet] = await getEthersSigners();
   const FORK = process.env.FORK;
 
   if (FORK) {
-    await rawBRE.run('aave:mainnet', { skipRegistry: true });
+    // TODO: Need to migrate aave:mainnet task to Hardhat 3
+    throw new Error('Fork mode not yet supported in Hardhat 3 migration');
   } else {
     console.log('-> Deploying test environment...');
     await buildTestEnv(deployer, secondaryWallet);

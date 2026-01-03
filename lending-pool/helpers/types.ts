@@ -586,3 +586,8 @@ export interface ITokenAddress {
 }
 
 export type PoolConfiguration = ICommonConfiguration | IAaveConfiguration;
+
+export interface SignerWithAddress {
+  signer: Signer;
+  address: tEthereumAddress;
+}
