@@ -13,6 +13,7 @@ import { MockAggregator } from '../types/MockAggregator';
 import { deployMockAggregator } from './contracts-deployments';
 import { chunk, waitForTx } from './misc-utils';
 import { getStableAndVariableTokensHelper } from './contracts-getters';
+import { getContractAddress } from './contracts-helpers';
 
 export const setInitialMarketRatesInRatesOracleByHelper = async (
   marketRates: iMultiPoolsAssets<IMarketRates>,
@@ -46,7 +47,7 @@ export const setInitialMarketRatesInRatesOracleByHelper = async (
 
   // Set helper as owner
   await waitForTx(
-    await lendingRateOracleInstance.transferOwnership(stableAndVariableTokenHelper.address)
+    await lendingRateOracleInstance.transferOwnership(getContractAddress(stableAndVariableTokenHelper))
   );
 
   console.log(`- Oracle borrow initalization in ${chunkedTokens.length} txs`);
@@ -55,14 +56,14 @@ export const setInitialMarketRatesInRatesOracleByHelper = async (
       await stableAndVariableTokenHelper.setOracleBorrowRates(
         chunkedTokens[chunkIndex],
         chunkedRates[chunkIndex],
-        lendingRateOracleInstance.address
+        getContractAddress(lendingRateOracleInstance)
       )
     );
     console.log(`  - Setted Oracle Borrow Rates for: ${chunkedSymbols[chunkIndex].join(', ')}`);
   }
   // Set back ownership
   await waitForTx(
-    await stableAndVariableTokenHelper.setOracleOwnership(lendingRateOracleInstance.address, admin)
+    await stableAndVariableTokenHelper.setOracleOwnership(getContractAddress(lendingRateOracleInstance), admin)
   );
 };
 
@@ -130,7 +131,7 @@ export const deployAllMockAggregators = async (
         (value) => value === tokenContractName
       );
       const [, price] = (Object.entries(initialPrices) as [string, string][])[priceIndex];
-      aggregators[tokenContractName] = (await deployMockAggregator(price, verify)).address;
+      aggregators[tokenContractName] = getContractAddress(await deployMockAggregator(price, verify));
     }
   }
   return aggregators;

@@ -765,9 +765,9 @@ export const deployRateStrategy = async (
 ): Promise<tEthereumAddress> => {
   switch (strategyName) {
     default:
-      return await (
+      return getContractAddress(
         await deployDefaultReserveInterestRateStrategy(args, verify)
-      ).address;
+      );
   }
 };
 export const deployMockParaSwapAugustus = async (verify?: boolean) =>

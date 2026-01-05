@@ -213,6 +213,9 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
       return base;
     case eBaseNetwork.sepolia:
       return sepolia;
+    default:
+      // For unknown networks (like "default" in Hardhat 3), treat as local dev network
+      return buidlerevm;
   }
 };
 

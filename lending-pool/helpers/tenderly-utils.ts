@@ -4,7 +4,7 @@ import { DRE } from './dre.js';
 
 export const usingTenderly = () =>
   DRE &&
-  ((DRE as HardhatRuntimeEnvironment).network.name.includes('tenderly') ||
+  ((DRE as HardhatRuntimeEnvironment).network.networkName?.includes('tenderly') ||
     process.env.TENDERLY === 'true');
 
 export const verifyAtTenderly = async (id: string, instance: Contract) => {

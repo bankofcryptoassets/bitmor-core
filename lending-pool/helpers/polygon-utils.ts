@@ -10,7 +10,7 @@ const TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS = 'compile:solidity:get-source-path
 /* Polygon Helpers */
 
 export const usingPolygon = () =>
-  DRE && Object.keys(ePolygonNetwork).includes((DRE as HardhatRuntimeEnvironment).network.name);
+  DRE && Object.keys(ePolygonNetwork).includes((DRE as HardhatRuntimeEnvironment).network.networkName);
 
 /* Polygon Verifier */
 
@@ -74,7 +74,7 @@ export const verifyAtPolygon = async (
     &optimization={false}
     &contractSourceCode={contractSourceCode}
   */
-  const network = (DRE as HardhatRuntimeEnvironment).network.name;
+  const network = (DRE as HardhatRuntimeEnvironment).network.networkName;
   const net = network === EthereumNetworkNames.matic ? 'mainnet' : network;
   const filePath = await findPath(id);
   const encodedConstructorParams = encodeDeployParams(instance, args);
