@@ -237,6 +237,7 @@ interface ILendingPoolInterface extends ethers.utils.Interface {
     "ReserveUsedAsCollateralEnabled(address,address)": EventFragment;
     "Swap(address,address,uint256)": EventFragment;
     "Unpaused()": EventFragment;
+    "VaultWithdrawal(address,uint256)": EventFragment;
     "Withdraw(address,address,address,uint256)": EventFragment;
   };
 
@@ -257,6 +258,7 @@ interface ILendingPoolInterface extends ethers.utils.Interface {
   ): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Swap"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Unpaused"): EventFragment;
+  getEvent(nameOrSignatureOrTopic: "VaultWithdrawal"): EventFragment;
   getEvent(nameOrSignatureOrTopic: "Withdraw"): EventFragment;
 }
 
@@ -1487,6 +1489,8 @@ export class ILendingPool extends Contract {
     ): EventFilter;
 
     Unpaused(): EventFilter;
+
+    VaultWithdrawal(asset: string | null, amount: null): EventFilter;
 
     Withdraw(
       reserve: string | null,

@@ -183,6 +183,19 @@ const _abi = [
     type: "event",
   },
   {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newVaultAddress",
+        type: "address",
+      },
+    ],
+    name: "USDCVaultUpdated",
+    type: "event",
+  },
+  {
     inputs: [
       {
         internalType: "bytes32",
@@ -308,6 +321,19 @@ const _abi = [
   {
     inputs: [],
     name: "getPriceOracle",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getUSDCVault",
     outputs: [
       {
         internalType: "address",
@@ -467,6 +493,19 @@ const _abi = [
       },
     ],
     name: "setPriceOracle",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "usdcVault",
+        type: "address",
+      },
+    ],
+    name: "setUSDCVault",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

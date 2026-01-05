@@ -78,6 +78,9 @@ contract LoanStorage {
     /// @notice MAX collateral amount user can take.
     uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
 
+    /// @notice MIN collateral amount user can take.
+    uint256 public constant MIN_COLLATERAL_AMOUNT = 0.01 * 1e8;
+
     /// @notice Initial Insurance ID
     uint256 public constant INITIAL_INSURANCE_ID = 0;
 

@@ -107,6 +107,7 @@ library Errors {
   string public constant LPCM_CANNOT_MICRO_LIQUIDATE = '82';
   string public constant LPCM_CANNOT_FULL_LIQUIDATE = '83';
   string public constant LP_CHECK_TYPE_OF_LIQUIDATION_FAILED = '84';
+  string public constant LP_CALLER_NOT_VAULT = '85'; // 'Only vault can deposit this asset'
 
   enum CollateralManagerErrors {
     NO_ERROR,
