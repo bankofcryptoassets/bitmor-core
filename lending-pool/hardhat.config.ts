@@ -77,12 +77,6 @@ const buidlerConfig: HardhatUserConfig = {
   solidity: {
     compilers: [
       {
-        version: '0.8.30',
-        settings: {
-          optimizer: { enabled: true, runs: 200 },
-          // TODO!: evm version
-        },
-      }, {
         version: '0.6.12',
         settings: {
           optimizer: { enabled: true, runs: 200 },
@@ -117,7 +111,7 @@ const buidlerConfig: HardhatUserConfig = {
     ]
   },
   sourcify: {
-    enabled: false
+    enabled: true
   },
 
   mocha: {
