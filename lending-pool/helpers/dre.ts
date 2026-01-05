@@ -1,7 +1,6 @@
-import type { HardhatRuntimeEnvironment } from 'hardhat/types';
+// Use any type for DRE in Hardhat 3 to avoid import issues
+export let DRE: any;
 
-export let DRE: HardhatRuntimeEnvironment;
-
-export const setDRE = (_DRE: HardhatRuntimeEnvironment) => {
+export const setDRE = (_DRE: any) => {
   DRE = _DRE;
 };

@@ -1,9 +1,9 @@
 import { ethers, AbiCoder, parseUnits } from 'ethers';
-import type { Contract, Signer, BigNumberish } from 'ethers';
+import type { Contract, Signer, BigNumberish, BaseContract, Addressable } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
 import BigNumber from 'bignumber.js';
-import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils';
+import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils.js';
 import {
   eContractid,
   eEthereumNetwork,
@@ -26,52 +26,70 @@ import type {
   iBaseParamsPerNetwork,
 } from './types.js';
 import type { MintableERC20 } from '../types/ethers-contracts/index.js';
-import { Artifact } from 'hardhat/types';
-import { verifyEtherscanContract } from './etherscan-verification';
-import { getIErc20Detailed } from './contracts-getters';
-import { usingTenderly, verifyAtTenderly } from './tenderly-utils';
-import { usingPolygon, verifyAtPolygon } from './polygon-utils';
-import { ConfigNames, loadPoolConfig } from './configuration';
-import { ZERO_ADDRESS } from './constants';
-import { getDefenderRelaySigner, usingDefender } from './defender-utils';
+import type { Artifact } from 'hardhat/types/artifacts';
+import { verifyEtherscanContract } from './etherscan-verification.js';
+import { getIErc20Detailed } from './contracts-getters.js';
+import { usingTenderly, verifyAtTenderly } from './tenderly-utils.js';
+import { usingPolygon, verifyAtPolygon } from './polygon-utils.js';
+import { ConfigNames, loadPoolConfig } from './configuration.js';
+import { ZERO_ADDRESS } from './constants.js';
+import { getDefenderRelaySigner, usingDefender } from './defender-utils.js';
 
 const utils = { defaultAbiCoder: AbiCoder.defaultAbiCoder(), parseUnits };
 
 export type MockTokenMap = { [symbol: string]: MintableERC20 };
 
-export const registerContractInJsonDb = async (contractId: string, contractInstance: Contract) => {
-  const currentNetwork = DRE.network.name;
+// Helper function to get contract address from ethers v6 BaseContract or legacy contracts
+export const getContractAddress = (contract: BaseContract | { address: string }): string => {
+  // ethers v6: BaseContract has .target property
+  if ('target' in contract) {
+    const target = contract.target;
+    // In ethers v6, target is the contract address (string)
+    if (typeof target === 'string') {
+      return target;
+    }
+  }
+  // Legacy contracts (MockContract, etc.) have .address property
+  if ('address' in contract && typeof contract.address === 'string') {
+    return contract.address;
+  }
+  // Fallback
+  throw new Error('Contract does not have a valid address or target property');
+};
+
+export const registerContractInJsonDb = async (contractId: string, contractInstance: any) => {
+  const currentNetwork = DRE.network.networkName;
   const FORK = process.env.FORK;
   if (FORK || (currentNetwork !== 'hardhat' && !currentNetwork.includes('coverage'))) {
     console.log(`*** ${contractId} ***\n`);
     console.log(`Network: ${currentNetwork}`);
-    console.log(`tx: ${contractInstance.deployTransaction.hash}`);
-    console.log(`contract address: ${contractInstance.address}`);
-    console.log(`deployer address: ${contractInstance.deployTransaction.from}`);
-    console.log(`gas price: ${contractInstance.deployTransaction.gasPrice}`);
-    console.log(`gas used: ${contractInstance.deployTransaction.gasLimit}`);
+    console.log(`tx: ${contractInstance.deploymentTransaction?.()?.hash || contractInstance.deployTransaction?.hash || 'N/A'}`);
+    console.log(`contract address: ${getContractAddress(contractInstance)}`);
+    console.log(`deployer address: ${contractInstance.deploymentTransaction?.()?.from || contractInstance.deployTransaction?.from || 'N/A'}`);
+    console.log(`gas price: ${contractInstance.deploymentTransaction?.()?.gasPrice || contractInstance.deployTransaction?.gasPrice || 'N/A'}`);
+    console.log(`gas used: ${contractInstance.deploymentTransaction?.()?.gasLimit || contractInstance.deployTransaction?.gasLimit || 'N/A'}`);
     console.log(`\n******`);
     console.log();
   }
 
   await getDb()
     .set(`${contractId}.${currentNetwork}`, {
-      address: contractInstance.address,
-      deployer: contractInstance.deployTransaction.from,
+      address: getContractAddress(contractInstance),
+      deployer: contractInstance.deploymentTransaction?.()?.from || contractInstance.deployTransaction?.from || 'unknown',
     })
     .write();
 };
 
 export const insertContractAddressInDb = async (id: eContractid, address: tEthereumAddress) =>
   await getDb()
-    .set(`${id}.${DRE.network.name}`, {
+    .set(`${id}.${DRE.network.networkName}`, {
       address,
     })
     .write();
 
 export const rawInsertContractAddressInDb = async (id: string, address: tEthereumAddress) =>
   await getDb()
-    .set(`${id}.${DRE.network.name}`, {
+    .set(`${id}.${DRE.network.networkName}`, {
       address,
     })
     .write();
@@ -105,7 +123,7 @@ export const deployContract = async <ContractType extends Contract>(
   const contract = (await (await DRE.ethers.getContractFactory(contractName))
     .connect(await getFirstSigner())
     .deploy(...args)) as ContractType;
-  await waitForTx(contract.deployTransaction);
+  await contract.waitForDeployment();
   await registerContractInJsonDb(<eContractid>contractName, contract);
   return contract;
 };
@@ -116,7 +134,8 @@ export const withSaveAndVerify = async <ContractType extends Contract>(
   args: (string | string[])[],
   verify?: boolean
 ): Promise<ContractType> => {
-  await waitForTx(instance.deployTransaction);
+  // In ethers v6, use waitForDeployment() instead of waiting for deployTransaction
+  await instance.waitForDeployment();
   await registerContractInJsonDb(id, instance);
   if (verify) {
     await verifyContract(id, instance, args);
@@ -408,7 +427,7 @@ export const getContractAddressWithJsonFallback = async (
   pool: ConfigNames
 ): Promise<tEthereumAddress> => {
   const poolConfig = loadPoolConfig(pool);
-  const network = <eNetwork>DRE.network.name;
+  const network = <eNetwork>DRE.network.networkName;
   const db = getDb();
 
   const contractAtMarketConfig = getOptionalParamAddressPerNetwork(poolConfig[id], network);
@@ -416,7 +435,7 @@ export const getContractAddressWithJsonFallback = async (
     return contractAtMarketConfig;
   }
 
-  const contractAtDb = await getDb().get(`${id}.${DRE.network.name}`).value();
+  const contractAtDb = await getDb().get(`${id}.${DRE.network.networkName}`).value();
   if (contractAtDb?.address) {
     return contractAtDb.address as tEthereumAddress;
   }

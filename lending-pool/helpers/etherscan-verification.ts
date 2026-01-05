@@ -34,7 +34,7 @@ export const verifyEtherscanContract = async (
   constructorArguments: (string | string[])[],
   libraries?: string
 ) => {
-  const currentNetwork = DRE.network.name;
+  const currentNetwork = DRE.network.networkName;
 
   if (!process.env.ETHERSCAN_KEY) {
     throw Error('Missing process.env.ETHERSCAN_KEY.');
@@ -120,7 +120,7 @@ export const runTaskWithRetry = async (
 };
 
 export const checkVerification = () => {
-  const currentNetwork = DRE.network.name;
+  const currentNetwork = DRE.network.networkName;
   if (!process.env.ETHERSCAN_KEY) {
     console.error('Missing process.env.ETHERSCAN_KEY.');
     exit(3);

@@ -77,7 +77,7 @@ export const getReservesConfigByPool = (pool: AavePools): iMultiPoolsAssets<IRes
 export const getGenesisPoolAdmin = async (
   config: IBaseConfiguration
 ): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const targetAddress = getParamPerNetwork(config.PoolAdmin, <eNetwork>currentNetwork);
   if (targetAddress) {
     return targetAddress;
@@ -88,7 +88,7 @@ export const getGenesisPoolAdmin = async (
 };
 
 export const getEmergencyAdmin = async (config: IBaseConfiguration): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const targetAddress = getParamPerNetwork(config.EmergencyAdmin, <eNetwork>currentNetwork);
   if (targetAddress) {
     return targetAddress;
@@ -99,7 +99,7 @@ export const getEmergencyAdmin = async (config: IBaseConfiguration): Promise<tEt
 };
 
 export const getTreasuryAddress = async (config: IBaseConfiguration): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   return getParamPerNetwork(config.ReserveFactorTreasuryAddress, <eNetwork>currentNetwork);
 };
 
@@ -109,7 +109,7 @@ export const getATokenDomainSeparatorPerNetwork = (
 ): tEthereumAddress => getParamPerNetwork<tEthereumAddress>(config.ATokenDomainSeparator, network);
 
 export const getWethAddress = async (config: IBaseConfiguration) => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const wethAddress = getParamPerNetwork(config.WETH, <eNetwork>currentNetwork);
   if (wethAddress) {
     return wethAddress;
@@ -123,7 +123,7 @@ export const getWethAddress = async (config: IBaseConfiguration) => {
 };
 
 export const getWrappedNativeTokenAddress = async (config: IBaseConfiguration) => {
-  const currentNetwork = process.env.MAINNET_FORK === 'true' ? 'main' : DRE.network.name;
+  const currentNetwork = process.env.MAINNET_FORK === 'true' ? 'main' : DRE.network.networkName;
   const wethAddress = getParamPerNetwork(config.WrappedNativeToken, <eNetwork>currentNetwork);
   if (wethAddress) {
     return wethAddress;
@@ -143,7 +143,7 @@ export const getLendingRateOracles = (poolConfig: IBaseConfiguration) => {
     ReserveAssets,
   } = poolConfig;
 
-  const network = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const network = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   return filterMapBy(LendingRateOracleRatesCommon, (key) =>
     Object.keys(ReserveAssets[network]).includes(key)
   );

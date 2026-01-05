@@ -1,7 +1,7 @@
 import axios from 'axios';
 import type { Contract } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { DRE } from './misc-utils';
+import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
+import { DRE } from './misc-utils.js';
 import { ePolygonNetwork, EthereumNetworkNames } from './types.js';
 
 const TASK_FLATTEN_GET_FLATTENED_SOURCE = 'flatten:get-flattened-sources';

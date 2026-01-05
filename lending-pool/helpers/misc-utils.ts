@@ -1,14 +1,14 @@
 import BigNumber from 'bignumber.js';
 import BN from 'bn.js';
 import low from 'lowdb';
-import FileSync from 'lowdb/adapters/FileSync';
-import { WAD } from './constants';
+import FileSync from 'lowdb/adapters/FileSync.js';
+import { WAD } from './constants.js';
 import { Wallet, isAddress } from 'ethers';
 import type { ContractTransaction } from 'ethers';
 import type { tEthereumAddress, SignerWithAddress } from './types.js';
 import { isZeroAddress } from 'ethereumjs-util';
-import { usingTenderly } from './tenderly-utils';
-import { DRE, setDRE } from './dre';
+import { usingTenderly } from './tenderly-utils.js';
+import { DRE, setDRE } from './dre.js';
 
 export const toWad = (value: string | number) => new BigNumber(value).times(WAD).toFixed();
 
@@ -64,7 +64,7 @@ export const advanceTimeAndBlock = async function (forwardTime: number) {
 };
 
 export const waitForTx = async (tx: ContractTransaction) => {
-  const network = DRE.network.name;
+  const network = DRE.network.networkName;
   // Use 5 confirmations for Base Sepolia due to fast block times and RPC indexing delays
   const confirmations = network === 'sepolia' ? 5 : 1;
   return await tx.wait(confirmations);
@@ -96,7 +96,7 @@ interface DbEntry {
 }
 
 export const printContracts = () => {
-  const network = DRE.network.name;
+  const network = DRE.network.networkName;
   const db = getDb();
   console.log('Contracts deployed at', network);
   console.log('---------------------------------');

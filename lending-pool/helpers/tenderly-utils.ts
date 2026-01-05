@@ -1,6 +1,6 @@
 import type { Contract } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { DRE } from './dre';
+import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
+import { DRE } from './dre.js';
 
 export const usingTenderly = () =>
   DRE &&

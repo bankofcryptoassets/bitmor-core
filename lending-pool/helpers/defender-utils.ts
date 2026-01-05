@@ -1,8 +1,8 @@
 import { formatEther } from '@ethersproject/units';
 import type { Signer } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { DRE, impersonateAccountsHardhat } from './misc-utils';
-import { usingTenderly } from './tenderly-utils';
+import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
+import { DRE, impersonateAccountsHardhat } from './misc-utils.js';
+import { usingTenderly } from './tenderly-utils.js';
 
 export const usingDefender = () => process.env.DEFENDER === 'true';
 

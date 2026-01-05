@@ -1,5 +1,5 @@
 import type { Contract } from 'ethers';
-import { DRE, notFalsyOrZeroAddress } from './misc-utils';
+import { DRE, notFalsyOrZeroAddress } from './misc-utils.js';
 import {
   eContractid,
   AavePools,
@@ -13,10 +13,10 @@ import type {
   IReserveParams,
   PoolConfiguration,
 } from './types.js';
-import type { MintableERC20 } from '../types/ethers-contracts/index.js';
+import type { MintableERC20, WETH9Mocked } from '../types/ethers-contracts/index.js';
 import { MockContract } from 'ethereum-waffle';
-import { ConfigNames, getReservesConfigByPool, loadPoolConfig } from './configuration';
-import { getFirstSigner } from './contracts-getters';
+import { ConfigNames, getReservesConfigByPool, loadPoolConfig } from './configuration.js';
+import { getFirstSigner } from './contracts-getters.js';
 import {
   AaveProtocolDataProvider__factory,
   AToken__factory,
@@ -66,10 +66,11 @@ import {
   deployContract,
   verifyContract,
   getOptionalParamAddressPerNetwork,
-} from './contracts-helpers';
+  getContractAddress,
+} from './contracts-helpers.js';
 import { StableAndVariableTokensHelper__factory } from '../types/ethers-contracts/index.js';
 import type { MintableDelegationERC20 } from '../types/ethers-contracts/index.js';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
+import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import type { LendingPoolLibraryAddresses } from '../types/ethers-contracts/factories/protocol/lendingpool/LendingPool__factory.js';
 import type { UiPoolDataProvider } from '../types/ethers-contracts/index.js';
 import { eNetwork } from './types.js';
@@ -182,17 +183,17 @@ export const deployGenericLogic = async (reserveLogic: Contract, verify?: boolea
   const genericLogicArtifact = await readArtifact(eContractid.GenericLogic);
 
   const linkedGenericLogicByteCode = linkBytecode(genericLogicArtifact, {
-    [eContractid.ReserveLogic]: reserveLogic.address,
+    [eContractid.ReserveLogic]: getContractAddress(reserveLogic),
   });
 
   const genericLogicFactory = await DRE.ethers.getContractFactory(
     genericLogicArtifact.abi,
-    linkedGenericLogicByteCode
+    linkedGenericLogicByteCode,
+    await getFirstSigner()
   );
 
-  const genericLogic = await (
-    await genericLogicFactory.connect(await getFirstSigner()).deploy()
-  ).deployed();
+  // In ethers v6, no need to call .deployed() - the contract is already deployed
+  const genericLogic = await genericLogicFactory.deploy();
   return withSaveAndVerify(genericLogic, eContractid.GenericLogic, [], verify);
 };
 
@@ -204,18 +205,18 @@ export const deployValidationLogic = async (
   const validationLogicArtifact = await readArtifact(eContractid.ValidationLogic);
 
   const linkedValidationLogicByteCode = linkBytecode(validationLogicArtifact, {
-    [eContractid.ReserveLogic]: reserveLogic.address,
-    [eContractid.GenericLogic]: genericLogic.address,
+    [eContractid.ReserveLogic]: getContractAddress(reserveLogic),
+    [eContractid.GenericLogic]: getContractAddress(genericLogic),
   });
 
   const validationLogicFactory = await DRE.ethers.getContractFactory(
     validationLogicArtifact.abi,
-    linkedValidationLogicByteCode
+    linkedValidationLogicByteCode,
+    await getFirstSigner()
   );
 
-  const validationLogic = await (
-    await validationLogicFactory.connect(await getFirstSigner()).deploy()
-  ).deployed();
+  // In ethers v6, no need to call .deployed() - the contract is already deployed
+  const validationLogic = await validationLogicFactory.deploy();
 
   return withSaveAndVerify(validationLogic, eContractid.ValidationLogic, [], verify);
 };
@@ -238,16 +239,21 @@ export const deployAaveLibraries = async (
   //
   // libPath example: contracts/libraries/logic/GenericLogic.sol
   // libName example: GenericLogic
+  const validationLogicAddress = getContractAddress(validationLogic);
+  const reserveLogicAddress = getContractAddress(reserveLogic);
+  console.log('ValidationLogic address:', validationLogicAddress);
+  console.log('ReserveLogic address:', reserveLogicAddress);
   return {
-    ['__$de8c0cf1a7d7c36c802af9a64fb9d86036$__']: validationLogic.address,
-    ['__$22cd43a9dda9ce44e9b92ba393b88fb9ac$__']: reserveLogic.address,
+    ["project/contracts/protocol/libraries/logic/ValidationLogic.sol:ValidationLogic"]: validationLogicAddress,
+    ["project/contracts/protocol/libraries/logic/ReserveLogic.sol:ReserveLogic"]: reserveLogicAddress,
   };
 };
 
 export const deployLendingPool = async (verify?: boolean) => {
   const libraries = await deployAaveLibraries(verify);
+  console.log('Libraries:', libraries);
   const lendingPoolImpl = await new LendingPool__factory(libraries, await getFirstSigner()).deploy();
-  await insertContractAddressInDb(eContractid.LendingPoolImpl, lendingPoolImpl.address);
+  await insertContractAddressInDb(eContractid.LendingPoolImpl, getContractAddress(lendingPoolImpl));
   return withSaveAndVerify(lendingPoolImpl, eContractid.LendingPool, [], verify);
 };
 
@@ -341,15 +347,19 @@ export const deployAaveProtocolDataProvider = async (
   );
 
 export const deployMintableERC20 = async (
-  args: [string, string, string],
+  args: [string, string, string | number],
   verify?: boolean
 ): Promise<MintableERC20> =>
   withSaveAndVerify(
-    await new MintableERC20__factory(await getFirstSigner()).deploy(...args),
+    await new MintableERC20__factory(await getFirstSigner()).deploy(
+      args[0],
+      args[1],
+      args[2].toString()
+    ),
     eContractid.MintableERC20,
-    args,
+    args.map(arg => arg.toString()),
     verify
-  );
+  ) as Promise<MintableERC20>;
 
 export const deployMintableDelegationERC20 = async (
   args: [string, string, string],
@@ -594,13 +604,13 @@ export const deployMockStableDebtToken = async (
   return instance;
 };
 
-export const deployWETHMocked = async (verify?: boolean) =>
+export const deployWETHMocked = async (verify?: boolean): Promise<WETH9Mocked> =>
   withSaveAndVerify(
     await new WETH9Mocked__factory(await getFirstSigner()).deploy(),
     eContractid.WETHMocked,
     [],
     verify
-  );
+  ) as Promise<WETH9Mocked>;
 
 export const deployMockVariableDebtToken = async (
   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress, string, string, string],
@@ -708,7 +718,7 @@ export const deployATokenImplementations = async (
   verify = false
 ) => {
   const poolConfig = loadPoolConfig(pool);
-  const network = <eNetwork>DRE.network.name;
+  const network = <eNetwork>DRE.network.networkName;
 
   // Obtain the different AToken implementations of all reserves inside the Market config
   const aTokenImplementations = [
