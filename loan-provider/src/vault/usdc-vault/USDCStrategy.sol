@@ -5,6 +5,7 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {ERC20} from "@solady/tokens/ERC20.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {DataTypes} from "../../libraries/types/DataTypes.sol";
@@ -14,16 +15,17 @@ import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 import {IPool as IAave} from "../../interfaces/IPool.sol";
 
 /// @title USDCStrategy
-/// @notice A yield strategy that splits 100% of deposited assets in 4:1 ratio between Aave and BLP protocols
+/// @notice A yield strategy that splits deposited assets in 4:1 ratio between Aave and BLP protocols
 /// @dev Implements ISimpleStrategy interface and manages asset allocation across DeFi protocols
-/// @author megabyte0x.eth
 
-contract USDCStrategy is ISimpleStrategy {
+contract USDCStrategy is ISimpleStrategy, AccessControl {
     using Address for address;
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
 
     error USDCStrategy__NotVault();
+
+    event USDCStrategy__AAVEAllocationUpdated(uint256 indexed newAaveAllocation);
 
     /// @notice The Aave lending pool contract
     IAave public immutable i_aave;
@@ -40,25 +42,32 @@ contract USDCStrategy is ISimpleStrategy {
     /// @notice Referral code for Aave deposits (0 = no referral)
     uint16 internal constant REFERRAL_CODE = 0;
 
-    /// @notice Percentage to allocate to Aave (80% of total) for 4:1 ratio
-    uint256 internal constant AAVE_ALLOCATION = 80_00;
-
     /// @notice Scale factor for percentage calculations (100%)
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
+    /// @notice Curator role which can change the allocation.
+    /// @dev This curator role needs to be given to the address who have curator role in `i_vault`.
+    bytes32 internal constant CURATOR = keccak256("CURATOR");
+
     /// @notice Minimum Delta required for reallocation of assets, expressed in basis points.
     uint256 private s_minimumDeltaRequired;
+
+    /// @notice Percentage to allocate to Aave.
+    uint256 private s_aaveAllocation;
 
     /// @notice Initializes the strategy with required protocol addresses
     /// @param vault_ The address of the vault that will use this strategy
     /// @param aave_ The address of the Aave lending pool
     /// @param blp_ The address of the Bitmor Lending Pool
-    constructor(address vault_, address aave_, address blp_) {
-        if (vault_ == address(0) || aave_ == address(0) || blp_ == address(0) || aave_ == address(0)) {
+    constructor(address vault_, address aave_, address blp_, address admin_) {
+        if (
+            vault_ == address(0) || aave_ == address(0) || blp_ == address(0) || aave_ == address(0)
+                || admin_ == address(0)
+        ) {
             revert Errors.ZeroAddress();
         }
 
-        i_aave = IAave(i_aave);
+        i_aave = IAave(aave_);
         i_blp = IBLP(blp_);
         i_vault = vault_;
 
@@ -68,6 +77,8 @@ contract USDCStrategy is ISimpleStrategy {
         // Approving Aave and BLP to transfer funds from this address.
         i_asset.safeApprove(address(i_aave), type(uint256).max);
         i_asset.safeApprove(address(i_blp), type(uint256).max);
+
+        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
     modifier onlyVault() {
@@ -112,6 +123,15 @@ contract USDCStrategy is ISimpleStrategy {
     */
 
     /**
+     * @notice Updates the allocation to Aave.
+     * @param newAaveAllocation New allocation amount in bps, which will be deposited in Aave.
+     */
+    function setAaveAllocation(uint256 newAaveAllocation) external onlyRole(CURATOR) {
+        s_aaveAllocation = newAaveAllocation;
+        emit USDCStrategy__AAVEAllocationUpdated(newAaveAllocation);
+    }
+
+    /**
      * @notice Supply the amount between AAVE and BLP.
      * @param amount Amount of assets supplied.
      */
@@ -120,7 +140,7 @@ contract USDCStrategy is ISimpleStrategy {
         i_asset.safeTransferFrom(i_vault, address(this), amount);
 
         // Split 80% Aave and 20% Bitmor Lending Pool
-        uint256 amountToDepositInAave = amount.mulDiv(AAVE_ALLOCATION, BASIS_POINT_SCALE);
+        uint256 amountToDepositInAave = amount.mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
         uint256 amountToDepositInBLP = amount.rawSub(amountToDepositInAave);
 
         // Supply to Aave
@@ -183,16 +203,19 @@ contract USDCStrategy is ISimpleStrategy {
     /// @dev Queries the aToken balance from BLP reserve data
     /// @return balance The amount of assets deposited in BLP
     function _getBalanceInBLP() internal view returns (uint256 balance) {
+        //! TODO: This get's the balance of aToken not the underlying assets meaning the total assets can be wrong.
+        //! get the i_asset.balanceOf(aToken)
+        // Implemented the fix. This should work right.
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
         address aToken = reserveData.aTokenAddress;
-        balance = ERC20(aToken).balanceOf(address(this));
+        balance = ERC20(i_asset).balanceOf(aToken);
     }
 
     /// @notice Reallocates assets between Aave and BLP.
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
 
-        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(AAVE_ALLOCATION, BASIS_POINT_SCALE);
+        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
 
         if (targetBalanceInAave == 0) return;
 
@@ -229,7 +252,7 @@ contract USDCStrategy is ISimpleStrategy {
         uint256 totalBalance = _getTotalBalanceInMarkets();
         uint256 totalBalanceAfter = totalBalance.zeroFloorSub(amountToTransfer);
         uint256 targetBLPAssetsAfter =
-            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(AAVE_ALLOCATION), BASIS_POINT_SCALE);
+            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(s_aaveAllocation), BASIS_POINT_SCALE);
 
         uint256 amountToWithdrawFromAave =
             targetBLPAssetsAfter.rawAdd(amountToTransfer).zeroFloorSub(_getBalanceInBLP());
@@ -252,7 +275,7 @@ contract USDCStrategy is ISimpleStrategy {
 
         uint256 totalBalanceAfter = totalBalance.rawSub(amountToTransfer);
 
-        uint256 targetAaveBalance = totalBalanceAfter.mulDivUp(AAVE_ALLOCATION, BASIS_POINT_SCALE);
+        uint256 targetAaveBalance = totalBalanceAfter.mulDivUp(s_aaveAllocation, BASIS_POINT_SCALE);
         uint256 targetBLPBalance = totalBalanceAfter.rawSub(targetAaveBalance);
 
         uint256 remaining = amountToTransfer;
@@ -260,6 +283,7 @@ contract USDCStrategy is ISimpleStrategy {
             uint256 amountToWithdrawFromAave = currentAaveBalance.rawSub(targetAaveBalance);
 
             uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
+            //!  TODO: Implement slippage check in case when AAVE don't have enough funds to provide to the user while withdrawing.
 
             if (finalAmountWithdrawn > amountToTransfer) {
                 uint256 excess = finalAmountWithdrawn.rawSub(amountToTransfer);
@@ -269,7 +293,7 @@ contract USDCStrategy is ISimpleStrategy {
                 return;
             }
 
-            remaining = remaining.rawSub(finalAmountWithdrawn);
+            remaining = remaining.zeroFloorSub(finalAmountWithdrawn);
         }
 
         if (currentBLPBalance > targetBLPBalance) {
@@ -285,7 +309,7 @@ contract USDCStrategy is ISimpleStrategy {
                 return;
             }
 
-            remaining = remaining.rawSub(finalAmountWithdrawn);
+            remaining = remaining.zeroFloorSub(finalAmountWithdrawn);
         }
 
         if (remaining != 0) revert Errors.InsufficientBalance();
