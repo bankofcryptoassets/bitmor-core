@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
@@ -15,9 +15,8 @@ import {MockAaveV3Pool} from "@bitmor/mocks/MockAaveV3Pool.sol";
 /// @title InitializeLoanTest
 /// @notice Tests for loan initialization functionality
 contract InitializeLoanTest is BaseLoanTest {
-    
     // ============ Local Test Helpers ============
-    
+
     /// @dev Assert loan was created correctly with expected parameters
     function _assertLoanCreated(
         address lsa,
@@ -42,11 +41,6 @@ contract InitializeLoanTest is BaseLoanTest {
         assertEq(loanData.duration, expectedDuration, "Duration mismatch");
         assertGt(loanData.loanAmount, 0, "Loan amount should be > 0");
         assertGt(loanData.estimatedMonthlyPayment, 0, "Monthly payment should be > 0");
-    }
-
-    /// @dev Helper wrapper for consistent revert expectations
-    function _expectRevertSelector(bytes4 selector) internal {
-        vm.expectRevert(selector);
     }
 
     // ============ Loan Initialization Tests ============
@@ -92,7 +86,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         // Get BTC price from oracle (8 decimals)
         uint256 btcPriceUsd = IPriceOracleGetter(loan.i_ORACLE()).getAssetPrice(collateralAsset);
-        
+
         // Target $500 total position value => loan amount must be < $1,000
         uint256 targetUsd = 500e8;
         uint256 collateralAmount = (targetUsd * 1e8) / btcPriceUsd;
@@ -109,10 +103,8 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(
-            collateralAmount,
-            duration
-        );
+        (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired) =
+            loan.getLoanDetails(collateralAmount, duration);
 
         assertGt(monthlyPayment, 0, "Monthly payment must be non-zero");
 
@@ -168,7 +160,7 @@ contract InitializeLoanTest is BaseLoanTest {
         // ============ getUserAllLoans Coverage ============
         // Verify getUserAllLoans returns correct data for all user loans
         DataTypes.LoanData[] memory allLoans = loan.getUserAllLoans(user);
-        
+
         // Assert length equals s_userLoanCount[user]
         assertEq(allLoans.length, loan.getUserLoanCount(user), "getUserAllLoans length should equal s_userLoanCount");
         assertEq(allLoans.length, 3, "User should have exactly 3 loans");
@@ -190,11 +182,15 @@ contract InitializeLoanTest is BaseLoanTest {
             assertEq(allLoans[i].depositAmount, storedLoan.depositAmount, "Deposit amount mismatch in returned loan");
             assertEq(allLoans[i].loanAmount, storedLoan.loanAmount, "Loan amount mismatch in returned loan");
             assertEq(allLoans[i].collateralAmount, storedLoan.collateralAmount, "Collateral amount mismatch");
-            assertEq(allLoans[i].estimatedMonthlyPayment, storedLoan.estimatedMonthlyPayment, "Monthly payment mismatch");
+            assertEq(
+                allLoans[i].estimatedMonthlyPayment, storedLoan.estimatedMonthlyPayment, "Monthly payment mismatch"
+            );
             assertEq(allLoans[i].duration, storedLoan.duration, "Duration mismatch in returned loan");
             assertEq(allLoans[i].createdAt, storedLoan.createdAt, "CreatedAt mismatch");
             assertEq(allLoans[i].insuranceID, storedLoan.insuranceID, "Insurance ID mismatch");
-            assertEq(allLoans[i].lastPaymentTimestamp, storedLoan.lastPaymentTimestamp, "Last payment timestamp mismatch");
+            assertEq(
+                allLoans[i].lastPaymentTimestamp, storedLoan.lastPaymentTimestamp, "Last payment timestamp mismatch"
+            );
             assertEq(uint256(allLoans[i].status), uint256(storedLoan.status), "Status mismatch in returned loan");
         }
 
@@ -253,7 +249,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
     function test_initializeLoan_flashLoanFromNonAave_reverts() public {
         // Goal: reject flash loan callbacks from unauthorized sources
-        
+
         MockAaveV3Pool mockPool = new MockAaveV3Pool();
 
         vm.startPrank(owner);
@@ -288,7 +284,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
         (,, uint256 minDepositRequired) = loan2.getLoanDetails(collateralAmount, duration);
-        
+
         vm.prank(user);
         loan2.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
 

@@ -12,18 +12,15 @@ import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
 import {IReserveInterestRateStrategy} from "@bitmor/interfaces/IReserveInterestRateStrategy.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
-
 /// @title Utilities
 /// @notice Shared utility contract for Bitmor Protocol tests
 /// @dev Contains reusable helpers organized by category
 /// @dev Inherits from Test to access vm cheatcodes and assertion functions
 abstract contract Utilities is Test {
-    
     // ============ Constants ============
-    
+
     uint256 internal constant UTILITIES_RAY = 1e27;
     uint256 internal constant UTILITIES_LOAN_REPAYMENT_INTERVAL = 30 days;
-    uint256 internal constant UTILITIES_BPS_DENOMINATOR = 10_000;
 
     // ============ 1) Loan Factory / Scenario Helpers ============
 
@@ -45,10 +42,10 @@ abstract contract Utilities is Test {
         bytes memory data
     ) internal returns (address lsa, DataTypes.LoanData memory loanData) {
         (,, uint256 minDepositRequired) = loanContract.getLoanDetails(collateralAmount, duration);
-        
+
         vm.prank(loanUser);
         lsa = loanContract.initializeLoan(minDepositRequired, premiumAmount, collateralAmount, duration, data);
-        
+
         loanData = loanContract.getLoanByLSA(lsa);
     }
 
@@ -58,11 +55,11 @@ abstract contract Utilities is Test {
     /// @param duration Loan duration in months
     /// @return loanAmount The calculated loan amount
     /// @return minDepositRequired The minimum deposit required
-    function _utilGetLoanParams(
-        Loan loanContract,
-        uint256 collateralAmount,
-        uint256 duration
-    ) internal view returns (uint256 loanAmount, uint256 minDepositRequired) {
+    function _utilGetLoanParams(Loan loanContract, uint256 collateralAmount, uint256 duration)
+        internal
+        view
+        returns (uint256 loanAmount, uint256 minDepositRequired)
+    {
         (loanAmount,, minDepositRequired) = loanContract.getLoanDetails(collateralAmount, duration);
     }
 
@@ -71,12 +68,9 @@ abstract contract Utilities is Test {
     /// @param debtAsset The debt asset address
     /// @param loanContract The loan contract to approve
     /// @param amount Amount to mint
-    function _utilSeedUserAndApprove(
-        address loanUser,
-        address debtAsset,
-        address loanContract,
-        uint256 amount
-    ) internal {
+    function _utilSeedUserAndApprove(address loanUser, address debtAsset, address loanContract, uint256 amount)
+        internal
+    {
         vm.startPrank(loanUser);
         (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
         assertTrue(success, "MINT_ERROR");
@@ -91,11 +85,11 @@ abstract contract Utilities is Test {
     /// @param debtAsset The debt asset address
     /// @param lsa The Loan Smart Account address
     /// @return balance The variable debt token balance
-    function _utilGetDebtBalance(
-        address bitmorPool,
-        address debtAsset,
-        address lsa
-    ) internal view returns (uint256 balance) {
+    function _utilGetDebtBalance(address bitmorPool, address debtAsset, address lsa)
+        internal
+        view
+        returns (uint256 balance)
+    {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
         balance = IERC20(reserveData.variableDebtTokenAddress).balanceOf(lsa);
     }
@@ -105,11 +99,11 @@ abstract contract Utilities is Test {
     /// @param collateralAsset The collateral asset address
     /// @param account The account to check
     /// @return balance The aToken balance
-    function _utilGetATokenBalance(
-        address bitmorPool,
-        address collateralAsset,
-        address account
-    ) internal view returns (uint256 balance) {
+    function _utilGetATokenBalance(address bitmorPool, address collateralAsset, address account)
+        internal
+        view
+        returns (uint256 balance)
+    {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(collateralAsset);
         balance = IERC20(reserveData.aTokenAddress).balanceOf(account);
     }
@@ -118,10 +112,7 @@ abstract contract Utilities is Test {
     /// @param token The token address
     /// @param account The account to check
     /// @return balance The token balance
-    function _utilGetUnderlyingBalance(
-        address token,
-        address account
-    ) internal view returns (uint256 balance) {
+    function _utilGetUnderlyingBalance(address token, address account) internal view returns (uint256 balance) {
         balance = IERC20(token).balanceOf(account);
     }
 
@@ -129,10 +120,7 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param asset The underlying asset address
     /// @return aToken The aToken address
-    function _utilGetATokenAddress(
-        address bitmorPool,
-        address asset
-    ) internal view returns (address aToken) {
+    function _utilGetATokenAddress(address bitmorPool, address asset) internal view returns (address aToken) {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(asset);
         aToken = reserveData.aTokenAddress;
     }
@@ -141,10 +129,11 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param asset The underlying asset address
     /// @return variableDebtToken The variable debt token address
-    function _utilGetVariableDebtTokenAddress(
-        address bitmorPool,
-        address asset
-    ) internal view returns (address variableDebtToken) {
+    function _utilGetVariableDebtTokenAddress(address bitmorPool, address asset)
+        internal
+        view
+        returns (address variableDebtToken)
+    {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(asset);
         variableDebtToken = reserveData.variableDebtTokenAddress;
     }
@@ -153,10 +142,11 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param collateralAsset The collateral asset address
     /// @return liquidationBonusBps The liquidation bonus in basis points (e.g., 10300 = 3% bonus)
-    function _utilGetLiquidationBonus(
-        address bitmorPool,
-        address collateralAsset
-    ) internal view returns (uint256 liquidationBonusBps) {
+    function _utilGetLiquidationBonus(address bitmorPool, address collateralAsset)
+        internal
+        view
+        returns (uint256 liquidationBonusBps)
+    {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(collateralAsset);
         // The liquidation bonus is stored in the configuration as percentage (e.g., 10300 = 103% = 3% bonus)
         // Decode liquidation bonus (Aave-style config packing): bits 32..47 (16 bits), in bps (e.g., 10300 = 3% bonus)
@@ -177,11 +167,7 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param asset The asset to mock price for
     /// @param newPrice The new price (8 decimals expected)
-    function _utilSetOraclePrice(
-        address bitmorPool,
-        address asset,
-        uint256 newPrice
-    ) internal {
+    function _utilSetOraclePrice(address bitmorPool, address asset, uint256 newPrice) internal {
         assertTrue(newPrice > 0, "INVALID_PRICE");
         address oracleAddress = _utilGetPriceOracle(bitmorPool);
         vm.mockCall(
@@ -196,20 +182,19 @@ abstract contract Utilities is Test {
     /// @param asset The asset to drop price for
     /// @param dropPercent Percentage to drop (e.g., 15 = 15% drop)
     /// @return newPrice The newly mocked oracle price
-    function _utilDropOraclePrice(
-        address bitmorPool,
-        address asset,
-        uint256 dropPercent
-    ) internal returns (uint256 newPrice) {
+    function _utilDropOraclePrice(address bitmorPool, address asset, uint256 dropPercent)
+        internal
+        returns (uint256 newPrice)
+    {
         assertLe(dropPercent, 100, "DROP_TOO_HIGH");
         address oracleAddress = _utilGetPriceOracle(bitmorPool);
-        
+
         uint256 currentPrice = IPriceOracleGetter(oracleAddress).getAssetPrice(asset);
         assertGt(currentPrice, 0, "INVALID_CURRENT_PRICE");
-        
+
         newPrice = (currentPrice * (100 - dropPercent)) / 100;
         assertGt(newPrice, 0, "INVALID_NEW_PRICE");
-        
+
         vm.mockCall(
             oracleAddress,
             abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, asset),
@@ -221,10 +206,7 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param asset The asset to get price for
     /// @return price The asset price (8 decimals)
-    function _utilGetAssetPrice(
-        address bitmorPool,
-        address asset
-    ) internal view returns (uint256 price) {
+    function _utilGetAssetPrice(address bitmorPool, address asset) internal view returns (uint256 price) {
         address oracleAddress = _utilGetPriceOracle(bitmorPool);
         price = IPriceOracleGetter(oracleAddress).getAssetPrice(asset);
     }
@@ -261,11 +243,7 @@ abstract contract Utilities is Test {
     /// @param loanContract The Loan contract instance
     /// @param lsa The Loan Smart Account address
     /// @param expectedStatus Expected loan status
-    function _utilAssertLoanStatus(
-        Loan loanContract,
-        address lsa,
-        DataTypes.LoanStatus expectedStatus
-    ) internal view {
+    function _utilAssertLoanStatus(Loan loanContract, address lsa, DataTypes.LoanStatus expectedStatus) internal view {
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         assertEq(uint256(loanData.status), uint256(expectedStatus), "UNEXPECTED_LOAN_STATUS");
     }
@@ -273,10 +251,7 @@ abstract contract Utilities is Test {
     /// @notice Assert debt has decreased after operation
     /// @param debtBefore Debt balance before operation
     /// @param debtAfter Debt balance after operation
-    function _utilAssertDebtDecreased(
-        uint256 debtBefore,
-        uint256 debtAfter
-    ) internal pure {
+    function _utilAssertDebtDecreased(uint256 debtBefore, uint256 debtAfter) internal pure {
         assertLt(debtAfter, debtBefore, "DEBT_DID_NOT_DECREASE");
     }
 
@@ -284,11 +259,7 @@ abstract contract Utilities is Test {
     /// @param a First value
     /// @param b Second value
     /// @param maxDiffBps Maximum difference in basis points
-    function _utilAssertApproxEqBps(
-        uint256 a,
-        uint256 b,
-        uint256 maxDiffBps
-    ) internal pure {
+    function _utilAssertApproxEqBps(uint256 a, uint256 b, uint256 maxDiffBps) internal pure {
         uint256 diff = a > b ? a - b : b - a;
         uint256 maxDiff = (a * maxDiffBps) / 10_000;
         assertLe(diff, maxDiff, "VALUES_NOT_APPROX_EQUAL_BPS");
@@ -298,11 +269,7 @@ abstract contract Utilities is Test {
     /// @param lsa The Loan Smart Account address
     /// @param expectedOwner Expected owner (typically the Loan contract)
     /// @param expectedBorrower Expected borrower
-    function _utilAssertLSAOwnership(
-        address lsa,
-        address expectedOwner,
-        address expectedBorrower
-    ) internal view {
+    function _utilAssertLSAOwnership(address lsa, address expectedOwner, address expectedBorrower) internal view {
         assertEq(ILoanVault(lsa).owner(), expectedOwner, "UNEXPECTED_LSA_OWNER");
         assertEq(ILoanVault(lsa).borrower(), expectedBorrower, "UNEXPECTED_LSA_BORROWER");
         assertTrue(ILoanVault(lsa).isInitialized(), "LSA_NOT_INITIALIZED");
@@ -315,12 +282,9 @@ abstract contract Utilities is Test {
     /// @param debtAsset The debt asset address
     /// @param bitmorPool The Bitmor pool to approve
     /// @param amount Amount to mint
-    function _utilFundLiquidator(
-        address liquidatorAddr,
-        address debtAsset,
-        address bitmorPool,
-        uint256 amount
-    ) internal {
+    function _utilFundLiquidator(address liquidatorAddr, address debtAsset, address bitmorPool, uint256 amount)
+        internal
+    {
         vm.startPrank(liquidatorAddr);
         (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
         assertTrue(success, "MINT_ERROR");
@@ -332,11 +296,7 @@ abstract contract Utilities is Test {
     /// @param liquidatorAddr The liquidator address
     /// @param debtAsset The debt asset address
     /// @param amount Amount to mint
-    function _utilMintToLiquidatorNoApproval(
-        address liquidatorAddr,
-        address debtAsset,
-        uint256 amount
-    ) internal {
+    function _utilMintToLiquidatorNoApproval(address liquidatorAddr, address debtAsset, uint256 amount) internal {
         vm.prank(liquidatorAddr);
         (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
         assertTrue(success, "MINT_ERROR");
@@ -378,23 +338,14 @@ abstract contract Utilities is Test {
         bool receiveAToken
     ) internal {
         vm.prank(liquidatorAddr);
-        ILendingPool(bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            debtToCover,
-            receiveAToken
-        );
+        ILendingPool(bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, debtToCover, receiveAToken);
     }
 
     /// @notice Check liquidation type for an LSA
     /// @param bitmorPool The Bitmor lending pool address
     /// @param lsa The Loan Smart Account to check
     /// @return liquidationType 0=None, 1=Full, 2=Micro
-    function _utilCheckLiquidationType(
-        address bitmorPool,
-        address lsa
-    ) internal returns (uint256 liquidationType) {
+    function _utilCheckLiquidationType(address bitmorPool, address lsa) internal returns (uint256 liquidationType) {
         liquidationType = ILendingPool(bitmorPool).checkTypeOfLiquidation(lsa);
     }
 
@@ -413,10 +364,10 @@ abstract contract Utilities is Test {
         uint256 collateralPrice = _utilGetAssetPrice(bitmorPool, collateralAsset);
         uint256 debtPrice = _utilGetAssetPrice(bitmorPool, debtAsset);
         uint256 liquidationBonus = _utilGetLiquidationBonus(bitmorPool, collateralAsset);
-        
+
         // Collateral decimals = 8 (BTC), Debt decimals = 6 (USDC)
         // Formula: (debtAmount * debtPrice * 10^collateralDecimals * liquidationBonus) / (collateralPrice * 10^debtDecimals * 10000)
-        expectedCollateral = (debtAmount * debtPrice * 1e8 * liquidationBonus) / (collateralPrice * 1e6 * UTILITIES_BPS_DENOMINATOR);
+        expectedCollateral = (debtAmount * debtPrice * 1e8 * liquidationBonus) / (collateralPrice * 1e6 * 10_000);
     }
 
     // ============ 7) AddressesProvider Helpers ============
@@ -424,16 +375,13 @@ abstract contract Utilities is Test {
     /// @notice Update AddressesProvider to point to test Loan contract
     /// @param bitmorPool The Bitmor lending pool address
     /// @param newLoanContract The new Loan contract address
-    function _utilUpdateAddressesProviderBitmorLoan(
-        address bitmorPool,
-        address newLoanContract
-    ) internal {
+    function _utilUpdateAddressesProviderBitmorLoan(address bitmorPool, address newLoanContract) internal {
         address addressesProvider = ILendingPool(bitmorPool).getAddressesProvider();
         address poolAdmin = ILendingPoolAddressesProvider(addressesProvider).getPoolAdmin();
-        
+
         vm.prank(poolAdmin);
         ILendingPoolAddressesProvider(addressesProvider).setBitmorLoan(newLoanContract);
-        
+
         // Verify update
         address updatedLoan = ILendingPoolAddressesProvider(addressesProvider).getBitmorLoan();
         assertEq(updatedLoan, newLoanContract, "ADDRESSES_PROVIDER_UPDATE_FAILED");
@@ -448,38 +396,32 @@ abstract contract Utilities is Test {
     /// @return baseRate Base variable borrow rate in RAY
     /// @return slope1 Variable rate slope 1 in RAY
     /// @return slope2 Variable rate slope 2 in RAY
-    function _utilGetInterestRateParams(
-    address bitmorPool,
-    address debtAsset
-) internal view returns (
-    uint256 currentRate,
-    uint256 baseRate,
-    uint256 slope1,
-    uint256 slope2
-) {
-    DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-    currentRate = reserveData.currentVariableBorrowRate;
+    function _utilGetInterestRateParams(address bitmorPool, address debtAsset)
+        internal
+        view
+        returns (uint256 currentRate, uint256 baseRate, uint256 slope1, uint256 slope2)
+    {
+        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+        currentRate = reserveData.currentVariableBorrowRate;
 
-    // Canonical Aave-style strategy interface from @bitmor/interfaces.
-    IReserveInterestRateStrategy strategy = IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress);
-    baseRate = strategy.baseVariableBorrowRate();
+        // Canonical Aave-style strategy interface from @bitmor/interfaces.
+        IReserveInterestRateStrategy strategy = IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress);
+        baseRate = strategy.baseVariableBorrowRate();
 
-    // Some strategies expose slope params as public getters, but these are not part of the canonical interface.
-    // Pull them via staticcall to keep Utilities compatible across strategy implementations.
-    (bool ok1, bytes memory ret1) = reserveData.interestRateStrategyAddress.staticcall(
-        abi.encodeWithSignature("variableRateSlope1()")
-    );
-    if (ok1 && ret1.length >= 32) {
-        slope1 = abi.decode(ret1, (uint256));
+        // Some strategies expose slope params as public getters, but these are not part of the canonical interface.
+        // Pull them via staticcall to keep Utilities compatible across strategy implementations.
+        (bool ok1, bytes memory ret1) =
+            reserveData.interestRateStrategyAddress.staticcall(abi.encodeWithSignature("variableRateSlope1()"));
+        if (ok1 && ret1.length >= 32) {
+            slope1 = abi.decode(ret1, (uint256));
+        }
+
+        (bool ok2, bytes memory ret2) =
+            reserveData.interestRateStrategyAddress.staticcall(abi.encodeWithSignature("variableRateSlope2()"));
+        if (ok2 && ret2.length >= 32) {
+            slope2 = abi.decode(ret2, (uint256));
+        }
     }
-
-    (bool ok2, bytes memory ret2) = reserveData.interestRateStrategyAddress.staticcall(
-        abi.encodeWithSignature("variableRateSlope2()")
-    );
-    if (ok2 && ret2.length >= 32) {
-        slope2 = abi.decode(ret2, (uint256));
-    }
-}
 
     // ============ 9) Min Helper ============
 

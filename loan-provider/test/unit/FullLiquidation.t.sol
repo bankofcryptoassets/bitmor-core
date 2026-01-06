@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
@@ -12,7 +12,6 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 /// @notice Tests for full liquidation functionality (liquidationType == 1)
 /// @dev Full liquidation occurs when health factor drops below 1 or collateral can't cover micro-liq
 contract FullLiquidationTest is BaseLoanTest {
-    
     // ============ Structs ============
 
     /// @dev Struct to hold full liquidation test variables
@@ -35,7 +34,7 @@ contract FullLiquidationTest is BaseLoanTest {
     /// @dev Setup loan for full liquidation scenario (drop price to trigger HF < 1)
     function _setupForFullLiquidation(address lsa) internal returns (uint256 liquidationType) {
         _warpPastGracePeriod();
-        
+
         // Drop price significantly to push health factor < 1
         _dropOraclePrice(collateralAsset, 50);
 
@@ -59,7 +58,7 @@ contract FullLiquidationTest is BaseLoanTest {
     /// @notice Test that full liquidation correctly updates loan status to Liquidated
     function test_fullLiquidation_updatesLoanStatus() public setUpLoanForUser {
         FullLiquidationTestVars memory vars;
-        
+
         vars.lsa = loan.getUserLoanAtIndex(user, 0);
 
         _updateAddressesProviderBitmorLoan();
@@ -88,11 +87,7 @@ contract FullLiquidationTest is BaseLoanTest {
         // ============ ASSERTIONS ============
 
         // 1. Loan status should be Liquidated
-        assertEq(
-            uint256(vars.statusAfter),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "Loan should be liquidated"
-        );
+        assertEq(uint256(vars.statusAfter), uint256(DataTypes.LoanStatus.Liquidated), "Loan should be liquidated");
 
         // 2. Duration should be 0
         assertEq(vars.durationAfter, 0, "Duration should be 0 after full liquidation");
@@ -111,11 +106,11 @@ contract FullLiquidationTest is BaseLoanTest {
     /// @notice Test that low health factor triggers full liquidation type
     function test_fullLiquidation_lowHealthFactor_returnsTypeFull() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        
+
         _updateAddressesProviderBitmorLoan();
 
         _warpPastGracePeriod();
-        
+
         // Drop price significantly to push health factor < 1
         _dropOraclePrice(collateralAsset, 50);
 
@@ -149,22 +144,15 @@ contract FullLiquidationTest is BaseLoanTest {
         // Full liquidation should NOT allow partial debt coverage
         vm.prank(liquidator);
         vm.expectRevert();
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            vars.lsa,
-            debtToCover,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, vars.lsa, debtToCover, false);
     }
-
 
     // ============ Test: Full Liquidation Receives aTokens ============
 
     /// @notice Test full liquidation with receiveAToken = true
     function test_fullLiquidation_receivesATokens() public setUpLoanForUser {
         FullLiquidationTestVars memory vars;
-        
+
         vars.lsa = loan.getUserLoanAtIndex(user, 0);
 
         _updateAddressesProviderBitmorLoan();
@@ -178,7 +166,7 @@ contract FullLiquidationTest is BaseLoanTest {
 
         // Get collateral aToken address
         address collateralAToken = _utilGetATokenAddress(s_bitmorPool, collateralAsset);
-        
+
         // Snapshot aToken balance before
         uint256 liquidatorATokenBefore = IERC20(collateralAToken).balanceOf(liquidator);
         uint256 liquidatorCollateralBefore = IERC20(collateralAsset).balanceOf(liquidator);
@@ -210,11 +198,7 @@ contract FullLiquidationTest is BaseLoanTest {
 
         // 4. Loan status should be Liquidated
         DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(vars.lsa);
-        assertEq(
-            uint256(loanDataAfter.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "Loan should be liquidated"
-        );
+        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Liquidated), "Loan should be liquidated");
     }
 
     // ============ Test: Full Liquidation Reverts on Healthy Loan ============
@@ -226,7 +210,7 @@ contract FullLiquidationTest is BaseLoanTest {
         _updateAddressesProviderBitmorLoan();
 
         // Do NOT warp or drop price - loan is healthy
-        
+
         // Check liquidation type - should be 0
         uint256 liquidationType = _checkLiquidationType(lsa);
         assertEq(liquidationType, 0, "Fresh loan should not be liquidatable");
@@ -237,13 +221,7 @@ contract FullLiquidationTest is BaseLoanTest {
         // Attempt full liquidation - should revert
         vm.prank(liquidator);
         vm.expectRevert(); // ValidationLogic returns error for typeOfLiquidation != 1
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
 
     // ============ Test: Full Liquidation Reverts on Micro-Liquidation Eligible Loan ============
@@ -267,13 +245,7 @@ contract FullLiquidationTest is BaseLoanTest {
         // Attempt full liquidation - should revert
         vm.prank(liquidator);
         vm.expectRevert(); // ValidationLogic returns error for typeOfLiquidation != 1
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
 
     // ============ Test: Full Liquidation USDC Goes to Debt aToken ============
@@ -281,7 +253,7 @@ contract FullLiquidationTest is BaseLoanTest {
     /// @notice Test that USDC from liquidator is transferred to debt aToken
     function test_fullLiquidation_debtTransferredToAToken() public setUpLoanForUser {
         FullLiquidationTestVars memory vars;
-        
+
         vars.lsa = loan.getUserLoanAtIndex(user, 0);
 
         _updateAddressesProviderBitmorLoan();
@@ -322,7 +294,7 @@ contract FullLiquidationTest is BaseLoanTest {
     /// @notice Test that liquidator receives liquidation bonus on full liquidation
     function test_fullLiquidation_liquidatorReceivesBonus() public setUpLoanForUser {
         FullLiquidationTestVars memory vars;
-        
+
         vars.lsa = loan.getUserLoanAtIndex(user, 0);
 
         _updateAddressesProviderBitmorLoan();
@@ -384,13 +356,7 @@ contract FullLiquidationTest is BaseLoanTest {
         // Attempt full liquidation - should revert
         vm.prank(liquidator);
         vm.expectRevert(); // Will fail at safeTransferFrom
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
 
     // ============ Test: Full Liquidation Reverts If Liquidator Has No Allowance ============
@@ -417,15 +383,8 @@ contract FullLiquidationTest is BaseLoanTest {
         // Attempt full liquidation - should revert
         vm.prank(liquidator);
         vm.expectRevert(); // Will fail at safeTransferFrom
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
-
 
     /// @notice If HF < 1 due to price drop, and payment is NOT due yet, the loan should be
     ///         full-liquidatable when there is NO insurance ID.
@@ -446,21 +405,11 @@ contract FullLiquidationTest is BaseLoanTest {
         _fundLiquidator();
 
         vm.prank(liquidator);
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
 
         // Assert status is liquidated
         DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanDataAfter.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "Loan should be liquidated"
-        );
+        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Liquidated), "Loan should be liquidated");
     }
 
     /// @notice If HF < 1 due to price drop, and payment is NOT due yet, the loan should NOT be
@@ -486,16 +435,6 @@ contract FullLiquidationTest is BaseLoanTest {
 
         vm.prank(liquidator);
         vm.expectRevert(); // ValidationLogic should block since type != 1
-        ILendingPool(s_bitmorPool).liquidationCall(
-            collateralAsset,
-            debtAsset,
-            lsa,
-            type(uint256).max,
-            false
-        );
+        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
-
-
-
-
 }

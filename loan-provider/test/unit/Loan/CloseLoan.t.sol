@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
@@ -11,14 +11,13 @@ import {Vm} from "forge-std/Vm.sol";
 /// @title CloseLoanTest
 /// @notice Tests for loan closure functionality
 contract CloseLoanTest is BaseLoanTest {
-    
     // ============ Constants ============
-    
+
     /// @dev ERC20 Transfer event signature for log parsing
     bytes32 private constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
-    
+
     // ============ Local Structs ============
-    
+
     /// @dev Struct to hold close loan test state
     struct CloseLoanState {
         address lsa;
@@ -54,19 +53,18 @@ contract CloseLoanTest is BaseLoanTest {
     /// @param from The sender address to filter by
     /// @param to The recipient address to filter by
     /// @return totalAmount The sum of all matching transfer amounts
-    function _parseTransferLogs(
-        Vm.Log[] memory logs,
-        address token,
-        address from,
-        address to
-    ) internal pure returns (uint256 totalAmount) {
+    function _parseTransferLogs(Vm.Log[] memory logs, address token, address from, address to)
+        internal
+        pure
+        returns (uint256 totalAmount)
+    {
         for (uint256 i = 0; i < logs.length; i++) {
             // Check if this is a Transfer event from the correct token
             if (logs[i].emitter == token && logs[i].topics[0] == TRANSFER_EVENT_SIG) {
                 // topics[1] = from (indexed), topics[2] = to (indexed)
                 address logFrom = address(uint160(uint256(logs[i].topics[1])));
                 address logTo = address(uint160(uint256(logs[i].topics[2])));
-                
+
                 if (logFrom == from && logTo == to) {
                     // data contains the amount (non-indexed)
                     uint256 amount = abi.decode(logs[i].data, (uint256));
@@ -96,7 +94,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Capture state before
         CloseLoanState memory stateBefore = _captureStateBefore(lsa);
-        
+
         assertGt(stateBefore.debtBefore, 0, "Should have debt before close");
         assertGt(stateBefore.collateralBefore, 0, "Should have collateral before close");
         assertEq(uint256(stateBefore.statusBefore), uint256(DataTypes.LoanStatus.Active), "Should be active before");
@@ -129,18 +127,15 @@ contract CloseLoanTest is BaseLoanTest {
         assertGt(collateralReceived, 0, "User should receive collateral asset");
 
         // Parse transfer logs to get exact amount transferred from Loan to user
-        uint256 transferredCollateral = _parseTransferLogs(
-            logs,
-            collateralAsset,
-            address(loan),
-            user
-        );
+        uint256 transferredCollateral = _parseTransferLogs(logs, collateralAsset, address(loan), user);
         assertEq(collateralReceived, transferredCollateral, "Collateral received should match transfer log");
 
         // When withdrawing in collateral asset, USDC received should be minimal (dust)
         uint256 usdcReceived = userDebtAssetAfter - stateBefore.userDebtAssetBefore;
         // Allow for some dust but should be very small relative to debt
-        assertLt(usdcReceived, stateBefore.debtBefore / 100, "USDC received should be dust when withdrawing in collateral");
+        assertLt(
+            usdcReceived, stateBefore.debtBefore / 100, "USDC received should be dust when withdrawing in collateral"
+        );
     }
 
     /// @notice Test closing loan and withdrawing in debt asset (USDC)
@@ -151,7 +146,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Capture state before
         CloseLoanState memory stateBefore = _captureStateBefore(lsa);
-        
+
         assertGt(stateBefore.debtBefore, 0, "Should have debt before close");
         assertGt(stateBefore.collateralBefore, 0, "Should have collateral before close");
 
@@ -183,18 +178,17 @@ contract CloseLoanTest is BaseLoanTest {
         assertGt(usdcReceived, 0, "User should receive debt asset (USDC)");
 
         // Parse transfer logs to get exact amount transferred from Loan to user
-        uint256 transferredUsdc = _parseTransferLogs(
-            logs,
-            debtAsset,
-            address(loan),
-            user
-        );
+        uint256 transferredUsdc = _parseTransferLogs(logs, debtAsset, address(loan), user);
         assertEq(usdcReceived, transferredUsdc, "USDC received should match transfer log");
 
         // When withdrawing in debt asset, cbBTC received should be 0 or dust
         uint256 collateralReceived = userCollateralAfter - stateBefore.userCollateralBefore;
         // Allow for minimal dust
-        assertLt(collateralReceived, stateBefore.collateralBefore / 100, "cbBTC received should be 0 or dust when withdrawing in USDC");
+        assertLt(
+            collateralReceived,
+            stateBefore.collateralBefore / 100,
+            "cbBTC received should be 0 or dust when withdrawing in USDC"
+        );
     }
 
     // ============ Close Loan Tests - New Tests ============
@@ -226,12 +220,12 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Parse collateral transfers to premium collector (fee sink)
         uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
-        
+
         uint256 userCollateralReceived = _parseTransferLogs(logs, collateralAsset, address(loan), user);
-        
+
         // Verify fee calculation is correct
         assertEq(expectedFee, (collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
-        
+
         // Verify fee was transferred to premium collector
         uint256 collectorBalanceAfter = IERC20(collateralAsset).balanceOf(premiumCollector);
         assertGe(collectorBalanceAfter - collectorBalanceBefore, 0, "Premium collector should receive fee");
@@ -271,9 +265,9 @@ contract CloseLoanTest is BaseLoanTest {
             aavePool,
             abi.encodeWithSelector(
                 IPool.flashLoanSimple.selector,
-                address(loan),  // receiver
-                debtAsset,      // asset
-                debtAmt         // amount - the debt amount
+                address(loan), // receiver
+                debtAsset, // asset
+                debtAmt // amount - the debt amount
                 // params and referralCode are variable, so we only check the key parameters
             )
         );
@@ -296,7 +290,7 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test that closing a non-existent LSA reverts
     function test_closeLoan_nonExistentLsa_reverts() public setUpLoanForUser {
         address randomAddress = makeAddr("nonExistentLsa");
-        
+
         vm.prank(user);
         vm.expectRevert(Errors.LoanDoesNotExists.selector);
         loan.closeLoan(randomAddress, true);
@@ -328,7 +322,9 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Verify loan is completed
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
-        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed after full repay");
+        assertEq(
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed after full repay"
+        );
         assertEq(_getDebtBalance(lsa), 0, "Debt should be 0");
 
         // Attempting to close should revert with LoanIsNotActive
@@ -378,17 +374,18 @@ contract CloseLoanTest is BaseLoanTest {
     function test_closeLoan_withdrawModes_differ() public {
         // Setup two loans to compare
         _mintDebtAssetToUser();
-        
+
         // Create first loan
         (,, uint256 minDeposit1) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         vm.prank(user);
-        address lsa1 = loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
+        address lsa1 =
+            loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
 
         // Create second loan (need to mint more tokens and create new user or adjust)
         // For simplicity, we'll use the first loan and test sequentially
-        
+
         CloseLoanState memory stateBefore = _captureStateBefore(lsa1);
-        
+
         // Close withdrawing in collateral
         vm.prank(user);
         loan.closeLoan(lsa1, true);
@@ -403,10 +400,10 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test close immediately after loan creation
     function test_closeLoan_immediatelyAfterCreation() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        
+
         // No time warp - close immediately
         CloseLoanState memory stateBefore = _captureStateBefore(lsa);
-        
+
         vm.prank(user);
         loan.closeLoan(lsa, true);
 
@@ -420,12 +417,12 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test close after interest accrual
     function test_closeLoan_afterInterestAccrual() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        
+
         uint256 initialDebt = _getDebtBalance(lsa);
-        
+
         // Warp 90 days to accrue interest
         vm.warp(block.timestamp + 90 days);
-        
+
         uint256 debtAfterAccrual = _getDebtBalance(lsa);
         assertGt(debtAfterAccrual, initialDebt, "Debt should increase with interest");
 

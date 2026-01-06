@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
@@ -10,9 +10,8 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 /// @title RepayLoanTest
 /// @notice Tests for loan repayment functionality
 contract RepayLoanTest is BaseLoanTest {
-    
     // ============ Local Structs ============
-    
+
     /// @dev Struct to hold repayment test state for cleaner assertions
     struct RepaymentState {
         address lsa;
@@ -29,12 +28,9 @@ contract RepayLoanTest is BaseLoanTest {
     // ============ Local Helpers ============
 
     /// @dev Execute repayment and return state snapshot
-    function _repayAndFetch(
-        address lsa,
-        uint256 repayAmount
-    ) internal returns (RepaymentState memory state) {
+    function _repayAndFetch(address lsa, uint256 repayAmount) internal returns (RepaymentState memory state) {
         DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(lsa);
-        
+
         state.lsa = lsa;
         state.durationBefore = loanDataBefore.duration;
         state.estimatedMonthlyPayment = loanDataBefore.estimatedMonthlyPayment;
@@ -51,10 +47,7 @@ contract RepayLoanTest is BaseLoanTest {
     }
 
     /// @dev Assert duration was reduced by expected periods
-    function _assertDurationReduced(
-        RepaymentState memory state,
-        uint256 expectedPeriodsPaid
-    ) internal pure {
+    function _assertDurationReduced(RepaymentState memory state, uint256 expectedPeriodsPaid) internal pure {
         uint256 actualPeriodsPaid = state.durationBefore - state.durationAfter;
         assertEq(actualPeriodsPaid, expectedPeriodsPaid, "Duration reduction mismatch");
     }
@@ -67,20 +60,12 @@ contract RepayLoanTest is BaseLoanTest {
 
     /// @dev Assert loan is still active
     function _assertLoanActive(RepaymentState memory state) internal pure {
-        assertEq(
-            uint256(state.statusAfter),
-            uint256(DataTypes.LoanStatus.Active),
-            "Loan should be active"
-        );
+        assertEq(uint256(state.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should be active");
     }
 
     /// @dev Assert loan is completed
     function _assertLoanCompleted(RepaymentState memory state) internal pure {
-        assertEq(
-            uint256(state.statusAfter),
-            uint256(DataTypes.LoanStatus.Completed),
-            "Loan should be completed"
-        );
+        assertEq(uint256(state.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
     }
 
     // ============ Loan Repayment Tests ============
@@ -206,9 +191,7 @@ contract RepayLoanTest is BaseLoanTest {
         assertEq(state.debtAfter, 0, "Debt should be 0");
         _assertLoanCompleted(state);
         assertEq(
-            userDebtAssetBefore - userDebtAssetAfter,
-            debtBalanceBefore,
-            "User should only spend actual debt amount"
+            userDebtAssetBefore - userDebtAssetAfter, debtBalanceBefore, "User should only spend actual debt amount"
         );
     }
 

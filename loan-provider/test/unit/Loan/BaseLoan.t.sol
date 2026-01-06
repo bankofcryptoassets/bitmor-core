@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {Utilities} from "./Utilities.t.sol";
+import {Utilities} from "../Utilities.t.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
@@ -12,7 +12,7 @@ import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
-import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
 /// @title BaseLoanTest
 /// @notice Single base contract for all Bitmor Protocol test suites
@@ -23,18 +23,18 @@ abstract contract BaseLoanTest is Utilities {
     using FixedPointMathLib for uint256;
 
     // ============ Core Protocol Contracts ============
-    
+
     HelperConfig internal config;
     Loan internal loan;
 
     // ============ Test Actors ============
-    
+
     address internal owner;
     address internal user;
     address internal liquidator;
 
     // ============ Protocol Addresses ============
-    
+
     address internal debtAsset;
     address internal aavePool;
     address internal collateralAsset;
@@ -42,7 +42,7 @@ abstract contract BaseLoanTest is Utilities {
     address internal s_addressesProvider;
 
     // ============ Protocol Parameters ============
-    
+
     uint256 internal s_gracePeriod;
 
     // ============ Constants ============
@@ -53,7 +53,7 @@ abstract contract BaseLoanTest is Utilities {
 
     /// @dev Insurance ID > 0 indicates user opted in for insurance
     uint256 internal constant INSURANCE_ID = 1;
-    
+
     /// @dev Arbitrary loan data identifier
     bytes internal constant DATA = "0xLOAN";
 
@@ -72,8 +72,40 @@ abstract contract BaseLoanTest is Utilities {
     /// @dev RAY unit for interest rate calculations (1e27)
     uint256 internal constant RAY = 1e27;
 
+    /// @dev Basis points denominator (10,000 = 100%)
+    uint256 internal constant BPS_DENOMINATOR = 10_000;
+
+    /// @dev Precision for fixed-point math calculations
+    uint256 internal constant PRECISION = 1e18;
+
+    /// @dev Standard test amounts for various scenarios
+    uint256 internal constant OVERPAY_AMOUNT = 500e6;
+    uint256 internal constant POOL_DEPOSIT_AMOUNT = 100_000e6;
+    uint256 internal constant SMALL_BORROW_AMOUNT = 1_000e6;
+    uint256 internal constant BTC_SEED_AMOUNT = 0.1e8;
+
+    /// @dev Price drop percentages for liquidation testing
+    uint256 internal constant PRICE_DROP_50_PERCENT = 50;
+    uint256 internal constant PRICE_DROP_FOR_LIQUIDATION = 20;
+
+    /// @dev Time constants
+    uint256 internal constant ONE_DAY = 1 days;
+
+    /// @dev Liquidation and insurance constants
+    uint256 internal constant INSURANCE_BONUS_BPS = 300; // 3%
+    uint256 internal constant LIQUIDATION_TYPE_NONE = 0;
+    uint256 internal constant LIQUIDATION_TYPE_FULL = 1;
+    uint256 internal constant LIQUIDATION_TYPE_MICRO = 2;
+
+    /// @dev Interest rate constants
+    uint256 internal constant MAX_APR_BPS = 1200; // 12%
+
+    /// @dev Tolerance and threshold constants
+    uint256 internal constant PAYMENT_TOLERANCE = 10;
+    uint256 internal constant DEBT_DUST_THRESHOLD = 100;
+
     // ============ Debug Flag ============
-    
+
     /// @dev Set to true to enable debug logging (should be false in final tests)
     bool internal constant DEBUG = false;
 
@@ -153,6 +185,23 @@ abstract contract BaseLoanTest is Utilities {
         _;
     }
 
+    // ============ Error Testing Helpers ============
+
+    /// @dev Helper wrapper for consistent error expectations with specific selector
+    function _expectRevertSelector(bytes4 selector) internal {
+        vm.expectRevert(selector);
+    }
+
+    /// @dev Helper wrapper for consistent error expectations with specific error message
+    function _expectRevertMessage(string memory message) internal {
+        vm.expectRevert(bytes(message));
+    }
+
+    /// @dev Helper wrapper for generic revert expectation (use only when specific error unknown)
+    function _expectGenericRevert() internal {
+        vm.expectRevert();
+    }
+
     // ============ Internal Setup Helpers ============
 
     /// @dev Mint debt asset to user and approve loan contract
@@ -207,13 +256,7 @@ abstract contract BaseLoanTest is Utilities {
     /// @param receiveAToken True to receive aTokens, false for underlying
     function _executeFullLiquidation(address lsa, uint256 debtToCover, bool receiveAToken) internal {
         _utilExecuteFullLiquidation(
-            s_bitmorPool,
-            liquidator,
-            collateralAsset,
-            debtAsset,
-            lsa,
-            debtToCover,
-            receiveAToken
+            s_bitmorPool, liquidator, collateralAsset, debtAsset, lsa, debtToCover, receiveAToken
         );
     }
 

@@ -20,7 +20,9 @@ contract MockAaveV3Pool {
         uint256 amount,
         bytes calldata params,
         uint16 /*referralCode*/
-    ) external {
+    )
+        external
+    {
         lastReceiver = receiverAddress;
         lastAsset = asset;
         lastAmount = amount;
@@ -38,9 +40,6 @@ contract MockAaveV3Pool {
         require(ok, "MOCK_CALLBACK_FAILED");
 
         // Pull repayment (amount + premium) from receiver.
-        require(
-            IERC20(asset).transferFrom(receiverAddress, address(this), amount),
-            "MOCK_REPAY_TRANSFERFROM_FAILED"
-        );
+        require(IERC20(asset).transferFrom(receiverAddress, address(this), amount), "MOCK_REPAY_TRANSFERFROM_FAILED");
     }
 }

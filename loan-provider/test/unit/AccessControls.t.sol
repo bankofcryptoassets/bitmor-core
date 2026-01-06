@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Ownable} from "@bitmor/dependencies/openzeppelin/Ownable.sol";

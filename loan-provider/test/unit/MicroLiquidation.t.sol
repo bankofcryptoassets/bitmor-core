@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseLoanTest} from "./BaseLoanTest.t.sol";
+import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
@@ -12,7 +12,6 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 /// @notice Tests for micro-liquidation functionality (liquidationType == 2)
 /// @dev Micro-liquidation covers one monthly payment when borrower is overdue but loan is still healthy
 contract MicroLiquidationTest is BaseLoanTest {
-    
     // ============ Structs ============
 
     /// @dev Struct to hold micro-liquidation test variables
@@ -143,7 +142,9 @@ contract MicroLiquidationTest is BaseLoanTest {
         uint256 expectedCollateral = _calculateExpectedCollateralSeized(debtPaid);
         // Allow 0.5% tolerance for rounding differences
         uint256 tolerance = expectedCollateral / 200;
-        assertApproxEqAbs(collateralReceived, expectedCollateral, tolerance, "Collateral received should match expected with bonus");
+        assertApproxEqAbs(
+            collateralReceived, expectedCollateral, tolerance, "Collateral received should match expected with bonus"
+        );
 
         // 4. STATE UPDATES:
         // a. durationAfter == durationBefore - 1
@@ -209,14 +210,19 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Get liquidation bonus (e.g., 10300 = 103% = 3% bonus)
         uint256 liquidationBonusBps = _getLiquidationBonus();
-        
+
         // Expected profit percentage = (liquidationBonus - 10000) / 10000
         // Verify collateral value is approximately debtPaid * liquidationBonus / 10000
         uint256 expectedCollateralValue = (debtPaidIn8Decimals * liquidationBonusBps) / 10000;
-        
+
         // Allow 1% tolerance for rounding
         uint256 tolerance = expectedCollateralValue / 100;
-        assertApproxEqAbs(collateralValueUSD, expectedCollateralValue, tolerance, "Collateral value should match expected with liquidation bonus");
+        assertApproxEqAbs(
+            collateralValueUSD,
+            expectedCollateralValue,
+            tolerance,
+            "Collateral value should match expected with liquidation bonus"
+        );
     }
 
     // ============ Test: Repeated Micro-Liquidation Until Completion or Full Liquidation ============
@@ -273,13 +279,7 @@ contract MicroLiquidationTest is BaseLoanTest {
 
                 // Execute full liquidation
                 _utilExecuteFullLiquidation(
-                    s_bitmorPool,
-                    liquidator,
-                    collateralAsset,
-                    debtAsset,
-                    vars.lsa,
-                    type(uint256).max,
-                    false
+                    s_bitmorPool, liquidator, collateralAsset, debtAsset, vars.lsa, type(uint256).max, false
                 );
 
                 // Get balances after
@@ -317,10 +317,10 @@ contract MicroLiquidationTest is BaseLoanTest {
             vars.liquidatorCollateralAfter = IERC20(collateralAsset).balanceOf(liquidator);
 
             // ============ MICRO-BRANCH SPECIFIC ASSERTIONS ============
-            
+
             // G. Assert per-iteration invariants for micro-liquidation (type == 2)
             DataTypes.LoanData memory loanDataAfterMicro = loan.getLoanByLSA(vars.lsa);
-            
+
             // a. Duration decrements by exactly 1
             assertEq(
                 loanDataAfterMicro.duration,
@@ -350,11 +350,7 @@ contract MicroLiquidationTest is BaseLoanTest {
             // d. debtPaid == min(monthly, remainingDebt)
             uint256 debtPaidThisRound = vars.liquidatorDebtBefore - vars.liquidatorDebtAfter;
             uint256 expectedDebtPaid = _utilMin(vars.estimatedMonthlyPayment, vars.remainingDebt);
-            assertEq(
-                debtPaidThisRound,
-                expectedDebtPaid,
-                "debtPaid should equal min(monthlyPayment, remainingDebt)"
-            );
+            assertEq(debtPaidThisRound, expectedDebtPaid, "debtPaid should equal min(monthlyPayment, remainingDebt)");
 
             // H. Update loop variables
             vars.currentDuration = loanDataAfterMicro.duration;
@@ -394,7 +390,7 @@ contract MicroLiquidationTest is BaseLoanTest {
     /// @notice Test that liquidation type transitions correctly based on time
     function test_microLiquidation_afterGracePeriod_returnsTypeMicro() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        
+
         _updateAddressesProviderBitmorLoan();
 
         // Assert before warp: checkType == 0 (loan is fresh, not overdue)
@@ -418,7 +414,7 @@ contract MicroLiquidationTest is BaseLoanTest {
         _updateAddressesProviderBitmorLoan();
 
         // Do NOT warp past grace/interval - loan is still in good standing
-        
+
         // Fund liquidator
         _fundLiquidator();
 
