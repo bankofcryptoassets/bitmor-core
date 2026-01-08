@@ -169,9 +169,11 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       .plus(rateStrategyStableOne.variableRateSlope1)
       .plus(rateStrategyStableOne.variableRateSlope2);
 
-    const expectedLiquidityRate = new BigNumber(
-      (currentVariableBorrowRate + '100000000000000000000000000' / 2).toString()
-    )
+    const avgBorrowRate = new BigNumber(currentVariableBorrowRate.toString())
+      .plus("100000000000000000000000000") // 0.1 RAY
+      .div(2);
+
+    const expectedLiquidityRate = avgBorrowRate
       .percentMul(new BigNumber(PERCENTAGE_FACTOR).minus(strategyDAI.reserveFactor))
       .toFixed(0);
 
