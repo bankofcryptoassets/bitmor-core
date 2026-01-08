@@ -99,8 +99,8 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       owner.address,
       spender.address,
       nonce,
-      deadline,
-      permitAmount
+      permitAmount,
+      deadline
     );
 
     const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;

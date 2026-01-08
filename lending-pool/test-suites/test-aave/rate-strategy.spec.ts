@@ -1,16 +1,20 @@
-import { TestEnv, makeSuite } from './helpers/make-suite';
-import { deployDefaultReserveInterestRateStrategy } from '../../helpers/contracts-deployments';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { deployDefaultReserveInterestRateStrategy } from '../../helpers/contracts-deployments.js';
+import { getContractAddress } from '../../helpers/contracts-helpers.js';
 
-import { APPROVAL_AMOUNT_LENDING_POOL, PERCENTAGE_FACTOR, RAY } from '../../helpers/constants';
+import { APPROVAL_AMOUNT_LENDING_POOL, PERCENTAGE_FACTOR, RAY } from '../../helpers/constants.js';
 
-import { rateStrategyStableOne } from '../../markets/aave/rateStrategies';
+import { rateStrategyStableOne } from '../../markets/aave/rateStrategies.js';
 
-import { strategyDAI } from '../../markets/aave/reservesConfigs';
-import { AToken, DefaultReserveInterestRateStrategy, MintableERC20 } from '../../types';
-import BigNumber from 'bignumber.js';
+import { strategyDAI } from '../../markets/aave/reservesConfigs.js';
+import type { AToken, DefaultReserveInterestRateStrategy, MintableERC20 } from '../../types/ethers-contracts/index.js';
+import BigNumber from "bignumber.js";
+
 import './helpers/utils/math';
 
-const { expect } = require('chai');
+import chai from 'chai';
+const { expect } = chai;
 
 makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
   let strategyInstance: DefaultReserveInterestRateStrategy;
@@ -25,7 +29,7 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
 
     strategyInstance = await deployDefaultReserveInterestRateStrategy(
       [
-        addressesProvider.address,
+        getContractAddress(addressesProvider),
         rateStrategyStableOne.optimalUtilizationRate,
         rateStrategyStableOne.baseVariableBorrowRate,
         rateStrategyStableOne.variableRateSlope1,
@@ -43,8 +47,8 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      dai.address,
-      aDai.address,
+      getContractAddress(dai),
+      getContractAddress(aDai),
       0,
       0,
       0,
@@ -70,8 +74,8 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      dai.address,
-      aDai.address,
+      getContractAddress(dai),
+      getContractAddress(aDai),
       '200000000000000000',
       '0',
       '0',
@@ -109,8 +113,8 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      dai.address,
-      aDai.address,
+      getContractAddress(dai),
+      getContractAddress(aDai),
       '0',
       '0',
       '0',
@@ -151,8 +155,8 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      dai.address,
-      aDai.address,
+      getContractAddress(dai),
+      getContractAddress(aDai),
       '0',
       '0',
       '400000000000000000',
@@ -166,7 +170,7 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       .plus(rateStrategyStableOne.variableRateSlope2);
 
     const expectedLiquidityRate = new BigNumber(
-      currentVariableBorrowRate.add('100000000000000000000000000').div(2).toString()
+      (currentVariableBorrowRate + '100000000000000000000000000' / 2).toString()
     )
       .percentMul(new BigNumber(PERCENTAGE_FACTOR).minus(strategyDAI.reserveFactor))
       .toFixed(0);

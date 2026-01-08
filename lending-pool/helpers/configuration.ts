@@ -7,16 +7,16 @@ import type {
   IBaseConfiguration,
   tEthereumAddress,
 } from './types.js';
-import { getEthersSignersAddresses, getParamPerPool } from './contracts-helpers';
-import AaveConfig from '../markets/aave';
-import MaticConfig from '../markets/matic';
-import AvalancheConfig from '../markets/avalanche';
-import AmmConfig from '../markets/amm';
-import BitmorConfig from '../markets/bitmor';
+import { getEthersSignersAddresses, getParamPerPool } from './contracts-helpers.js';
+import AaveConfig from '../markets/aave/index.js';
+import MaticConfig from '../markets/matic/index.js';
+import AvalancheConfig from '../markets/avalanche/index.js';
+import AmmConfig from '../markets/amm/index.js';
+import BitmorConfig from '../markets/bitmor/index.js';
 
-import { CommonsConfig } from '../markets/aave/commons';
-import { DRE, filterMapBy } from './misc-utils';
-import { getParamPerNetwork } from './contracts-helpers';
+import { CommonsConfig } from '../markets/aave/commons.js';
+import { DRE, filterMapBy } from './misc-utils.js';
+import { getParamPerNetwork } from './contracts-helpers.js';
 // import { deployWETHMocked } from './contracts-deployments'; // Removed to break circular dependency
 
 export enum ConfigNames {

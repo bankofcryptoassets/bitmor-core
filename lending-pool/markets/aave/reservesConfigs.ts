@@ -1,4 +1,4 @@
-import { eContractid, IReserveParams } from '../../helpers/types';
+import { eContractid, IReserveParams } from '../../helpers/types.js';
 
 import {
   rateStrategyStableOne,
@@ -10,7 +10,7 @@ import {
   rateStrategyVolatileTwo,
   rateStrategyVolatileThree,
   rateStrategyVolatileFour,
-} from './rateStrategies';
+} from './rateStrategies.js';
 
 export const strategyBUSD: IReserveParams = {
   strategy: rateStrategyStableOne,

@@ -1,4 +1,3 @@
-import type { Contract } from 'ethers';
 import { DRE, notFalsyOrZeroAddress } from './misc-utils.js';
 import {
   eContractid,
@@ -69,7 +68,7 @@ import {
   getContractAddress,
 } from './contracts-helpers.js';
 import { StableAndVariableTokensHelper__factory } from '../types/ethers-contracts/index.js';
-import type { MintableDelegationERC20 } from '../types/ethers-contracts/index.js';
+import type { MintableDelegationERC20, DelegationAwareAToken } from '../types/ethers-contracts/index.js';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import type { LendingPoolLibraryAddresses } from '../types/ethers-contracts/factories/protocol/lendingpool/LendingPool__factory.js';
 import type { UiPoolDataProvider } from '../types/ethers-contracts/index.js';
@@ -161,7 +160,7 @@ export const deployLendingPoolConfigurator = async (verify?: boolean) => {
   ).deploy();
   await insertContractAddressInDb(
     eContractid.LendingPoolConfiguratorImpl,
-    lendingPoolConfiguratorImpl.address
+    getContractAddress(lendingPoolConfiguratorImpl)
   );
   return withSaveAndVerify(
     lendingPoolConfiguratorImpl,
@@ -179,7 +178,7 @@ export const deployReserveLogicLibrary = async (verify?: boolean) =>
     verify
   );
 
-export const deployGenericLogic = async (reserveLogic: Contract, verify?: boolean) => {
+export const deployGenericLogic = async (reserveLogic: any, verify?: boolean) => {
   const genericLogicArtifact = await readArtifact(eContractid.GenericLogic);
 
   const linkedGenericLogicByteCode = linkBytecode(genericLogicArtifact, {
@@ -198,8 +197,8 @@ export const deployGenericLogic = async (reserveLogic: Contract, verify?: boolea
 };
 
 export const deployValidationLogic = async (
-  reserveLogic: Contract,
-  genericLogic: Contract,
+  reserveLogic: any,
+  genericLogic: any,
   verify?: boolean
 ) => {
   const validationLogicArtifact = await readArtifact(eContractid.ValidationLogic);
@@ -298,7 +297,7 @@ export const deployLendingPoolCollateralManager = async (verify?: boolean) => {
   ).deploy();
   await insertContractAddressInDb(
     eContractid.LendingPoolCollateralManagerImpl,
-    collateralManagerImpl.address
+    getContractAddress(collateralManagerImpl)
   );
   return withSaveAndVerify(
     collateralManagerImpl,
@@ -480,7 +479,7 @@ export const deployDelegationAwareAToken = async (
     string
   ],
   verify: boolean
-) => {
+): Promise<DelegationAwareAToken> => {
   const instance = await withSaveAndVerify(
     await new DelegationAwareAToken__factory(await getFirstSigner()).deploy(),
     eContractid.DelegationAwareAToken,
@@ -511,7 +510,7 @@ export const deployDelegationAwareATokenImpl = async (verify: boolean) =>
   );
 
 export const deployAllMockTokens = async (verify?: boolean) => {
-  const tokens: { [symbol: string]: MockContract | MintableERC20 } = {};
+  const tokens: { [symbol: string]: MintableERC20 } = {};
 
   const protoConfigData = getReservesConfigByPool(AavePools.proto);
 
@@ -530,7 +529,7 @@ export const deployAllMockTokens = async (verify?: boolean) => {
 };
 
 export const deployMockTokens = async (config: PoolConfiguration, verify?: boolean) => {
-  const tokens: { [symbol: string]: MockContract | MintableERC20 } = {};
+  const tokens: { [symbol: string]: MintableERC20 } = {};
   const defaultDecimals = 18;
 
   const configData = config.ReservesConfig;

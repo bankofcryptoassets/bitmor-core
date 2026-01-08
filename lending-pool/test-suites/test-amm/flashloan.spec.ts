@@ -13,6 +13,7 @@ import {
   getStableDebtToken,
   getVariableDebtToken,
 } from '../../helpers/contracts-getters';
+import { DRE } from '../../helpers/dre.js';
 
 const { expect } = require('chai');
 
@@ -591,7 +592,7 @@ makeSuite('LendingPool FlashLoan function', (testEnv: TestEnv) => {
         onBehalfOf.address,
         '0x10',
         '0'
-      )).to.not.be.reverted;
+      )).to.not.be.revert(DRE.ethers);
 
     const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
       weth.address

@@ -35,8 +35,8 @@ import {
   FlashLiquidationAdapter__factory,
   IERC20Detailed__factory,
 } from '../types/ethers-contracts/index.js';
-import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers';
-import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils';
+import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers.js';
+import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils.js';
 import { eContractid, TokenContractId } from './types.js';
 import type { PoolConfiguration, tEthereumAddress } from './types.js';
 

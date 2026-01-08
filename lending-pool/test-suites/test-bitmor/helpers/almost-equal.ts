@@ -1,4 +1,4 @@
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
 
 function almostEqualAssertion(this: any, expected: any, actual: any, message: string): any {
   this.assert(

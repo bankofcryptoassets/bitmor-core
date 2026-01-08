@@ -1,5 +1,4 @@
-import BigNumber from 'bignumber.js';
-
+import BigNumber from "bignumber.js";
 import {
   calcExpectedReserveDataAfterBorrow,
   calcExpectedReserveDataAfterDeposit,
@@ -14,25 +13,25 @@ import {
   calcExpectedUserDataAfterStableRateRebalance,
   calcExpectedUserDataAfterSwapRateMode,
   calcExpectedUserDataAfterWithdraw,
-} from './utils/calculations';
-import { getReserveAddressFromSymbol, getReserveData, getUserData } from './utils/helpers';
+} from './utils/calculations.js';
+import { getReserveAddressFromSymbol, getReserveData, getUserData } from './utils/helpers.js';
 
-import { convertToCurrencyDecimals } from '../../../helpers/contracts-helpers';
+import { convertToCurrencyDecimals, getContractAddress } from '../../../helpers/contracts-helpers.js';
 import {
   getAToken,
   getMintableERC20,
   getStableDebtToken,
   getVariableDebtToken,
-} from '../../../helpers/contracts-getters';
-import { MAX_UINT_AMOUNT, ONE_YEAR } from '../../../helpers/constants';
-import { SignerWithAddress, TestEnv } from './make-suite';
-import { advanceTimeAndBlock, DRE, timeLatest, waitForTx } from '../../../helpers/misc-utils';
+} from '../../../helpers/contracts-getters.js';
+import { MAX_UINT_AMOUNT, ONE_YEAR } from '../../../helpers/constants.js';
+import { SignerWithAddress, TestEnv } from './make-suite.js';
+import { advanceTimeAndBlock, DRE, timeLatest, waitForTx } from '../../../helpers/misc-utils.js';
 
 import chai from 'chai';
-import { ReserveData, UserReserveData } from './utils/interfaces';
-import { ContractReceipt } from 'ethers';
-import { AToken } from '../../../types/AToken';
-import { RateMode, tEthereumAddress } from '../../../helpers/types';
+import { ReserveData, UserReserveData } from './utils/interfaces/index.js';
+import type { TransactionReceipt } from "ethers";
+import { AToken } from '../../../types/ethers-contracts/index.js';
+import { RateMode, tEthereumAddress } from '../../../helpers/types.js';
 
 const { expect } = chai;
 
@@ -63,18 +62,18 @@ const almostEqualOrEqual = function (
       console.log('Found a undefined value for Key ', key, ' value ', expected[key], actual[key]);
     }
 
-    if (actual[key] instanceof BigNumber) {
-      const actualValue = (<BigNumber>actual[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
-      const expectedValue = (<BigNumber>expected[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+    if (BigNumber.isBigNumber(actual[key])) {
+      const actualValue = (actual[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+      const expectedValue = (expected[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
 
       this.assert(
         actualValue.eq(expectedValue) ||
-          actualValue.plus(1).eq(expectedValue) ||
-          actualValue.eq(expectedValue.plus(1)) ||
-          actualValue.plus(2).eq(expectedValue) ||
-          actualValue.eq(expectedValue.plus(2)) ||
-          actualValue.plus(3).eq(expectedValue) ||
-          actualValue.eq(expectedValue.plus(3)),
+        actualValue.plus(1).eq(expectedValue) ||
+        actualValue.eq(expectedValue.plus(1)) ||
+        actualValue.plus(2).eq(expectedValue) ||
+        actualValue.eq(expectedValue.plus(2)) ||
+        actualValue.plus(3).eq(expectedValue) ||
+        actualValue.eq(expectedValue.plus(3)),
         `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
         `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
         expectedValue.toFixed(0),
@@ -83,8 +82,8 @@ const almostEqualOrEqual = function (
     } else {
       this.assert(
         actual[key] !== null &&
-          expected[key] !== null &&
-          actual[key].toString() === expected[key].toString(),
+        expected[key] !== null &&
+        actual[key].toString() === expected[key].toString(),
         `expected #{act} to be equal #{exp} for property ${key}`,
         `expected #{act} to be equal #{exp} for property ${key}`,
         expected[key],
@@ -129,7 +128,7 @@ export const approve = async (reserveSymbol: string, user: SignerWithAddress, te
   const token = await getMintableERC20(reserve);
 
   await waitForTx(
-    await token.connect(user.signer).approve(pool.address, '100000000000000000000000000000')
+    await token.connect(user.signer).approve(getContractAddress(pool), '100000000000000000000000000000')
   );
 };
 
@@ -208,7 +207,7 @@ export const deposit = async (
     await expect(
       pool.connect(sender.signer).deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -280,7 +279,7 @@ export const withdraw = async (
     await expect(
       pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -349,7 +348,7 @@ export const borrow = async (
   );
 
   const amountToBorrow = await convertToCurrencyDecimals(reserve, amount);
-  
+
   if (expectedResult === 'success') {
     const txResult = await waitForTx(
       await pool
@@ -417,7 +416,7 @@ export const borrow = async (
     await expect(
       pool.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -511,7 +510,7 @@ export const repay = async (
         .connect(user.signer)
         .repay(reserve, amountToRepay, rateMode, onBehalfOf.address, txOptions),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -567,7 +566,7 @@ export const setUseAsCollateral = async (
     await expect(
       pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -631,8 +630,8 @@ export const swapBorrowRateMode = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
-    await expect(pool.connect(user.signer).swapBorrowRateMode(reserve, rateMode), revertMessage).to
-      .be.reverted;
+    await expect(pool.connect(user.signer).swapBorrowRateMode(reserve, rateMode), revertMessage)
+      .to.be.revert(DRE.ethers);
   }
 };
 
@@ -696,7 +695,7 @@ export const rebalanceStableBorrowRate = async (
     await expect(
       pool.connect(user.signer).rebalanceStableBorrowRate(reserve, target.address),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -734,16 +733,25 @@ const getDataBeforeAction = async (
   };
 };
 
-export const getTxCostAndTimestamp = async (tx: ContractReceipt) => {
-  if (!tx.blockNumber || !tx.transactionHash || !tx.cumulativeGasUsed) {
-    throw new Error('No tx blocknumber');
+export const getTxCostAndTimestamp = async (tx: any) => {
+  // ethers v6 receipt has: blockNumber, hash, gasUsed, effectiveGasPrice
+  const blockNumber = tx?.blockNumber;
+  if (blockNumber == null) {
+    throw new Error("No tx blocknumber");
   }
-  const txTimestamp = new BigNumber((await DRE.ethers.provider.getBlock(tx.blockNumber)).timestamp);
 
-  const txInfo = await DRE.ethers.provider.getTransaction(tx.transactionHash);
-  const txCost = new BigNumber(tx.cumulativeGasUsed.toString()).multipliedBy(
-    txInfo.gasPrice.toString()
-  );
+  const gasUsed = tx.gasUsed ?? tx.cumulativeGasUsed; // prefer v6 gasUsed, fallback for older
+  const gasPrice = tx.effectiveGasPrice ?? tx.gasPrice; // prefer v6 effectiveGasPrice
+
+  if (gasUsed == null || gasPrice == null) {
+    throw new Error("Missing gasUsed / effectiveGasPrice on receipt");
+  }
+
+  const block = await DRE.ethers.provider.getBlock(blockNumber);
+  const txTimestamp = new BigNumber(block.timestamp.toString());
+
+  // txCost in WEI (same as your old v5 logic)
+  const txCost = new BigNumber(gasUsed.toString()).multipliedBy(gasPrice.toString());
 
   return { txCost, txTimestamp };
 };

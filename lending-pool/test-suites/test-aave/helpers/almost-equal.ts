@@ -1,4 +1,4 @@
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
 
 function almostEqualAssertion(this: any, expected: any, actual: any, message: string): any {
   this.assert(
@@ -16,16 +16,46 @@ function almostEqualAssertion(this: any, expected: any, actual: any, message: st
 
 export function almostEqual() {
   return function (chai: any, utils: any) {
-    chai.Assertion.overwriteMethod('almostEqual', function (original: any) {
-      return function (this: any, value: any, message: string) {
-        if (utils.flag(this, 'bignumber')) {
-          var expected = new BigNumber(value);
-          var actual = new BigNumber(this._obj);
-          almostEqualAssertion.apply(this, [expected, actual, message]);
-        } else {
-          original.apply(this, arguments);
-        }
-      };
+    chai.Assertion.addMethod('almostEqual', function (this: any, value: any, message: string) {
+      var expected = new BigNumber(value);
+      var actual = new BigNumber(this._obj);
+      almostEqualAssertion.apply(this, [expected, actual, message]);
+    });
+
+    chai.Assertion.addMethod('greaterThan', function (this: any, value: any, message: string) {
+      var expected = new BigNumber(value);
+      var actual = new BigNumber(this._obj);
+      this.assert(
+        actual.gt(expected),
+        `${message} expected #{act} to be greater than #{exp}`,
+        `${message} expected #{act} to not be greater than #{exp}`,
+        expected.toString(),
+        actual.toString()
+      );
+    });
+
+    chai.Assertion.addMethod('greaterThanOrEqual', function (this: any, value: any, message: string) {
+      var expected = new BigNumber(value);
+      var actual = new BigNumber(this._obj);
+      this.assert(
+        actual.gte(expected),
+        `${message} expected #{act} to be greater than or equal #{exp}`,
+        `${message} expected #{act} to not be greater than or equal #{exp}`,
+        expected.toString(),
+        actual.toString()
+      );
+    });
+
+    chai.Assertion.addMethod('lessThan', function (this: any, value: any, message: string) {
+      var expected = new BigNumber(value);
+      var actual = new BigNumber(this._obj);
+      this.assert(
+        actual.lt(expected),
+        `${message} expected #{act} to be less than #{exp}`,
+        `${message} expected #{act} to not be less than #{exp}`,
+        expected.toString(),
+        actual.toString()
+      );
     });
   };
 }

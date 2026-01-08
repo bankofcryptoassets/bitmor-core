@@ -2,7 +2,8 @@ import { ethers, AbiCoder, parseUnits } from 'ethers';
 import type { Contract, Signer, BigNumberish, BaseContract, Addressable } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
+
 import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils.js';
 import {
   eContractid,
@@ -40,7 +41,11 @@ const utils = { defaultAbiCoder: AbiCoder.defaultAbiCoder(), parseUnits };
 export type MockTokenMap = { [symbol: string]: MintableERC20 };
 
 // Helper function to get contract address from ethers v6 BaseContract or legacy contracts
-export const getContractAddress = (contract: BaseContract | { address: string }): string => {
+export const getContractAddress = (contract: any): string => {
+  // Check if contract is null or undefined
+  if (contract === null || contract === undefined) {
+    throw new Error(`getContractAddress received ${contract} - contract is not initialized`);
+  }
   // ethers v6: BaseContract has .target property
   if ('target' in contract) {
     const target = contract.target;
@@ -48,13 +53,17 @@ export const getContractAddress = (contract: BaseContract | { address: string })
     if (typeof target === 'string') {
       return target;
     }
+    // If target exists but is null/undefined
+    if (target === null || target === undefined) {
+      throw new Error('Contract target property is null or undefined - contract may not be deployed');
+    }
   }
   // Legacy contracts (MockContract, etc.) have .address property
   if ('address' in contract && typeof contract.address === 'string') {
     return contract.address;
   }
   // Fallback
-  throw new Error('Contract does not have a valid address or target property');
+  throw new Error(`Contract does not have a valid address or target property. Contract type: ${typeof contract}`);
 };
 
 export const registerContractInJsonDb = async (contractId: string, contractInstance: any) => {
@@ -116,34 +125,34 @@ export const getCurrentBlock = async () => {
 export const decodeAbiNumber = (data: string): number =>
   parseInt(utils.defaultAbiCoder.decode(['uint256'], data).toString());
 
-export const deployContract = async <ContractType extends Contract>(
+export const deployContract = async <ContractType = any>(
   contractName: string,
   args: any[]
 ): Promise<ContractType> => {
   const contract = (await (await DRE.ethers.getContractFactory(contractName))
     .connect(await getFirstSigner())
     .deploy(...args)) as ContractType;
-  await contract.waitForDeployment();
+  await (contract as any).waitForDeployment();
   await registerContractInJsonDb(<eContractid>contractName, contract);
   return contract;
 };
 
-export const withSaveAndVerify = async <ContractType extends Contract>(
+export const withSaveAndVerify = async <ContractType = any>(
   instance: ContractType,
   id: string,
   args: (string | string[])[],
   verify?: boolean
 ): Promise<ContractType> => {
   // In ethers v6, use waitForDeployment() instead of waiting for deployTransaction
-  await instance.waitForDeployment();
+  await (instance as any).waitForDeployment();
   await registerContractInJsonDb(id, instance);
   if (verify) {
-    await verifyContract(id, instance, args);
+    await verifyContract(id, instance as any, args);
   }
   return instance;
 };
 
-export const getContract = async <ContractType extends Contract>(
+export const getContract = async <ContractType = any>(
   contractName: string,
   address: string
 ): Promise<ContractType> => (await DRE.ethers.getContractAt(contractName, address)) as ContractType;
@@ -249,14 +258,14 @@ export const getParamPerPool = <T>(
 
 export const convertToCurrencyDecimals = async (tokenAddress: tEthereumAddress, amount: string) => {
   const token = await getIErc20Detailed(tokenAddress);
-  let decimals = (await token.decimals()).toString();
+  let decimals = Number(await token.decimals());
 
-  return utils.parseUnits(amount, decimals);
+  return parseUnits(amount, decimals);
 };
 
 export const convertToCurrencyUnits = async (tokenAddress: string, amount: string) => {
   const token = await getIErc20Detailed(tokenAddress);
-  let decimals = new BigNumber(await token.decimals());
+  let decimals = new BigNumber((await token.decimals()).toString());
   const currencyUnit = new BigNumber(10).pow(decimals);
   const amountInCurrencyUnits = new BigNumber(amount).div(currencyUnit);
   return amountInCurrencyUnits.toFixed();
@@ -415,13 +424,13 @@ export const buildParaSwapLiquiditySwapParams = (
 
 export const verifyContract = async (
   id: string,
-  instance: Contract,
+  instance: any,
   args: (string | string[])[]
 ) => {
   if (usingTenderly()) {
     await verifyAtTenderly(id, instance);
   }
-  await verifyEtherscanContract(instance.address, args);
+  await verifyEtherscanContract(getContractAddress(instance), args);
   return instance;
 };
 

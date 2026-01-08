@@ -1,17 +1,22 @@
-import { configuration as actionsConfiguration } from './helpers/actions';
-import { configuration as calculationsConfiguration } from './helpers/utils/calculations';
+import { configuration as actionsConfiguration } from './helpers/actions.js';
+import { configuration as calculationsConfiguration } from './helpers/utils/calculations.js';
 
-import BigNumber from 'bignumber.js';
-import { makeSuite } from './helpers/make-suite';
-import { getReservesConfigByPool } from '../../helpers/configuration';
-import { AavePools, iAavePoolAssets, IReserveParams } from '../../helpers/types';
-import { executeStory } from './helpers/scenario-engine';
+import fs from 'fs';
+import BigNumber from "bignumber.js";
+
+import { makeSuite } from './helpers/make-suite.js';
+import { getReservesConfigByPool } from '../../helpers/configuration.js';
+import { AavePools, iAavePoolAssets, IReserveParams } from '../../helpers/types.js';
+import { executeStory } from './helpers/scenario-engine.js';
+
+const scenarioData = fs.readFileSync('./test-suites/test-aave/helpers/scenarios/borrow-repay-stable.json', 'utf8');
+const loadedScenario = JSON.parse(scenarioData);
 
 makeSuite('Subgraph scenario tests', async (testEnv) => {
   let story: any;
   let scenario;
   before('Initializing configuration', async () => {
-    const scenario = require(`./helpers/scenarios/borrow-repay-stable`);
+    scenario = loadedScenario;
     story = scenario.stories[0];
     // Sets BigNumber for this suite, instead of globally
     BigNumber.config({ DECIMAL_PLACES: 0, ROUNDING_MODE: BigNumber.ROUND_DOWN });

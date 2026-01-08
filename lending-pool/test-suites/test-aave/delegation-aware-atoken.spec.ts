@@ -1,28 +1,28 @@
-import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants';
-import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants';
-import { buildPermitParams, getSignatureFromTypedData } from '../../helpers/contracts-helpers';
-import { expect } from 'chai';
-import { ethers } from 'ethers';
-import { ProtocolErrors } from '../../helpers/types';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { DRE } from '../../helpers/misc-utils';
+import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants.js';
+import {buildPermitParams, getSignatureFromTypedData,
+  getContractAddress} from '../../helpers/contracts-helpers.js';
+import chai from 'chai';
+const { expect } = chai;
+import { parseEther } from 'ethers';
+import { ProtocolErrors } from '../../helpers/types.js';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { DRE } from '../../helpers/misc-utils.js';
 import {
   ConfigNames,
   getATokenDomainSeparatorPerNetwork,
   getTreasuryAddress,
   loadPoolConfig,
-} from '../../helpers/configuration';
-import { waitForTx } from '../../helpers/misc-utils';
+} from '../../helpers/configuration.js';
+import { waitForTx } from '../../helpers/misc-utils.js';
 import {
   deployDelegationAwareAToken,
   deployMintableDelegationERC20,
-} from '../../helpers/contracts-deployments';
-import { DelegationAwareATokenFactory } from '../../types';
-import { DelegationAwareAToken } from '../../types/DelegationAwareAToken';
-import { MintableDelegationERC20 } from '../../types/MintableDelegationERC20';
-import AaveConfig from '../../markets/aave';
-
-const { parseEther } = ethers.utils;
+} from '../../helpers/contracts-deployments.js';
+import type { DelegationAwareAToken } from '../../types/ethers-contracts/index.js';
+import type { MintableDelegationERC20 } from '../../types/ethers-contracts/index.js';
+import AaveConfig from '../../markets/aave/index.js';
 
 makeSuite('AToken: underlying delegation', (testEnv: TestEnv) => {
   const poolConfig = loadPoolConfig(ConfigNames.Commons);
@@ -36,8 +36,8 @@ makeSuite('AToken: underlying delegation', (testEnv: TestEnv) => {
 
     delegationAToken = await deployDelegationAwareAToken(
       [
-        pool.address,
-        delegationERC20.address,
+        getContractAddress(pool),
+        getContractAddress(delegationERC20),
         await getTreasuryAddress(AaveConfig),
         ZERO_ADDRESS,
         'aDEL',
@@ -46,7 +46,7 @@ makeSuite('AToken: underlying delegation', (testEnv: TestEnv) => {
       false
     );
 
-    //await delegationAToken.initialize(pool.address, ZERO_ADDRESS, delegationERC20.address, ZERO_ADDRESS, '18', 'aDEL', 'aDEL');
+    //await delegationAToken.initialize(getContractAddress(pool), ZERO_ADDRESS, delegationERC20.address, ZERO_ADDRESS, '18', 'aDEL', 'aDEL');
 
     console.log((await delegationAToken.decimals()).toString());
   });

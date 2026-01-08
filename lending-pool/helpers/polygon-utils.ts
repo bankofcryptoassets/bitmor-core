@@ -3,6 +3,7 @@ import type { Contract } from 'ethers';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import { DRE } from './misc-utils.js';
 import { ePolygonNetwork, EthereumNetworkNames } from './types.js';
+import { getContractAddress } from './contracts-helpers.js';
 
 const TASK_FLATTEN_GET_FLATTENED_SOURCE = 'flatten:get-flattened-sources';
 const TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS = 'compile:solidity:get-source-paths';
@@ -18,7 +19,7 @@ const SOLIDITY_PRAGMA = 'pragma solidity';
 const LICENSE_IDENTIFIER = 'License-Identifier';
 const EXPERIMENTAL_ABIENCODER = 'pragma experimental ABIEncoderV2;';
 
-const encodeDeployParams = (instance: Contract, args: (string | string[])[]) => {
+const encodeDeployParams = (instance: any, args: (string | string[])[]) => {
   return instance.interface.encodeDeploy(args).replace('0x', '');
 };
 
@@ -60,7 +61,7 @@ const hardhatFlattener = async (filePath: string) =>
 // Verify a smart contract at Polygon Matic network via a GET request to the block explorer
 export const verifyAtPolygon = async (
   id: string,
-  instance: Contract,
+  instance: any,
   args: (string | string[])[]
 ) => {
   /*
@@ -86,14 +87,15 @@ export const verifyAtPolygon = async (
     EXPERIMENTAL_ABIENCODER,
     1
   );
+  const contractAddress = getContractAddress(instance);
   try {
     console.log(
-      `[Polygon Verify] Verifying ${id} with address ${instance.address} at Matic ${net} network`
+      `[Polygon Verify] Verifying ${id} with address ${contractAddress} at Matic ${net} network`
     );
     const response = await axios.post(
       `https://explorer-${net}.maticvigil.com/api`,
       {
-        addressHash: instance.address,
+        addressHash: contractAddress,
         name: id,
         compilerVersion: 'v0.6.12+commit.27d51765',
         optimization: 'true',
@@ -114,7 +116,7 @@ export const verifyAtPolygon = async (
     if (response.status === 200 && response.data.message === 'OK') {
       console.log(`[Polygon Verify] Verified contract at Matic ${net} network.`);
       console.log(
-        `[Polygon Verify] Check at: https://explorer-${net}.maticvigil.com/address/${instance.address}/contracts) \n`
+        `[Polygon Verify] Check at: https://explorer-${net}.maticvigil.com/address/${contractAddress}/contracts) \n`
       );
       return;
     }
@@ -123,16 +125,16 @@ export const verifyAtPolygon = async (
   } catch (error) {
     if (error?.message.includes('Smart-contract already verified.')) {
       console.log(
-        `[Polygon Verify] Already verified. Check it at: https://explorer-${net}.maticvigil.com/address/${instance.address}/contracts) \n`
+        `[Polygon Verify] Already verified. Check it at: https://explorer-${net}.maticvigil.com/address/${contractAddress}/contracts) \n`
       );
       return;
     }
     console.error('[Polygon Verify] Error:', error.toString());
     console.log(
-      `[Polygon Verify] Skipping verification for ${id} with ${instance.address} due an unknown error.`
+      `[Polygon Verify] Skipping verification for ${id} with ${contractAddress} due an unknown error.`
     );
     console.log(
-      `Please proceed with manual verification at https://explorer-${net}.maticvigil.com/address/${instance.address}/contracts`
+      `Please proceed with manual verification at https://explorer-${net}.maticvigil.com/address/${contractAddress}/contracts`
     );
     console.log(`- Use the following as encoded constructor params`);
     console.log(encodedConstructorParams);

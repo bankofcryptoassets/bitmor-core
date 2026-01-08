@@ -10,7 +10,7 @@ const UNLIMITED_BYTECODE_SIZE = process.env.UNLIMITED_BYTECODE_SIZE === 'true';
 const DEFAULT_BLOCK_GAS_LIMIT = 8000000;
 
 export default defineConfig({
-  plugins: [ hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain],
+  plugins: [hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain],
   solidity: {
     compilers: [
       {
@@ -36,6 +36,17 @@ export default defineConfig({
       allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
       chainId: BUIDLEREVM_CHAINID,
       accounts: accounts.map(({ secretKey, balance }: { secretKey: string; balance: string }) => ({
+        privateKey: secretKey,
+        balance,
+      })),
+    },
+    default: {
+      type: 'edr-simulated',
+      hardfork: 'berlin',
+      blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
+      allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
+      chainId: BUIDLEREVM_CHAINID,
+      accounts: accounts.map(({ secretKey, balance }) => ({
         privateKey: secretKey,
         balance,
       })),

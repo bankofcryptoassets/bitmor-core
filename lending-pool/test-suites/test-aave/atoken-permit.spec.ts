@@ -1,14 +1,16 @@
-import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants';
-import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants';
-import { buildPermitParams, getSignatureFromTypedData } from '../../helpers/contracts-helpers';
-import { expect } from 'chai';
-import { ethers } from 'ethers';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { DRE } from '../../helpers/misc-utils';
-import { waitForTx } from '../../helpers/misc-utils';
-import { _TypedDataEncoder } from 'ethers/lib/utils';
+import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants.js';
+import { buildPermitParams, getSignatureFromTypedData, getContractAddress } from '../../helpers/contracts-helpers.js';
+import chai from 'chai';
+const { expect } = chai;
 
-const { parseEther } = ethers.utils;
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { DRE } from '../../helpers/misc-utils.js';
+import { waitForTx } from '../../helpers/misc-utils.js';
+import { TypedDataEncoder, parseEther } from 'ethers';
+import { accounts } from '../../test-wallets.js';
+
 
 makeSuite('AToken: Permit', (testEnv: TestEnv) => {
   it('Checks the domain separator', async () => {
@@ -18,10 +20,10 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const domain = {
       name: await aDai.name(),
       version: '1',
-      chainId: DRE.network.config.chainId,
-      verifyingContract: aDai.address,
+      chainId: Number((await DRE.ethers.provider.getNetwork()).chainId),
+      verifyingContract: getContractAddress(aDai),
     };
-    const domainSeparator = _TypedDataEncoder.hashDomain(domain);
+    const domainSeparator = TypedDataEncoder.hashDomain(domain);
 
     expect(separator).to.be.equal(domainSeparator, 'Invalid domain separator');
   });
@@ -30,9 +32,9 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const { dai, pool, deployer } = testEnv;
 
     await dai.mint(parseEther('20000'));
-    await dai.approve(pool.address, parseEther('20000'));
+    await dai.approve(getContractAddress(pool), parseEther('20000'));
 
-    await pool.deposit(dai.address, parseEther('20000'), deployer.address, 0);
+    await pool.deposit(getContractAddress(dai), parseEther('20000'), deployer.address, 0);
   });
 
   it('Reverts submitting a permit with 0 expiration', async () => {
@@ -42,13 +44,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
 
     const tokenName = await aDai.name();
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const expiration = 0;
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
-    const permitAmount = ethers.utils.parseEther('2').toString();
+    const nonce = Number(await aDai._nonces(owner.address));
+    const permitAmount = parseEther('2').toString();
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       tokenName,
       owner.address,
@@ -58,7 +60,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       expiration.toFixed()
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -87,13 +89,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const deadline = MAX_UINT_AMOUNT;
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
+    const nonce = Number(await aDai._nonces(owner.address));
     const permitAmount = parseEther('2').toString();
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -103,7 +105,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -121,7 +123,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
         .permit(owner.address, spender.address, permitAmount, deadline, v, r, s)
     );
 
-    expect((await aDai._nonces(owner.address)).toNumber()).to.be.equal(1);
+    expect(Number(await aDai._nonces(owner.address))).to.be.equal(1);
   });
 
   it('Cancels the previous permit', async () => {
@@ -129,13 +131,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const deadline = MAX_UINT_AMOUNT;
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
+    const nonce = Number(await aDai._nonces(owner.address));
     const permitAmount = '0';
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -145,7 +147,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -153,7 +155,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const { v, r, s } = getSignatureFromTypedData(ownerPrivateKey, msgParams);
 
     expect((await aDai.allowance(owner.address, spender.address)).toString()).to.be.equal(
-      ethers.utils.parseEther('2'),
+      parseEther('2'),
       'INVALID_ALLOWANCE_BEFORE_PERMIT'
     );
 
@@ -167,7 +169,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       'INVALID_ALLOWANCE_AFTER_PERMIT'
     );
 
-    expect((await aDai._nonces(owner.address)).toNumber()).to.be.equal(2);
+    expect(Number(await aDai._nonces(owner.address))).to.be.equal(2);
   });
 
   it('Tries to submit a permit with invalid nonce', async () => {
@@ -175,13 +177,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const deadline = MAX_UINT_AMOUNT;
     const nonce = 1000;
     const permitAmount = '0';
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -191,7 +193,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -210,13 +212,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const expiration = '1';
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
+    const nonce = Number(await aDai._nonces(owner.address));
     const permitAmount = '0';
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -226,7 +228,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -245,13 +247,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const deadline = MAX_UINT_AMOUNT;
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
+    const nonce = Number(await aDai._nonces(owner.address));
     const permitAmount = '0';
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -261,7 +263,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }
@@ -280,13 +282,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
     const owner = deployer;
     const spender = users[1];
 
-    const chainId = DRE.network.config.chainId || BUIDLEREVM_CHAINID;
+    const chainId = Number((await DRE.ethers.provider.getNetwork()).chainId);
     const expiration = MAX_UINT_AMOUNT;
-    const nonce = (await aDai._nonces(owner.address)).toNumber();
+    const nonce = Number(await aDai._nonces(owner.address));
     const permitAmount = '0';
     const msgParams = buildPermitParams(
       chainId,
-      aDai.address,
+      getContractAddress(aDai),
       '1',
       await aDai.name(),
       owner.address,
@@ -296,7 +298,7 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
       permitAmount
     );
 
-    const ownerPrivateKey = require('../../test-wallets.js').accounts[0].secretKey;
+    const ownerPrivateKey = accounts[0].secretKey;
     if (!ownerPrivateKey) {
       throw new Error('INVALID_OWNER_PK');
     }

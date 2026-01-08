@@ -3,8 +3,8 @@ import {
   ZERO_ADDRESS,
   MOCK_CHAINLINK_AGGREGATORS_PRICES,
   oneEther,
-} from '../../helpers/constants';
-import { ICommonConfiguration, eEthereumNetwork } from '../../helpers/types';
+} from '../../helpers/constants.js';
+import { ICommonConfiguration, eEthereumNetwork } from '../../helpers/types.js';
 
 // ----------------
 // PROTOCOL GLOBAL PARAMS
@@ -108,7 +108,6 @@ export const CommonsConfig: ICommonConfiguration = {
   PoolAdmin: {
     [eEthereumNetwork.coverage]: undefined,
     [eEthereumNetwork.buidlerevm]: undefined,
-    [eEthereumNetwork.coverage]: undefined,
     [eEthereumNetwork.hardhat]: undefined,
     [eEthereumNetwork.kovan]: undefined,
     [eEthereumNetwork.ropsten]: undefined,

@@ -1,6 +1,6 @@
-import BigNumber from 'bignumber.js';
-import { oneRay } from '../../helpers/constants';
-import { IInterestRateStrategyParams } from '../../helpers/types';
+import BigNumber from "bignumber.js";
+import { oneRay } from '../../helpers/constants.js';
+import { IInterestRateStrategyParams } from '../../helpers/types.js';
 
 export const rateStrategyUSDC: IInterestRateStrategyParams = {
   name: 'rateStrategyUSDC',
