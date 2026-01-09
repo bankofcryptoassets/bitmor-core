@@ -19,3 +19,6 @@ forge-out
 broadcast
 .claude
 CLAUDE.md
+
+loan-provider/lcov.info
+loan-provider/lcov.filtered.info
