@@ -93,8 +93,8 @@ contract InitializeLoanTest is BaseLoanTest {
         if (collateralAmount == 0) collateralAmount = 1;
 
         // getLoanDetails should revert for loan amounts below $1,000 minimum
-        // Note: Using generic revert as specific error may vary by implementation
-        vm.expectRevert();
+        // Expected revert: Errors.MinimumAssetRequired
+        _expectRevertSelector(Errors.MinimumAssetRequired.selector);
         loan.getLoanDetails(collateralAmount, duration);
     }
 
@@ -127,22 +127,22 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
 
         // getLoanDetails should reject invalid durations (0 and 13)
-        // Note: Using generic revert as specific error may vary by implementation
-        vm.expectRevert();
+        // Expected revert: Errors.InvalidInputs
+        _expectRevertSelector(Errors.InvalidInputs.selector);
         loan.getLoanDetails(collateralAmount, 0);
 
-        vm.expectRevert();
+        _expectRevertSelector(Errors.InvalidInputs.selector);
         loan.getLoanDetails(collateralAmount, 13);
 
         uint256 bigDeposit = 500_000e6;
 
         // initializeLoan should reject invalid durations
         vm.prank(user);
-        vm.expectRevert();
+        _expectRevertSelector(Errors.LessThanMinimumAmtReceived.selector);
         loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
 
         vm.prank(user);
-        vm.expectRevert();
+        _expectRevertSelector(Errors.InvalidInputs.selector);
         loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 13, DATA);
     }
 

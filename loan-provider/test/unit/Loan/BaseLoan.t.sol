@@ -49,9 +49,6 @@ abstract contract BaseLoanTest is Utilities {
     /// @dev Premium amount is required in debtAsset (bUSDC), 6 decimals. 1000e6 = 1000 bUSDC
     uint256 internal constant PREMIUM_AMOUNT = 1000e6;
 
-    /// @dev Insurance ID > 0 indicates user opted in for insurance
-    uint256 internal constant INSURANCE_ID = 1;
-
     /// @dev Arbitrary loan data identifier
     bytes internal constant DATA = "0xLOAN";
 
@@ -101,11 +98,6 @@ abstract contract BaseLoanTest is Utilities {
     /// @dev Tolerance and threshold constants
     uint256 internal constant PAYMENT_TOLERANCE = 10;
     uint256 internal constant DEBT_DUST_THRESHOLD = 100;
-
-    // ============ Debug Flag ============
-
-    /// @dev Set to true to enable debug logging (should be false in final tests)
-    bool internal constant DEBUG = false;
 
     // ============ Generic Test Snapshot Structs ============
 

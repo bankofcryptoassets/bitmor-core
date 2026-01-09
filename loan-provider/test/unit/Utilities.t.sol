@@ -196,7 +196,7 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @return oracle The price oracle address
     function _utilGetPriceOracle(address bitmorPool) internal view returns (address oracle) {
-        address addressesProvider = ILendingPool(bitmorPool).getAddressesProvider();
+        address addressesProvider = address(ILendingPool(bitmorPool).getAddressesProvider());
         oracle = ILendingPoolAddressesProvider(addressesProvider).getPriceOracle();
     }
 
@@ -381,7 +381,7 @@ abstract contract Utilities is Test {
     /// @param bitmorPool The Bitmor lending pool address
     /// @param newLoanContract The new Loan contract address
     function _utilUpdateAddressesProviderBitmorLoan(address bitmorPool, address newLoanContract) internal {
-        address addressesProvider = ILendingPool(bitmorPool).getAddressesProvider();
+        address addressesProvider = address(ILendingPool(bitmorPool).getAddressesProvider());
         address poolAdmin = ILendingPoolAddressesProvider(addressesProvider).getPoolAdmin();
 
         vm.prank(poolAdmin);

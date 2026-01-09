@@ -410,7 +410,7 @@ interface ILendingPool {
 
     function getReservesList() external view returns (address[] memory);
 
-    function getAddressesProvider() external view returns (address);
+    function getAddressesProvider() external view returns (ILendingPoolAddressesProvider);
 
     function setPause(bool val) external;
 
