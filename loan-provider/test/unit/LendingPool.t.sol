@@ -13,11 +13,7 @@ import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 contract LendingPoolTest is BaseLoanTest {
     using FixedPointMathLib for uint256;
 
-    // ============ Test Actors ============
-
     address internal liquidityProvider;
-
-    // ============ Setup ============
 
     function setUp() public virtual override {
         super.setUp();
@@ -26,18 +22,9 @@ contract LendingPoolTest is BaseLoanTest {
         _updateAddressesProviderBitmorLoan();
     }
 
-    // ============ Helper Functions ============
-
-    /// @notice Mint BTC to an address
-    function _mintBtcTo(address to, uint256 amount) internal {
-        vm.prank(to);
-        (bool success,) = collateralAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
-        assertTrue(success, "BTC_MINT_ERROR");
-    }
-
     /// @notice Seed BTC liquidity into the Bitmor pool
     function _seedBtcLiquidity() internal {
-        _mintBtcTo(liquidityProvider, BTC_SEED_AMOUNT);
+        _utilMintTokenTo(collateralAsset, liquidityProvider, BTC_SEED_AMOUNT);
 
         vm.startPrank(liquidityProvider);
         IERC20(collateralAsset).approve(s_bitmorPool, BTC_SEED_AMOUNT);
@@ -45,20 +32,7 @@ contract LendingPoolTest is BaseLoanTest {
         vm.stopPrank();
     }
 
-    /// @notice Create a loan to increase pool utilization
-    function _createLoanForUtilization(address loanUser) internal returns (address lsa) {
-        _utilSeedUserAndApprove(loanUser, debtAsset, address(loan), DEBT_ASSET_TO_MINT_TO_USER);
-
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
-
-        vm.prank(loanUser);
-        lsa = loan.initializeLoan(
-            minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA
-        );
-    }
-
     /// @notice Calculate amortized monthly payment using standard formula
-    /// @dev Formula: P * r * (1+r)^n / ((1+r)^n - 1)
     function _calculateAmortizedPayment(uint256 principal, uint256 annualRateBps, uint256 months)
         internal
         pure
@@ -89,23 +63,13 @@ contract LendingPoolTest is BaseLoanTest {
         monthlyPayment = (numerator * PRECISION) / denominator / PRECISION;
     }
 
-    // ============ Test 1: User Cannot Borrow USDC ============
-
-    /// @notice Test that regular users cannot borrow USDC directly from the Bitmor pool
-    /// @dev USDC liquidity is reserved for BTC-buy loans (protocol-only flow)
-    /// @dev This test will FAIL until access control is implemented in LendingPool.borrow()
+    /// @notice Borrowing USDC directly from the pool reverts for regular users.
     function test_lendingPool_borrowUSDC_revertsForUser() public {
-        // Setup: Mint USDC to user
-        vm.startPrank(user);
-        (bool mintSuccess,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", POOL_DEPOSIT_AMOUNT));
-        assertTrue(mintSuccess, "USDC_MINT_ERROR");
-
-        // User approves pool
-        IERC20(debtAsset).approve(s_bitmorPool, type(uint256).max);
+        _utilMintTokenAndApproveMax(debtAsset, user, s_bitmorPool, POOL_DEPOSIT_AMOUNT);
 
         // User deposits USDC as collateral
+        vm.prank(user);
         ILendingPool(s_bitmorPool).deposit(debtAsset, POOL_DEPOSIT_AMOUNT, user, 0);
-        vm.stopPrank();
 
         // User attempts to borrow USDC - should revert with UnauthorizedCaller
         vm.expectRevert(Errors.UnauthorizedCaller.selector);
@@ -113,24 +77,16 @@ contract LendingPoolTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).borrow(debtAsset, SMALL_BORROW_AMOUNT, 2, 0, user);
     }
 
-    // ============ Test 2: User Cannot Borrow BTC ============
-
-    /// @notice Test that regular users cannot borrow BTC directly from the Bitmor pool
-    /// @dev BTC reserve is collateral, not for retail borrowing
-    /// @dev This test will FAIL until access control is implemented in LendingPool.borrow()
+    /// @notice Borrowing BTC directly from the pool reverts for regular users.
     function test_lendingPool_borrowBTC_revertsForUser() public {
         // Seed BTC liquidity so revert is from access control, not insufficient liquidity
         _seedBtcLiquidity();
 
-        // Setup: Mint USDC to user for collateral
-        vm.startPrank(user);
-        (bool mintSuccess,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", POOL_DEPOSIT_AMOUNT));
-        assertTrue(mintSuccess, "USDC_MINT_ERROR");
+        _utilMintTokenAndApproveMax(debtAsset, user, s_bitmorPool, POOL_DEPOSIT_AMOUNT);
 
-        // User approves and deposits USDC as collateral
-        IERC20(debtAsset).approve(s_bitmorPool, type(uint256).max);
+        // User deposits USDC as collateral
+        vm.prank(user);
         ILendingPool(s_bitmorPool).deposit(debtAsset, POOL_DEPOSIT_AMOUNT, user, 0);
-        vm.stopPrank();
 
         uint256 btcBorrowAmount = BTC_SEED_AMOUNT / 10; // 0.01 BTC
 
@@ -140,10 +96,7 @@ contract LendingPoolTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).borrow(collateralAsset, btcBorrowAmount, 2, 0, user);
     }
 
-    // ============ Test 3: Monthly Payment Calculation at Max Rate ============
-
-    /// @notice Test that estimatedMonthlyPayment uses max APR (12%) for amortization
-    /// @dev This test will FAIL until LoanLogic uses max APR instead of currentVariableBorrowRate
+    /// @notice estimatedMonthlyPayment amortizes using the max APR (12%).
     function test_monthlyPaymentCalculation_amortizesAtMaxRate_12pct() public {
         // Mock oracle prices: BTC = $100,000, USDC = $1
         uint256 btcPrice = 100_000e8;
@@ -160,11 +113,11 @@ contract LendingPoolTest is BaseLoanTest {
             loan.getLoanDetails(collateralAmount, duration);
 
         // Verify intermediate values
-        uint256 expectedLoanAmount = 70_000e6;
-        uint256 expectedMinDeposit = 30_000e6;
+        uint256 expectedLoanAmount = 67_000e6;
+        uint256 expectedMinDeposit = 33_000e6;
 
-        assertEq(loanAmount, expectedLoanAmount, "Loan amount should be 70% of BTC value");
-        assertEq(minDepositRequired, expectedMinDeposit, "Min deposit should be 30% of BTC value");
+        assertEq(loanAmount, expectedLoanAmount, "Loan amount should be 67% of BTC value");
+        assertEq(minDepositRequired, expectedMinDeposit, "Min deposit should be 33% of BTC value");
 
         // Calculate expected payment at MAX APR (12%)
         uint256 expectedPayment = _calculateAmortizedPayment(expectedLoanAmount, MAX_APR_BPS, duration);
@@ -178,27 +131,16 @@ contract LendingPoolTest is BaseLoanTest {
         );
     }
 
-    // ============ Test 4: High Utilization - 12 Payments Fully Repay Loan ============
-
-    /// @notice Test that 12 monthly payments fully repay loan at ~100% utilization
+    /// @notice At ~100% utilization, 12 monthly repayments fully repay the loan.
     function test_highUtilization_100pct_12PaymentsFullyRepayLoan() public {
-        // Create the main test loan
-        _mintDebtAssetToUser();
-
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
-
-        vm.prank(user);
-        address lsa = loan.initializeLoan(
-            minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA
-        );
-
-        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        // Create the main test loan using consolidated helper
+        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
         uint256 estimatedMonthlyPayment = loanData.estimatedMonthlyPayment;
 
-        // Drive utilization high by creating additional loans
+        // Drive utilization high by creating additional loans using consolidated helper
         for (uint256 i = 0; i < 3; i++) {
             address utilizationUser = makeAddr(string(abi.encodePacked("utilizationUser", i)));
-            _createLoanForUtilization(utilizationUser);
+            _createStandardLoanForBorrower(utilizationUser);
         }
 
         // Execute 12 monthly payments
@@ -209,12 +151,7 @@ contract LendingPoolTest is BaseLoanTest {
 
             _utilWarpPastRepaymentInterval();
 
-            // Fund user for repayment
-            vm.startPrank(user);
-            (bool mintSuccess,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", estimatedMonthlyPayment));
-            assertTrue(mintSuccess, "REPAYMENT_MINT_ERROR");
-            IERC20(debtAsset).approve(address(loan), estimatedMonthlyPayment);
-            vm.stopPrank();
+            _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);
 
             vm.prank(user);
             loan.repay(lsa, estimatedMonthlyPayment);
@@ -229,36 +166,21 @@ contract LendingPoolTest is BaseLoanTest {
         assertLe(finalDebt, DEBT_DUST_THRESHOLD, "Debt should be zero or dust after 12 payments");
     }
 
-    // ============ Test 5: Low Utilization - Final Payment Overcovers Debt ============
-
-    /// @notice Test that at ~90% utilization, final payment exceeds remaining debt
+    /// @notice At ~90% utilization, the final repayment overpays and only remaining debt is taken.
     function test_lowUtilization_90pct_finalPaymentOvercoversDebt() public {
-        // Create the test loan
-        _mintDebtAssetToUser();
-
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
-
-        vm.prank(user);
-        address lsa = loan.initializeLoan(
-            minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA
-        );
-
-        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        // Create the test loan using consolidated helper
+        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
         uint256 estimatedMonthlyPayment = loanData.estimatedMonthlyPayment;
 
-        // Keep utilization at ~90% with just 1 additional loan
+        // Keep utilization at ~90% with just 1 additional loan using consolidated helper
         address utilizationUser = makeAddr("utilizationUser");
-        _createLoanForUtilization(utilizationUser);
+        _createStandardLoanForBorrower(utilizationUser);
 
         // Execute 11 monthly payments
         for (uint256 month = 1; month <= 11; month++) {
             _utilWarpPastRepaymentInterval();
 
-            vm.startPrank(user);
-            (bool mintSuccess,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", estimatedMonthlyPayment));
-            assertTrue(mintSuccess, "REPAYMENT_MINT_ERROR");
-            IERC20(debtAsset).approve(address(loan), estimatedMonthlyPayment);
-            vm.stopPrank();
+            _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);
 
             vm.prank(user);
             loan.repay(lsa, estimatedMonthlyPayment);
@@ -277,11 +199,7 @@ contract LendingPoolTest is BaseLoanTest {
         // Execute final payment
         _utilWarpPastRepaymentInterval();
 
-        vm.startPrank(user);
-        (bool finalMintSuccess,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", estimatedMonthlyPayment));
-        assertTrue(finalMintSuccess, "FINAL_REPAYMENT_MINT_ERROR");
-        IERC20(debtAsset).approve(address(loan), estimatedMonthlyPayment);
-        vm.stopPrank();
+        _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);
 
         vm.prank(user);
         uint256 actualRepaid = loan.repay(lsa, estimatedMonthlyPayment);

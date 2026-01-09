@@ -9,11 +9,8 @@ import {Ownable} from "@bitmor/dependencies/openzeppelin/Ownable.sol";
 /// @title AccessControlsTest
 /// @notice Test suite for verifying access control mechanisms in the Bitmor Protocol
 contract AccessControlsTest is BaseLoanTest {
-    // ============ Test Actors ============
 
     address internal attacker;
-
-    // ============ Test Values ============
 
     address internal constant NEW_FACTORY = address(0xF4C70);
     address internal constant NEW_SWAP_ADAPTER = address(0x5A4);
@@ -23,15 +20,12 @@ contract AccessControlsTest is BaseLoanTest {
     uint256 internal constant NEW_GRACE_PERIOD = 7 days;
     uint256 internal constant NEW_PRE_CLOSURE_FEE = 200;
 
-    // ============ Setup ============
-
     function setUp() public override {
         super.setUp();
         attacker = makeAddr("attacker");
     }
 
-    // ============ Test 1: Non-owner cannot call any admin setter ============
-
+    /// @notice Non-owner cannot call admin setter functions.
     function test_onlyOwner_adminSetters_revertForNonOwner() public {
         vm.startPrank(attacker);
 
@@ -59,8 +53,7 @@ contract AccessControlsTest is BaseLoanTest {
         vm.stopPrank();
     }
 
-    // ============ Test 2: Owner can call all admin setters and state updates ============
-
+    /// @notice Owner can call admin setters and updates are persisted.
     function test_owner_adminSetters_updateState() public {
         vm.startPrank(owner);
 
@@ -83,8 +76,7 @@ contract AccessControlsTest is BaseLoanTest {
         assertEq(loan.getPreClosureFee(), NEW_PRE_CLOSURE_FEE);
     }
 
-    // ============ Test 3: Address setters reject zero address ============
-
+    /// @notice Owner address setters revert on the zero address.
     function test_owner_addressSetters_revertOnZeroAddress() public {
         vm.startPrank(owner);
 
@@ -103,8 +95,7 @@ contract AccessControlsTest is BaseLoanTest {
         vm.stopPrank();
     }
 
-    // ============ Test 4: updateLoanStatus reverts for unauthorized caller ============
-
+    /// @notice Unauthorized callers cannot update loan status.
     function test_protocolMutators_updateLoanStatus_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -113,8 +104,7 @@ contract AccessControlsTest is BaseLoanTest {
         loan.updateLoanStatus(lsa, DataTypes.LoanStatus.Liquidated);
     }
 
-    // ============ Test 5: updateLoanData reverts for unauthorized caller ============
-
+    /// @notice Unauthorized callers cannot update stored loan data.
     function test_protocolMutators_updateLoanData_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -136,8 +126,7 @@ contract AccessControlsTest is BaseLoanTest {
         loan.updateLoanData(abi.encode(maliciousData), lsa);
     }
 
-    // ============ Test 6: executeOperation reverts for non-pool caller ============
-
+    /// @notice Flash-loan callback reverts when caller is not the Aave pool.
     function test_flashLoanCallback_revertsForNonPoolCaller() public {
         bytes memory flData = abi.encode(address(0x1234), uint256(1e8));
         bytes memory params = abi.encode(true, flData);

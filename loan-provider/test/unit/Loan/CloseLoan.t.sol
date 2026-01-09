@@ -17,15 +17,13 @@ contract CloseLoanTest is BaseLoanTest {
     bytes32 private constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
 
     // ============ Local Structs ============
+    // Note: Uses TestSnapshot + UserBalanceSnapshot from BaseLoanTest
+    // Extended with close-loan-specific fields
 
-    /// @dev Struct to hold close loan test state
-    struct CloseLoanState {
-        address lsa;
-        uint256 debtBefore;
-        uint256 collateralBefore;
-        uint256 userCollateralBefore;
-        uint256 userDebtAssetBefore;
-        DataTypes.LoanStatus statusBefore;
+    /// @dev Struct to hold close loan specific state (combines TestSnapshot + UserBalanceSnapshot)
+    struct CloseLoanExtension {
+        TestSnapshot loanState;
+        UserBalanceSnapshot userBalances;
     }
 
     /// @dev Struct to hold parsed transfer info
@@ -37,14 +35,16 @@ contract CloseLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Capture initial state before close loan
-    function _captureStateBefore(address lsa) internal view returns (CloseLoanState memory state) {
-        state.lsa = lsa;
-        state.debtBefore = _getDebtBalance(lsa);
-        state.collateralBefore = _getCollateralBalance(lsa);
-        state.userCollateralBefore = IERC20(collateralAsset).balanceOf(user);
-        state.userDebtAssetBefore = IERC20(debtAsset).balanceOf(user);
-        state.statusBefore = loan.getLoanByLSA(lsa).status;
+    /// @dev Capture initial state before close loan using generic helpers
+    function _captureCloseLoanStateBefore(address lsa) internal view returns (CloseLoanExtension memory state) {
+        state.loanState = _captureTestSnapshot(lsa);
+        state.userBalances = _captureUserBalanceSnapshot();
+    }
+
+    /// @dev Update state after close loan
+    function _updateCloseLoanStateAfter(CloseLoanExtension memory state, address lsa) internal view {
+        _updateTestSnapshotAfter(state.loanState, lsa);
+        _updateUserBalanceSnapshotAfter(state.userBalances);
     }
 
     /// @dev Parse ERC20 Transfer logs to find transfers from Loan contract to user
@@ -84,46 +84,37 @@ contract CloseLoanTest is BaseLoanTest {
         return (collateralAmount * _getPreClosureFeeBps()) / 10_000;
     }
 
-    // ============ Close Loan Tests - Enhanced Existing ============
+    // ============ Close Loan Tests ============
 
     /// @notice Test closing loan and withdrawing in collateral asset (BTC)
-    /// @dev Enhanced with assertions for debt=0, collateral=0, exact transfer amounts
     function test_closeLoan_withWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         bool withdrawInCollateralAsset = true;
 
-        // Capture state before
-        CloseLoanState memory stateBefore = _captureStateBefore(lsa);
+        // Capture state before using generic helpers
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
 
-        assertGt(stateBefore.debtBefore, 0, "Should have debt before close");
-        assertGt(stateBefore.collateralBefore, 0, "Should have collateral before close");
-        assertEq(uint256(stateBefore.statusBefore), uint256(DataTypes.LoanStatus.Active), "Should be active before");
+        assertGt(state.loanState.debtBefore, 0, "Should have debt before close");
+        assertGt(state.loanState.collateralBefore, 0, "Should have collateral before close");
+        assertEq(uint256(state.loanState.statusBefore), uint256(DataTypes.LoanStatus.Active), "Should be active before");
 
-        // Start recording logs for transfer parsing
+        // Record logs for transfer parsing
         vm.recordLogs();
 
         vm.prank(user);
         loan.closeLoan(lsa, withdrawInCollateralAsset);
-
-        // Capture logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
+        _updateCloseLoanStateAfter(state, lsa);
 
-        // Get state after
-        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
-        uint256 debtAfter = _getDebtBalance(lsa);
-        uint256 collateralAfter = _getCollateralBalance(lsa);
-        uint256 userCollateralAfter = IERC20(collateralAsset).balanceOf(user);
-        uint256 userDebtAssetAfter = IERC20(debtAsset).balanceOf(user);
+        // Status updated
+        assertEq(uint256(state.loanState.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
 
-        // Core assertions - status update (closeLoan now updates status to Completed)
-        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
-
-        // Core assertions - LSA position cleared
-        assertEq(debtAfter, 0, "LSA debt should be 0 after close");
-        assertEq(collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
+        // LSA position cleared
+        assertEq(state.loanState.debtAfter, 0, "LSA debt should be 0 after close");
+        assertEq(state.loanState.collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
 
         // User should receive collateral asset (cbBTC)
-        uint256 collateralReceived = userCollateralAfter - stateBefore.userCollateralBefore;
+        uint256 collateralReceived = state.userBalances.userCollateralAfter - state.userBalances.userCollateralBefore;
         assertGt(collateralReceived, 0, "User should receive collateral asset");
 
         // Parse transfer logs to get exact amount transferred from Loan to user
@@ -131,50 +122,41 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(collateralReceived, transferredCollateral, "Collateral received should match transfer log");
 
         // When withdrawing in collateral asset, USDC received should be minimal (dust)
-        uint256 usdcReceived = userDebtAssetAfter - stateBefore.userDebtAssetBefore;
+        uint256 usdcReceived = state.userBalances.userDebtAssetAfter - state.userBalances.userDebtAssetBefore;
         // Allow for some dust but should be very small relative to debt
         assertLt(
-            usdcReceived, stateBefore.debtBefore / 100, "USDC received should be dust when withdrawing in collateral"
+            usdcReceived, state.loanState.debtBefore / 100, "USDC received should be dust when withdrawing in collateral"
         );
     }
 
     /// @notice Test closing loan and withdrawing in debt asset (USDC)
-    /// @dev Enhanced with assertions for debt=0, collateral=0, exact transfer amounts
     function test_closeLoan_withoutWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         bool withdrawInCollateralAsset = false;
 
-        // Capture state before
-        CloseLoanState memory stateBefore = _captureStateBefore(lsa);
+        // Capture state before using generic helpers
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
 
-        assertGt(stateBefore.debtBefore, 0, "Should have debt before close");
-        assertGt(stateBefore.collateralBefore, 0, "Should have collateral before close");
+        assertGt(state.loanState.debtBefore, 0, "Should have debt before close");
+        assertGt(state.loanState.collateralBefore, 0, "Should have collateral before close");
 
-        // Start recording logs for transfer parsing
+        // Record logs for transfer parsing
         vm.recordLogs();
 
         vm.prank(user);
         loan.closeLoan(lsa, withdrawInCollateralAsset);
-
-        // Capture logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
+        _updateCloseLoanStateAfter(state, lsa);
 
-        // Get state after
-        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
-        uint256 debtAfter = _getDebtBalance(lsa);
-        uint256 collateralAfter = _getCollateralBalance(lsa);
-        uint256 userCollateralAfter = IERC20(collateralAsset).balanceOf(user);
-        uint256 userDebtAssetAfter = IERC20(debtAsset).balanceOf(user);
+        // Status updated
+        assertEq(uint256(state.loanState.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
 
-        // Core assertions - status update (closeLoan now updates status to Completed)
-        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
-
-        // Core assertions - LSA position cleared
-        assertEq(debtAfter, 0, "LSA debt should be 0 after close");
-        assertEq(collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
+        // LSA position cleared
+        assertEq(state.loanState.debtAfter, 0, "LSA debt should be 0 after close");
+        assertEq(state.loanState.collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
 
         // User should receive debt asset (USDC)
-        uint256 usdcReceived = userDebtAssetAfter - stateBefore.userDebtAssetBefore;
+        uint256 usdcReceived = state.userBalances.userDebtAssetAfter - state.userBalances.userDebtAssetBefore;
         assertGt(usdcReceived, 0, "User should receive debt asset (USDC)");
 
         // Parse transfer logs to get exact amount transferred from Loan to user
@@ -182,26 +164,26 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(usdcReceived, transferredUsdc, "USDC received should match transfer log");
 
         // When withdrawing in debt asset, cbBTC received should be 0 or dust
-        uint256 collateralReceived = userCollateralAfter - stateBefore.userCollateralBefore;
+        uint256 collateralReceived = state.userBalances.userCollateralAfter - state.userBalances.userCollateralBefore;
         // Allow for minimal dust
         assertLt(
             collateralReceived,
-            stateBefore.collateralBefore / 100,
-            "cbBTC received should be 0 or dust when withdrawing in USDC"
+            state.loanState.collateralBefore / 100,
+            "Collateral received should be dust when withdrawing in debt asset"
         );
     }
 
-    // ============ Close Loan Tests - New Tests ============
+    // ============ Pre-Closure Fee Tests ============
 
     /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = true)
     function test_closeLoan_preClosureFee_deducted_withdrawCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         bool withdrawInCollateralAsset = true;
 
-        // Capture state before
-        uint256 collateralBefore = _getCollateralBalance(lsa);
+        // Capture state before using generic helpers
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
         uint256 preClosureFeeBps = _getPreClosureFeeBps();
-        uint256 expectedFee = _calculatePreClosureFee(collateralBefore);
+        uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
 
@@ -209,26 +191,29 @@ contract CloseLoanTest is BaseLoanTest {
         address premiumCollector = loan.getPremiumCollector();
         uint256 collectorBalanceBefore = IERC20(collateralAsset).balanceOf(premiumCollector);
 
-        // Start recording logs
+        // Record logs
         vm.recordLogs();
 
         vm.prank(user);
         loan.closeLoan(lsa, withdrawInCollateralAsset);
-
-        // Capture logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Parse collateral transfers to premium collector (fee sink)
         uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
-
         uint256 userCollateralReceived = _parseTransferLogs(logs, collateralAsset, address(loan), user);
 
         // Verify fee calculation is correct
-        assertEq(expectedFee, (collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
+        assertEq(expectedFee, (state.loanState.collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
 
-        // Verify fee was transferred to premium collector
+        // Verify fee was transferred to premium collector (allow +-1 for rounding)
         uint256 collectorBalanceAfter = IERC20(collateralAsset).balanceOf(premiumCollector);
-        assertGe(collectorBalanceAfter - collectorBalanceBefore, 0, "Premium collector should receive fee");
+        uint256 collectorReceived = collectorBalanceAfter - collectorBalanceBefore;
+        assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
+        assertApproxEqAbs(collectorReceived, expectedFee, 1, "Premium collector should receive expected fee");
+
+        // Verify user received collateral and fee accounting (allow +-1 for rounding)
+        assertGt(userCollateralReceived, 0, "User should receive collateral");
+        assertApproxEqAbs(userCollateralReceived + feeTransferred, state.loanState.collateralBefore, 1, "User collateral + fee should approximate original collateral");
     }
 
     /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = false)
@@ -236,18 +221,31 @@ contract CloseLoanTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         bool withdrawInCollateralAsset = false;
 
-        // Capture state before
-        uint256 collateralBefore = _getCollateralBalance(lsa);
+        // Capture state before using generic helpers
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
         uint256 preClosureFeeBps = _getPreClosureFeeBps();
-        uint256 expectedFee = _calculatePreClosureFee(collateralBefore);
+        uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
 
+        // Get premium collector address for fee verification
+        address premiumCollector = loan.getPremiumCollector();
+
+        // Record logs
+        vm.recordLogs();
+
         vm.prank(user);
         loan.closeLoan(lsa, withdrawInCollateralAsset);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // Fee calculation verification
-        assertEq(expectedFee, (collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
+        // Parse collateral transfers to premium collector (fee is in collateral asset)
+        uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
+
+        // Verify fee calculation is correct
+        assertEq(expectedFee, (state.loanState.collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
+
+        // Verify fee was transferred to premium collector (allow +-1 for rounding)
+        assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
     }
 
     /// @notice Test that flash loan is called with the correct debt amount
@@ -381,20 +379,21 @@ contract CloseLoanTest is BaseLoanTest {
         address lsa1 =
             loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
 
-        // Create second loan (need to mint more tokens and create new user or adjust)
-        // For simplicity, we'll use the first loan and test sequentially
-
-        CloseLoanState memory stateBefore = _captureStateBefore(lsa1);
+        // Capture state using generic helpers
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa1);
 
         // Close withdrawing in collateral
         vm.prank(user);
         loan.closeLoan(lsa1, true);
 
         uint256 userCollateralAfterFirst = IERC20(collateralAsset).balanceOf(user);
-        uint256 userDebtAfterFirst = IERC20(debtAsset).balanceOf(user);
 
         // The user should have received collateral asset primarily
-        assertGt(userCollateralAfterFirst - stateBefore.userCollateralBefore, 0, "Should receive collateral in mode 1");
+        assertGt(
+            userCollateralAfterFirst - state.userBalances.userCollateralBefore,
+            0,
+            "Should receive collateral in mode 1"
+        );
     }
 
     /// @notice Test close immediately after loan creation
@@ -402,16 +401,14 @@ contract CloseLoanTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // No time warp - close immediately
-        CloseLoanState memory stateBefore = _captureStateBefore(lsa);
+        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
 
         vm.prank(user);
         loan.closeLoan(lsa, true);
+        _updateCloseLoanStateAfter(state, lsa);
 
-        uint256 debtAfter = _getDebtBalance(lsa);
-        uint256 collateralAfter = _getCollateralBalance(lsa);
-
-        assertEq(debtAfter, 0, "Debt should be 0");
-        assertEq(collateralAfter, 0, "Collateral should be 0");
+        assertEq(state.loanState.debtAfter, 0, "Debt should be 0");
+        assertEq(state.loanState.collateralAfter, 0, "Collateral should be 0");
     }
 
     /// @notice Test close after interest accrual

@@ -46,8 +46,7 @@ contract LoanVaultTest is Test {
 
     // ============ Tests: Initialization ============
 
-    /// @notice Test initialize: pre-init state, sets owner/borrower/isInitialized,
-    ///         reverts on double-init, reverts on zero owner/borrower
+    /// @notice initialize sets owner/borrower, guards zero addresses, and prevents double initialization
     function test_loanVault_initialize_setsOwnerBorrower_andDoubleInitReverts() public {
         // Pre-init state
         assertFalse(vault.isInitialized());

@@ -15,10 +15,8 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
 /// @title BaseLoanTest
-/// @notice Single base contract for all Bitmor Protocol test suites
-/// @dev Provides shared state, constants, and core setUp functionality
-/// @dev Inherits from Utilities which inherits from Test
-/// @dev All test files should inherit from this contract
+/// @notice Shared base contract for Bitmor protocol test suites
+/// @dev Provides common state, constants, and setUp/helpers. Inherits from Utilities (Test).
 abstract contract BaseLoanTest is Utilities {
     using FixedPointMathLib for uint256;
 
@@ -108,6 +106,75 @@ abstract contract BaseLoanTest is Utilities {
 
     /// @dev Set to true to enable debug logging (should be false in final tests)
     bool internal constant DEBUG = false;
+
+    // ============ Generic Test Snapshot Structs ============
+
+    /// @dev Generic test state snapshot struct for capturing before/after state
+    /// @dev Used across RepayLoan, CloseLoan, and general loan tests
+    struct TestSnapshot {
+        address lsa;
+        uint256 debtBefore;
+        uint256 debtAfter;
+        uint256 collateralBefore;
+        uint256 collateralAfter;
+        uint256 durationBefore;
+        uint256 durationAfter;
+        uint256 lastPaymentBefore;
+        uint256 lastPaymentAfter;
+        DataTypes.LoanStatus statusBefore;
+        DataTypes.LoanStatus statusAfter;
+        uint256 estimatedMonthlyPayment;
+    }
+
+    /// @dev Liquidator-specific balance snapshot for liquidation tests
+    /// @dev Composed with TestSnapshot for full liquidation state capture
+    struct LiquidatorSnapshot {
+        uint256 liquidatorDebtBefore;
+        uint256 liquidatorDebtAfter;
+        uint256 liquidatorCollateralBefore;
+        uint256 liquidatorCollateralAfter;
+    }
+
+    /// @dev Account balance snapshot for any address (user, liquidator, etc.)
+    struct AccountBalanceSnapshot {
+        uint256 debtAssetBalance;
+        uint256 collateralAssetBalance;
+    }
+
+    /// @dev LSA position snapshot (debt token + aToken balances)
+    struct LsaPositionSnapshot {
+        uint256 debt;
+        uint256 collateral;
+    }
+
+    /// @dev Extended liquidation test state combining TestSnapshot + LiquidatorSnapshot + calculated values
+    struct LiquidationTestState {
+        // Core loan state
+        TestSnapshot loanState;
+        // Liquidator balances
+        LiquidatorSnapshot liquidatorState;
+        // Calculated values
+        uint256 debtPaid;
+        uint256 collateralReceived;
+        uint256 btcPriceUSD;
+        uint256 usdcPriceUSD;
+        // For repeated liquidation tracking
+        uint256 monthsLiquidated;
+        uint256 totalDebtPaid;
+        uint256 totalCollateralReceived;
+        // For full liquidation tracking (when micro leads to full)
+        uint256 fullLiqDebtPaid;
+        uint256 fullLiqCollateralReceived;
+        bool fullLiquidationExecuted;
+    }
+
+    /// @dev User balance snapshot for close loan tests
+    struct UserBalanceSnapshot {
+        uint256 userDebtAssetBefore;
+        uint256 userDebtAssetAfter;
+        uint256 userCollateralBefore;
+        uint256 userCollateralAfter;
+    }
 
     // ============ Setup ============
 
@@ -204,13 +271,9 @@ abstract contract BaseLoanTest is Utilities {
 
     // ============ Internal Setup Helpers ============
 
-    /// @dev Mint debt asset to user and approve loan contract
+    /// @dev Mint debt asset to user and approve the Loan contract
     function _mintDebtAssetToUser() internal {
-        vm.startPrank(user);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", DEBT_ASSET_TO_MINT_TO_USER));
-        assertTrue(success, "MINT_ERROR");
-        IERC20(debtAsset).approve(address(loan), DEBT_ASSET_TO_MINT_TO_USER);
-        vm.stopPrank();
+        _utilMintTokenAndApprove(debtAsset, user, address(loan), DEBT_ASSET_TO_MINT_TO_USER);
     }
 
     /// @dev Set up a standard loan for user (1 BTC, 12 months)
@@ -221,6 +284,59 @@ abstract contract BaseLoanTest is Utilities {
 
         vm.prank(user);
         loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
+    }
+
+    // ============ Loan Creation Helpers ============
+
+    /// @dev Create a standard loan with default parameters (1 BTC, 12 months)
+    /// @return lsa The created Loan Smart Account address
+    function _createStandardLoan() internal returns (address lsa) {
+        _mintDebtAssetToUser();
+        (lsa,) = _utilCreateLoan(loan, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
+    }
+
+    /// @dev Create a loan with custom parameters for the default user
+    /// @param collateralAmount Amount of collateral for the loan
+    /// @param duration Loan duration in months
+    /// @param premiumAmount Premium amount for insurance
+    /// @return lsa The created Loan Smart Account address
+    function _createCustomLoan(uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+        internal
+        returns (address lsa)
+    {
+        _mintDebtAssetToUser();
+        (lsa,) = _utilCreateLoan(loan, user, collateralAmount, duration, premiumAmount, DATA);
+    }
+
+    /// @dev Create a loan with custom borrower and parameters
+    /// @param borrower The address of the borrower
+    /// @param collateralAmount Amount of collateral for the loan
+    /// @param duration Loan duration in months
+    /// @param premiumAmount Premium amount for insurance
+    /// @return lsa The created Loan Smart Account address
+    function _createLoanForBorrower(
+        address borrower,
+        uint256 collateralAmount,
+        uint256 duration,
+        uint256 premiumAmount
+    ) internal returns (address lsa) {
+        _utilSeedUserAndApprove(borrower, debtAsset, address(loan), DEBT_ASSET_TO_MINT_TO_USER);
+        (lsa,) = _utilCreateLoan(loan, borrower, collateralAmount, duration, premiumAmount, DATA);
+    }
+
+    /// @dev Create a standard loan for a specific borrower (1 BTC, 12 months)
+    /// @param borrower The address of the borrower
+    /// @return lsa The created Loan Smart Account address
+    function _createStandardLoanForBorrower(address borrower) internal returns (address lsa) {
+        lsa = _createLoanForBorrower(borrower, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT);
+    }
+
+    /// @dev Create a loan and return both LSA and loan data
+    /// @return lsa The created Loan Smart Account address
+    /// @return loanData The loan data struct
+    function _createStandardLoanWithData() internal returns (address lsa, DataTypes.LoanData memory loanData) {
+        _mintDebtAssetToUser();
+        (lsa, loanData) = _utilCreateLoan(loan, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
     }
 
     // ============ Consolidated Helper Wrappers ============
@@ -274,16 +390,97 @@ abstract contract BaseLoanTest is Utilities {
         return _utilGetATokenBalance(s_bitmorPool, collateralAsset, lsa);
     }
 
-    // ============ Liquidation Helpers ============
-    // Additional liquidation-related helpers consolidated from liquidation test files
+    // ============ Balance Snapshot Helpers ============
+    // Generic balance snapshotting functions to eliminate duplicate patterns
 
-    /// @dev Snapshot liquidator balances
+    /// @dev Snapshot any account's debt and collateral balances
+    /// @param account The account to snapshot
+    /// @return snapshot The balance snapshot struct
+    function _snapshotAccountBalances(address account) internal view returns (AccountBalanceSnapshot memory snapshot) {
+        snapshot.debtAssetBalance = IERC20(debtAsset).balanceOf(account);
+        snapshot.collateralAssetBalance = IERC20(collateralAsset).balanceOf(account);
+    }
+
+    /// @dev Snapshot LSA positions (debt token + aToken)
+    /// @param lsa The Loan Smart Account address
+    /// @return snapshot The LSA position snapshot struct
+    function _snapshotLsaPositions(address lsa) internal view returns (LsaPositionSnapshot memory snapshot) {
+        snapshot.debt = _getDebtBalance(lsa);
+        snapshot.collateral = _getCollateralBalance(lsa);
+    }
+
+    /// @dev Snapshot liquidator balances (maintains backward compatibility)
     /// @return debtBalance The liquidator's debt asset balance
     /// @return collateralBalance The liquidator's collateral asset balance
     function _snapshotLiquidatorBalances() internal view returns (uint256 debtBalance, uint256 collateralBalance) {
-        debtBalance = IERC20(debtAsset).balanceOf(liquidator);
-        collateralBalance = IERC20(collateralAsset).balanceOf(liquidator);
+        AccountBalanceSnapshot memory snapshot = _snapshotAccountBalances(liquidator);
+        debtBalance = snapshot.debtAssetBalance;
+        collateralBalance = snapshot.collateralAssetBalance;
     }
+
+    /// @dev Snapshot user balances
+    /// @return debtBalance The user's debt asset balance
+    /// @return collateralBalance The user's collateral asset balance
+    function _snapshotUserBalances() internal view returns (uint256 debtBalance, uint256 collateralBalance) {
+        AccountBalanceSnapshot memory snapshot = _snapshotAccountBalances(user);
+        debtBalance = snapshot.debtAssetBalance;
+        collateralBalance = snapshot.collateralAssetBalance;
+    }
+
+    /// @dev Capture full TestSnapshot for an LSA (before state)
+    /// @param lsa The Loan Smart Account address
+    /// @return snapshot The populated TestSnapshot struct
+    function _captureTestSnapshot(address lsa) internal view returns (TestSnapshot memory snapshot) {
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        snapshot.lsa = lsa;
+        snapshot.debtBefore = _getDebtBalance(lsa);
+        snapshot.collateralBefore = _getCollateralBalance(lsa);
+        snapshot.durationBefore = loanData.duration;
+        snapshot.lastPaymentBefore = loanData.lastPaymentTimestamp;
+        snapshot.statusBefore = loanData.status;
+        snapshot.estimatedMonthlyPayment = loanData.estimatedMonthlyPayment;
+    }
+
+    /// @dev Update TestSnapshot with after-state values
+    /// @param snapshot The snapshot to update (modified in place via storage pointer pattern)
+    /// @param lsa The Loan Smart Account address
+    function _updateTestSnapshotAfter(TestSnapshot memory snapshot, address lsa) internal view {
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        snapshot.debtAfter = _getDebtBalance(lsa);
+        snapshot.collateralAfter = _getCollateralBalance(lsa);
+        snapshot.durationAfter = loanData.duration;
+        snapshot.lastPaymentAfter = loanData.lastPaymentTimestamp;
+        snapshot.statusAfter = loanData.status;
+    }
+
+    /// @dev Capture LiquidatorSnapshot before liquidation
+    /// @return snapshot The populated LiquidatorSnapshot struct
+    function _captureLiquidatorSnapshot() internal view returns (LiquidatorSnapshot memory snapshot) {
+        (snapshot.liquidatorDebtBefore, snapshot.liquidatorCollateralBefore) = _snapshotLiquidatorBalances();
+    }
+
+    /// @dev Update LiquidatorSnapshot with after-state values
+    /// @param snapshot The snapshot to update
+    function _updateLiquidatorSnapshotAfter(LiquidatorSnapshot memory snapshot) internal view {
+        (snapshot.liquidatorDebtAfter, snapshot.liquidatorCollateralAfter) = _snapshotLiquidatorBalances();
+    }
+
+    /// @dev Capture UserBalanceSnapshot
+    /// @return snapshot The populated UserBalanceSnapshot struct
+    function _captureUserBalanceSnapshot() internal view returns (UserBalanceSnapshot memory snapshot) {
+        (snapshot.userDebtAssetBefore, snapshot.userCollateralBefore) = _snapshotUserBalances();
+    }
+
+    /// @dev Update UserBalanceSnapshot with after-state values
+    /// @param snapshot The snapshot to update
+    function _updateUserBalanceSnapshotAfter(UserBalanceSnapshot memory snapshot) internal view {
+        (snapshot.userDebtAssetAfter, snapshot.userCollateralAfter) = _snapshotUserBalances();
+    }
+
+    // ============ Liquidation Helpers ============
+    // Additional liquidation-related helpers consolidated from liquidation test files
 
     /// @dev Execute micro liquidation
     /// @param lsa The Loan Smart Account to liquidate
@@ -334,5 +531,76 @@ abstract contract BaseLoanTest is Utilities {
     /// @return The expected collateral amount (with liquidation bonus)
     function _calculateExpectedCollateralSeized(uint256 debtPaid) internal view returns (uint256) {
         return _utilCalculateExpectedCollateralSeized(s_bitmorPool, collateralAsset, debtAsset, debtPaid);
+    }
+
+    // ============ Liquidation State Capture Helpers ============
+
+    /// @dev Capture full liquidation test state before liquidation
+    /// @param lsa The Loan Smart Account address
+    /// @return state The populated LiquidationTestState struct
+    function _captureLiquidationStateBefore(address lsa) internal view returns (LiquidationTestState memory state) {
+        state.loanState = _captureTestSnapshot(lsa);
+        state.liquidatorState = _captureLiquidatorSnapshot();
+        state.btcPriceUSD = _getBtcPrice();
+        state.usdcPriceUSD = _getUsdcPrice();
+    }
+
+    /// @dev Update liquidation test state after liquidation and calculate deltas
+    /// @param state The state to update
+    /// @param lsa The Loan Smart Account address
+    function _updateLiquidationStateAfter(LiquidationTestState memory state, address lsa) internal view {
+        _updateTestSnapshotAfter(state.loanState, lsa);
+        _updateLiquidatorSnapshotAfter(state.liquidatorState);
+
+        // Calculate deltas
+        state.debtPaid = state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
+        state.collateralReceived =
+            state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
+    }
+
+    // ============ Liquidation Setup Helpers ============
+
+    /// @dev Setup for micro-liquidation scenario (overdue but healthy)
+    /// @dev Performs: updateAddressesProvider -> warpPastGracePeriod -> fundLiquidator -> checkType
+    /// @param lsa The Loan Smart Account address
+    /// @return liquidationType The liquidation type (expected: 2 for micro)
+    function _setupForMicroLiquidation(address lsa) internal returns (uint256 liquidationType) {
+        _updateAddressesProviderBitmorLoan();
+        _warpPastGracePeriod();
+        _fundLiquidator();
+        liquidationType = _checkLiquidationType(lsa);
+    }
+
+    /// @dev Setup for full liquidation scenario (HF < 1)
+    /// @dev Performs: updateAddressesProvider -> warpPastGracePeriod -> fundLiquidator -> dropPrice -> checkType
+    /// @param lsa The Loan Smart Account address
+    /// @param priceDrop Percentage to drop price (e.g., 50 for 50%)
+    /// @return liquidationType The liquidation type (expected: 1 for full)
+    function _setupForFullLiquidation(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
+        _updateAddressesProviderBitmorLoan();
+        _warpPastGracePeriod();
+        _fundLiquidator();
+        _dropOraclePrice(collateralAsset, priceDrop);
+        liquidationType = _checkLiquidationType(lsa);
+    }
+
+    /// @dev Setup for full liquidation with default 50% price drop
+    /// @dev Convenience wrapper for the most common full liquidation setup
+    /// @param lsa The Loan Smart Account address
+    /// @return liquidationType The liquidation type (expected: 1 for full)
+    function _setupForFullLiquidation(address lsa) internal returns (uint256 liquidationType) {
+        liquidationType = _setupForFullLiquidation(lsa, PRICE_DROP_50_PERCENT);
+    }
+
+    /// @dev Setup for full liquidation without warping past grace period
+    /// @dev Use when testing price-drop-only liquidation scenarios (loan not overdue)
+    /// @param lsa The Loan Smart Account address
+    /// @param priceDrop Percentage to drop price (e.g., 50 for 50%)
+    /// @return liquidationType The liquidation type
+    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
+        _updateAddressesProviderBitmorLoan();
+        _fundLiquidator();
+        _dropOraclePrice(collateralAsset, priceDrop);
+        liquidationType = _checkLiquidationType(lsa);
     }
 }

@@ -8,7 +8,7 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 
 /// @title InsuranceTest
-/// @notice Tests for insurance functionality - these tests will fail until insurance features are implemented
+/// @notice Tests for insurance-related flows.
 contract InsuranceTest is BaseLoanTest {
     address internal premiumCollector;
 

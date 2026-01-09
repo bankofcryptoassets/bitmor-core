@@ -22,6 +22,47 @@ abstract contract Utilities is Test {
     uint256 internal constant UTILITIES_RAY = 1e27;
     uint256 internal constant UTILITIES_LOAN_REPAYMENT_INTERVAL = 30 days;
 
+    // ============ 0) Token Minting Helpers ============
+
+    /// @notice Mint any token to any address using its mint(uint256) hook
+    /// @dev Uses a low-level call so mocks can expose mint without a shared interface
+    /// @param token The token address to mint
+    /// @param to The address to mint to (will be pranked)
+    /// @param amount Amount to mint
+    function _utilMintTokenTo(address token, address to, uint256 amount) internal {
+        vm.prank(to);
+        (bool success,) = token.call(abi.encodeWithSignature("mint(uint256)", amount));
+        assertTrue(success, "MINT_ERROR");
+    }
+
+    /// @notice Mint token and approve spender in a single helper
+    /// @dev Combines minting + approval pattern used across multiple test files
+    /// @param token The token address to mint
+    /// @param to The address to mint to
+    /// @param spender The address to approve for spending
+    /// @param amount Amount to mint and approve
+    function _utilMintTokenAndApprove(address token, address to, address spender, uint256 amount) internal {
+        vm.startPrank(to);
+        (bool success,) = token.call(abi.encodeWithSignature("mint(uint256)", amount));
+        assertTrue(success, "MINT_ERROR");
+        IERC20(token).approve(spender, amount);
+        vm.stopPrank();
+    }
+
+    /// @notice Mint token and approve max spending
+    /// @dev Useful for liquidators and other actors that need unlimited approval
+    /// @param token The token address to mint
+    /// @param to The address to mint to
+    /// @param spender The address to approve for spending
+    /// @param amount Amount to mint
+    function _utilMintTokenAndApproveMax(address token, address to, address spender, uint256 amount) internal {
+        vm.startPrank(to);
+        (bool success,) = token.call(abi.encodeWithSignature("mint(uint256)", amount));
+        assertTrue(success, "MINT_ERROR");
+        IERC20(token).approve(spender, type(uint256).max);
+        vm.stopPrank();
+    }
+
     // ============ 1) Loan Factory / Scenario Helpers ============
 
     /// @notice Create a loan and return LSA address with loan data
@@ -71,11 +112,7 @@ abstract contract Utilities is Test {
     function _utilSeedUserAndApprove(address loanUser, address debtAsset, address loanContract, uint256 amount)
         internal
     {
-        vm.startPrank(loanUser);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
-        assertTrue(success, "MINT_ERROR");
-        IERC20(debtAsset).approve(loanContract, amount);
-        vm.stopPrank();
+        _utilMintTokenAndApprove(debtAsset, loanUser, loanContract, amount);
     }
 
     // ============ 2) Aave/Reserve Balance Helpers ============
@@ -202,7 +239,7 @@ abstract contract Utilities is Test {
         );
     }
 
-    /// @notice Get asset price from oracle
+    /// @notice Get the current oracle price for an asset
     /// @param bitmorPool The Bitmor lending pool address
     /// @param asset The asset to get price for
     /// @return price The asset price (8 decimals)
@@ -211,7 +248,7 @@ abstract contract Utilities is Test {
         price = IPriceOracleGetter(oracleAddress).getAssetPrice(asset);
     }
 
-    // ============ 4) Time Helpers ============
+    // ============ 4) Time Warp Helpers ============
 
     /// @notice Warp time past the grace period to trigger liquidation eligibility
     /// @param gracePeriod The grace period in seconds
@@ -220,7 +257,7 @@ abstract contract Utilities is Test {
         vm.warp(block.timestamp + timeToWarp);
     }
 
-    /// @notice Warp time past a single repayment interval
+    /// @notice Warp time past the loan repayment interval
     function _utilWarpPastRepaymentInterval() internal {
         vm.warp(block.timestamp + UTILITIES_LOAN_REPAYMENT_INTERVAL);
     }
@@ -237,33 +274,7 @@ abstract contract Utilities is Test {
         vm.warp(block.timestamp + (days_ * 1 days));
     }
 
-    // ============ 5) Assertions ============
-
-    /// @notice Assert loan status matches expected
-    /// @param loanContract The Loan contract instance
-    /// @param lsa The Loan Smart Account address
-    /// @param expectedStatus Expected loan status
-    function _utilAssertLoanStatus(Loan loanContract, address lsa, DataTypes.LoanStatus expectedStatus) internal view {
-        DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
-        assertEq(uint256(loanData.status), uint256(expectedStatus), "UNEXPECTED_LOAN_STATUS");
-    }
-
-    /// @notice Assert debt has decreased after operation
-    /// @param debtBefore Debt balance before operation
-    /// @param debtAfter Debt balance after operation
-    function _utilAssertDebtDecreased(uint256 debtBefore, uint256 debtAfter) internal pure {
-        assertLt(debtAfter, debtBefore, "DEBT_DID_NOT_DECREASE");
-    }
-
-    /// @notice Assert two values are approximately equal within basis points
-    /// @param a First value
-    /// @param b Second value
-    /// @param maxDiffBps Maximum difference in basis points
-    function _utilAssertApproxEqBps(uint256 a, uint256 b, uint256 maxDiffBps) internal pure {
-        uint256 diff = a > b ? a - b : b - a;
-        uint256 maxDiff = (a * maxDiffBps) / 10_000;
-        assertLe(diff, maxDiff, "VALUES_NOT_APPROX_EQUAL_BPS");
-    }
+    // ============ 5) Assertion Helpers ============
 
     /// @notice Assert LSA ownership invariants
     /// @param lsa The Loan Smart Account address
@@ -285,11 +296,7 @@ abstract contract Utilities is Test {
     function _utilFundLiquidator(address liquidatorAddr, address debtAsset, address bitmorPool, uint256 amount)
         internal
     {
-        vm.startPrank(liquidatorAddr);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
-        assertTrue(success, "MINT_ERROR");
-        IERC20(debtAsset).approve(bitmorPool, type(uint256).max);
-        vm.stopPrank();
+        _utilMintTokenAndApproveMax(debtAsset, liquidatorAddr, bitmorPool, amount);
     }
 
     /// @notice Mint debt asset to liquidator WITHOUT approval (for testing revert cases)
@@ -297,9 +304,7 @@ abstract contract Utilities is Test {
     /// @param debtAsset The debt asset address
     /// @param amount Amount to mint
     function _utilMintToLiquidatorNoApproval(address liquidatorAddr, address debtAsset, uint256 amount) internal {
-        vm.prank(liquidatorAddr);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amount));
-        assertTrue(success, "MINT_ERROR");
+        _utilMintTokenTo(debtAsset, liquidatorAddr, amount);
     }
 
     /// @notice Execute micro liquidation

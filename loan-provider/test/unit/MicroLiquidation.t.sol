@@ -11,54 +11,18 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 /// @title MicroLiquidationTest
 /// @notice Tests for micro-liquidation functionality (liquidationType == 2)
 /// @dev Micro-liquidation covers one monthly payment when borrower is overdue but loan is still healthy
+/// @dev Uses LiquidationTestState from BaseLoanTest for state management
 contract MicroLiquidationTest is BaseLoanTest {
-    // ============ Structs ============
+    // ============ Local Structs ============
+    // Note: Uses LiquidationTestState from BaseLoanTest for most state management
+    // Extended fields only for micro-liquidation-specific tracking
 
-    /// @dev Struct to hold micro-liquidation test variables
-    struct MicroLiquidationTestVars {
-        address lsa;
-        uint256 durationBefore;
-        uint256 lastPaymentBefore;
-        uint256 liquidatorDebtBefore;
-        uint256 liquidatorCollateralBefore;
-        uint256 liquidatorDebtAfter;
-        uint256 liquidatorCollateralAfter;
-        uint256 durationAfter;
-        uint256 lastPaymentAfter;
-        DataTypes.LoanStatus statusAfter;
-        uint256 btcPriceUSD;
-        uint256 usdcPriceUSD;
-        uint256 collateralLiquidatedUSDValue;
-        uint256 estimatedMonthlyPayment;
-        uint256 remainingDebtBefore;
-        uint256 remainingDebtAfter;
+    /// @dev Extension struct for micro-liquidation specific fields
+    struct MicroLiquidationExtension {
         uint256 debtATokenBalanceBefore;
         uint256 debtATokenBalanceAfter;
-    }
-
-    /// @dev Struct to hold repeated micro-liquidation test variables
-    struct RepeatedMicroLiquidationVars {
-        address lsa;
-        uint256 initialDuration;
-        uint256 currentDuration;
-        uint256 monthsLiquidated;
-        uint256 liquidationType;
-        uint256 totalDebtPaid;
-        uint256 totalCollateralReceived;
-        uint256 liquidatorDebtBefore;
-        uint256 liquidatorCollateralBefore;
-        uint256 liquidatorDebtAfter;
-        uint256 liquidatorCollateralAfter;
-        uint256 btcPriceUSD;
-        uint256 collateralInLSA;
-        uint256 fullLiqDebtPaid;
-        uint256 fullLiqCollateralReceived;
-        bool fullLiquidationExecuted;
-        uint256 lastPaymentTimestampBefore;
-        uint256 lastPaymentTimestampAfter;
-        uint256 durationBefore;
-        uint256 estimatedMonthlyPayment;
-        uint256 remainingDebt;
+        uint256 remainingDebtBefore;
+        uint256 remainingDebtAfter;
     }
 
     // ============ Test: Core Micro-Liquidation with Full Invariant Coverage ============
@@ -66,104 +30,82 @@ contract MicroLiquidationTest is BaseLoanTest {
     /// @notice Test micro-liquidation when borrower has not paid monthly dues and grace period has passed
     /// @dev Covers core invariants: exact debt paid, debt destination, collateral seized, state updates
     function test_microLiquidation_whenPaymentOverdue() public setUpLoanForUser {
-        MicroLiquidationTestVars memory vars;
+        // Get LSA
+        address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup: Update AddressesProvider
+        // Setup: Update AddressesProvider (before capturing state)
         _updateAddressesProviderBitmorLoan();
 
-        // Get LSA and initial loan data
-        vars.lsa = loan.getUserLoanAtIndex(user, 0);
-        {
-            DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(vars.lsa);
-            vars.durationBefore = loanDataBefore.duration;
-            vars.lastPaymentBefore = loanDataBefore.lastPaymentTimestamp;
-            vars.estimatedMonthlyPayment = loanDataBefore.estimatedMonthlyPayment;
-        }
+        // Capture state using generic helper
+        LiquidationTestState memory state = _captureLiquidationStateBefore(lsa);
 
-        // Get remaining debt before
-        vars.remainingDebtBefore = _getLsaDebtBalance(vars.lsa);
-
-        // Get debt aToken balance before (where liquidator's USDC will be transferred)
+        // Capture micro-liquidation specific state
+        MicroLiquidationExtension memory ext;
         address debtATokenAddr = _getDebtATokenAddress();
-        vars.debtATokenBalanceBefore = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        ext.debtATokenBalanceBefore = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        ext.remainingDebtBefore = _getLsaDebtBalance(lsa);
 
-        // Warp time to make loan overdue
+        // Warp time to make loan overdue and fund liquidator
         _warpPastGracePeriod();
-
-        // Check liquidation type - should be 2 (micro-liquidation)
-        uint256 liquidationType = _checkLiquidationType(vars.lsa);
-        assertEq(liquidationType, 2, "Liquidation type should be 2 (micro)");
-
-        // Fund liquidator
         _fundLiquidator();
 
-        // Snapshot liquidator balances before
-        (vars.liquidatorDebtBefore, vars.liquidatorCollateralBefore) = _snapshotLiquidatorBalances();
+        // Check liquidation type - should be 2 (micro-liquidation)
+        uint256 liquidationType = _checkLiquidationType(lsa);
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Liquidation type should be 2 (micro)");
+
+        // Re-capture liquidator balances after funding (reset for accurate delta)
+        state.liquidatorState = _captureLiquidatorSnapshot();
 
         // Execute micro liquidation
-        _executeMicroLiquidation(vars.lsa);
+        _executeMicroLiquidation(lsa);
 
-        // Snapshot balances after
-        (vars.liquidatorDebtAfter, vars.liquidatorCollateralAfter) = _snapshotLiquidatorBalances();
+        // Update state after liquidation
+        _updateLiquidationStateAfter(state, lsa);
 
-        // Get loan data after
-        {
-            DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(vars.lsa);
-            vars.durationAfter = loanDataAfter.duration;
-            vars.lastPaymentAfter = loanDataAfter.lastPaymentTimestamp;
-            vars.statusAfter = loanDataAfter.status;
-        }
-
-        // Get remaining debt after
-        vars.remainingDebtAfter = _getLsaDebtBalance(vars.lsa);
-
-        // Get debt aToken balance after
-        vars.debtATokenBalanceAfter = IERC20(debtAsset).balanceOf(debtATokenAddr);
-
-        // Calculate actual amounts
-        uint256 debtPaid = vars.liquidatorDebtBefore - vars.liquidatorDebtAfter;
-        uint256 collateralReceived = vars.liquidatorCollateralAfter - vars.liquidatorCollateralBefore;
-
-        // Get oracle prices for USD value calculations
-        vars.btcPriceUSD = _getBtcPrice();
-        vars.usdcPriceUSD = _getUsdcPrice();
+        // Update micro-liquidation specific state
+        ext.debtATokenBalanceAfter = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        ext.remainingDebtAfter = _getLsaDebtBalance(lsa);
 
         // ============ CORE INVARIANT ASSERTIONS ============
 
         // 1. EXACT DEBT PAID: debtPaid == min(estimatedMonthlyPayment, remainingDebt)
-        uint256 expectedDebtPaid = _utilMin(vars.estimatedMonthlyPayment, vars.remainingDebtBefore);
-        assertEq(debtPaid, expectedDebtPaid, "Debt paid should equal min(monthlyPayment, remainingDebt)");
+        uint256 expectedDebtPaid = _utilMin(state.loanState.estimatedMonthlyPayment, ext.remainingDebtBefore);
+        assertEq(state.debtPaid, expectedDebtPaid, "Debt paid should equal min(monthlyPayment, remainingDebt)");
 
         // 2. DEBT ASSET DESTINATION: debtAsset.balanceOf(debtATokenAddress) increases by exactly debtPaid
-        uint256 debtATokenIncrease = vars.debtATokenBalanceAfter - vars.debtATokenBalanceBefore;
-        assertEq(debtATokenIncrease, debtPaid, "Debt aToken balance should increase by exact debtPaid amount");
+        uint256 debtATokenIncrease = ext.debtATokenBalanceAfter - ext.debtATokenBalanceBefore;
+        assertEq(debtATokenIncrease, state.debtPaid, "Debt aToken balance should increase by exact debtPaid amount");
 
         // 3. COLLATERAL SEIZED EXACTNESS: verify within rounding tolerance (1 bps)
-        uint256 expectedCollateral = _calculateExpectedCollateralSeized(debtPaid);
+        uint256 expectedCollateral = _calculateExpectedCollateralSeized(state.debtPaid);
         // Allow 0.5% tolerance for rounding differences
         uint256 tolerance = expectedCollateral / 200;
         assertApproxEqAbs(
-            collateralReceived, expectedCollateral, tolerance, "Collateral received should match expected with bonus"
+            state.collateralReceived, expectedCollateral, tolerance, "Collateral received should match expected with bonus"
         );
 
         // 4. STATE UPDATES:
         // a. durationAfter == durationBefore - 1
-        assertEq(vars.durationAfter, vars.durationBefore - 1, "Duration should decrease by 1");
+        assertEq(state.loanState.durationAfter, state.loanState.durationBefore - 1, "Duration should decrease by 1");
 
         // b. lastPaymentTimestampAfter == block.timestamp
-        assertEq(vars.lastPaymentAfter, block.timestamp, "Last payment timestamp should be updated to current time");
+        assertEq(
+            state.loanState.lastPaymentAfter, block.timestamp, "Last payment timestamp should be updated to current time"
+        );
 
         // c. status == Active
-        assertEq(uint256(vars.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should remain active");
+        assertEq(
+            uint256(state.loanState.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should remain active"
+        );
 
         // 5. NO-OP SANITY: LSA still exists, debt decreased, collateral decreased
-        assertGt(debtPaid, 0, "Liquidator should have paid debt");
-        assertGt(collateralReceived, 0, "Liquidator should have received collateral");
-        assertLt(vars.remainingDebtAfter, vars.remainingDebtBefore, "LSA debt should have decreased");
+        assertGt(state.debtPaid, 0, "Liquidator should have paid debt");
+        assertGt(state.collateralReceived, 0, "Liquidator should have received collateral");
+        assertLt(ext.remainingDebtAfter, ext.remainingDebtBefore, "LSA debt should have decreased");
 
         // 6. LIQUIDATOR PROFIT: collateral value > debt paid (liquidation bonus)
-        uint256 collateralValueUSD = (collateralReceived * vars.btcPriceUSD) / 1e8;
-        uint256 debtPaidIn8Decimals = debtPaid * 1e2; // Convert 6 decimals to 8 for comparison
+        uint256 collateralValueUSD = (state.collateralReceived * state.btcPriceUSD) / 1e8;
+        uint256 debtPaidIn8Decimals = state.debtPaid * 1e2; // Convert 6 decimals to 8 for comparison
         assertGt(collateralValueUSD, debtPaidIn8Decimals, "Liquidator should profit from liquidation bonus");
     }
 
@@ -173,221 +115,177 @@ contract MicroLiquidationTest is BaseLoanTest {
     function test_microLiquidation_liquidatorReceivesBonus() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
+        // Setup for micro-liquidation using composite helper
+        uint256 liquidationType = _setupForMicroLiquidation(lsa);
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible");
+
+        // Capture state using generic helper
+        LiquidationTestState memory state = _captureLiquidationStateBefore(lsa);
+
+        // Execute micro liquidation
+        _executeMicroLiquidation(lsa);
+
+        // Update state
+        _updateLiquidationStateAfter(state, lsa);
+
+        // Get liquidation bonus
+        uint256 liquidationBonusBps = _getLiquidationBonus();
+
+        // Calculate expected collateral without bonus
+        uint256 baseCollateral = (state.debtPaid * state.usdcPriceUSD * 1e8) / (state.btcPriceUSD * 1e6);
+        uint256 expectedWithBonus = (baseCollateral * liquidationBonusBps) / 10_000;
+
+        // Allow 1% tolerance for rounding
+        uint256 tolerance = expectedWithBonus / 100;
+        assertApproxEqAbs(state.collateralReceived, expectedWithBonus, tolerance, "Should receive bonus on collateral");
+    }
+
+    // ============ Test: Duration Decrements Each Micro-Liquidation ============
+
+    /// @notice Test that duration decrements correctly on each micro-liquidation
+    function test_microLiquidation_decrementsDuration() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
         _updateAddressesProviderBitmorLoan();
 
+        // Get initial duration using generic snapshot
+        TestSnapshot memory initialSnapshot = _captureTestSnapshot(lsa);
+        uint256 initialDuration = initialSnapshot.durationBefore;
+
         _warpPastGracePeriod();
-
-        uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, 2, "Should be micro-liquidation");
-
         _fundLiquidator();
 
-        // Get debt aToken address for balance check
-        address debtATokenAddr = _getDebtATokenAddress();
-        uint256 debtATokenBefore = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        // Execute first micro liquidation
+        _executeMicroLiquidation(lsa);
 
-        (uint256 debtBefore, uint256 collateralBefore) = _snapshotLiquidatorBalances();
+        // Check duration after first
+        _updateTestSnapshotAfter(initialSnapshot, lsa);
+        assertEq(initialSnapshot.durationAfter, initialDuration - 1, "Duration should decrement by 1");
+
+        // Warp again for next payment period
+        vm.warp(block.timestamp + LOAN_REPAYMENT_INTERVAL + s_gracePeriod + 1);
+
+        // Verify still micro-liquidation eligible
+        uint256 liquidationType = _checkLiquidationType(lsa);
+        if (liquidationType == LIQUIDATION_TYPE_MICRO) {
+            // Capture new state
+            TestSnapshot memory secondSnapshot = _captureTestSnapshot(lsa);
+
+            _executeMicroLiquidation(lsa);
+
+            _updateTestSnapshotAfter(secondSnapshot, lsa);
+            assertEq(secondSnapshot.durationAfter, initialDuration - 2, "Duration should decrement to initial - 2");
+        }
+    }
+
+    // ============ Test: Last Payment Timestamp Updates ============
+
+    /// @notice Test that lastPaymentTimestamp is updated on micro-liquidation
+    function test_microLiquidation_updatesLastPaymentTimestamp() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Setup for micro-liquidation using composite helper
+        uint256 liquidationType = _setupForMicroLiquidation(lsa);
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible");
+
+        // Get initial last payment using generic snapshot
+        TestSnapshot memory snapshot = _captureTestSnapshot(lsa);
+        uint256 initialLastPayment = snapshot.lastPaymentBefore;
+
+        uint256 expectedTimestamp = block.timestamp;
 
         _executeMicroLiquidation(lsa);
 
-        (uint256 debtAfter, uint256 collateralAfter) = _snapshotLiquidatorBalances();
-        uint256 debtATokenAfter = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        // Update snapshot
+        _updateTestSnapshotAfter(snapshot, lsa);
 
-        uint256 debtPaid = debtBefore - debtAfter;
-        uint256 collateralReceived = collateralAfter - collateralBefore;
-
-        assertGt(debtPaid, 0, "Liquidator should pay debt");
-        assertGt(collateralReceived, 0, "Liquidator should receive collateral");
-
-        // Verify USDC → debt aToken delta
-        uint256 debtATokenDelta = debtATokenAfter - debtATokenBefore;
-        assertEq(debtATokenDelta, debtPaid, "Debt aToken should receive exact debt paid amount");
-
-        // Verify liquidator profit matches expected bonus
-        uint256 btcPrice = _getBtcPrice();
-        uint256 collateralValueUSD = (collateralReceived * btcPrice) / 1e8;
-        uint256 debtPaidIn8Decimals = debtPaid * 1e2;
-
-        // Get liquidation bonus (e.g., 10300 = 103% = 3% bonus)
-        uint256 liquidationBonusBps = _getLiquidationBonus();
-
-        // Expected profit percentage = (liquidationBonus - 10000) / 10000
-        // Verify collateral value is approximately debtPaid * liquidationBonus / 10000
-        uint256 expectedCollateralValue = (debtPaidIn8Decimals * liquidationBonusBps) / 10000;
-
-        // Allow 1% tolerance for rounding
-        uint256 tolerance = expectedCollateralValue / 100;
-        assertApproxEqAbs(
-            collateralValueUSD,
-            expectedCollateralValue,
-            tolerance,
-            "Collateral value should match expected with liquidation bonus"
-        );
+        assertGt(snapshot.lastPaymentAfter, initialLastPayment, "Last payment should be updated");
+        assertEq(snapshot.lastPaymentAfter, expectedTimestamp, "Last payment should be current block timestamp");
     }
 
-    // ============ Test: Repeated Micro-Liquidation Until Completion or Full Liquidation ============
+    // ============ Test: Repeated Micro-Liquidations Lead to Full Liquidation ============
 
-    /// @notice Test repeated micro-liquidations until full liquidation or loan completion
-    function test_repeatedMicroLiquidation_untilFullLiquidationOrCompletion() public setUpLoanForUser {
-        RepeatedMicroLiquidationVars memory vars;
+    /// @notice Test that repeated micro-liquidations eventually lead to full liquidation
+    function test_microLiquidation_repeatedLeadsToFullLiquidation() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // 1. Setup: Update AddressesProvider
         _updateAddressesProviderBitmorLoan();
 
-        // 2. Setup: Get LSA and initial data
-        vars.lsa = loan.getUserLoanAtIndex(user, 0);
-        {
-            DataTypes.LoanData memory loanDataInitial = loan.getLoanByLSA(vars.lsa);
-            vars.initialDuration = loanDataInitial.duration;
-            vars.currentDuration = loanDataInitial.duration;
-            vars.estimatedMonthlyPayment = loanDataInitial.estimatedMonthlyPayment;
-        }
+        // Use generic state for tracking
+        LiquidationTestState memory state = _captureLiquidationStateBefore(lsa);
+        state.monthsLiquidated = 0;
 
-        // 3. Setup: Fund Liquidator
         _fundLiquidator();
-        uint256 liquidatorDebtStart = IERC20(debtAsset).balanceOf(liquidator);
-        uint256 liquidatorCollateralStart = IERC20(collateralAsset).balanceOf(liquidator);
 
-        // 4. Get initial BTC price
-        vars.btcPriceUSD = _getBtcPrice();
+        // Loop micro-liquidations until full liquidation becomes available
+        for (uint256 i = 0; i < 15; i++) {
+            // Warp past grace period
+            vm.warp(block.timestamp + LOAN_REPAYMENT_INTERVAL + s_gracePeriod + 1);
 
-        // 5. Main loop: Repeated micro-liquidations with 15% monthly price drop
-        while (true) {
-            vars.monthsLiquidated++;
+            // Apply 15% price drop each iteration to reliably reach full liquidation
+            _dropOraclePrice(collateralAsset, 15);
 
-            // Capture state before this iteration
-            DataTypes.LoanData memory loanDataBeforeIteration = loan.getLoanByLSA(vars.lsa);
-            vars.durationBefore = loanDataBeforeIteration.duration;
-            vars.lastPaymentTimestampBefore = loanDataBeforeIteration.lastPaymentTimestamp;
-            vars.remainingDebt = _getLsaDebtBalance(vars.lsa);
+            uint256 liquidationType = _checkLiquidationType(lsa);
 
-            // A. Warp time forward
-            _warpPastGracePeriod();
-            uint256 expectedTimestamp = block.timestamp;
-
-            // B. Apply 15% price drop
-            vars.btcPriceUSD = _dropOraclePrice(collateralAsset, 15);
-
-            // C. Check liquidation type
-            vars.liquidationType = _checkLiquidationType(vars.lsa);
-
-            // D. Handle full liquidation
-            if (vars.liquidationType == 1) {
-                // Get balances before full liquidation
-                vars.liquidatorDebtBefore = IERC20(debtAsset).balanceOf(liquidator);
-                vars.liquidatorCollateralBefore = IERC20(collateralAsset).balanceOf(liquidator);
+            if (liquidationType == LIQUIDATION_TYPE_NONE) {
+                // No longer liquidatable, exit
+                break;
+            } else if (liquidationType == LIQUIDATION_TYPE_FULL) {
+                // Full liquidation eligible - capture liquidator state
+                state.liquidatorState = _captureLiquidatorSnapshot();
 
                 // Execute full liquidation
-                _utilExecuteFullLiquidation(
-                    s_bitmorPool, liquidator, collateralAsset, debtAsset, vars.lsa, type(uint256).max, false
-                );
+                _executeFullLiquidation(lsa, type(uint256).max, false);
 
-                // Get balances after
-                vars.liquidatorDebtAfter = IERC20(debtAsset).balanceOf(liquidator);
-                vars.liquidatorCollateralAfter = IERC20(collateralAsset).balanceOf(liquidator);
-
-                // Calculate results
-                vars.fullLiqDebtPaid = vars.liquidatorDebtBefore - vars.liquidatorDebtAfter;
-                vars.fullLiqCollateralReceived = vars.liquidatorCollateralAfter - vars.liquidatorCollateralBefore;
-                vars.fullLiquidationExecuted = true;
-
-                // Verify loan status
-                DataTypes.LoanData memory loanDataAfterFullLiq = loan.getLoanByLSA(vars.lsa);
-                assertEq(
-                    uint256(loanDataAfterFullLiq.status),
-                    uint256(DataTypes.LoanStatus.Liquidated),
-                    "Loan should be liquidated"
-                );
-
+                // Update state
+                _updateLiquidatorSnapshotAfter(state.liquidatorState);
+                state.fullLiqDebtPaid =
+                    state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
+                state.fullLiqCollateralReceived =
+                    state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
+                state.fullLiquidationExecuted = true;
                 break;
-            }
+            } else if (liquidationType == LIQUIDATION_TYPE_MICRO) {
+                // Micro liquidation
+                state.liquidatorState = _captureLiquidatorSnapshot();
 
-            // E. Handle no liquidation needed (completed)
-            if (vars.liquidationType == 0) {
-                break;
-            }
+                _executeMicroLiquidation(lsa);
 
-            // F. Execute micro liquidation
-            vars.liquidatorDebtBefore = IERC20(debtAsset).balanceOf(liquidator);
-            vars.liquidatorCollateralBefore = IERC20(collateralAsset).balanceOf(liquidator);
-
-            _executeMicroLiquidation(vars.lsa);
-
-            vars.liquidatorDebtAfter = IERC20(debtAsset).balanceOf(liquidator);
-            vars.liquidatorCollateralAfter = IERC20(collateralAsset).balanceOf(liquidator);
-
-            // ============ MICRO-BRANCH SPECIFIC ASSERTIONS ============
-
-            // G. Assert per-iteration invariants for micro-liquidation (type == 2)
-            DataTypes.LoanData memory loanDataAfterMicro = loan.getLoanByLSA(vars.lsa);
-
-            // a. Duration decrements by exactly 1
-            assertEq(
-                loanDataAfterMicro.duration,
-                vars.durationBefore - 1,
-                "Duration should decrement by exactly 1 each micro"
-            );
-
-            // b. lastPaymentTimestamp is updated and monotonic
-            assertEq(
-                loanDataAfterMicro.lastPaymentTimestamp,
-                expectedTimestamp,
-                "lastPaymentTimestamp should be updated to current block.timestamp"
-            );
-            assertGt(
-                loanDataAfterMicro.lastPaymentTimestamp,
-                vars.lastPaymentTimestampBefore,
-                "lastPaymentTimestamp should be monotonically increasing"
-            );
-
-            // c. Status stays Active after each micro
-            assertEq(
-                uint256(loanDataAfterMicro.status),
-                uint256(DataTypes.LoanStatus.Active),
-                "Status should stay Active after micro-liquidation"
-            );
-
-            // d. debtPaid == min(monthly, remainingDebt)
-            uint256 debtPaidThisRound = vars.liquidatorDebtBefore - vars.liquidatorDebtAfter;
-            uint256 expectedDebtPaid = _utilMin(vars.estimatedMonthlyPayment, vars.remainingDebt);
-            assertEq(debtPaidThisRound, expectedDebtPaid, "debtPaid should equal min(monthlyPayment, remainingDebt)");
-
-            // H. Update loop variables
-            vars.currentDuration = loanDataAfterMicro.duration;
-            vars.collateralInLSA = loanDataAfterMicro.collateralAmount;
-
-            if (vars.currentDuration == 0 || loanDataAfterMicro.status != DataTypes.LoanStatus.Active) {
-                break;
-            }
-
-            // Safety break
-            if (vars.monthsLiquidated >= vars.initialDuration + 5) {
-                break;
+                _updateLiquidatorSnapshotAfter(state.liquidatorState);
+                state.totalDebtPaid +=
+                    state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
+                state.totalCollateralReceived +=
+                    state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
+                state.monthsLiquidated++;
             }
         }
 
-        // 6. Final calculations
-        vars.totalDebtPaid = liquidatorDebtStart - IERC20(debtAsset).balanceOf(liquidator);
-        vars.totalCollateralReceived = IERC20(collateralAsset).balanceOf(liquidator) - liquidatorCollateralStart;
+        // Update final loan state
+        _updateTestSnapshotAfter(state.loanState, lsa);
 
-        vm.clearMockedCalls();
-
-        // 7. Assertions
-        bool isFullLiquidation = vars.liquidationType == 1;
-        bool isCompleted = vars.currentDuration == 0;
-
-        assertTrue(isFullLiquidation || isCompleted, "Should end with full liquidation or completion");
-
-        if (isFullLiquidation) {
-            assertTrue(vars.fullLiquidationExecuted, "Full liquidation should have executed");
-            assertGt(vars.fullLiqDebtPaid, 0, "Liquidator should have paid debt in full liq");
-            assertGt(vars.fullLiqCollateralReceived, 0, "Liquidator should have received collateral in full liq");
+        // Assert outcomes
+        if (state.fullLiquidationExecuted) {
+            assertEq(
+                uint256(state.loanState.statusAfter),
+                uint256(DataTypes.LoanStatus.Liquidated),
+                "Loan should be liquidated after full liquidation"
+            );
+            assertEq(state.loanState.durationAfter, 0, "Duration should be 0 after full liquidation");
+        } else {
+            // Either completed (all months micro-liquidated) or still active
+            assertTrue(
+                state.loanState.statusAfter == DataTypes.LoanStatus.Completed
+                    || state.loanState.statusAfter == DataTypes.LoanStatus.Active,
+                "Loan should be completed or active"
+            );
         }
+
+        assertGt(state.monthsLiquidated + (state.fullLiquidationExecuted ? 1 : 0), 0, "At least one liquidation");
     }
 
-    // ============ Test: Liquidation Type Gate ============
+    // ============ Test: Liquidation Type Changes Over Time ============
 
-    /// @notice Test that liquidation type transitions correctly based on time
+    /// @notice Test that liquidation type changes from 0 to 2 as payment becomes overdue
     function test_microLiquidation_afterGracePeriod_returnsTypeMicro() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -395,17 +293,17 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Assert before warp: checkType == 0 (loan is fresh, not overdue)
         uint256 liquidationTypeBefore = _checkLiquidationType(lsa);
-        assertEq(liquidationTypeBefore, 0, "Fresh loan should not be liquidatable (type 0)");
+        assertEq(liquidationTypeBefore, LIQUIDATION_TYPE_NONE, "Fresh loan should not be liquidatable (type 0)");
 
         // Warp past grace period + interval
         _warpPastGracePeriod();
 
         // Assert after warp: checkType == 2 (micro-liquidation eligible)
         uint256 liquidationTypeAfter = _checkLiquidationType(lsa);
-        assertEq(liquidationTypeAfter, 2, "Should be micro-liquidation eligible (type 2)");
+        assertEq(liquidationTypeAfter, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible (type 2)");
     }
 
-    // ============ NEW TEST: Micro-Liquidation Within Grace Period Should Revert ============
+    // ============ Test: Micro-Liquidation Within Grace Period Should Revert ============
 
     /// @notice Test that micro-liquidation reverts when called within grace period
     function test_microLiquidation_withinGracePeriod_reverts() public setUpLoanForUser {
@@ -420,7 +318,7 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Check liquidation type - should be 0 (not eligible)
         uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, 0, "Loan within grace period should not be liquidatable");
+        assertEq(liquidationType, LIQUIDATION_TYPE_NONE, "Loan within grace period should not be liquidatable");
 
         // Attempt micro-liquidation - should revert
         bytes memory liquidationData = abi.encode(collateralAsset, debtAsset, lsa);
@@ -429,7 +327,7 @@ contract MicroLiquidationTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).microLiquidationCall(liquidationData);
     }
 
-    // ============ NEW TEST: Micro-Liquidation Reverts If Liquidator Has No USDC ============
+    // ============ Test: Micro-Liquidation Reverts If Liquidator Has No USDC ============
 
     /// @notice Test that micro-liquidation reverts when liquidator has no USDC
     function test_microLiquidation_revertsIfLiquidatorHasNoUSDC() public setUpLoanForUser {
@@ -442,15 +340,15 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Verify loan is eligible for micro-liquidation
         uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, 2, "Should be micro-liquidation eligible");
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible");
 
         // Do NOT mint USDC to liquidator, but approve anyway
         vm.prank(liquidator);
         IERC20(debtAsset).approve(s_bitmorPool, type(uint256).max);
 
-        // Verify liquidator has 0 USDC
-        uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
-        assertEq(liquidatorBalance, 0, "Liquidator should have 0 USDC");
+        // Verify liquidator has 0 USDC using generic helper
+        AccountBalanceSnapshot memory liquidatorBalances = _snapshotAccountBalances(liquidator);
+        assertEq(liquidatorBalances.debtAssetBalance, 0, "Liquidator should have 0 USDC");
 
         // Attempt micro-liquidation - should revert (insufficient balance for safeTransferFrom)
         bytes memory liquidationData = abi.encode(collateralAsset, debtAsset, lsa);
@@ -459,7 +357,7 @@ contract MicroLiquidationTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).microLiquidationCall(liquidationData);
     }
 
-    // ============ NEW TEST: Micro-Liquidation Reverts If Liquidator Has No Allowance ============
+    // ============ Test: Micro-Liquidation Reverts If Liquidator Has No Allowance ============
 
     /// @notice Test that micro-liquidation reverts when liquidator has USDC but no allowance
     function test_microLiquidation_revertsIfLiquidatorHasNoAllowance() public setUpLoanForUser {
@@ -472,14 +370,14 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Verify loan is eligible for micro-liquidation
         uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, 2, "Should be micro-liquidation eligible");
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible");
 
         // Mint USDC to liquidator but DO NOT approve
         _utilMintToLiquidatorNoApproval(liquidator, debtAsset, DEBT_ASSET_TO_MINT_TO_USER);
 
-        // Verify liquidator has USDC but no allowance
-        uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
-        assertGt(liquidatorBalance, 0, "Liquidator should have USDC");
+        // Verify liquidator has USDC but no allowance using generic helper
+        AccountBalanceSnapshot memory liquidatorBalances = _snapshotAccountBalances(liquidator);
+        assertGt(liquidatorBalances.debtAssetBalance, 0, "Liquidator should have USDC");
         uint256 allowance = IERC20(debtAsset).allowance(liquidator, s_bitmorPool);
         assertEq(allowance, 0, "Liquidator should have 0 allowance");
 
@@ -490,7 +388,7 @@ contract MicroLiquidationTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).microLiquidationCall(liquidationData);
     }
 
-    // ============ NEW TEST: Micro-Liquidation Caps Debt To Cover At Remaining Debt ============
+    // ============ Test: Micro-Liquidation Caps Debt To Cover At Remaining Debt ============
 
     /// @notice Test that micro-liquidation caps debtToCover at remainingDebt when monthly payment exceeds it
     function test_microLiquidation_capsDebtToCoverAtRemainingDebt() public setUpLoanForUser {
@@ -498,9 +396,9 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         _updateAddressesProviderBitmorLoan();
 
-        // Get loan data
-        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
-        uint256 estimatedMonthlyPayment = loanData.estimatedMonthlyPayment;
+        // Get loan data using generic snapshot
+        TestSnapshot memory snapshot = _captureTestSnapshot(lsa);
+        uint256 estimatedMonthlyPayment = snapshot.estimatedMonthlyPayment;
         uint256 initialDebt = _getLsaDebtBalance(lsa);
 
         // Leave a small remaining debt so that it is strictly below the monthly payment even after interest accrues.
@@ -509,14 +407,10 @@ contract MicroLiquidationTest is BaseLoanTest {
         require(initialDebt > targetRemainingDebt, "Test setup: initial debt too small");
 
         uint256 amountToRepay = initialDebt - targetRemainingDebt;
+        _utilMintTokenAndApprove(debtAsset, user, address(loan), amountToRepay);
 
-        // Fund user to repay most of the debt
-        vm.startPrank(user);
-        (bool success,) = debtAsset.call(abi.encodeWithSignature("mint(uint256)", amountToRepay));
-        require(success, "MINT_ERROR");
-        IERC20(debtAsset).approve(address(loan), amountToRepay);
+        vm.prank(user);
         loan.repay(lsa, amountToRepay);
-        vm.stopPrank();
 
         // Verify remaining debt is less than monthly payment (at current timestamp)
         uint256 remainingDebtAfterRepay = _getLsaDebtBalance(lsa);
@@ -528,11 +422,11 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // Verify still micro-liquidation eligible (may depend on health factor)
         uint256 liquidationType = _checkLiquidationType(lsa);
-        if (liquidationType == 0) {
+        if (liquidationType == LIQUIDATION_TYPE_NONE) {
             // If not liquidatable, exit (nothing to micro-liquidate)
             return;
         }
-        assertEq(liquidationType, 2, "Should be micro-liquidation eligible");
+        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible");
 
         // IMPORTANT: Recompute remaining debt *at liquidation time*.
         // After the warp, variable debt accrues interest and the pool uses the updated debt when capping.
@@ -546,15 +440,17 @@ contract MicroLiquidationTest is BaseLoanTest {
         // Fund liquidator
         _fundLiquidator();
 
-        // Snapshot balances
-        uint256 liquidatorDebtBefore = IERC20(debtAsset).balanceOf(liquidator);
+        // Snapshot liquidator balances using generic helper
+        LiquidatorSnapshot memory liquidatorState = _captureLiquidatorSnapshot();
 
         // Execute micro-liquidation
         _executeMicroLiquidation(lsa);
 
+        // Update liquidator state
+        _updateLiquidatorSnapshotAfter(liquidatorState);
+
         // Calculate actual debt paid
-        uint256 liquidatorDebtAfter = IERC20(debtAsset).balanceOf(liquidator);
-        uint256 debtPaid = liquidatorDebtBefore - liquidatorDebtAfter;
+        uint256 debtPaid = liquidatorState.liquidatorDebtBefore - liquidatorState.liquidatorDebtAfter;
 
         // Assert debtPaid == remainingDebt at liquidation time (capped behavior)
         assertEq(debtPaid, remainingDebtAtLiquidation, "Debt paid should equal remaining debt (capped at remaining)");
