@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {Ownable} from "../dependencies/openzeppelin/Ownable.sol";
 import {IERC20} from "../dependencies/openzeppelin/IERC20.sol";
+import {Ownable} from "../dependencies/openzeppelin/Ownable.sol";
 import {SafeERC20} from "../dependencies/openzeppelin/SafeERC20.sol";
+import {AccessManaged} from "../dependencies/openzeppelin/AccessManaged.sol";
+
 import {Errors} from "../libraries/helpers/Errors.sol";
+
 import {ILoan} from "../interfaces/ILoan.sol";
 import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
 
@@ -13,19 +16,17 @@ import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
  * @notice Contract for automatic repayment of loans
  * @dev Implements IAutoRepayment interface
  */
-contract AutoRepayment is IAutoRepayment, Ownable {
+contract AutoRepayment is IAutoRepayment, AccessManaged {
     using SafeERC20 for IERC20;
 
     mapping(address user => mapping(address lsa => bool)) public isAuthorized;
 
     address public immutable i_LOAN;
     address public immutable i_DEBT_ASSET;
-    address public s_executorAddress;
 
-    constructor(address _loan, address _debtAsset, address _executorAddress) Ownable(msg.sender) {
+    constructor(address _manager, address _loan, address _debtAsset) AccessManaged(_manager) {
         i_LOAN = _loan;
         i_DEBT_ASSET = _debtAsset;
-        s_executorAddress = _executorAddress;
     }
 
     /// @inheritdoc IAutoRepayment
@@ -46,7 +47,7 @@ contract AutoRepayment is IAutoRepayment, Ownable {
     }
 
     /// @inheritdoc IAutoRepayment
-    function executeAutoRepayment(address lsa, address user, uint256 amount) external {
+    function executeAutoRepayment(address lsa, address user, uint256 amount) external restricted {
         if (!isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash();
 
         IERC20(i_DEBT_ASSET).safeTransferFrom(user, address(this), amount);
@@ -54,13 +55,5 @@ contract AutoRepayment is IAutoRepayment, Ownable {
         uint256 amountRepaid = ILoan(i_LOAN).repay(lsa, amount);
 
         emit AutoRepayment__RepaymentExecuted(lsa, user, amount, amountRepaid);
-    }
-
-    /// @inheritdoc IAutoRepayment
-    function setExecutorAddress(address executorAddress) external override onlyOwner {
-        if (executorAddress == address(0)) revert Errors.ZeroAddress();
-        s_executorAddress = executorAddress;
-
-        emit AutoRepayment__ExecutorAddressUpdated(executorAddress);
     }
 }
