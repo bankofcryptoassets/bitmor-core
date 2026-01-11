@@ -69,9 +69,7 @@ contract LoanContract is BaseLoanTest {
         address oracle = loan.i_ORACLE();
 
         vm.mockCall(
-            oracle,
-            abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset),
-            abi.encode(0)
+            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset), abi.encode(0)
         );
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
@@ -119,13 +117,7 @@ contract LoanContract is BaseLoanTest {
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
         for (uint256 i = 0; i < 7; i++) {
             address[7] memory params = [
-                aaveV3Pool,
-                bitmorPool,
-                oracle,
-                collateralAssetAddr,
-                debtAssetAddr,
-                swapAdapterWrapper,
-                premiumCollector
+                aaveV3Pool, bitmorPool, oracle, collateralAssetAddr, debtAssetAddr, swapAdapterWrapper, premiumCollector
             ];
 
             params[i] = address(0);
@@ -154,8 +146,7 @@ contract LoanContract is BaseLoanTest {
         (
             address accessManager,
             address bitmorPool,
-            address aaveV3Pool,
-            ,
+            address aaveV3Pool,,
             address oracle,
             address collateralAssetAddr,
             address debtAssetAddr,

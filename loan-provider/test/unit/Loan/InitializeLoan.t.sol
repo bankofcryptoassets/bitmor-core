@@ -173,8 +173,6 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Test flash loan integration works correctly through MockAaveV3Pool
     function test_initializeLoan_flashLoanIntegration_success() public {
-
-
         MockAaveV3Pool mockPool = new MockAaveV3Pool();
 
         vm.startPrank(owner);
