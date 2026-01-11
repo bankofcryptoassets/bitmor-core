@@ -13,7 +13,7 @@ interface ILoan {
     // ============ Events ============
 
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount
+        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
     );
 
     event Loan__LoanStatusUpdated(
@@ -34,13 +34,19 @@ interface ILoan {
 
     event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
-    event Loan__LoanDataUpdated(address indexed lsa, bytes data);
+    event Loan__LoanDataMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
+
+    event Loan__LoanDataFullLiquidationUpdated(address indexed lsa);
+
+    event Loan__InsuranceIDUpdated(address indexed lsa, uint256 indexed insuranceID);
 
     event Loan__PremiumCollectorUpdated(address indexed newPremiumCollector);
 
     event Loan__GracePeriodUpdated(uint256 indexed newGracePeriod);
 
     event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
+
+    event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
 
     // ============ Main Functions ============
 
@@ -51,7 +57,7 @@ interface ILoan {
      * @param premiumAmount USDC premium amount (6 decimals)
      * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
      * @param duration Loan duration in months
-     * @param insuranceID Insurance/Order ID for tracking this loan
+     * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
      */
     function initializeLoan(
@@ -59,8 +65,32 @@ interface ILoan {
         uint256 premiumAmount,
         uint256 collateralAmount,
         uint256 duration,
-        uint256 insuranceID
+        bytes calldata data
     ) external returns (address lsa);
+
+    /**
+     * @notice Updates `lsa` `insuranceID`
+     * @dev Restricted to use ONLY BY `EXECUTOR` ROLE.
+     * @param lsa The LSA address
+     * @param insuranceID Insurance Id for the `lsa`
+     */
+    function updateInsuranceId(address lsa, uint256 insuranceID) external;
+
+    /**
+     * @notice Updates the LoanData for a specific `lsa` in case of it's microliquidtion.
+     * @dev Reduce the loan `duration` by 1 and updates the `lastPaymentTimestamp` with `block.timestamp`.
+     * @dev This call is restricted to `LPCM` role ONLY.
+     * @param _lsa The Loan Specific Address
+     */
+    function updateLoanDataForMicroLiquidation(address _lsa) external;
+
+    /**
+     * @notice Updates the LoanData for a specific `lsa` in case of it's microliquidtion.
+     * @dev Updates the loan `duration` with 0, `status` with `LoanStatus.Liquidated` and the `lastPaymentTimestamp` with `block.timestamp`.
+     * @dev This call is restricted to `LPCM` role ONLY.
+     * @param _lsa The Loan Specific Address
+     */
+    function updateLoanDataForFullLiquidation(address _lsa) external;
 
     // ============ View Functions ============
 
@@ -138,39 +168,28 @@ interface ILoan {
     /**
      * @notice Updates the loan vault factory address
      * @param newFactory New factory address
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setLoanVaultFactory(address newFactory) external;
 
     /**
      * @notice Updates the swap adapter contract address
      * @param newSwapAdapter New swap adapter address
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setSwapAdapter(address newSwapAdapter) external;
 
     /**
      * @notice Updates the zQuoter contract address
      * @param newZQuoter New zQuoter address
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setZQuoter(address newZQuoter) external;
 
     /**
-     * @notice Updates loan status for a specific `lsa`
-     * @dev Used by repayment and liquidation flows
-     * @param lsa The LSA address
-     * @param newStatus The new loan status
-     */
-    function updateLoanStatus(address lsa, DataTypes.LoanStatus newStatus) external;
-
-    /**
-     * @notice Updates the LoanData for a specific `lsa`
-     * @param _data Encoded LoanData struct
-     * @param _lsa The Loan Specific Address
-     */
-    function updateLoanData(bytes calldata _data, address _lsa) external;
-
-    /**
      * @notice Updates the premium collector address
      * @param newPremiumCollector New premium collector address
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setPremiumCollector(address newPremiumCollector) external;
 
@@ -182,6 +201,7 @@ interface ILoan {
     /**
      * @notice Updates the grace period for microLiquidation.
      * @param gracePeriod New grace period in `days`
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setGracePeriod(uint256 gracePeriod) external;
 
@@ -202,12 +222,14 @@ interface ILoan {
 
     /**
      * @notice Updates the pre-closure fee (in bps)
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setPreClosureFee(uint256 newFee) external;
 
     /**
      * @notice Updates the buffer required while Liquidation.
      * @param newBuffer The new buffer (in bps)
+     * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setLiquidationBuffer(uint256 newBuffer) external;
 

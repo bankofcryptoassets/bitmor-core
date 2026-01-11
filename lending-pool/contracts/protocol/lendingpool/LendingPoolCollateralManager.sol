@@ -237,6 +237,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
      * @param data Microliquidation call data
      */
     function microLiquidationCall(bytes calldata data) external override returns (uint256, string memory) {
+        /// @dev Here `user` is the `lsa`.
         (address collateralAsset, address debtAsset, address user) = abi.decode(data, (address, address, address));
 
         /// @dev No one can deposit in the Lending Pool without going through loan creation process.
@@ -358,10 +359,15 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         }
 
         // Reduce loan duration by 1 month.
-        loanData.duration = loanData.duration.sub(1);
-        loanData.lastPaymentTimestamp = block.timestamp;
+        // loanData.duration = loanData.duration.sub(1);
+        // loanData.lastPaymentTimestamp = block.timestamp;
+        // ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
 
-        ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
+        if (loanData.duration.sub(1) > 0) {
+            _updateLoanForMicroLiquidation(user);
+        } else {
+            _updateLoanForFullLiquidation(user);
+        }
 
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
@@ -396,17 +402,29 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         );
     }
 
-    function _updateLoanStatusToLiquidated(address user) internal {
+    function _updateLoanForMicroLiquidation(address lsa) internal {
         address bitmorLoan = _addressesProvider.getBitmorLoan();
 
-        DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
+        /// @dev The call will reduce the durtion of the loan by 1,
+        /// and updates the `lastPaymentTimestamp` with `block.timestamp`
+        ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(user);
+    }
 
-        // Reduce loan duration to 0 months and change the status to Liquidated.
-        loanData.duration = 0;
-        loanData.status = DataTypes.LoanStatus.Liquidated;
-        loanData.lastPaymentTimestamp = block.timestamp;
+    function _updateLoanForFullLiquidation(address lsa) internal {
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
 
-        ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
+        // DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
+
+        // // Reduce loan duration to 0 months and change the status to Liquidated.
+        // loanData.duration = 0;
+        // loanData.status = DataTypes.LoanStatus.Liquidated;
+        // loanData.lastPaymentTimestamp = block.timestamp;
+
+        /// @dev This call will change the following:
+        /// 1. duration = 0
+        /// 2. lastPaymentTimestamp = block.timestamp
+        /// 3. status = DataTypes.LoanStatus.Liquidated
+        ILoan(bitmorLoan).updateLoanDataForFullLiquidation(lsa);
     }
 
     /**
