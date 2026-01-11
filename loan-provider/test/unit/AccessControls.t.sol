@@ -9,7 +9,6 @@ import {Ownable} from "@bitmor/dependencies/openzeppelin/Ownable.sol";
 /// @title AccessControlsTest
 /// @notice Test suite for verifying access control mechanisms in the Bitmor Protocol
 contract AccessControlsTest is BaseLoanTest {
-
     address internal attacker;
 
     address internal constant NEW_FACTORY = address(0xF4C70);
@@ -96,34 +95,21 @@ contract AccessControlsTest is BaseLoanTest {
     }
 
     /// @notice Unauthorized callers cannot update loan status.
-    function test_protocolMutators_updateLoanStatus_revertForUnauthorized() public setUpLoanForUser {
+    function test_protocolMutators_updateLoanDataForMicroLiquidation_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
         vm.expectRevert(Errors.UnauthorizedCaller.selector);
-        loan.updateLoanStatus(lsa, DataTypes.LoanStatus.Liquidated);
+        loan.updateLoanDataForFullLiquidation(lsa);
     }
 
     /// @notice Unauthorized callers cannot update stored loan data.
     function test_protocolMutators_updateLoanData_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        DataTypes.LoanData memory maliciousData = DataTypes.LoanData({
-            borrower: attacker,
-            depositAmount: 0,
-            loanAmount: 0,
-            collateralAmount: 0,
-            estimatedMonthlyPayment: 0,
-            duration: 0,
-            createdAt: block.timestamp,
-            insuranceID: 0,
-            lastPaymentTimestamp: block.timestamp,
-            status: DataTypes.LoanStatus.Completed
-        });
-
         vm.prank(attacker);
         vm.expectRevert(Errors.UnauthorizedCaller.selector);
-        loan.updateLoanData(abi.encode(maliciousData), lsa);
+        loan.updateLoanDataForFullLiquidation(lsa);
     }
 
     /// @notice Flash-loan callback reverts when caller is not the Aave pool.

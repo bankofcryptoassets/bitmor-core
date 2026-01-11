@@ -101,6 +101,7 @@ contract LoanContract is BaseLoanTest {
     /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
     function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -131,6 +132,7 @@ contract LoanContract is BaseLoanTest {
 
             vm.expectRevert(Errors.ZeroAddress.selector);
             new Loan(
+                accessManager,
                 params[0], // aaveV3Pool
                 aaveAddressesProvider,
                 params[1], // bitmorPool
@@ -150,6 +152,7 @@ contract LoanContract is BaseLoanTest {
     /// @notice BUG: Constructor accepts aaveAddressesProvider = address(0) (should revert with ZeroAddress).
     function test_loan_constructor_zeroAaveAddressesProvider_BUG() public {
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             ,
@@ -165,6 +168,7 @@ contract LoanContract is BaseLoanTest {
         ) = config.networkConfig();
 
         Loan buggyLoan = new Loan(
+            accessManager,
             aaveV3Pool,
             address(0),
             bitmorPool,

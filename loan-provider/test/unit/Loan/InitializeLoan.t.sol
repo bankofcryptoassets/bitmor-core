@@ -179,6 +179,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         vm.startPrank(owner);
         Loan loan2 = new Loan(
+            owner, // accessManager
             address(mockPool),
             s_addressesProvider,
             s_bitmorPool,

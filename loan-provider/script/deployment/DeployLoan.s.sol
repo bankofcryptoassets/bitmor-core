@@ -7,6 +7,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 
 contract DeployLoan is Script {
     function _deployLoanUsingConfig(
+        address accessManager,
         address bitmorPool,
         address aaveV3Pool,
         address aaveAddressesProvider,
@@ -22,6 +23,7 @@ contract DeployLoan is Script {
     ) internal {
         vm.startBroadcast();
         new Loan(
+            accessManager,
             aaveV3Pool,
             aaveAddressesProvider,
             bitmorPool,
@@ -41,6 +43,7 @@ contract DeployLoan is Script {
     function _deployLoan() internal {
         HelperConfig config = new HelperConfig();
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -55,6 +58,7 @@ contract DeployLoan is Script {
             uint256 liquidationBuffer
         ) = config.networkConfig();
         _deployLoanUsingConfig(
+            accessManager,
             bitmorPool,
             aaveV3Pool,
             aaveAddressesProvider,

@@ -132,6 +132,7 @@ contract SaveDeployedAddresses is Script {
 
     function _buildNetworkConfig() internal view returns (string memory) {
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -148,6 +149,9 @@ contract SaveDeployedAddresses is Script {
 
         string memory json = string.concat(
             ',"networkConfig":{',
+            '"accessManager":"',
+            vm.toString(accessManager),
+            '",',
             '"bitmorPool":"',
             vm.toString(bitmorPool),
             '",',

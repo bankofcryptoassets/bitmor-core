@@ -184,6 +184,7 @@ abstract contract BaseLoanTest is Utilities {
         vm.startPrank(owner);
 
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -208,6 +209,7 @@ abstract contract BaseLoanTest is Utilities {
 
         // Deploy Loan contract
         loan = new Loan(
+            accessManager,
             aaveV3Pool,
             aaveAddressesProvider,
             bitmorPool,
@@ -306,12 +308,10 @@ abstract contract BaseLoanTest is Utilities {
     /// @param duration Loan duration in months
     /// @param premiumAmount Premium amount for insurance
     /// @return lsa The created Loan Smart Account address
-    function _createLoanForBorrower(
-        address borrower,
-        uint256 collateralAmount,
-        uint256 duration,
-        uint256 premiumAmount
-    ) internal returns (address lsa) {
+    function _createLoanForBorrower(address borrower, uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+        internal
+        returns (address lsa)
+    {
         _utilSeedUserAndApprove(borrower, debtAsset, address(loan), DEBT_ASSET_TO_MINT_TO_USER);
         (lsa,) = _utilCreateLoan(loan, borrower, collateralAmount, duration, premiumAmount, DATA);
     }
@@ -328,7 +328,8 @@ abstract contract BaseLoanTest is Utilities {
     /// @return loanData The loan data struct
     function _createStandardLoanWithData() internal returns (address lsa, DataTypes.LoanData memory loanData) {
         _mintDebtAssetToUser();
-        (lsa, loanData) = _utilCreateLoan(loan, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
+        (lsa, loanData) =
+            _utilCreateLoan(loan, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
     }
 
     // ============ Consolidated Helper Wrappers ============
