@@ -11,12 +11,8 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 /// @title FullLiquidationTest
 /// @notice Tests for full liquidation functionality (liquidationType == 1)
 contract FullLiquidationTest is BaseLoanTest {
-
     function _setInsuranceId(address lsa, uint256 newInsuranceId) internal {
-        DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
-        data.insuranceID = newInsuranceId;
-
-        loan.updateLoanData(abi.encode(data), lsa);
+        loan.updateInsuranceId(lsa, newInsuranceId);
 
         // sanity check
         DataTypes.LoanData memory afterData = loan.getLoanByLSA(lsa);

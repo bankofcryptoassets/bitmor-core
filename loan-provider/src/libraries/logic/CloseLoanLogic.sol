@@ -48,6 +48,7 @@ library CloseLoanLogic {
         DataTypes.LoanData memory loan = loansByLSA[params.lsa];
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
+        if (loan.borrower != msg.sender) revert Errors.UnauthorizedCaller();
 
         (vars.totalCollateralUSD, vars.totalDebtUSD) =
             BitmorLendingPoolLogic.getUserPositions(ctx.bitmorPool, params.lsa);

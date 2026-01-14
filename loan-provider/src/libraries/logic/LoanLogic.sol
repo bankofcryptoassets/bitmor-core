@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
-import {ILendingPool} from "../../interfaces/ILendingPool.sol";
-import {DataTypes} from "../types/DataTypes.sol";
-import {LoanMath} from "../helpers/LoanMath.sol";
-import {ILoan} from "../../interfaces/ILoan.sol";
-import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
-import {Errors} from "../helpers/Errors.sol";
 import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
-import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol";
 import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
+import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol";
+import {FixedPointMathLib} from "../../dependencies/solady/FixedPointMathLib.sol";
+
+import {ILoan} from "../../interfaces/ILoan.sol";
+import {ILendingPool} from "../../interfaces/ILendingPool.sol";
+import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
+import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+
+import {Errors} from "../helpers/Errors.sol";
+import {LoanMath} from "../helpers/LoanMath.sol";
+
+import {DataTypes} from "../types/DataTypes.sol";
+
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 
 /**
@@ -20,13 +25,14 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
  */
 library LoanLogic {
     using SafeERC20 for IERC20;
+    using FixedPointMathLib for uint256;
 
     function executeInitializeLoan(
-        DataTypes.InitializeLoanContext memory ctx,
-        DataTypes.ExecuteInitializeLoanParams memory params,
         mapping(address => DataTypes.LoanData) storage loansByLSA,
         mapping(address => uint256) storage userLoanCount,
-        mapping(address => mapping(uint256 => address)) storage userLoanAtIndex
+        mapping(address => mapping(uint256 => address)) storage userLoanAtIndex,
+        DataTypes.InitializeLoanContext memory ctx,
+        DataTypes.ExecuteInitializeLoanParams memory params
     ) internal returns (address lsa) {
         if (params.depositAmount == 0 || params.collateralAmount == 0 || params.duration == 0) {
             revert Errors.ZeroAmount();
@@ -40,7 +46,7 @@ library LoanLogic {
             revert Errors.GreaterThanMaxCollateralAllowed();
         }
 
-        (uint256 loanAmount, uint256 monthlyPayment,) = calculateLoanAmountAndMonthlyPayment(
+        (uint256 loanAmount, uint256 monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
             DataTypes.CalculateLoanAmountAndMonthlyPayment(
                 ctx.bitmorPool,
                 ctx.oracle,
@@ -96,6 +102,36 @@ library LoanLogic {
         return lsa;
     }
 
+    function updateInsuranceId(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa,
+        uint256 insuranceID
+    ) internal {
+        loansByLSA[lsa].insuranceID = insuranceID;
+    }
+
+    function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
+        internal
+        returns (uint256 newDuration)
+    {
+        DataTypes.LoanData storage loan = loansByLSA[lsa];
+
+        newDuration = loan.duration.zeroFloorSub(1);
+
+        loan.duration = newDuration;
+        loan.lastPaymentTimestamp = block.timestamp;
+    }
+
+    function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
+        internal
+    {
+        DataTypes.LoanData storage loan = loansByLSA[lsa];
+
+        loan.duration = 0;
+        loan.lastPaymentTimestamp = block.timestamp;
+        loan.status = DataTypes.LoanStatus.Liquidated;
+    }
+
     /**
      * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
      * @dev Fetch oracle price for the assets
@@ -104,7 +140,7 @@ library LoanLogic {
      * @return monthlyPayAmt Estimated monthly payment (6 decimals)
      * @return minDepositRequired Minimum deposit requried amount
      */
-    function calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
+    function _calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
         internal
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)

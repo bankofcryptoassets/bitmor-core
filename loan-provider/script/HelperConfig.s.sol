@@ -10,6 +10,7 @@ contract HelperConfig is Script {
     using stdJson for string;
 
     struct NetworkConfig {
+        address accessManager;
         address bitmorPool;
         address aaveV3Pool;
         address aaveAddressesProvider;
@@ -45,6 +46,7 @@ contract HelperConfig is Script {
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
+    address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     bytes public constant DATA = "0xLOAN";
 
     constructor() {
@@ -55,6 +57,7 @@ contract HelperConfig is Script {
 
     function getBaseSepoliaNetworkConfig() public returns (NetworkConfig memory config) {
         config = NetworkConfig({
+            accessManager: getAccessManager(),
             bitmorPool: getBitmorPool(),
             aaveV3Pool: getAaveV3Pool(),
             aaveAddressesProvider: getAaveAddressesProvider(),
@@ -70,6 +73,11 @@ contract HelperConfig is Script {
         });
     }
 
+    function getAccessManager() public view returns (address) {
+        string memory contractName = "AccessManager";
+        return _readAddress(contractName);
+    }
+
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
     }
@@ -78,8 +86,8 @@ contract HelperConfig is Script {
         return LIQUIDATION_BUFFER;
     }
 
-    function getPremiumCollector() public returns (address) {
-        return makeAddr("premium");
+    function getPremiumCollector() public pure returns (address) {
+        return PREMIUM_COLLECTOR;
     }
 
     function getPreClosureFee() public pure returns (uint256) {

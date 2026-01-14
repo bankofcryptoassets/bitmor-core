@@ -81,7 +81,10 @@ contract MicroLiquidationTest is BaseLoanTest {
         // Allow 0.5% tolerance for rounding differences
         uint256 tolerance = expectedCollateral / 200;
         assertApproxEqAbs(
-            state.collateralReceived, expectedCollateral, tolerance, "Collateral received should match expected with bonus"
+            state.collateralReceived,
+            expectedCollateral,
+            tolerance,
+            "Collateral received should match expected with bonus"
         );
 
         // 4. STATE UPDATES:
@@ -90,7 +93,9 @@ contract MicroLiquidationTest is BaseLoanTest {
 
         // b. lastPaymentTimestampAfter == block.timestamp
         assertEq(
-            state.loanState.lastPaymentAfter, block.timestamp, "Last payment timestamp should be updated to current time"
+            state.loanState.lastPaymentAfter,
+            block.timestamp,
+            "Last payment timestamp should be updated to current time"
         );
 
         // c. status == Active
@@ -252,10 +257,10 @@ contract MicroLiquidationTest is BaseLoanTest {
                 _executeMicroLiquidation(lsa);
 
                 _updateLiquidatorSnapshotAfter(state.liquidatorState);
-                state.totalDebtPaid +=
-                    state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
-                state.totalCollateralReceived +=
-                    state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
+                state.totalDebtPaid += state.liquidatorState.liquidatorDebtBefore
+                - state.liquidatorState.liquidatorDebtAfter;
+                state.totalCollateralReceived += state.liquidatorState.liquidatorCollateralAfter
+                - state.liquidatorState.liquidatorCollateralBefore;
                 state.monthsLiquidated++;
             }
         }

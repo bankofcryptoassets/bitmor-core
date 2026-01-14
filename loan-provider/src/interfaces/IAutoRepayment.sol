@@ -21,12 +21,6 @@ interface IAutoRepayment {
     );
 
     /**
-     * @notice Emitted when the executor address is updated
-     * @param executorAddress New executor address
-     */
-    event AutoRepayment__ExecutorAddressUpdated(address indexed executorAddress);
-
-    /**
      * @notice Emitted when a repayment hash is created
      * @param lsa Loan Specific Address
      * @param user User address whose loan was repaid
@@ -65,11 +59,4 @@ interface IAutoRepayment {
      * @param amount Amount to repay
      */
     function executeAutoRepayment(address lsa, address user, uint256 amount) external;
-
-    /**
-     * @notice Updates the executor address
-     * @dev Can only be called by the contract owner
-     * @param executorAddress New executor address
-     */
-    function setExecutorAddress(address executorAddress) external;
 }

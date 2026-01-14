@@ -69,9 +69,7 @@ contract LoanContract is BaseLoanTest {
         address oracle = loan.i_ORACLE();
 
         vm.mockCall(
-            oracle,
-            abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset),
-            abi.encode(0)
+            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset), abi.encode(0)
         );
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
@@ -101,6 +99,7 @@ contract LoanContract is BaseLoanTest {
     /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
     function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
         (
+            address accessManager,
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -118,19 +117,14 @@ contract LoanContract is BaseLoanTest {
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
         for (uint256 i = 0; i < 7; i++) {
             address[7] memory params = [
-                aaveV3Pool,
-                bitmorPool,
-                oracle,
-                collateralAssetAddr,
-                debtAssetAddr,
-                swapAdapterWrapper,
-                premiumCollector
+                aaveV3Pool, bitmorPool, oracle, collateralAssetAddr, debtAssetAddr, swapAdapterWrapper, premiumCollector
             ];
 
             params[i] = address(0);
 
             vm.expectRevert(Errors.ZeroAddress.selector);
             new Loan(
+                accessManager,
                 params[0], // aaveV3Pool
                 aaveAddressesProvider,
                 params[1], // bitmorPool
@@ -150,9 +144,9 @@ contract LoanContract is BaseLoanTest {
     /// @notice BUG: Constructor accepts aaveAddressesProvider = address(0) (should revert with ZeroAddress).
     function test_loan_constructor_zeroAaveAddressesProvider_BUG() public {
         (
+            address accessManager,
             address bitmorPool,
-            address aaveV3Pool,
-            ,
+            address aaveV3Pool,,
             address oracle,
             address collateralAssetAddr,
             address debtAssetAddr,
@@ -165,6 +159,7 @@ contract LoanContract is BaseLoanTest {
         ) = config.networkConfig();
 
         Loan buggyLoan = new Loan(
+            accessManager,
             aaveV3Pool,
             address(0),
             bitmorPool,

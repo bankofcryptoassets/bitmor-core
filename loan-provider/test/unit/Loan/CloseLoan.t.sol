@@ -125,7 +125,9 @@ contract CloseLoanTest is BaseLoanTest {
         uint256 usdcReceived = state.userBalances.userDebtAssetAfter - state.userBalances.userDebtAssetBefore;
         // Allow for some dust but should be very small relative to debt
         assertLt(
-            usdcReceived, state.loanState.debtBefore / 100, "USDC received should be dust when withdrawing in collateral"
+            usdcReceived,
+            state.loanState.debtBefore / 100,
+            "USDC received should be dust when withdrawing in collateral"
         );
     }
 
@@ -203,7 +205,11 @@ contract CloseLoanTest is BaseLoanTest {
         uint256 userCollateralReceived = _parseTransferLogs(logs, collateralAsset, address(loan), user);
 
         // Verify fee calculation is correct
-        assertEq(expectedFee, (state.loanState.collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
+        assertEq(
+            expectedFee,
+            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
+            "Fee calculation should be correct"
+        );
 
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         uint256 collectorBalanceAfter = IERC20(collateralAsset).balanceOf(premiumCollector);
@@ -213,7 +219,12 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Verify user received collateral and fee accounting (allow +-1 for rounding)
         assertGt(userCollateralReceived, 0, "User should receive collateral");
-        assertApproxEqAbs(userCollateralReceived + feeTransferred, state.loanState.collateralBefore, 1, "User collateral + fee should approximate original collateral");
+        assertApproxEqAbs(
+            userCollateralReceived + feeTransferred,
+            state.loanState.collateralBefore,
+            1,
+            "User collateral + fee should approximate original collateral"
+        );
     }
 
     /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = false)
@@ -242,7 +253,11 @@ contract CloseLoanTest is BaseLoanTest {
         uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
 
         // Verify fee calculation is correct
-        assertEq(expectedFee, (state.loanState.collateralBefore * preClosureFeeBps) / 10_000, "Fee calculation should be correct");
+        assertEq(
+            expectedFee,
+            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
+            "Fee calculation should be correct"
+        );
 
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
@@ -390,9 +405,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         // The user should have received collateral asset primarily
         assertGt(
-            userCollateralAfterFirst - state.userBalances.userCollateralBefore,
-            0,
-            "Should receive collateral in mode 1"
+            userCollateralAfterFirst - state.userBalances.userCollateralBefore, 0, "Should receive collateral in mode 1"
         );
     }
 

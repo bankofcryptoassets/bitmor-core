@@ -4,13 +4,15 @@ pragma solidity 0.8.30;
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+
+import {Pausable} from "../../dependencies/openzeppelin/Pausable.sol";
+import {AccessManaged} from "../../dependencies/openzeppelin/AccessManaged.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 
 /// @title USDCVault
-contract USDCVault is ERC4626, AccessControl {
+contract USDCVault is ERC4626, AccessManaged, Pausable {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
 
@@ -23,20 +25,17 @@ contract USDCVault is ERC4626, AccessControl {
 
     address internal immutable i_blp;
 
-    bytes32 private constant ALLOCATOR_ROLE = keccak256("ALLOCATOR");
-    bytes32 private constant MANAGER_ROLE = keccak256("MANAGER");
-
     /// @notice The strategy contract that manages yield generation
     ISimpleStrategy private s_strategy;
 
     /// @notice Initializes the vault with the specified underlying asset
-    /// @param asset_ The address of the ERC20 token to be used as the underlying asset
-    constructor(address asset_, address blp_) {
-        if (asset_ == address(0) || blp_ == address(0)) revert Errors.ZeroAddress();
-        i_asset = asset_;
-        i_blp = blp_;
-
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    /// @param _manager Access Manager address
+    /// @param _asset The address of the ERC20 token to be used as the underlying asset
+    /// @param _blp Bitmor Lending Pool Address
+    constructor(address _manager, address _asset, address _blp) AccessManaged(_manager) {
+        if (_asset == address(0) || _blp == address(0)) revert Errors.ZeroAddress();
+        i_asset = _asset;
+        i_blp = _blp;
     }
 
     /*
@@ -50,7 +49,7 @@ contract USDCVault is ERC4626, AccessControl {
     /// @notice Updates the strategy contract used for yield generation
     /// @dev Withdraws funds from current strategy before switching to new one
     /// @param newStrategy The address of the new strategy contract (cannot be zero address)
-    function setStrategy(address newStrategy) external onlyRole(MANAGER_ROLE) {
+    function setStrategy(address newStrategy) external restricted whenNotPaused {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
         // Withdraw all funds from current strategy if one exists
@@ -67,17 +66,25 @@ contract USDCVault is ERC4626, AccessControl {
         emit SimpleVault__StrategyUpdated(newStrategy);
     }
 
-    function reallocateAssets() external onlyRole(ALLOCATOR_ROLE) {
+    function reallocateAssets() external restricted whenNotPaused {
         s_strategy.reallocateAssets();
     }
 
-    function reallocateAssets(uint256 amountToWithdraw) external {
+    function reallocateAssets(uint256 amountToWithdraw) external restricted whenNotPaused {
         if (msg.sender != i_blp) revert Errors.UnauthorizedCaller();
         s_strategy.reallocateAssets(amountToWithdraw);
     }
 
-    function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external onlyRole(MANAGER_ROLE) {
+    function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external restricted whenNotPaused {
         s_strategy.updateMinimumDeltaRequired(newMinimumDeltaRequired);
+    }
+
+    function pause() external restricted whenNotPaused {
+        _pause();
+    }
+
+    function unpause() external restricted whenPaused {
+        _unpause();
     }
 
     function getStrategy() external view returns (address) {
@@ -119,6 +126,27 @@ contract USDCVault is ERC4626, AccessControl {
     /// @return assets The total amount of underlying assets managed by the vault
     function totalAssets() public view override returns (uint256 assets) {
         assets = s_strategy.totalAssets();
+    }
+
+    function deposit(uint256 assets, address to) public override whenNotPaused returns (uint256 shares) {
+        return super.deposit(assets, to);
+    }
+
+    function mint(uint256 shares, address to) public override whenNotPaused returns (uint256 assets) {
+        return super.mint(shares, to);
+    }
+
+    function withdraw(uint256 assets, address to, address owner)
+        public
+        override
+        whenNotPaused
+        returns (uint256 shares)
+    {
+        return super.withdraw(assets, to, owner);
+    }
+
+    function redeem(uint256 shares, address to, address owner) public override whenNotPaused returns (uint256 assets) {
+        return super.redeem(shares, to, owner);
     }
 
     /*

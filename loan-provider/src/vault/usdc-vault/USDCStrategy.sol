@@ -5,7 +5,6 @@ import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {ERC20} from "@solady/tokens/ERC20.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {DataTypes} from "../../libraries/types/DataTypes.sol";
@@ -18,7 +17,7 @@ import {IPool as IAave} from "../../interfaces/IPool.sol";
 /// @notice A yield strategy that splits deposited assets in 4:1 ratio between Aave and BLP protocols
 /// @dev Implements ISimpleStrategy interface and manages asset allocation across DeFi protocols
 
-contract USDCStrategy is ISimpleStrategy, AccessControl {
+contract USDCStrategy is ISimpleStrategy {
     using Address for address;
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
@@ -56,20 +55,17 @@ contract USDCStrategy is ISimpleStrategy, AccessControl {
     uint256 private s_aaveAllocation;
 
     /// @notice Initializes the strategy with required protocol addresses
-    /// @param vault_ The address of the vault that will use this strategy
-    /// @param aave_ The address of the Aave lending pool
-    /// @param blp_ The address of the Bitmor Lending Pool
-    constructor(address vault_, address aave_, address blp_, address admin_) {
-        if (
-            vault_ == address(0) || aave_ == address(0) || blp_ == address(0) || aave_ == address(0)
-                || admin_ == address(0)
-        ) {
+    /// @param _vault The address of the vault that will use this strategy
+    /// @param _aave The address of the Aave lending pool
+    /// @param _blp The address of the Bitmor Lending Pool
+    constructor(address _vault, address _aave, address _blp) {
+        if (_vault == address(0) || _aave == address(0) || _blp == address(0) || _aave == address(0)) {
             revert Errors.ZeroAddress();
         }
 
-        i_aave = IAave(aave_);
-        i_blp = IBLP(blp_);
-        i_vault = vault_;
+        i_aave = IAave(_aave);
+        i_blp = IBLP(_blp);
+        i_vault = _vault;
 
         bytes memory data = i_vault.functionStaticCall(abi.encodeWithSignature("asset()"));
         i_asset = abi.decode(data, (address));
@@ -77,8 +73,6 @@ contract USDCStrategy is ISimpleStrategy, AccessControl {
         // Approving Aave and BLP to transfer funds from this address.
         i_asset.safeApprove(address(i_aave), type(uint256).max);
         i_asset.safeApprove(address(i_blp), type(uint256).max);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, admin_);
     }
 
     modifier onlyVault() {
@@ -126,7 +120,7 @@ contract USDCStrategy is ISimpleStrategy, AccessControl {
      * @notice Updates the allocation to Aave.
      * @param newAaveAllocation New allocation amount in bps, which will be deposited in Aave.
      */
-    function setAaveAllocation(uint256 newAaveAllocation) external onlyRole(CURATOR) {
+    function setAaveAllocation(uint256 newAaveAllocation) external onlyVault {
         s_aaveAllocation = newAaveAllocation;
         emit USDCStrategy__AAVEAllocationUpdated(newAaveAllocation);
     }

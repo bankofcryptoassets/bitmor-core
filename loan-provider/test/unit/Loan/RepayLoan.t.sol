@@ -10,7 +10,6 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 /// @title RepayLoanTest
 /// @notice Tests for loan repayment functionality
 contract RepayLoanTest is BaseLoanTest {
-
     /// @dev Struct to hold repayment-specific fields that extend TestSnapshot
     struct RepaymentExtension {
         uint256 repayAmount;
