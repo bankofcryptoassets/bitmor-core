@@ -549,6 +549,24 @@ export const deployMockTokens = async (config: PoolConfiguration, verify?: boole
   return tokens;
 };
 
+export const deployBitmorMockTokens = async (verify?: boolean) => {
+  const tokens: { [symbol: string]: MintableERC20 } = {};
+
+  // Deploy WETH (18 decimals) - required for WETH Gateway
+  tokens['WETH'] = await deployMintableERC20(['Wrapped Ether', 'WETH', '18'], verify);
+  await registerContractInJsonDb('WETH', tokens['WETH']);
+
+  // Deploy bUSDC (6 decimals like real USDC)
+  tokens['bUSDC'] = await deployMintableERC20(['Bitmor USDC', 'bUSDC', '6'], verify);
+  await registerContractInJsonDb('bUSDC', tokens['bUSDC']);
+
+  // Deploy bcbBTC (8 decimals like real BTC)
+  tokens['bcbBTC'] = await deployMintableERC20(['Bitmor cbBTC', 'bcbBTC', '8'], verify);
+  await registerContractInJsonDb('bcbBTC', tokens['bcbBTC']);
+
+  return tokens;
+};
+
 export const deployStableAndVariableTokensHelper = async (
   args: [tEthereumAddress, tEthereumAddress],
   verify?: boolean

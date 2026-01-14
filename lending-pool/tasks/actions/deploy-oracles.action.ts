@@ -39,7 +39,8 @@ export default async function deployOraclesAction(
     }
 
     const conn = await hre.network.connect();
-    const network = conn.networkName as eNetwork;
+    // Map localhost to hardhat for config lookups
+    const network = (conn.networkName === 'localhost' ? 'hardhat' : conn.networkName) as eNetwork;
     const poolConfig = loadPoolConfig(pool as ConfigNames);
     const {
       ProtocolGlobalParams: { UsdAddress },
@@ -53,7 +54,20 @@ export default async function deployOraclesAction(
     const aaveOracleAddress = getParamPerNetwork(poolConfig.AaveOracle, network);
     const lendingRateOracleAddress = getParamPerNetwork(poolConfig.LendingRateOracle, network);
     const fallbackOracleAddress = await getParamPerNetwork(FallbackOracle, network);
-    const reserveAssets = await getParamPerNetwork(ReserveAssets, network);
+    let reserveAssets = await getParamPerNetwork(ReserveAssets, network);
+
+    // For localhost/hardhat, dynamically load token addresses from deployed-contracts.json
+    if (network === 'hardhat' && Object.keys(reserveAssets).length === 0) {
+      const { getDb } = await import('../../helpers/misc-utils.js');
+      const db = getDb();
+      const actualNetwork = conn.networkName; // Use actual network name for DB lookup
+      const bUSDC = db.get(`bUSDC.${actualNetwork}`).value()?.address;
+      const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
+      if (bUSDC && bcbBTC) {
+        reserveAssets = { bUSDC, bcbBTC };
+      }
+    }
+
     const chainlinkAggregators = await getParamPerNetwork(ChainlinkAggregator, network);
 
     const tokensToWatch: SymbolMap<string> = {

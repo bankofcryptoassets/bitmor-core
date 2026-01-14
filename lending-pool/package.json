@@ -31,6 +31,7 @@
     "test:main:check-list": "npm run compile && FORK=main TS_NODE_TRANSPILE_ONLY=1 hardhat test  test-suites/test-aave/__setup.spec.ts test-suites/test-aave/mainnet/check-list.spec.ts",
     "dev:coverage": "buidler compile --force && buidler coverage --network coverage",
     "aave:evm:dev:migration": "npm run compile && hardhat aave:dev",
+    "bitmor:localhost:dev:migration": "npm run compile && hardhat bitmor:dev --network localhost --skip-registry",
     "aave:docker:full:migration": "npm run compile && npm run hardhat:docker -- aave:mainnet --skip-registry",
     "aave:kovan:full:migration": "npm run compile && npm run hardhat:kovan -- aave:mainnet --skip-registry",
     "aave:baseSepolia:full:migration": "npm run compile && npm run hardhat:sepolia -- bitmor:sepolia --skip-registry",

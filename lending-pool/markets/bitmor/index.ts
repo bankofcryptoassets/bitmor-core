@@ -1,4 +1,4 @@
-import { eBaseNetwork, IBitmorConfiguration } from '../../helpers/types.js';
+import { eBaseNetwork, eEthereumNetwork, IBitmorConfiguration } from '../../helpers/types.js';
 import { BitmorCommonsConfig } from './commons.js';
 import { strategyUSDC, strategyCBBTC } from './reservesConfigs.js';
 import sepoliaBUSDC from '../../deployments/sepolia-busdc.json';
@@ -18,6 +18,9 @@ export const BitmorConfig: IBitmorConfiguration = {
       bUSDC: sepoliaBUSDC.address,
       bcbBTC: sepoliaBcbBTC.address,
     },
+    // For hardhat/localhost, addresses are loaded dynamically from deployed-contracts.json
+    // This will be populated at runtime by getParamPerNetwork
+    [eEthereumNetwork.hardhat]: {},
   },
 };
 

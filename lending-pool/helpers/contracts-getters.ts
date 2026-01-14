@@ -180,8 +180,11 @@ export const getAllMockedTokens = async () => {
   const tokens: MockTokenMap = await Object.keys(TokenContractId).reduce<Promise<MockTokenMap>>(
     async (acc, tokenSymbol) => {
       const accumulator = await acc;
-      const address = db.get(`${tokenSymbol.toUpperCase()}.${DRE.network.networkName}`).value().address;
-      accumulator[tokenSymbol] = await getMintableERC20(address);
+      const dbEntry = db.get(`${tokenSymbol.toUpperCase()}.${DRE.network.networkName}`).value();
+      // Only add token if it exists in database
+      if (dbEntry && dbEntry.address) {
+        accumulator[tokenSymbol] = await getMintableERC20(dbEntry.address);
+      }
       return Promise.resolve(acc);
     },
     Promise.resolve({})

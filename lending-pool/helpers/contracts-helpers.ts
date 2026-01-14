@@ -124,11 +124,8 @@ export const getEthersSignersAddresses = async (): Promise<tEthereumAddress[]> =
 let _nonceManaged: any;
 
 export const getFirstSigner = async () => {
-  if (_nonceManaged) return _nonceManaged;
-
   const signers = await getEthersSigners();
-  _nonceManaged = new NonceManager(signers[0]);
-  return _nonceManaged;
+  return signers[0];
 };
 
 export const getCurrentBlock = async () => {
@@ -200,7 +197,7 @@ export const linkBytecode = (artifact: Artifact, libraries: any) => {
 };
 
 export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNetwork) => {
-  const { main, ropsten, kovan, coverage, buidlerevm, tenderly, goerli } =
+  const { main, ropsten, kovan, coverage, buidlerevm, hardhat, tenderly, goerli } =
     param as iEthereumParamsPerNetwork<T>;
   const { matic, mumbai } = param as iPolygonParamsPerNetwork<T>;
   const { xdai } = param as iXDaiParamsPerNetwork<T>;
@@ -216,7 +213,7 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
     case eEthereumNetwork.buidlerevm:
       return buidlerevm;
     case eEthereumNetwork.hardhat:
-      return buidlerevm;
+      return hardhat || buidlerevm;
     case eEthereumNetwork.kovan:
       return kovan;
     case eEthereumNetwork.ropsten:

@@ -15,7 +15,7 @@ import AmmConfig from '../markets/amm/index.js';
 import BitmorConfig from '../markets/bitmor/index.js';
 
 import { CommonsConfig } from '../markets/aave/commons.js';
-import { DRE, filterMapBy } from './misc-utils.js';
+import { DRE, filterMapBy, getDb } from './misc-utils.js';
 import { getParamPerNetwork } from './contracts-helpers.js';
 // import { deployWETHMocked } from './contracts-deployments'; // Removed to break circular dependency
 
@@ -125,14 +125,23 @@ export const getWethAddress = async (config: IBaseConfiguration) => {
 export const getWrappedNativeTokenAddress = async (config: IBaseConfiguration) => {
   const currentNetwork = process.env.MAINNET_FORK === 'true' ? 'main' : DRE.network.networkName;
   const wethAddress = getParamPerNetwork(config.WrappedNativeToken, <eNetwork>currentNetwork);
-  if (wethAddress) {
+
+  // If wethAddress is set and not empty string, return it
+  if (wethAddress && wethAddress !== '') {
     return wethAddress;
   }
+
   if (currentNetwork.includes('main')) {
     throw new Error('WETH not set at mainnet configuration.');
   }
-  // const weth = await deployWETHMocked(); // Commented to break circular dependency
-  // return weth.address;
+
+  // For local networks, try to get WETH from deployed contracts database
+  const db = getDb();
+  const deployedWeth = db.get(`WETH.${currentNetwork}`).value();
+  if (deployedWeth?.address) {
+    return deployedWeth.address;
+  }
+
   throw new Error('WETH address must be configured - auto-deployment removed to break circular dependency');
 };
 
@@ -144,8 +153,15 @@ export const getLendingRateOracles = (poolConfig: IBaseConfiguration) => {
   } = poolConfig;
 
   const network = process.env.FORK ? process.env.FORK : DRE.network.networkName;
+  const reserveAssets = ReserveAssets[network];
+
+  // If network doesn't have ReserveAssets configured, return empty
+  if (!reserveAssets) {
+    return {};
+  }
+
   return filterMapBy(LendingRateOracleRatesCommon, (key) =>
-    Object.keys(ReserveAssets[network]).includes(key)
+    Object.keys(reserveAssets).includes(key)
   );
 };
 

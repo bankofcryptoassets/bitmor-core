@@ -1,7 +1,10 @@
 import { bitmorSepolia } from './tasks/migrations/bitmor.sepolia.js';
+import { bitmorDev } from './tasks/migrations/bitmor.dev.js';
 import { printConfigTask } from "./tasks/misc/print-config.js";
 import { verifySc } from "./tasks/misc/verify-sc.js";
 import { setDRETask } from "./tasks/misc/set-bre.js";
+import { deployBitmorMockTokensTask } from "./tasks/dev/deploy-bitmor-mock-tokens.js";
+import { devInitializeLendingPoolTask } from "./tasks/dev/5_initialize.js";
 
 // Import full deployment tasks
 import { deployAddressProviderRegistry } from "./tasks/full/0_address_provider_registry.js";
@@ -15,6 +18,7 @@ import { initializeLendingPool } from "./tasks/full/6-initialize.js";
 // Import UI helper deployment tasks
 import { deployUiPoolDataProviderV2V3Task } from "./tasks/deployments/deploy-UiPoolDataProviderV2V3.js";
 import { deployUiIncentiveDataProviderV2V3Task } from "./tasks/deployments/deploy-UiIncentiveDataProviderV2V3.js";
+import { addMarketToRegistryTask } from "./tasks/deployments/add-market-to-registry-v3.js";
 
 // const __filename = fileURLToPath(import.meta.url);
 // const __dirname = path.dirname(__filename);
@@ -33,9 +37,12 @@ import { deployUiIncentiveDataProviderV2V3Task } from "./tasks/deployments/deplo
 
 export default [
   bitmorSepolia,
+  bitmorDev,
   printConfigTask,
   verifySc,
   setDRETask,
+  deployBitmorMockTokensTask,
+  devInitializeLendingPoolTask,
   deployAddressProviderRegistry,
   deployAddressProvider,
   deployLendingPool,
@@ -45,4 +52,5 @@ export default [
   initializeLendingPool,
   deployUiPoolDataProviderV2V3Task,
   deployUiIncentiveDataProviderV2V3Task,
+  addMarketToRegistryTask,
 ];
