@@ -56,6 +56,7 @@ getContractFactory(name: 'IPriceOracleGetter', signerOrOptions?: ethers.Signer |
 getContractFactory(name: 'IReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IReserveInterestRateStrategy__factory>
 getContractFactory(name: 'IScaledBalanceToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IScaledBalanceToken__factory>
 getContractFactory(name: 'IStableDebtToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IStableDebtToken__factory>
+getContractFactory(name: 'IUSDCVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IUSDCVault__factory>
 getContractFactory(name: 'IUniswapExchange', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IUniswapExchange__factory>
 getContractFactory(name: 'IUniswapV2Router02', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IUniswapV2Router02__factory>
 getContractFactory(name: 'IVariableDebtToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IVariableDebtToken__factory>
@@ -164,6 +165,7 @@ getContractAt(name: 'IPriceOracleGetter', address: string | ethers.Addressable, 
 getContractAt(name: 'IReserveInterestRateStrategy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IReserveInterestRateStrategy>
 getContractAt(name: 'IScaledBalanceToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IScaledBalanceToken>
 getContractAt(name: 'IStableDebtToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IStableDebtToken>
+getContractAt(name: 'IUSDCVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IUSDCVault>
 getContractAt(name: 'IUniswapExchange', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IUniswapExchange>
 getContractAt(name: 'IUniswapV2Router02', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IUniswapV2Router02>
 getContractAt(name: 'IVariableDebtToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IVariableDebtToken>
@@ -272,6 +274,7 @@ deployContract(name: 'IPriceOracleGetter', signerOrOptions?: ethers.Signer | Dep
 deployContract(name: 'IReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IReserveInterestRateStrategy>
 deployContract(name: 'IScaledBalanceToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IScaledBalanceToken>
 deployContract(name: 'IStableDebtToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IStableDebtToken>
+deployContract(name: 'IUSDCVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUSDCVault>
 deployContract(name: 'IUniswapExchange', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapExchange>
 deployContract(name: 'IUniswapV2Router02', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapV2Router02>
 deployContract(name: 'IVariableDebtToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IVariableDebtToken>
@@ -380,6 +383,7 @@ deployContract(name: 'IPriceOracleGetter', args: any[], signerOrOptions?: ethers
 deployContract(name: 'IReserveInterestRateStrategy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IReserveInterestRateStrategy>
 deployContract(name: 'IScaledBalanceToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IScaledBalanceToken>
 deployContract(name: 'IStableDebtToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IStableDebtToken>
+deployContract(name: 'IUSDCVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUSDCVault>
 deployContract(name: 'IUniswapExchange', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapExchange>
 deployContract(name: 'IUniswapV2Router02', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapV2Router02>
 deployContract(name: 'IVariableDebtToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IVariableDebtToken>

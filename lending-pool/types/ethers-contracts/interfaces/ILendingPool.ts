@@ -23,11 +23,12 @@ export declare namespace DataTypes {
     }
 
   export interface ILendingPoolInterface extends Interface {
-    getFunction(nameOrSignature: "borrow" | "deposit" | "finalizeTransfer" | "flashLoan" | "getAddressesProvider" | "getConfiguration" | "getReserveData" | "getReserveNormalizedIncome" | "getReserveNormalizedVariableDebt" | "getReservesList" | "getUserAccountData" | "getUserConfiguration" | "initReserve" | "liquidationCall" | "microLiquidationCall" | "paused" | "rebalanceStableBorrowRate" | "repay" | "setConfiguration" | "setPause" | "setReserveInterestRateStrategyAddress" | "setUserUseReserveAsCollateral" | "swapBorrowRateMode" | "withdraw"): FunctionFragment;
+    getFunction(nameOrSignature: "borrow" | "checkTypeOfLiquidation" | "deposit" | "finalizeTransfer" | "flashLoan" | "getAddressesProvider" | "getConfiguration" | "getReserveData" | "getReserveNormalizedIncome" | "getReserveNormalizedVariableDebt" | "getReservesList" | "getUserAccountData" | "getUserConfiguration" | "initReserve" | "liquidationCall" | "microLiquidationCall" | "paused" | "rebalanceStableBorrowRate" | "repay" | "setConfiguration" | "setPause" | "setReserveInterestRateStrategyAddress" | "setUserUseReserveAsCollateral" | "swapBorrowRateMode" | "withdraw"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Borrow" | "Deposit" | "FlashLoan" | "LiquidationCall" | "LoanAddressUpdated" | "Paused" | "RebalanceStableBorrowRate" | "Repay" | "ReserveDataUpdated" | "ReserveUsedAsCollateralDisabled" | "ReserveUsedAsCollateralEnabled" | "Swap" | "Unpaused" | "Withdraw"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Borrow" | "Deposit" | "FlashLoan" | "LiquidationCall" | "LoanAddressUpdated" | "Paused" | "RebalanceStableBorrowRate" | "Repay" | "ReserveDataUpdated" | "ReserveUsedAsCollateralDisabled" | "ReserveUsedAsCollateralEnabled" | "Swap" | "Unpaused" | "VaultWithdrawal" | "Withdraw"): EventFragment;
 
     encodeFunctionData(functionFragment: 'borrow', values: [AddressLike, BigNumberish, BigNumberish, BigNumberish, AddressLike]): string;
+encodeFunctionData(functionFragment: 'checkTypeOfLiquidation', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'deposit', values: [AddressLike, BigNumberish, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'finalizeTransfer', values: [AddressLike, AddressLike, AddressLike, BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'flashLoan', values: [AddressLike, AddressLike[], BigNumberish[], BigNumberish[], AddressLike, BytesLike, BigNumberish]): string;
@@ -53,6 +54,7 @@ encodeFunctionData(functionFragment: 'swapBorrowRateMode', values: [AddressLike,
 encodeFunctionData(functionFragment: 'withdraw', values: [AddressLike, BigNumberish, AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'borrow', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'checkTypeOfLiquidation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'deposit', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'finalizeTransfer', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'flashLoan', data: BytesLike): Result;
@@ -235,6 +237,18 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
 
   
 
+    export namespace VaultWithdrawalEvent {
+      export type InputTuple = [asset: AddressLike, amount: BigNumberish];
+      export type OutputTuple = [asset: string, amount: bigint];
+      export interface OutputObject {asset: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace WithdrawEvent {
       export type InputTuple = [reserve: AddressLike, user: AddressLike, to: AddressLike, amount: BigNumberish];
       export type OutputTuple = [reserve: string, user: string, to: string, amount: bigint];
@@ -284,6 +298,14 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
     borrow: TypedContractMethod<
       [asset: AddressLike, amount: BigNumberish, interestRateMode: BigNumberish, referralCode: BigNumberish, onBehalfOf: AddressLike, ],
       [void],
+      'nonpayable'
+    >
+    
+
+    
+    checkTypeOfLiquidation: TypedContractMethod<
+      [user: AddressLike, ],
+      [bigint],
       'nonpayable'
     >
     
@@ -480,6 +502,11 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'checkTypeOfLiquidation'): TypedContractMethod<
+      [user: AddressLike, ],
+      [bigint],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'deposit'): TypedContractMethod<
       [asset: AddressLike, amount: BigNumberish, onBehalfOf: AddressLike, referralCode: BigNumberish, ],
       [void],
@@ -609,6 +636,7 @@ getEvent(key: 'ReserveUsedAsCollateralDisabled'): TypedContractEvent<ReserveUsed
 getEvent(key: 'ReserveUsedAsCollateralEnabled'): TypedContractEvent<ReserveUsedAsCollateralEnabledEvent.InputTuple, ReserveUsedAsCollateralEnabledEvent.OutputTuple, ReserveUsedAsCollateralEnabledEvent.OutputObject>;
 getEvent(key: 'Swap'): TypedContractEvent<SwapEvent.InputTuple, SwapEvent.OutputTuple, SwapEvent.OutputObject>;
 getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
+getEvent(key: 'VaultWithdrawal'): TypedContractEvent<VaultWithdrawalEvent.InputTuple, VaultWithdrawalEvent.OutputTuple, VaultWithdrawalEvent.OutputObject>;
 getEvent(key: 'Withdraw'): TypedContractEvent<WithdrawEvent.InputTuple, WithdrawEvent.OutputTuple, WithdrawEvent.OutputObject>;
 
     filters: {
@@ -663,6 +691,10 @@ getEvent(key: 'Withdraw'): TypedContractEvent<WithdrawEvent.InputTuple, Withdraw
 
       'Unpaused()': TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
       Unpaused: TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
+    
+
+      'VaultWithdrawal(address,uint256)': TypedContractEvent<VaultWithdrawalEvent.InputTuple, VaultWithdrawalEvent.OutputTuple, VaultWithdrawalEvent.OutputObject>;
+      VaultWithdrawal: TypedContractEvent<VaultWithdrawalEvent.InputTuple, VaultWithdrawalEvent.OutputTuple, VaultWithdrawalEvent.OutputObject>;
     
 
       'Withdraw(address,address,address,uint256)': TypedContractEvent<WithdrawEvent.InputTuple, WithdrawEvent.OutputTuple, WithdrawEvent.OutputObject>;

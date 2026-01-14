@@ -110,6 +110,8 @@ export type { IScaledBalanceToken } from './interfaces/IScaledBalanceToken.js';
 export { IScaledBalanceToken__factory } from './factories/interfaces/IScaledBalanceToken__factory.js';
 export type { IStableDebtToken } from './interfaces/IStableDebtToken.js';
 export { IStableDebtToken__factory } from './factories/interfaces/IStableDebtToken__factory.js';
+export type { IUSDCVault } from './interfaces/IUSDCVault.js';
+export { IUSDCVault__factory } from './factories/interfaces/IUSDCVault__factory.js';
 export type { IUniswapExchange } from './interfaces/IUniswapExchange.js';
 export { IUniswapExchange__factory } from './factories/interfaces/IUniswapExchange__factory.js';
 export type { IUniswapV2Router02 } from './interfaces/IUniswapV2Router02.js';

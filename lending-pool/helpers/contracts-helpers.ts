@@ -1,4 +1,4 @@
-import { ethers, AbiCoder, parseUnits } from 'ethers';
+import { ethers, AbiCoder, parseUnits, NonceManager } from 'ethers';
 import type { Contract, Signer, BigNumberish, BaseContract, Addressable } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
@@ -104,7 +104,11 @@ export const rawInsertContractAddressInDb = async (id: string, address: tEthereu
     .write();
 
 export const getEthersSigners = async (): Promise<Signer[]> => {
-  const ethersSigners = await Promise.all(await DRE.ethers.getSigners());
+  const hhEthers = (DRE as any).ethers ?? (DRE as any).network?.ethers;
+  if (!hhEthers?.getSigners) {
+    throw new Error("DRE.ethers is not initialized. Did you run the set-DRE task first?");
+  }
+  const ethersSigners = await hhEthers.getSigners();
 
   if (usingDefender()) {
     const [, ...users] = ethersSigners;
@@ -116,7 +120,16 @@ export const getEthersSigners = async (): Promise<Signer[]> => {
 export const getEthersSignersAddresses = async (): Promise<tEthereumAddress[]> =>
   await Promise.all((await getEthersSigners()).map((signer) => signer.getAddress()));
 
-export const getFirstSigner = async () => (await getEthersSigners())[0];
+// Singleton nonce-managed signer to prevent nonce conflicts
+let _nonceManaged: any;
+
+export const getFirstSigner = async () => {
+  if (_nonceManaged) return _nonceManaged;
+
+  const signers = await getEthersSigners();
+  _nonceManaged = new NonceManager(signers[0]);
+  return _nonceManaged;
+};
 
 export const getCurrentBlock = async () => {
   return DRE.ethers.provider.getBlockNumber();
@@ -143,14 +156,20 @@ export const withSaveAndVerify = async <ContractType = any>(
   args: (string | string[])[],
   verify?: boolean
 ): Promise<ContractType> => {
-  // In ethers v6, use waitForDeployment() instead of waiting for deployTransaction
-  await (instance as any).waitForDeployment();
-  await registerContractInJsonDb(id, instance);
-  if (verify) {
-    await verifyContract(id, instance as any, args);
+  const tx = (instance as any).deploymentTransaction?.();
+  if (tx?.hash) {
+    console.log(`[deploy:${id}] tx: ${tx.hash} (nonce ${tx.nonce})`);
+    await tx.wait(1); // wait for 1 confirmation
+    console.log(`[deploy:${id}] mined`);
+  } else {
+    await (instance as any).waitForDeployment();
   }
+
+  await registerContractInJsonDb(id, instance);
+  if (verify) await verifyContract(id, instance as any, args);
   return instance;
 };
+
 
 export const getContract = async <ContractType = any>(
   contractName: string,

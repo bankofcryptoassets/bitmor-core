@@ -24,6 +24,7 @@ export type { IPriceOracleGetter } from './IPriceOracleGetter.js';
 export type { IReserveInterestRateStrategy } from './IReserveInterestRateStrategy.js';
 export type { IScaledBalanceToken } from './IScaledBalanceToken.js';
 export type { IStableDebtToken } from './IStableDebtToken.js';
+export type { IUSDCVault } from './IUSDCVault.js';
 export type { IUniswapExchange } from './IUniswapExchange.js';
 export type { IUniswapV2Router02 } from './IUniswapV2Router02.js';
 export type { IVariableDebtToken } from './IVariableDebtToken.js';

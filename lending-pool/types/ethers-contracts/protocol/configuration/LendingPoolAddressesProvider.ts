@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface LendingPoolAddressesProviderInterface extends Interface {
-    getFunction(nameOrSignature: "getAddress" | "getBitmorLoan" | "getEmergencyAdmin" | "getLendingPool" | "getLendingPoolCollateralManager" | "getLendingPoolConfigurator" | "getLendingRateOracle" | "getMarketId" | "getPoolAdmin" | "getPriceOracle" | "owner" | "renounceOwnership" | "setAddress" | "setAddressAsProxy" | "setBitmorLoan" | "setEmergencyAdmin" | "setLendingPoolCollateralManager" | "setLendingPoolConfiguratorImpl" | "setLendingPoolImpl" | "setLendingRateOracle" | "setMarketId" | "setPoolAdmin" | "setPriceOracle" | "transferOwnership"): FunctionFragment;
+    getFunction(nameOrSignature: "getAddress" | "getBitmorLoan" | "getEmergencyAdmin" | "getLendingPool" | "getLendingPoolCollateralManager" | "getLendingPoolConfigurator" | "getLendingRateOracle" | "getMarketId" | "getPoolAdmin" | "getPriceOracle" | "getUSDCVault" | "owner" | "renounceOwnership" | "setAddress" | "setAddressAsProxy" | "setBitmorLoan" | "setEmergencyAdmin" | "setLendingPoolCollateralManager" | "setLendingPoolConfiguratorImpl" | "setLendingPoolImpl" | "setLendingRateOracle" | "setMarketId" | "setPoolAdmin" | "setPriceOracle" | "setUSDCVault" | "transferOwnership"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AddressSet" | "BitmorLoanUpdated" | "ConfigurationAdminUpdated" | "EmergencyAdminUpdated" | "LendingPoolCollateralManagerUpdated" | "LendingPoolConfiguratorUpdated" | "LendingPoolUpdated" | "LendingRateOracleUpdated" | "MarketIdSet" | "OwnershipTransferred" | "PriceOracleUpdated" | "ProxyCreated"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AddressSet" | "BitmorLoanUpdated" | "ConfigurationAdminUpdated" | "EmergencyAdminUpdated" | "LendingPoolCollateralManagerUpdated" | "LendingPoolConfiguratorUpdated" | "LendingPoolUpdated" | "LendingRateOracleUpdated" | "MarketIdSet" | "OwnershipTransferred" | "PriceOracleUpdated" | "ProxyCreated" | "USDCVaultUpdated"): EventFragment;
 
     encodeFunctionData(functionFragment: 'getAddress', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'getBitmorLoan', values?: undefined): string;
@@ -20,6 +20,7 @@ encodeFunctionData(functionFragment: 'getLendingRateOracle', values?: undefined)
 encodeFunctionData(functionFragment: 'getMarketId', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getPoolAdmin', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getPriceOracle', values?: undefined): string;
+encodeFunctionData(functionFragment: 'getUSDCVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
 encodeFunctionData(functionFragment: 'setAddress', values: [BytesLike, AddressLike]): string;
@@ -33,6 +34,7 @@ encodeFunctionData(functionFragment: 'setLendingRateOracle', values: [AddressLik
 encodeFunctionData(functionFragment: 'setMarketId', values: [string]): string;
 encodeFunctionData(functionFragment: 'setPoolAdmin', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setPriceOracle', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'setUSDCVault', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'getAddress', data: BytesLike): Result;
@@ -45,6 +47,7 @@ decodeFunctionResult(functionFragment: 'getLendingRateOracle', data: BytesLike):
 decodeFunctionResult(functionFragment: 'getMarketId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getPoolAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getPriceOracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'getUSDCVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setAddress', data: BytesLike): Result;
@@ -58,6 +61,7 @@ decodeFunctionResult(functionFragment: 'setLendingRateOracle', data: BytesLike):
 decodeFunctionResult(functionFragment: 'setMarketId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setPoolAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setPriceOracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setUSDCVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
   }
 
@@ -206,6 +210,18 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
 
   
 
+    export namespace USDCVaultUpdatedEvent {
+      export type InputTuple = [newVaultAddress: AddressLike];
+      export type OutputTuple = [newVaultAddress: string];
+      export interface OutputObject {newVaultAddress: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
   export interface LendingPoolAddressesProvider extends BaseContract {
     
     connect(runner?: ContractRunner | null): LendingPoolAddressesProvider;
@@ -320,6 +336,14 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
 
     
+    getUSDCVault: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     owner: TypedContractMethod<
       [],
       [string],
@@ -424,6 +448,14 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
 
     
+    setUSDCVault: TypedContractMethod<
+      [usdcVault: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     transferOwnership: TypedContractMethod<
       [newOwner: AddressLike, ],
       [void],
@@ -480,6 +512,11 @@ getFunction(nameOrSignature: 'getPoolAdmin'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'getPriceOracle'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'getUSDCVault'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -549,6 +586,11 @@ getFunction(nameOrSignature: 'setPriceOracle'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setUSDCVault'): TypedContractMethod<
+      [usdcVault: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<
       [newOwner: AddressLike, ],
       [void],
@@ -567,6 +609,7 @@ getEvent(key: 'MarketIdSet'): TypedContractEvent<MarketIdSetEvent.InputTuple, Ma
 getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
 getEvent(key: 'PriceOracleUpdated'): TypedContractEvent<PriceOracleUpdatedEvent.InputTuple, PriceOracleUpdatedEvent.OutputTuple, PriceOracleUpdatedEvent.OutputObject>;
 getEvent(key: 'ProxyCreated'): TypedContractEvent<ProxyCreatedEvent.InputTuple, ProxyCreatedEvent.OutputTuple, ProxyCreatedEvent.OutputObject>;
+getEvent(key: 'USDCVaultUpdated'): TypedContractEvent<USDCVaultUpdatedEvent.InputTuple, USDCVaultUpdatedEvent.OutputTuple, USDCVaultUpdatedEvent.OutputObject>;
 
     filters: {
       
@@ -616,6 +659,10 @@ getEvent(key: 'ProxyCreated'): TypedContractEvent<ProxyCreatedEvent.InputTuple, 
 
       'ProxyCreated(bytes32,address)': TypedContractEvent<ProxyCreatedEvent.InputTuple, ProxyCreatedEvent.OutputTuple, ProxyCreatedEvent.OutputObject>;
       ProxyCreated: TypedContractEvent<ProxyCreatedEvent.InputTuple, ProxyCreatedEvent.OutputTuple, ProxyCreatedEvent.OutputObject>;
+    
+
+      'USDCVaultUpdated(address)': TypedContractEvent<USDCVaultUpdatedEvent.InputTuple, USDCVaultUpdatedEvent.OutputTuple, USDCVaultUpdatedEvent.OutputObject>;
+      USDCVaultUpdated: TypedContractEvent<USDCVaultUpdatedEvent.InputTuple, USDCVaultUpdatedEvent.OutputTuple, USDCVaultUpdatedEvent.OutputObject>;
     
     };
   }

@@ -3,8 +3,8 @@ import {
   ZERO_ADDRESS,
   MOCK_CHAINLINK_AGGREGATORS_PRICES,
   oneEther,
-} from '../../helpers/constants';
-import { ICommonConfiguration, eBaseNetwork } from '../../helpers/types';
+} from '../../helpers/constants.js';
+import { ICommonConfiguration, eBaseNetwork } from '../../helpers/types.js';
 
 export const BitmorCommonsConfig: ICommonConfiguration = {
   MarketId: 'Bitmor Lending Market',
@@ -51,7 +51,7 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
   EmergencyAdminIndex: 1,
   ProviderRegistry: {
     [eBaseNetwork.base]: '',
-    [eBaseNetwork.sepolia]: '',
+    [eBaseNetwork.sepolia]: '0xFF8086Ff0210344535C12De39696dfd0BE641e01',
   },
   ProviderRegistryOwner: {
     [eBaseNetwork.base]: '',
@@ -106,12 +106,12 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
     [eBaseNetwork.sepolia]: '',
   },
   WETH: {
-    [eBaseNetwork.base]: '',
-    [eBaseNetwork.sepolia]: '',
+    [eBaseNetwork.base]: '0x4200000000000000000000000000000000000006',
+    [eBaseNetwork.sepolia]: '0x4200000000000000000000000000000000000006',
   },
   WrappedNativeToken: {
-    [eBaseNetwork.base]: '',
-    [eBaseNetwork.sepolia]: '',
+    [eBaseNetwork.base]: '0x4200000000000000000000000000000000000006',
+    [eBaseNetwork.sepolia]: '0x4200000000000000000000000000000000000006',
   },
   ReserveFactorTreasuryAddress: {
     [eBaseNetwork.base]: '0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c',

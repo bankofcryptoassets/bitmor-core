@@ -19,7 +19,17 @@ library Errors {
     error InsufficientCollateral();
     error InsufficientDeposit();
     error GreaterThanMaxCollateralAllowed();
+    error LessThanMinimumCollateralAllowed();
     error CollateralWithdrawFailed();
     error InvalidExecutor();
     error InvalidRepaymentHash();
+    /// @notice Thrown when invalid input parameters are provided to a function
+    error InvalidInputs();
+
+    /// @notice Thrown when deposit amount is below the minimum required threshold
+    error MinimumAssetRequired();
+
+    error CannotWithdrawFunds();
+
+    error InsufficientBalance();
 }

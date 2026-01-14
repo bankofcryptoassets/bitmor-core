@@ -32,6 +32,10 @@ library LoanLogic {
             revert Errors.ZeroAmount();
         }
 
+        if (params.collateralAmount < ctx.minCollateralAmt) {
+            revert Errors.LessThanMinimumCollateralAllowed();
+        }
+
         if (params.collateralAmount > ctx.maxCollateralAmt) {
             revert Errors.GreaterThanMaxCollateralAllowed();
         }
@@ -63,7 +67,7 @@ library LoanLogic {
             duration: params.duration,
             createdAt: block.timestamp,
             insuranceID: params.insuranceID,
-            lastPaymentTimestamp: 0,
+            lastPaymentTimestamp: block.timestamp,
             status: DataTypes.LoanStatus.Active
         });
 

@@ -1,6 +1,6 @@
-import { eBaseNetwork, IBitmorConfiguration } from '../../helpers/types';
-import { BitmorCommonsConfig } from './commons';
-import { strategyUSDC, strategyCBBTC } from './reservesConfigs';
+import { eBaseNetwork, IBitmorConfiguration } from '../../helpers/types.js';
+import { BitmorCommonsConfig } from './commons.js';
+import { strategyUSDC, strategyCBBTC } from './reservesConfigs.js';
 import sepoliaBUSDC from '../../deployments/sepolia-busdc.json';
 import sepoliaBcbBTC from '../../deployments/sepolia-bcbbtc.json';
 

@@ -24,6 +24,7 @@ export { IPriceOracleGetter__factory } from './IPriceOracleGetter__factory.js';
 export { IReserveInterestRateStrategy__factory } from './IReserveInterestRateStrategy__factory.js';
 export { IScaledBalanceToken__factory } from './IScaledBalanceToken__factory.js';
 export { IStableDebtToken__factory } from './IStableDebtToken__factory.js';
+export { IUSDCVault__factory } from './IUSDCVault__factory.js';
 export { IUniswapExchange__factory } from './IUniswapExchange__factory.js';
 export { IUniswapV2Router02__factory } from './IUniswapV2Router02__factory.js';
 export { IVariableDebtToken__factory } from './IVariableDebtToken__factory.js';
