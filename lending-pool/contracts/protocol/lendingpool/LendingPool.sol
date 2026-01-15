@@ -658,7 +658,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
 
         //solium-disable-next-line
         (bool success, bytes memory result) =
-            collateralManager.delegatecall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", user));
+            collateralManager.staticcall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", user));
 
         require(success, Errors.LP_CHECK_TYPE_OF_LIQUIDATION_FAILED);
 

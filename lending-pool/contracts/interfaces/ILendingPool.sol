@@ -304,7 +304,7 @@ interface ILendingPool {
      * @param user The address of the user to check
      * @return The type of liquidation (0 = none, 1 = micro-liquidation, 2 = full liquidation)
      */
-    function checkTypeOfLiquidation(address user) external returns (uint256);
+    function checkTypeOfLiquidation(address user) external view returns (uint256);
 
     /**
      * @dev Allows smartcontracts to access the liquidity of the pool within one transaction,
