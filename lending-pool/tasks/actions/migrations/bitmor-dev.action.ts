@@ -1,8 +1,8 @@
-import { checkVerification } from "../../helpers/etherscan-verification.js";
-import { ConfigNames, getEmergencyAdmin, loadPoolConfig } from "../../helpers/configuration.js";
-import { printContracts } from "../../helpers/misc-utils.js";
-import { usingTenderly } from "../../helpers/tenderly-utils.js";
-import { getLendingPoolConfiguratorProxy } from "../../helpers/contracts-getters.js";
+import { checkVerification } from "../../../helpers/etherscan-verification.js";
+import { ConfigNames, getEmergencyAdmin, loadPoolConfig } from "../../../helpers/configuration.js";
+import { printContracts } from "../../../helpers/misc-utils.js";
+import { usingTenderly } from "../../../helpers/tenderly-utils.js";
+import { getLendingPoolConfiguratorProxy } from "../../../helpers/contracts-getters.js";
 import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 
 type Args = {

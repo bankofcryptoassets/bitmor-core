@@ -7,8 +7,6 @@ import { accounts } from './test-wallets.js';
 import { BUIDLEREVM_CHAINID } from './helpers/buidler-constants.js';
 import { NETWORKS_RPC_URL, NETWORKS_DEFAULT_GAS } from './helper-hardhat-config.js';
 import { eBaseNetwork } from './helpers/types.js';
-import path from 'path';
-import fs from 'fs';
 
 const SKIP_LOAD = process.env.SKIP_LOAD === 'true';
 const UNLIMITED_BYTECODE_SIZE = process.env.UNLIMITED_BYTECODE_SIZE === 'true';

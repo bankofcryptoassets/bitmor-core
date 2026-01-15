@@ -5,27 +5,27 @@ import {
   deployWalletBalancerProvider,
   deployAaveProtocolDataProvider,
   authorizeWETHGateway,
-} from '../../helpers/contracts-deployments.js';
-import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../helpers/contracts-helpers.js';
-import { eNetwork } from '../../helpers/types.js';
+} from '../../../helpers/contracts-deployments.js';
+import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../../helpers/contracts-helpers.js';
+import { eNetwork } from '../../../helpers/types.js';
 import {
   ConfigNames,
   getTreasuryAddress,
   loadPoolConfig,
   getEmergencyAdmin,
-} from '../../helpers/configuration.js';
+} from '../../../helpers/configuration.js';
 
-import { tEthereumAddress, eContractid } from '../../helpers/types.js';
-import { waitForTx, filterMapBy, notFalsyOrZeroAddress } from '../../helpers/misc-utils.js';
-import { configureReservesByHelper, initReservesByHelper } from '../../helpers/init-helpers.js';
-import { getAllTokenAddresses } from '../../helpers/mock-helpers.js';
-import { ZERO_ADDRESS } from '../../helpers/constants.js';
+import { tEthereumAddress, eContractid } from '../../../helpers/types.js';
+import { waitForTx, filterMapBy, notFalsyOrZeroAddress } from '../../../helpers/misc-utils.js';
+import { configureReservesByHelper, initReservesByHelper } from '../../../helpers/init-helpers.js';
+import { getAllTokenAddresses } from '../../../helpers/mock-helpers.js';
+import { ZERO_ADDRESS } from '../../../helpers/constants.js';
 import {
   getAllMockedTokens,
   getLendingPoolAddressesProvider,
   getLendingPoolConfiguratorProxy,
   getWETHGateway,
-} from '../../helpers/contracts-getters.js';
+} from '../../../helpers/contracts-getters.js';
 
 type Args = {
   verify: boolean;

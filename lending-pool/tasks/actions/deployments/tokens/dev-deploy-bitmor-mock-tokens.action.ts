@@ -1,5 +1,5 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { deployBitmorMockTokens } from '../../helpers/contracts-deployments.js';
+import { deployBitmorMockTokens } from '../../../../helpers/contracts-deployments.js';
 
 type Args = {
   verify: boolean;

@@ -12,5 +12,5 @@ export const devInitializeLendingPoolTask = task(
     type: ArgumentType.STRING,
     defaultValue: '',
   })
-  .setAction(() => import('../actions/dev-initialize-lending-pool.action.js'))
+  .setAction(() => import('../actions/initialization/dev-initialize-lending-pool.action.js'))
   .build();

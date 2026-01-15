@@ -6,5 +6,5 @@ export const deployUiIncentiveDataProviderV2V3Task = task(
   `Deploys the UiIncentiveDataProviderV2V3 contract`
 )
   .addFlag({ name: 'verify', description: 'Verify UiIncentiveDataProviderV2V3 contract via Etherscan API.' })
-  .setAction(() => import('../actions/deploy-ui-incentive-data-provider-v2v3.action.js'))
+  .setAction(() => import('../actions/deployments/data-providers/deploy-ui-incentive-data-provider-v2v3.action.js'))
   .build();

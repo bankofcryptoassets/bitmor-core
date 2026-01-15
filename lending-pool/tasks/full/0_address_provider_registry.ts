@@ -13,5 +13,5 @@ export const deployAddressProviderRegistry = task(
     type: ArgumentType.STRING,
     defaultValue: '',
   })
-  .setAction(() => import('../actions/deploy-address-provider-registry.action.js'))
+  .setAction(() => import('../actions/deployments/core/deploy-address-provider-registry.action.js'))
   .build();

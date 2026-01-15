@@ -1,4 +1,4 @@
-import { verifyEtherscanContract, checkVerification } from "../../helpers/etherscan-verification.js";
+import { verifyEtherscanContract, checkVerification } from "../../../helpers/etherscan-verification.js";
 import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 
 type Args = {

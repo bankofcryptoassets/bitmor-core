@@ -12,5 +12,5 @@ export const deployWethGateway = task(`full-deploy-weth-gateway`, `Deploys the $
     defaultValue: '',
   })
   .addFlag({ name: 'verify', description: `Verify ${CONTRACT_NAME} contract via Etherscan API.` })
-  .setAction(() => import('../actions/deploy-weth-gateway.action.js'))
+  .setAction(() => import('../actions/deployments/core/deploy-weth-gateway.action.js'))
   .build();

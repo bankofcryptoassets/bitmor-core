@@ -20,5 +20,5 @@ export const addMarketToRegistryTask = task(
   })
   .addFlag({ name: 'verify', description: 'Verify contracts at Etherscan' })
   .addFlag({ name: 'deployRegistry', description: 'Deploy a new address provider registry' })
-  .setAction(() => import('../actions/add-market-to-registry.action.js'))
+  .setAction(() => import('../actions/registry/add-market-to-registry.action.js'))
   .build();

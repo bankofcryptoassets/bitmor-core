@@ -1,7 +1,7 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { deployUiPoolDataProviderV2V3 } from '../../helpers/contracts-deployments.js';
-import { chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy } from '../../helpers/constants.js';
-import { getContractAddress } from '../../helpers/contracts-helpers.js';
+import { deployUiPoolDataProviderV2V3 } from '../../../../helpers/contracts-deployments.js';
+import { chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy } from '../../../../helpers/constants.js';
+import { getContractAddress } from '../../../../helpers/contracts-helpers.js';
 
 type Args = {
   verify: boolean;

@@ -1,11 +1,11 @@
 import { formatEther } from 'ethers';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { ConfigNames, loadPoolConfig } from '../../helpers/configuration.js';
-import { deployLendingPoolAddressesProviderRegistry } from '../../helpers/contracts-deployments.js';
-import { getFirstSigner } from '../../helpers/contracts-getters.js';
-import { getParamPerNetwork, getContractAddress } from '../../helpers/contracts-helpers.js';
-import { notFalsyOrZeroAddress } from '../../helpers/misc-utils.js';
-import { eNetwork } from '../../helpers/types.js';
+import { ConfigNames, loadPoolConfig } from '../../../../helpers/configuration.js';
+import { deployLendingPoolAddressesProviderRegistry } from '../../../../helpers/contracts-deployments.js';
+import { getFirstSigner } from '../../../../helpers/contracts-getters.js';
+import { getParamPerNetwork, getContractAddress } from '../../../../helpers/contracts-helpers.js';
+import { notFalsyOrZeroAddress } from '../../../../helpers/misc-utils.js';
+import { eNetwork } from '../../../../helpers/types.js';
 
 type Args = {
   verify: boolean;

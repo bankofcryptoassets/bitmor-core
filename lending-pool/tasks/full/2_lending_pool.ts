@@ -13,5 +13,5 @@ export const deployLendingPool = task(
     type: ArgumentType.STRING,
     defaultValue: '',
   })
-  .setAction(() => import('../actions/deploy-lending-pool.action.js'))
+  .setAction(() => import('../actions/deployments/core/deploy-lending-pool.action.js'))
   .build();

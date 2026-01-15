@@ -6,5 +6,5 @@ export const deployUiPoolDataProviderV2V3Task = task(
   `Deploys the UiPoolDataProviderV2V3 contract`
 )
   .addFlag({ name: 'verify', description: 'Verify UiPoolDataProviderV2V3 contract via Etherscan API.' })
-  .setAction(() => import('../actions/deploy-ui-pool-data-provider-v2v3.action.js'))
+  .setAction(() => import('../actions/deployments/data-providers/deploy-ui-pool-data-provider-v2v3.action.js'))
   .build();

@@ -3,9 +3,9 @@ import {
   loadPoolConfig,
   ConfigNames,
   getWrappedNativeTokenAddress,
-} from '../../helpers/configuration.js';
-import { deployWETHGateway } from '../../helpers/contracts-deployments.js';
-import { getContractAddress } from '../../helpers/contracts-helpers.js';
+} from '../../../../helpers/configuration.js';
+import { deployWETHGateway } from '../../../../helpers/contracts-deployments.js';
+import { getContractAddress } from '../../../../helpers/contracts-helpers.js';
 
 const CONTRACT_NAME = 'WETHGateway';
 

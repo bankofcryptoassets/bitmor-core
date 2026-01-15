@@ -1,14 +1,14 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { deployLendingPoolAddressesProvider } from '../../helpers/contracts-deployments.js';
-import { notFalsyOrZeroAddress, waitForTx } from '../../helpers/misc-utils.js';
+import { deployLendingPoolAddressesProvider } from '../../../../helpers/contracts-deployments.js';
+import { notFalsyOrZeroAddress, waitForTx } from '../../../../helpers/misc-utils.js';
 import {
   ConfigNames,
   loadPoolConfig,
   getGenesisPoolAdmin,
   getEmergencyAdmin,
-} from '../../helpers/configuration.js';
-import { getParamPerNetwork, getContractAddress } from '../../helpers/contracts-helpers.js';
-import { eNetwork } from '../../helpers/types.js';
+} from '../../../../helpers/configuration.js';
+import { getParamPerNetwork, getContractAddress } from '../../../../helpers/contracts-helpers.js';
+import { eNetwork } from '../../../../helpers/types.js';
 
 type Args = {
   verify: boolean;

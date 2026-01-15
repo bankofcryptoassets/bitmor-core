@@ -6,5 +6,5 @@ export const bitmorSepolia = task("bitmor:sepolia", "Deploy Bitmor lending pool"
     name: "skipRegistry",
     description: "Skip addresses provider registration at Addresses Provider Registry",
   })
-  .setAction(() => import("../actions/bitmor.action.js"))
+  .setAction(() => import("../actions/migrations/bitmor.action.js"))
   .build();

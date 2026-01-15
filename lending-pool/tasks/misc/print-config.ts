@@ -18,5 +18,5 @@ export const printConfigTask = task("print-config", "Prints pool configuration")
     type: ArgumentType.STRING,
     defaultValue: "",
   })
-  .setAction(() => import("../actions/print-config.action.js"))
+  .setAction(() => import("../actions/utils/print-config.action.js"))
   .build();

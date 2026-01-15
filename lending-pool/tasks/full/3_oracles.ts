@@ -10,5 +10,5 @@ export const deployOracles = task('full:deploy-oracles', 'Deploy oracles for dev
     type: ArgumentType.STRING,
     defaultValue: '',
   })
-  .setAction(() => import('../actions/deploy-oracles.action.js'))
+  .setAction(() => import('../actions/deployments/core/deploy-oracles.action.js'))
   .build();

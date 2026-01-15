@@ -5,5 +5,5 @@ export const deployBitmorMockTokensTask = task(
   'Deploy Bitmor mock tokens for dev environment'
 )
   .addFlag({ name: 'verify', description: 'Verify contracts at Etherscan' })
-  .setAction(() => import('../actions/dev-deploy-bitmor-mock-tokens.action.js'))
+  .setAction(() => import('../actions/deployments/tokens/dev-deploy-bitmor-mock-tokens.action.js'))
   .build();

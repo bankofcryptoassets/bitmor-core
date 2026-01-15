@@ -1,4 +1,4 @@
-import { DRE, setDRE } from "../../helpers/misc-utils.js";
+import { DRE, setDRE } from "../../../helpers/misc-utils.js";
 import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 
 export default async function setDREAction(

@@ -1,24 +1,24 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../helpers/contracts-helpers.js';
+import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../../../helpers/contracts-helpers.js';
 import {
   deployATokenImplementations,
   deployATokensAndRatesHelper,
   deployLendingPool,
   deployLendingPoolConfigurator,
   deployStableAndVariableTokensHelper,
-} from '../../helpers/contracts-deployments.js';
-import { eContractid, eNetwork } from '../../helpers/types.js';
-import { notFalsyOrZeroAddress, waitForTx } from '../../helpers/misc-utils.js';
+} from '../../../../helpers/contracts-deployments.js';
+import { eContractid, eNetwork } from '../../../../helpers/types.js';
+import { notFalsyOrZeroAddress, waitForTx } from '../../../../helpers/misc-utils.js';
 import {
   getLendingPoolAddressesProvider,
   getLendingPool,
   getLendingPoolConfiguratorProxy,
-} from '../../helpers/contracts-getters.js';
+} from '../../../../helpers/contracts-getters.js';
 import {
   loadPoolConfig,
   ConfigNames,
   getEmergencyAdmin,
-} from '../../helpers/configuration.js';
+} from '../../../../helpers/configuration.js';
 
 type Args = {
   verify: boolean;

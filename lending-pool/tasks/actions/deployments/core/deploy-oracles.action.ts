@@ -1,23 +1,23 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { getParamPerNetwork, getContractAddress } from '../../helpers/contracts-helpers.js';
-import { deployAaveOracle, deployLendingRateOracle } from '../../helpers/contracts-deployments.js';
-import { setInitialMarketRatesInRatesOracleByHelper } from '../../helpers/oracles-helpers.js';
-import { ICommonConfiguration, eNetwork, SymbolMap } from '../../helpers/types.js';
-import { waitForTx, notFalsyOrZeroAddress } from '../../helpers/misc-utils.js';
+import { getParamPerNetwork, getContractAddress } from '../../../../helpers/contracts-helpers.js';
+import { deployAaveOracle, deployLendingRateOracle } from '../../../../helpers/contracts-deployments.js';
+import { setInitialMarketRatesInRatesOracleByHelper } from '../../../../helpers/oracles-helpers.js';
+import { ICommonConfiguration, eNetwork, SymbolMap } from '../../../../helpers/types.js';
+import { waitForTx, notFalsyOrZeroAddress } from '../../../../helpers/misc-utils.js';
 import {
   ConfigNames,
   loadPoolConfig,
   getGenesisPoolAdmin,
   getLendingRateOracles,
   getQuoteCurrency,
-} from '../../helpers/configuration.js';
+} from '../../../../helpers/configuration.js';
 import {
   getAaveOracle,
   getLendingPoolAddressesProvider,
   getLendingRateOracle,
   getPairsTokenAggregator,
-} from '../../helpers/contracts-getters.js';
-import { AaveOracle, LendingRateOracle } from '../../types/ethers-contracts/index.js';
+} from '../../../../helpers/contracts-getters.js';
+import { AaveOracle, LendingRateOracle } from '../../../../types/ethers-contracts/index.js';
 
 type Args = {
   verify: boolean;
@@ -58,7 +58,7 @@ export default async function deployOraclesAction(
 
     // For localhost/hardhat, dynamically load token addresses from deployed-contracts.json
     if (network === 'hardhat' && Object.keys(reserveAssets).length === 0) {
-      const { getDb } = await import('../../helpers/misc-utils.js');
+      const { getDb } = await import('../../../../helpers/misc-utils.js');
       const db = getDb();
       const actualNetwork = conn.networkName; // Use actual network name for DB lookup
       const bUSDC = db.get(`bUSDC.${actualNetwork}`).value()?.address;

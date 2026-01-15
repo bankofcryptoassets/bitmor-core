@@ -1,7 +1,7 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { deployAaveProtocolDataProvider } from '../../helpers/contracts-deployments.js';
-import { getLendingPoolAddressesProvider } from '../../helpers/contracts-getters.js';
-import { getContractAddress } from '../../helpers/contracts-helpers.js';
+import { deployAaveProtocolDataProvider } from '../../../../helpers/contracts-deployments.js';
+import { getLendingPoolAddressesProvider } from '../../../../helpers/contracts-getters.js';
+import { getContractAddress } from '../../../../helpers/contracts-helpers.js';
 
 type Args = {
   verify: boolean;

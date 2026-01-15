@@ -10,5 +10,5 @@ export const deployDataProvider = task('full:data-provider', 'Initialize lending
     type: ArgumentType.STRING,
     defaultValue: '',
   })
-  .setAction(() => import('../actions/deploy-data-provider.action.js'))
+  .setAction(() => import('../actions/deployments/data-providers/deploy-data-provider.action.js'))
   .build();

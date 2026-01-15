@@ -14,5 +14,5 @@ export const deployAddressProvider = task(
     defaultValue: '',
   })
   .addFlag({ name: 'skipRegistry', description: 'Skip registry operations' })
-  .setAction(() => import('../actions/deploy-address-provider.action.js'))
+  .setAction(() => import('../actions/deployments/core/deploy-address-provider.action.js'))
   .build();

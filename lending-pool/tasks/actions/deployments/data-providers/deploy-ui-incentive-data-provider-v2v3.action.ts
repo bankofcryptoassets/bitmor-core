@@ -1,6 +1,6 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { deployUiIncentiveDataProviderV2V3 } from '../../helpers/contracts-deployments.js';
-import { getContractAddress } from '../../helpers/contracts-helpers.js';
+import { deployUiIncentiveDataProviderV2V3 } from '../../../../helpers/contracts-deployments.js';
+import { getContractAddress } from '../../../../helpers/contracts-helpers.js';
 
 type Args = {
   verify: boolean;

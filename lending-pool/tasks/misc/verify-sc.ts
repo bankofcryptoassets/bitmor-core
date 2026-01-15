@@ -20,5 +20,5 @@ export const verifySc = task("verify-sc", "Verify a deployed smart contract")
     type: ArgumentType.STRING,
     defaultValue: [],
   })
-  .setAction(() => import("../actions/verify-sc.action.js"))
+  .setAction(() => import("../actions/verification/verify-sc.action.js"))
   .build();

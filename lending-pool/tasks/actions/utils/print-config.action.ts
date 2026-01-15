@@ -1,13 +1,13 @@
 // tasks/actions/print-config.action.ts
 import { HardhatRuntimeEnvironment } from "hardhat/types/hre";
-import { ConfigNames, loadPoolConfig } from "../../helpers/configuration.js";
+import { ConfigNames, loadPoolConfig } from "../../../helpers/configuration.js";
 import {
   getAaveProtocolDataProvider,
   getLendingPoolAddressesProvider,
   getLendingPoolAddressesProviderRegistry,
-} from "../../helpers/contracts-getters.js";
-import { getParamPerNetwork } from "../../helpers/contracts-helpers.js";
-import { eNetwork } from "../../helpers/types.js";
+} from "../../../helpers/contracts-getters.js";
+import { getParamPerNetwork } from "../../../helpers/contracts-helpers.js";
+import { eNetwork } from "../../../helpers/types.js";
 
 type Args = {
   dataProvider: string;

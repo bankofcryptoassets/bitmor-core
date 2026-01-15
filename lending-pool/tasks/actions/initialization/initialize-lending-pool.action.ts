@@ -1,19 +1,19 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { getParamPerNetwork, getContractAddress } from '../../helpers/contracts-helpers.js';
+import { getParamPerNetwork, getContractAddress } from '../../../helpers/contracts-helpers.js';
 import {
   deployLendingPoolCollateralManager,
   deployWalletBalancerProvider,
   authorizeWETHGateway,
-} from '../../helpers/contracts-deployments.js';
-import { loadPoolConfig, ConfigNames, getTreasuryAddress } from '../../helpers/configuration.js';
-import { getWETHGateway } from '../../helpers/contracts-getters.js';
-import { eNetwork, ICommonConfiguration } from '../../helpers/types.js';
-import { notFalsyOrZeroAddress, waitForTx } from '../../helpers/misc-utils.js';
-import { initReservesByHelper, configureReservesByHelper } from '../../helpers/init-helpers.js';
+} from '../../../helpers/contracts-deployments.js';
+import { loadPoolConfig, ConfigNames, getTreasuryAddress } from '../../../helpers/configuration.js';
+import { getWETHGateway } from '../../../helpers/contracts-getters.js';
+import { eNetwork, ICommonConfiguration } from '../../../helpers/types.js';
+import { notFalsyOrZeroAddress, waitForTx } from '../../../helpers/misc-utils.js';
+import { initReservesByHelper, configureReservesByHelper } from '../../../helpers/init-helpers.js';
 import {
   getAaveProtocolDataProvider,
   getLendingPoolAddressesProvider,
-} from '../../helpers/contracts-getters.js';
+} from '../../../helpers/contracts-getters.js';
 
 type Args = {
   verify: boolean;

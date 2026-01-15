@@ -1,13 +1,13 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
-import { getParamPerNetwork, getContractAddress } from '../../helpers/contracts-helpers.js';
-import { waitForTx } from '../../helpers/misc-utils.js';
-import { ConfigNames, loadPoolConfig } from '../../helpers/configuration.js';
-import { eNetwork } from '../../helpers/types.js';
+import { getParamPerNetwork, getContractAddress } from '../../../helpers/contracts-helpers.js';
+import { waitForTx } from '../../../helpers/misc-utils.js';
+import { ConfigNames, loadPoolConfig } from '../../../helpers/configuration.js';
+import { eNetwork } from '../../../helpers/types.js';
 import {
   getFirstSigner,
   getLendingPoolAddressesProvider,
   getLendingPoolAddressesProviderRegistry,
-} from '../../helpers/contracts-getters.js';
+} from '../../../helpers/contracts-getters.js';
 import { isAddress, parseEther } from 'ethers';
 import { isZeroAddress } from 'ethereumjs-util';
 import type { Signer } from 'ethers';
