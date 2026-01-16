@@ -73,7 +73,7 @@ library BTCVault__Validation {
     ) internal view {
         uint256 newLength = newSupplyQueue.length;
 
-        if (newLength >= maxStrategies) revert Errors.MaxStrategiesReached();
+        if (newLength > maxStrategies) revert Errors.MaxStrategiesReached();
 
         uint256 i = 0;
         for (i; i < newLength; i++) {
