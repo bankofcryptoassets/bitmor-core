@@ -348,7 +348,7 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
     checkTypeOfLiquidation: TypedContractMethod<
       [user: AddressLike, ],
       [bigint],
-      'nonpayable'
+      'view'
     >
     
 
@@ -575,7 +575,7 @@ getFunction(nameOrSignature: 'borrow'): TypedContractMethod<
 getFunction(nameOrSignature: 'checkTypeOfLiquidation'): TypedContractMethod<
       [user: AddressLike, ],
       [bigint],
-      'nonpayable'
+      'view'
     >;
 getFunction(nameOrSignature: 'deposit'): TypedContractMethod<
       [asset: AddressLike, amount: BigNumberish, onBehalfOf: AddressLike, referralCode: BigNumberish, ],

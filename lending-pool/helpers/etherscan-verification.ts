@@ -1,7 +1,7 @@
 import { exit } from 'process';
 import fs from 'fs';
 import { file } from 'tmp-promise';
-import { DRE } from './misc-utils';
+import { DRE } from './misc-utils.js';
 
 const fatalErrors = [
   `The address provided as argument contains a contract, but its bytecode`,
@@ -23,6 +23,7 @@ export const SUPPORTED_ETHERSCAN_NETWORKS = [
   'goerli',
   'avalanche',
   'fuji',
+  'sepolia',
 ];
 
 function delay(ms: number) {

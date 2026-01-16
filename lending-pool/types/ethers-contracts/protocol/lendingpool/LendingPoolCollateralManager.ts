@@ -105,7 +105,7 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
     checkTypeOfLiquidation: TypedContractMethod<
       [user: AddressLike, ],
       [bigint],
-      'nonpayable'
+      'view'
     >
     
 
@@ -131,7 +131,7 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
     getFunction(nameOrSignature: 'checkTypeOfLiquidation'): TypedContractMethod<
       [user: AddressLike, ],
       [bigint],
-      'nonpayable'
+      'view'
     >;
 getFunction(nameOrSignature: 'liquidationCall'): TypedContractMethod<
       [collateralAsset: AddressLike, debtAsset: AddressLike, user: AddressLike, debtToCover: BigNumberish, receiveAToken: boolean, ],

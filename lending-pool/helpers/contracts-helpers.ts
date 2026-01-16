@@ -1,5 +1,5 @@
-import { ethers, AbiCoder, parseUnits, NonceManager } from 'ethers';
-import type { Contract, Signer, BigNumberish, BaseContract, Addressable } from 'ethers';
+import { AbiCoder, ethers, parseUnits } from 'ethers';
+import type { Signer, BigNumberish } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
 import BigNumber from "bignumber.js";
@@ -31,7 +31,6 @@ import type { Artifact } from 'hardhat/types/artifacts';
 import { verifyEtherscanContract } from './etherscan-verification.js';
 import { getIErc20Detailed } from './contracts-getters.js';
 import { usingTenderly, verifyAtTenderly } from './tenderly-utils.js';
-import { usingPolygon, verifyAtPolygon } from './polygon-utils.js';
 import { ConfigNames, loadPoolConfig } from './configuration.js';
 import { ZERO_ADDRESS } from './constants.js';
 import { getDefenderRelaySigner, usingDefender } from './defender-utils.js';
@@ -42,28 +41,34 @@ export type MockTokenMap = { [symbol: string]: MintableERC20 };
 
 // Helper function to get contract address from ethers v6 BaseContract or legacy contracts
 export const getContractAddress = (contract: any): string => {
-  // Check if contract is null or undefined
   if (contract === null || contract === undefined) {
     throw new Error(`getContractAddress received ${contract} - contract is not initialized`);
   }
-  // ethers v6: BaseContract has .target property
-  if ('target' in contract) {
-    const target = contract.target;
-    // In ethers v6, target is the contract address (string)
-    if (typeof target === 'string') {
-      return target;
-    }
-    // If target exists but is null/undefined
-    if (target === null || target === undefined) {
-      throw new Error('Contract target property is null or undefined - contract may not be deployed');
-    }
+
+  const candidate =
+    typeof contract?.target === "string"
+      ? contract.target
+      : typeof contract?.address === "string"
+        ? contract.address
+        : undefined;
+
+  if (!candidate) {
+    throw new Error(
+      `Contract does not expose an address. Expected .target (ethers v6) or .address (legacy).`
+    );
   }
-  // Legacy contracts (MockContract, etc.) have .address property
-  if ('address' in contract && typeof contract.address === 'string') {
-    return contract.address;
+
+  if (!ethers.isAddress(candidate)) {
+    throw new Error(`Invalid contract address string: "${candidate}"`);
   }
-  // Fallback
-  throw new Error(`Contract does not have a valid address or target property. Contract type: ${typeof contract}`);
+
+  const checksummed = ethers.getAddress(candidate);
+
+  if (checksummed === ZERO_ADDRESS) {
+    throw new Error(`Contract address resolved to ZERO_ADDRESS (${ZERO_ADDRESS}) - not a deployed contract`);
+  }
+
+  return checksummed;
 };
 
 export const registerContractInJsonDb = async (contractId: string, contractInstance: any) => {
@@ -119,9 +124,6 @@ export const getEthersSigners = async (): Promise<Signer[]> => {
 
 export const getEthersSignersAddresses = async (): Promise<tEthereumAddress[]> =>
   await Promise.all((await getEthersSigners()).map((signer) => signer.getAddress()));
-
-// Singleton nonce-managed signer to prevent nonce conflicts
-let _nonceManaged: any;
 
 export const getFirstSigner = async () => {
   const signers = await getEthersSigners();
@@ -239,7 +241,10 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
     case eBaseNetwork.sepolia:
       return sepolia;
     default:
-      // For unknown networks (like "default" in Hardhat 3), treat as local dev network
+      console.warn(
+        `[getParamPerNetwork] Unknown network "${network}". Falling back to buidlerevm values. ` +
+        `This may deploy using local config. Consider adding "${network}" to eNetwork/types and params.`
+      );
       return buidlerevm;
   }
 };

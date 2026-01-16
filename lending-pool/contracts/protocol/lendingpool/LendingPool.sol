@@ -653,7 +653,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * @param user Address of the user
      * @return type of liquidation.
      */
-    function checkTypeOfLiquidation(address user) external override returns (uint256) {
+    function checkTypeOfLiquidation(address user) external view override returns (uint256) {
         address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
 
         //solium-disable-next-line

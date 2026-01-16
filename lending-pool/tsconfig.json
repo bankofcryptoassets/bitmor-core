@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "node16",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "strict": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -10,11 +12,15 @@
     "outDir": "dist",
     "noImplicitAny": false,
     "resolveJsonModule": true,
-    "moduleResolution": "node16",
-    "types": ["mocha", "node"]
+    "moduleResolution": "node16"
   },
-  "include": ["./scripts", "./test", "./test-suites", "./tasks", "./helpers", "./markets"],
-  "exclude": ["node_modules"],
+  "include": [
+    "./**/*.ts",
+    "./**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
   "files": [
     "./hardhat.config.ts",
     "./modules/tenderly/tenderly.d.ts"

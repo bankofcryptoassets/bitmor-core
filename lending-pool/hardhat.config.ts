@@ -3,22 +3,26 @@ import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-et
 import hardhatEthers from "@nomicfoundation/hardhat-ethers";
 import hardhatMocha from "@nomicfoundation/hardhat-mocha";
 import hardhatTypechain from "@nomicfoundation/hardhat-typechain";
-import { accounts } from './test-wallets.js';
+import hardhatVerify from "@nomicfoundation/hardhat-verify";
 import { BUIDLEREVM_CHAINID } from './helpers/buidler-constants.js';
-import { NETWORKS_RPC_URL, NETWORKS_DEFAULT_GAS } from './helper-hardhat-config.js';
+import { NETWORKS_RPC_URL } from './helper-hardhat-config.js';
 import { eBaseNetwork } from './helpers/types.js';
+import { accounts } from './test-wallets.js';
+type TestWallet = { secretKey: string; balance: string };
+const testWallets = accounts as TestWallet[];
 
 const SKIP_LOAD = process.env.SKIP_LOAD === 'true';
 const UNLIMITED_BYTECODE_SIZE = process.env.UNLIMITED_BYTECODE_SIZE === 'true';
 const DEFAULT_BLOCK_GAS_LIMIT = 8000000;
 const MNEMONIC = process.env.MNEMONIC || '';
 const MNEMONIC_PATH = "m/44'/60'/0'/0";
+const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || '';
 
 // Import task registration
 const tasks = SKIP_LOAD ? [] : (await import("./register-tasks.js")).default;
 
 export default defineConfig({
-  plugins: [hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain],
+  plugins: [hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain, hardhatVerify],
   tasks,
   solidity: {
     compilers: [
@@ -42,6 +46,7 @@ export default defineConfig({
         initialIndex: 0,
         count: 20,
       },
+      gasPrice: 'auto'
     },
     localhost: {
       type: 'http',
@@ -55,10 +60,11 @@ export default defineConfig({
       blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
       allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
       chainId: BUIDLEREVM_CHAINID,
-      accounts: accounts.map(({ secretKey, balance }: { secretKey, balance: string }) => ({
+      accounts: testWallets.map(({ secretKey, balance }: TestWallet) => ({
         privateKey: secretKey,
         balance,
       })),
+
     },
     default: {
       type: 'edr-simulated',
@@ -66,10 +72,11 @@ export default defineConfig({
       blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
       allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
       chainId: BUIDLEREVM_CHAINID,
-      accounts: accounts.map(({ secretKey, balance }) => ({
+      accounts: testWallets.map(({ secretKey, balance }: TestWallet) => ({
         privateKey: secretKey,
         balance,
       })),
+
     },
   },
   paths: {
@@ -77,6 +84,33 @@ export default defineConfig({
   },
   typechain: {
     outDir: 'types/ethers-contracts',
+  },
+  verify: {
+    etherscan: {
+      apiKey: ETHERSCAN_KEY,
+    },
+  },
+  chainDescriptors: {
+    84532: {
+      name: "Base Sepolia",
+      blockExplorers: {
+        etherscan: {
+          name: "BaseScan",
+          url: "https://sepolia.basescan.org",
+          apiUrl: "https://api-sepolia.basescan.org/api",
+        },
+      },
+    },
+    8453: {
+      name: "Base",
+      blockExplorers: {
+        etherscan: {
+          name: "BaseScan",
+          url: "https://basescan.org",
+          apiUrl: "https://api.basescan.org/api",
+        },
+      },
+    },
   },
   test: {
     mocha: {
