@@ -20,21 +20,6 @@ import { deployUiPoolDataProviderV2V3Task } from "./tasks/deployments/deploy-UiP
 import { deployUiIncentiveDataProviderV2V3Task } from "./tasks/deployments/deploy-UiIncentiveDataProviderV2V3.js";
 import { addMarketToRegistryTask } from "./tasks/deployments/add-market-to-registry-v3.js";
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-// const folders = ['misc', 'migrations', 'dev', 'full', 'verifications', 'deployments', 'helpers'];
-
-// for (const folder of folders) {
-//   const tasksPath = path.join(__dirname, 'tasks', folder);
-//   if (fs.existsSync(tasksPath)) {
-//     const files = fs.readdirSync(tasksPath).filter((pth) => pth.includes('.ts') || pth.includes('.js'));
-//     for (const file of files) {
-//       await import(`${tasksPath}/${file}`);
-//     }
-//   }
-// }
-
 export default [
   bitmorSepolia,
   bitmorDev,
