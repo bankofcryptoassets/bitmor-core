@@ -137,7 +137,6 @@
     "defender-relay-client": "^1.7.0",
     "dotenv": "^8.2.0",
     "eth-sig-util": "2.5.3",
-    "ethereum-waffle": "3.0.2",
     "ethereumjs-util": "7.0.2",
     "ethers": "^6.16.0",
     "globby": "^11.0.1",

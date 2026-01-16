@@ -67,7 +67,10 @@ export const advanceTimeAndBlock = async function (forwardTime: number) {
 export const waitForTx = async (
   tx: TransactionResponse
 ): Promise<TransactionReceipt> => {
-  const confirmations = DRE.network.networkName === 'sepolia' ? 5 : 1;
+  const confirmations =
+    DRE.network.networkName === 'base' ? 10 :
+    DRE.network.networkName === 'sepolia' ? 5 :
+    1;
 
   const receipt = await tx.wait(confirmations);
   if (receipt) return receipt;
