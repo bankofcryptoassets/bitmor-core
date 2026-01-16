@@ -38,11 +38,6 @@ export default async function deployAddressProviderRegistryAction(
   const provider = (conn as any).ethers?.provider || conn.provider;
   const balance = await provider.getBalance(addr);
 
-  const latestNonce = await provider.getTransactionCount(addr, "latest");
-  const pendingNonce = await provider.getTransactionCount(addr, "pending");
-
-  console.log("Nonce latest:", latestNonce, "pending:", pendingNonce);
-
   console.log('Deployer:', addr, formatEther(balance));
 
   const providerRegistryAddress = getParamPerNetwork(poolConfig.ProviderRegistry, network);
