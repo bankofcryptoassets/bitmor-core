@@ -240,8 +240,6 @@ export const deployAaveLibraries = async (
   // libName example: GenericLogic
   const validationLogicAddress = getContractAddress(validationLogic);
   const reserveLogicAddress = getContractAddress(reserveLogic);
-  console.log('ValidationLogic address:', validationLogicAddress);
-  console.log('ReserveLogic address:', reserveLogicAddress);
   return {
     ["project/contracts/protocol/libraries/logic/ValidationLogic.sol:ValidationLogic"]: validationLogicAddress,
     ["project/contracts/protocol/libraries/logic/ReserveLogic.sol:ReserveLogic"]: reserveLogicAddress,
