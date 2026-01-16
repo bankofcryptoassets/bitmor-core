@@ -13,9 +13,9 @@ export declare namespace DataTypes {
     }
 
   export interface ILoanInterface extends Interface {
-    getFunction(nameOrSignature: "calculateStrikePrice" | "closeLoan" | "getCollateralAsset" | "getDebtAsset" | "getGracePeriod" | "getLiquidationBuffer" | "getLoanByLSA" | "getLoanDetails" | "getPreClosureFee" | "getPremiumCollector" | "getRepaymentInterval" | "getUserAllLoans" | "getUserLoanAtIndex" | "getUserLoanCount" | "initializeLoan" | "repay" | "setGracePeriod" | "setLiquidationBuffer" | "setLoanVaultFactory" | "setPreClosureFee" | "setPremiumCollector" | "setSwapAdapter" | "setZQuoter" | "updateLoanData" | "updateLoanStatus"): FunctionFragment;
+    getFunction(nameOrSignature: "calculateStrikePrice" | "closeLoan" | "getCollateralAsset" | "getDebtAsset" | "getGracePeriod" | "getLiquidationBuffer" | "getLoanByLSA" | "getLoanDetails" | "getPreClosureFee" | "getPremiumCollector" | "getRepaymentInterval" | "getUserAllLoans" | "getUserLoanAtIndex" | "getUserLoanCount" | "initializeLoan" | "repay" | "setGracePeriod" | "setLiquidationBuffer" | "setLoanVaultFactory" | "setPreClosureFee" | "setPremiumCollector" | "setSwapAdapter" | "setZQuoter" | "updateInsuranceId" | "updateLoanDataForFullLiquidation" | "updateLoanDataForMicroLiquidation"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Loan__ClosedLoan" | "Loan__EscrowUpdated" | "Loan__GracePeriodUpdated" | "Loan__LoanCreated" | "Loan__LoanDataUpdated" | "Loan__LoanRepaid" | "Loan__LoanStatusUpdated" | "Loan__LoanVaultFactoryUpdated" | "Loan__MaxLoanAmountUpdated" | "Loan__PreClosureFeeUpdated" | "Loan__PremiumCollectorUpdated" | "Loan__SwapAdapterUpdated" | "Loan__ZQuoterUpdated"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Loan__ClosedLoan" | "Loan__EscrowUpdated" | "Loan__GracePeriodUpdated" | "Loan__InsuranceIDUpdated" | "Loan__LiquidationBufferUpdated" | "Loan__LoanCreated" | "Loan__LoanDataFullLiquidationUpdated" | "Loan__LoanDataMicroLiquidationUpdated" | "Loan__LoanRepaid" | "Loan__LoanStatusUpdated" | "Loan__LoanVaultFactoryUpdated" | "Loan__MaxLoanAmountUpdated" | "Loan__PreClosureFeeUpdated" | "Loan__PremiumCollectorUpdated" | "Loan__SwapAdapterUpdated" | "Loan__ZQuoterUpdated"): EventFragment;
 
     encodeFunctionData(functionFragment: 'calculateStrikePrice', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'closeLoan', values: [AddressLike, boolean]): string;
@@ -31,7 +31,7 @@ encodeFunctionData(functionFragment: 'getRepaymentInterval', values?: undefined)
 encodeFunctionData(functionFragment: 'getUserAllLoans', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'getUserLoanAtIndex', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getUserLoanCount', values: [AddressLike]): string;
-encodeFunctionData(functionFragment: 'initializeLoan', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'initializeLoan', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'repay', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'setGracePeriod', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'setLiquidationBuffer', values: [BigNumberish]): string;
@@ -40,8 +40,9 @@ encodeFunctionData(functionFragment: 'setPreClosureFee', values: [BigNumberish])
 encodeFunctionData(functionFragment: 'setPremiumCollector', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setSwapAdapter', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setZQuoter', values: [AddressLike]): string;
-encodeFunctionData(functionFragment: 'updateLoanData', values: [BytesLike, AddressLike]): string;
-encodeFunctionData(functionFragment: 'updateLoanStatus', values: [AddressLike, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'updateInsuranceId', values: [AddressLike, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'updateLoanDataForFullLiquidation', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'updateLoanDataForMicroLiquidation', values: [AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'calculateStrikePrice', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'closeLoan', data: BytesLike): Result;
@@ -66,8 +67,9 @@ decodeFunctionResult(functionFragment: 'setPreClosureFee', data: BytesLike): Res
 decodeFunctionResult(functionFragment: 'setPremiumCollector', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setSwapAdapter', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setZQuoter', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'updateLoanData', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'updateLoanStatus', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'updateInsuranceId', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'updateLoanDataForFullLiquidation', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'updateLoanDataForMicroLiquidation', data: BytesLike): Result;
   }
 
   
@@ -107,10 +109,10 @@ decodeFunctionResult(functionFragment: 'updateLoanStatus', data: BytesLike): Res
 
   
 
-    export namespace Loan__LoanCreatedEvent {
-      export type InputTuple = [borrower: AddressLike, lsa: AddressLike, loanAmount: BigNumberish, collateralAmount: BigNumberish];
-      export type OutputTuple = [borrower: string, lsa: string, loanAmount: bigint, collateralAmount: bigint];
-      export interface OutputObject {borrower: string, lsa: string, loanAmount: bigint, collateralAmount: bigint };
+    export namespace Loan__InsuranceIDUpdatedEvent {
+      export type InputTuple = [lsa: AddressLike, insuranceID: BigNumberish];
+      export type OutputTuple = [lsa: string, insuranceID: bigint];
+      export interface OutputObject {lsa: string, insuranceID: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -119,10 +121,46 @@ decodeFunctionResult(functionFragment: 'updateLoanStatus', data: BytesLike): Res
 
   
 
-    export namespace Loan__LoanDataUpdatedEvent {
-      export type InputTuple = [lsa: AddressLike, data: BytesLike];
-      export type OutputTuple = [lsa: string, data: string];
-      export interface OutputObject {lsa: string, data: string };
+    export namespace Loan__LiquidationBufferUpdatedEvent {
+      export type InputTuple = [newBuffer: BigNumberish];
+      export type OutputTuple = [newBuffer: bigint];
+      export interface OutputObject {newBuffer: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace Loan__LoanCreatedEvent {
+      export type InputTuple = [borrower: AddressLike, lsa: AddressLike, loanAmount: BigNumberish, collateralAmount: BigNumberish, data: BytesLike];
+      export type OutputTuple = [borrower: string, lsa: string, loanAmount: bigint, collateralAmount: bigint, data: string];
+      export interface OutputObject {borrower: string, lsa: string, loanAmount: bigint, collateralAmount: bigint, data: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace Loan__LoanDataFullLiquidationUpdatedEvent {
+      export type InputTuple = [lsa: AddressLike];
+      export type OutputTuple = [lsa: string];
+      export interface OutputObject {lsa: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace Loan__LoanDataMicroLiquidationUpdatedEvent {
+      export type InputTuple = [lsa: AddressLike, newDuration: BigNumberish];
+      export type OutputTuple = [lsa: string, newDuration: bigint];
+      export interface OutputObject {lsa: string, newDuration: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -374,7 +412,7 @@ decodeFunctionResult(functionFragment: 'updateLoanStatus', data: BytesLike): Res
 
     
     initializeLoan: TypedContractMethod<
-      [depositAmount: BigNumberish, premiumAmount: BigNumberish, collateralAmount: BigNumberish, duration: BigNumberish, insuranceID: BigNumberish, ],
+      [depositAmount: BigNumberish, premiumAmount: BigNumberish, collateralAmount: BigNumberish, duration: BigNumberish, data: BytesLike, ],
       [string],
       'nonpayable'
     >
@@ -445,16 +483,24 @@ decodeFunctionResult(functionFragment: 'updateLoanStatus', data: BytesLike): Res
     
 
     
-    updateLoanData: TypedContractMethod<
-      [_data: BytesLike, _lsa: AddressLike, ],
+    updateInsuranceId: TypedContractMethod<
+      [lsa: AddressLike, insuranceID: BigNumberish, ],
       [void],
       'nonpayable'
     >
     
 
     
-    updateLoanStatus: TypedContractMethod<
-      [lsa: AddressLike, newStatus: BigNumberish, ],
+    updateLoanDataForFullLiquidation: TypedContractMethod<
+      [_lsa: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    updateLoanDataForMicroLiquidation: TypedContractMethod<
+      [_lsa: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -534,7 +580,7 @@ getFunction(nameOrSignature: 'getUserLoanCount'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'initializeLoan'): TypedContractMethod<
-      [depositAmount: BigNumberish, premiumAmount: BigNumberish, collateralAmount: BigNumberish, duration: BigNumberish, insuranceID: BigNumberish, ],
+      [depositAmount: BigNumberish, premiumAmount: BigNumberish, collateralAmount: BigNumberish, duration: BigNumberish, data: BytesLike, ],
       [string],
       'nonpayable'
     >;
@@ -578,13 +624,18 @@ getFunction(nameOrSignature: 'setZQuoter'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'updateLoanData'): TypedContractMethod<
-      [_data: BytesLike, _lsa: AddressLike, ],
+getFunction(nameOrSignature: 'updateInsuranceId'): TypedContractMethod<
+      [lsa: AddressLike, insuranceID: BigNumberish, ],
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'updateLoanStatus'): TypedContractMethod<
-      [lsa: AddressLike, newStatus: BigNumberish, ],
+getFunction(nameOrSignature: 'updateLoanDataForFullLiquidation'): TypedContractMethod<
+      [_lsa: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'updateLoanDataForMicroLiquidation'): TypedContractMethod<
+      [_lsa: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -592,8 +643,11 @@ getFunction(nameOrSignature: 'updateLoanStatus'): TypedContractMethod<
     getEvent(key: 'Loan__ClosedLoan'): TypedContractEvent<Loan__ClosedLoanEvent.InputTuple, Loan__ClosedLoanEvent.OutputTuple, Loan__ClosedLoanEvent.OutputObject>;
 getEvent(key: 'Loan__EscrowUpdated'): TypedContractEvent<Loan__EscrowUpdatedEvent.InputTuple, Loan__EscrowUpdatedEvent.OutputTuple, Loan__EscrowUpdatedEvent.OutputObject>;
 getEvent(key: 'Loan__GracePeriodUpdated'): TypedContractEvent<Loan__GracePeriodUpdatedEvent.InputTuple, Loan__GracePeriodUpdatedEvent.OutputTuple, Loan__GracePeriodUpdatedEvent.OutputObject>;
+getEvent(key: 'Loan__InsuranceIDUpdated'): TypedContractEvent<Loan__InsuranceIDUpdatedEvent.InputTuple, Loan__InsuranceIDUpdatedEvent.OutputTuple, Loan__InsuranceIDUpdatedEvent.OutputObject>;
+getEvent(key: 'Loan__LiquidationBufferUpdated'): TypedContractEvent<Loan__LiquidationBufferUpdatedEvent.InputTuple, Loan__LiquidationBufferUpdatedEvent.OutputTuple, Loan__LiquidationBufferUpdatedEvent.OutputObject>;
 getEvent(key: 'Loan__LoanCreated'): TypedContractEvent<Loan__LoanCreatedEvent.InputTuple, Loan__LoanCreatedEvent.OutputTuple, Loan__LoanCreatedEvent.OutputObject>;
-getEvent(key: 'Loan__LoanDataUpdated'): TypedContractEvent<Loan__LoanDataUpdatedEvent.InputTuple, Loan__LoanDataUpdatedEvent.OutputTuple, Loan__LoanDataUpdatedEvent.OutputObject>;
+getEvent(key: 'Loan__LoanDataFullLiquidationUpdated'): TypedContractEvent<Loan__LoanDataFullLiquidationUpdatedEvent.InputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputObject>;
+getEvent(key: 'Loan__LoanDataMicroLiquidationUpdated'): TypedContractEvent<Loan__LoanDataMicroLiquidationUpdatedEvent.InputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputObject>;
 getEvent(key: 'Loan__LoanRepaid'): TypedContractEvent<Loan__LoanRepaidEvent.InputTuple, Loan__LoanRepaidEvent.OutputTuple, Loan__LoanRepaidEvent.OutputObject>;
 getEvent(key: 'Loan__LoanStatusUpdated'): TypedContractEvent<Loan__LoanStatusUpdatedEvent.InputTuple, Loan__LoanStatusUpdatedEvent.OutputTuple, Loan__LoanStatusUpdatedEvent.OutputObject>;
 getEvent(key: 'Loan__LoanVaultFactoryUpdated'): TypedContractEvent<Loan__LoanVaultFactoryUpdatedEvent.InputTuple, Loan__LoanVaultFactoryUpdatedEvent.OutputTuple, Loan__LoanVaultFactoryUpdatedEvent.OutputObject>;
@@ -617,12 +671,24 @@ getEvent(key: 'Loan__ZQuoterUpdated'): TypedContractEvent<Loan__ZQuoterUpdatedEv
       Loan__GracePeriodUpdated: TypedContractEvent<Loan__GracePeriodUpdatedEvent.InputTuple, Loan__GracePeriodUpdatedEvent.OutputTuple, Loan__GracePeriodUpdatedEvent.OutputObject>;
     
 
-      'Loan__LoanCreated(address,address,uint256,uint256)': TypedContractEvent<Loan__LoanCreatedEvent.InputTuple, Loan__LoanCreatedEvent.OutputTuple, Loan__LoanCreatedEvent.OutputObject>;
+      'Loan__InsuranceIDUpdated(address,uint256)': TypedContractEvent<Loan__InsuranceIDUpdatedEvent.InputTuple, Loan__InsuranceIDUpdatedEvent.OutputTuple, Loan__InsuranceIDUpdatedEvent.OutputObject>;
+      Loan__InsuranceIDUpdated: TypedContractEvent<Loan__InsuranceIDUpdatedEvent.InputTuple, Loan__InsuranceIDUpdatedEvent.OutputTuple, Loan__InsuranceIDUpdatedEvent.OutputObject>;
+    
+
+      'Loan__LiquidationBufferUpdated(uint256)': TypedContractEvent<Loan__LiquidationBufferUpdatedEvent.InputTuple, Loan__LiquidationBufferUpdatedEvent.OutputTuple, Loan__LiquidationBufferUpdatedEvent.OutputObject>;
+      Loan__LiquidationBufferUpdated: TypedContractEvent<Loan__LiquidationBufferUpdatedEvent.InputTuple, Loan__LiquidationBufferUpdatedEvent.OutputTuple, Loan__LiquidationBufferUpdatedEvent.OutputObject>;
+    
+
+      'Loan__LoanCreated(address,address,uint256,uint256,bytes)': TypedContractEvent<Loan__LoanCreatedEvent.InputTuple, Loan__LoanCreatedEvent.OutputTuple, Loan__LoanCreatedEvent.OutputObject>;
       Loan__LoanCreated: TypedContractEvent<Loan__LoanCreatedEvent.InputTuple, Loan__LoanCreatedEvent.OutputTuple, Loan__LoanCreatedEvent.OutputObject>;
     
 
-      'Loan__LoanDataUpdated(address,bytes)': TypedContractEvent<Loan__LoanDataUpdatedEvent.InputTuple, Loan__LoanDataUpdatedEvent.OutputTuple, Loan__LoanDataUpdatedEvent.OutputObject>;
-      Loan__LoanDataUpdated: TypedContractEvent<Loan__LoanDataUpdatedEvent.InputTuple, Loan__LoanDataUpdatedEvent.OutputTuple, Loan__LoanDataUpdatedEvent.OutputObject>;
+      'Loan__LoanDataFullLiquidationUpdated(address)': TypedContractEvent<Loan__LoanDataFullLiquidationUpdatedEvent.InputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputObject>;
+      Loan__LoanDataFullLiquidationUpdated: TypedContractEvent<Loan__LoanDataFullLiquidationUpdatedEvent.InputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataFullLiquidationUpdatedEvent.OutputObject>;
+    
+
+      'Loan__LoanDataMicroLiquidationUpdated(address,uint256)': TypedContractEvent<Loan__LoanDataMicroLiquidationUpdatedEvent.InputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputObject>;
+      Loan__LoanDataMicroLiquidationUpdated: TypedContractEvent<Loan__LoanDataMicroLiquidationUpdatedEvent.InputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputTuple, Loan__LoanDataMicroLiquidationUpdatedEvent.OutputObject>;
     
 
       'Loan__LoanRepaid(address,uint256)': TypedContractEvent<Loan__LoanRepaidEvent.InputTuple, Loan__LoanRepaidEvent.OutputTuple, Loan__LoanRepaidEvent.OutputObject>;

@@ -51,6 +51,38 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "lsa",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "insuranceID",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__InsuranceIDUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newBuffer",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__LiquidationBufferUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "borrower",
         "type": "address"
       },
@@ -71,6 +103,12 @@
         "internalType": "uint256",
         "name": "collateralAmount",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
       }
     ],
     "name": "Loan__LoanCreated",
@@ -84,15 +122,28 @@
         "internalType": "address",
         "name": "lsa",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "data",
-        "type": "bytes"
       }
     ],
-    "name": "Loan__LoanDataUpdated",
+    "name": "Loan__LoanDataFullLiquidationUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "lsa",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newDuration",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__LoanDataMicroLiquidationUpdated",
     "type": "event"
   },
   {
@@ -592,9 +643,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "insuranceID",
-        "type": "uint256"
+        "internalType": "bytes",
+        "name": "data",
+        "type": "bytes"
       }
     ],
     "name": "initializeLoan",
@@ -726,17 +777,17 @@
   {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "_data",
-        "type": "bytes"
+        "internalType": "address",
+        "name": "lsa",
+        "type": "address"
       },
       {
-        "internalType": "address",
-        "name": "_lsa",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "insuranceID",
+        "type": "uint256"
       }
     ],
-    "name": "updateLoanData",
+    "name": "updateInsuranceId",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -745,16 +796,24 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "lsa",
+        "name": "_lsa",
         "type": "address"
-      },
-      {
-        "internalType": "enum DataTypes.LoanStatus",
-        "name": "newStatus",
-        "type": "uint8"
       }
     ],
-    "name": "updateLoanStatus",
+    "name": "updateLoanDataForFullLiquidation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_lsa",
+        "type": "address"
+      }
+    ],
+    "name": "updateLoanDataForMicroLiquidation",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

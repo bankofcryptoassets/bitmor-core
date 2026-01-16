@@ -213,7 +213,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
 
-        _updateLoanStatusToLiquidated(user);
+        _updateLoanForFullLiquidation(user);
 
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
@@ -392,7 +392,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
      * 2 => MicroLiquidation
      * @param user Address of the borrower
      */
-    function checkTypeOfLiquidation(address user) external view override  returns (uint256) {
+    function checkTypeOfLiquidation(address user) external view override returns (uint256) {
         address oracle = _addressesProvider.getPriceOracle();
         (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
             user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle
@@ -407,7 +407,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
 
         /// @dev The call will reduce the durtion of the loan by 1,
         /// and updates the `lastPaymentTimestamp` with `block.timestamp`
-        ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(user);
+        ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(lsa);
     }
 
     function _updateLoanForFullLiquidation(address lsa) internal {
