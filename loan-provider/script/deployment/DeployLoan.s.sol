@@ -55,11 +55,10 @@ contract DeployLoan is Script {
             address premiumCollector,
             uint256 preClosureFee,
             uint256 gracePeriod,
-            uint256 liquidationBuffer,
-            , // usdc
+            uint256 liquidationBuffer,, // usdc
             , // usdc_holder
             , // entryFee
-              // exitFee
+            // exitFee
         ) = config.networkConfig();
         _deployLoanUsingConfig(
             accessManager,

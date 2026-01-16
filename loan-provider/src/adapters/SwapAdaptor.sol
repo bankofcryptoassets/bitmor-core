@@ -7,15 +7,44 @@ import {IzRouter} from "../interfaces/IzRouter.sol";
 
 /**
  * @title SwapAdaptor
+ * @author Bitmor Protocol
  * @notice Adapter for Aerodrome DEX swaps via zRouter on Base network
+ * @dev Provides token swap functionality using Aerodrome's zRouter.
+ *
+ * ## Supported Swap Types
+ * - **Standard V2 Swaps**: `swapExactTokensForTokens` for volatile or stable pools
+ * - **Concentrated Liquidity**: `swapExactTokensForTokensCL` for CL pools with tick spacing
+ *
+ * ## Integration
+ * Used by the Bitmor Protocol on Base mainnet for USDC <-> cbBTC swaps.
+ * On Base Sepolia (testnet), the `UniswapV4SwapAdapterWrapper` is used instead.
+ *
+ * @custom:security Uses SafeERC20 for safe token operations
+ * @custom:security Validates minimum output amounts for slippage protection
  */
 contract SwapAdaptor {
     using SafeERC20 for IERC20;
 
-    IzRouter public immutable i_ZROUTER; //0x0000000000404FECAf36E6184245475eE1254835 on Base
+    //! TODO: Confirm zRouter address on Base mainnet deployment
+    /**
+     * @notice Aerodrome zRouter contract for executing swaps
+     * @dev Base mainnet: 0x0000000000404FECAf36E6184245475eE1254835
+     */
+    IzRouter public immutable i_ZROUTER;
 
+    /**
+     * @notice Emitted when a swap is executed
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param amountIn Amount of input tokens swapped
+     * @param amountOut Amount of output tokens received
+     */
     event SwapAdaptor__Swapped(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
 
+    /**
+     * @notice Initializes the adapter with the zRouter address
+     * @param _zRouter Aerodrome zRouter contract address
+     */
     constructor(address _zRouter) {
         require(_zRouter != address(0), "SwapAdaptor: invalid zRouter");
         i_ZROUTER = IzRouter(_zRouter);

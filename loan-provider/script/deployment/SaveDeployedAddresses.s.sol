@@ -144,11 +144,10 @@ contract SaveDeployedAddresses is Script {
             address premiumCollector,
             uint256 preClosureFeeBps,
             uint256 gracePeriod,
-            uint256 liquidationBuffer,
-            , // usdc
+            uint256 liquidationBuffer,, // usdc
             , // usdc_holder
             , // entryFee
-              // exitFee
+            // exitFee
         ) = helperConfig.networkConfig();
 
         string memory json = string.concat(

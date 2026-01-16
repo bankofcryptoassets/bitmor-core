@@ -79,8 +79,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
     /// @notice Test that only authorized roles can call setStrategy
     function test_accessControl_setStrategy_onlyManager() public {
         // Deploy a new strategy to set
-        USDCStrategy newStrategy =
-            new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
+        USDCStrategy newStrategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
 
         // Unauthorized cannot set strategy
         vm.prank(unauthorized);
@@ -93,7 +92,9 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.setStrategy(address(newStrategy));
 
         // Manager CAN set strategy (via schedule/execute)
-        _scheduleAndExecute(manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        _scheduleAndExecute(
+            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
+        );
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");

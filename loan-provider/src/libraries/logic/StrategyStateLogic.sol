@@ -6,18 +6,37 @@ import {TokenizedStrategyLogic} from "./TokenizedStrategyLogic.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 import {Errors} from "../helpers/Errors.sol";
 
-/// @title StrategyStateLogic
-/// @notice Library for managing strategy state operations including addition, removal, and queue management
-/// @dev Handles all strategy state transitions and maintains data consistency
-/// @author Bitmor Protocol
+/**
+ * @title StrategyStateLogic
+ * @author Bitmor Protocol
+ * @notice Library for managing strategy state operations in the BTCVault
+ * @dev Handles all strategy state transitions and maintains data consistency.
+ *
+ * ## Responsibilities
+ * - Adding new strategies with allocation caps
+ * - Updating strategy allocation caps
+ * - Managing supply queue (deposit priority order)
+ * - Managing withdraw queue (withdrawal priority order)
+ * - Safe strategy removal with balance validation
+ *
+ * ## Index System
+ * Strategies are tracked using a `strategyToIndex` mapping where:
+ * - Value 0 means strategy does not exist
+ * - Value N (N > 0) means strategy is at index N-1
+ * This allows distinguishing between "not found" and "at index 0"
+ *
+ * @custom:security Validates strategy removal only when cap = 0 and balance = 0
+ */
 library StrategyStateLogic {
     using TokenizedStrategyLogic for address;
 
-    /// @notice Retrieves the index of a strategy in the strategies array
-    /// @dev Reverts if strategy is not found. Returns actual index (subtracts 1 from stored value)
-    /// @param s The strategy state storage reference
-    /// @param strategy The address of the strategy to look up
-    /// @return index The zero-based index of the strategy
+    /**
+     * @notice Retrieves the index of a strategy in the strategies array
+     * @dev Reverts if strategy is not found. Returns actual index (subtracts 1 from stored value)
+     * @param s The strategy state storage reference
+     * @param strategy The address of the strategy to look up
+     * @return index The zero-based index of the strategy
+     */
     function getStrategyIndex(DataTypes.StrategyState storage s, address strategy)
         internal
         view
@@ -28,11 +47,13 @@ library StrategyStateLogic {
         index = ip1 - 1;
     }
 
-    /// @notice Adds a new strategy to the vault with the specified allocation cap
-    /// @dev Adds strategy to both supply and withdraw queues, increments total strategies count
-    /// @param s The strategy state storage reference
-    /// @param newStrategy The address of the strategy to add
-    /// @param cap The maximum allocation cap for the strategy
+    /**
+     * @notice Adds a new strategy to the vault with the specified allocation cap
+     * @dev Adds strategy to both supply and withdraw queues, increments total strategies count
+     * @param s The strategy state storage reference
+     * @param newStrategy The address of the strategy to add
+     * @param cap The maximum allocation cap for the strategy
+     */
     function addStrategy(DataTypes.StrategyState storage s, address newStrategy, uint256 cap) internal {
         s.strategies[s.totalStrategies] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
 
@@ -43,27 +64,33 @@ library StrategyStateLogic {
         s.strategyToIndex[newStrategy] = ++s.totalStrategies;
     }
 
-    /// @notice Updates the allocation cap for an existing strategy
-    /// @dev Uses getStrategyIndex to locate the strategy and update its cap
-    /// @param s The strategy state storage reference
-    /// @param strategy The address of the strategy to modify
-    /// @param newCap The new allocation cap for the strategy
+    /**
+     * @notice Updates the allocation cap for an existing strategy
+     * @dev Uses getStrategyIndex to locate the strategy and update its cap
+     * @param s The strategy state storage reference
+     * @param strategy The address of the strategy to modify
+     * @param newCap The new allocation cap for the strategy
+     */
     function changeCap(DataTypes.StrategyState storage s, address strategy, uint256 newCap) internal {
         s.strategies[getStrategyIndex(s, strategy)].cap = newCap;
     }
 
-    /// @notice Updates the supply queue order for strategy allocation priority
-    /// @dev Directly replaces the current supply queue with the new one
-    /// @param s The strategy state storage reference
-    /// @param newQueue Array of strategy indices in desired supply order
+    /**
+     * @notice Updates the supply queue order for strategy allocation priority
+     * @dev Directly replaces the current supply queue with the new one
+     * @param s The strategy state storage reference
+     * @param newQueue Array of strategy indices in desired supply order
+     */
     function updateSupplyQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue) internal {
         s.supplyQueue = newQueue;
     }
 
-    /// @notice Updates the withdraw queue and removes strategies not included in the new queue
-    /// @dev Validates that removed strategies have zero cap and balance before deletion
-    /// @param s The strategy state storage reference
-    /// @param newQueue Array of indices referencing positions in current withdraw queue
+    /**
+     * @notice Updates the withdraw queue and removes strategies not included in the new queue
+     * @dev Validates that removed strategies have zero cap and balance before deletion
+     * @param s The strategy state storage reference
+     * @param newQueue Array of indices referencing positions in current withdraw queue
+     */
     function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue) internal {
         uint256[] memory currentWithdrawQueue = s.withdrawQueue;
         uint256 newLength = newQueue.length;

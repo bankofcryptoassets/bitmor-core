@@ -8,17 +8,35 @@ import {Errors} from "../libraries/helpers/Errors.sol";
 
 /**
  * @title LoanVaultFactory
+ * @author Bitmor Protocol
  * @notice Factory for deploying LoanVault instances using CREATE2
- * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment
- * Produces deterministic addresses that can be computed before deployment
+ * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment.
+ * Produces deterministic addresses that can be computed before deployment.
+ *
+ * ## Design
+ * - Uses OpenZeppelin Clones for minimal proxy deployment
+ * - CREATE2 enables deterministic address computation
+ * - Salt is derived from borrower address and timestamp
+ * - Only the authorized Loan contract can create vaults
+ *
+ * ## Benefits
+ * - Gas efficient: ~10x cheaper than deploying full contract
+ * - Predictable: Addresses can be computed off-chain
+ * - Secure: Only Loan contract can create vaults
+ *
+ * @custom:security Only authorized Loan contract can create vaults
  */
 contract LoanVaultFactory is ILoanVaultFactory {
     // ============ State Variables ============
 
-    /// @notice The LoanVault implementation contract to clone
+    /**
+     * @notice The LoanVault implementation contract to clone
+     */
     address public immutable i_IMPLEMENTATION;
 
-    /// @notice The Loan contract authorized to create vaults
+    /**
+     * @notice The Loan contract authorized to create vaults
+     */
     address public immutable i_LOAN; // This will be our Loan.sol contract address
 
     // ============ Modifiers ============

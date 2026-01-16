@@ -111,11 +111,10 @@ contract LoanContract is BaseLoanTest {
             address premiumCollector,
             uint256 preClosureFeeBps,
             uint256 gracePeriod,
-            uint256 liquidationBuffer,
-            , // usdc
+            uint256 liquidationBuffer,, // usdc
             , // usdc_holder
             , // entryFee
-              // exitFee
+            // exitFee
         ) = config.networkConfig();
 
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
@@ -159,11 +158,10 @@ contract LoanContract is BaseLoanTest {
             address premiumCollector,
             uint256 preClosureFeeBps,
             uint256 gracePeriod,
-            uint256 liquidationBuffer,
-            , // usdc
+            uint256 liquidationBuffer,, // usdc
             , // usdc_holder
             , // entryFee
-              // exitFee
+            // exitFee
         ) = config.networkConfig();
 
         Loan buggyLoan = new Loan(

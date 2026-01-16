@@ -148,9 +148,7 @@ contract BaseTestForUSDCVault is VaultUtilities {
 
     /// @notice Sets the strategy on the vault
     function _setStrategy() internal {
-        _scheduleAndExecute(
-            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(strategy)))
-        );
+        _scheduleAndExecute(manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
     }
 
     /// @notice Transfers USDC to test accounts

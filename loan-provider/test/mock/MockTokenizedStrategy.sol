@@ -4,11 +4,7 @@ pragma solidity 0.8.30;
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-import {
-    ERC20,
-    ERC4626,
-    SimpleTokenizedStrategy
-} from "@btcVault/TokenizedStrategy/SimpleTokenizedStrategy.sol";
+import {ERC20, ERC4626, SimpleTokenizedStrategy} from "@btcVault/TokenizedStrategy/SimpleTokenizedStrategy.sol";
 import {MockYieldSource} from "./MockYieldSource.sol";
 
 /// @title MockTokenizedStrategy

@@ -86,7 +86,9 @@ contract USDCVaultTest is BaseTestForUSDCVault {
 
         // Verify assets were actually transferred to lender
         assertEq(
-            IERC20(networkConfig.usdc).balanceOf(lender), usdcBefore + actualAssets, "Lender should have received assets"
+            IERC20(networkConfig.usdc).balanceOf(lender),
+            usdcBefore + actualAssets,
+            "Lender should have received assets"
         );
     }
 
@@ -184,7 +186,9 @@ contract USDCVaultTest is BaseTestForUSDCVault {
         // Assert: received assets
         assertGt(assetsReturned, 0, "Should have received some assets");
         assertEq(
-            IERC20(networkConfig.usdc).balanceOf(lender), usdcBefore + assetsReturned, "Lender should have received USDC"
+            IERC20(networkConfig.usdc).balanceOf(lender),
+            usdcBefore + assetsReturned,
+            "Lender should have received USDC"
         );
     }
 
@@ -209,11 +213,12 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     /// @notice Test that setStrategy updates the strategy
     function test_setStrategy_updatesStrategy() public {
         // Deploy new strategy
-        USDCStrategy newStrategy =
-            new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
+        USDCStrategy newStrategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
 
         // Set new strategy via manager
-        _scheduleAndExecute(manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        _scheduleAndExecute(
+            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
+        );
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -222,7 +227,9 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     /// @notice Test that setting strategy to address(0) reverts
     function test_setStrategy_zeroAddress_reverts() public {
         bytes memory data = abi.encodeCall(USDCVault.setStrategy, (address(0)));
-        _scheduleAndExpectRevert(manager_slow, MANAGER_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        _scheduleAndExpectRevert(
+            manager_slow, MANAGER_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
     }
 
     // ============================================

@@ -7,26 +7,73 @@ import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /**
  * @title LoanMath
+ * @author Bitmor Protocol
  * @notice Library for loan calculation mathematics
- * @dev Contains pure mathematical functions for interest rate calculations, loan amortization, and EMI computation using RAY precision (27 decimals)
+ * @dev Contains pure mathematical functions for interest rate calculations, loan amortization,
+ * and EMI (Equated Monthly Installment) computation using RAY precision (27 decimals).
+ *
+ * ## Key Formulas
+ *
+ * ### EMI Calculation (Standard Amortization)
+ * ```
+ * EMI = P * r * (1 + r)^n / ((1 + r)^n - 1)
+ * ```
+ * Where:
+ * - P = Principal (loan amount)
+ * - r = Monthly interest rate (annual rate / 12)
+ * - n = Number of monthly payments (duration)
+ *
+ * ### Strike Price Calculation
+ * ```
+ * strikePrice = btcPrice * loanAmount / (loanAmount + deposit) * 1.1
+ * ```
+ *
+ * ## Precision
+ * - Interest rates use RAY precision (27 decimals) for maximum accuracy
+ * - Loan amounts use 6 decimals (USDC)
+ * - Collateral amounts use 8 decimals (cbBTC)
+ * - USD prices use 8 decimals (Chainlink standard)
+ *
+ * @custom:security Uses Solady's FixedPointMathLib for overflow-safe operations
  */
 library LoanMath {
     using FixedPointMathLib for uint256;
 
-    uint256 private constant RAY = 1e27; // Ray precision (27 decimals)
+    /**
+     * @dev RAY precision for interest rate calculations (27 decimals)
+     */
+    uint256 private constant RAY = 1e27;
+
+    /**
+     * @dev Number of months in a year for rate conversion
+     */
     uint256 private constant MONTHS_PER_YEAR = 12;
-    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 33_00; // 33% as per basis points
+
+    /**
+     * @dev Minimum deposit percentage required (33% in basis points)
+     */
+    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 33_00;
+
+    /**
+     * @dev Basis points denominator (100% = 10000)
+     */
     uint256 private constant BASIS_POINTS = 100_00;
 
     /**
      * @notice Calculates power of a number with fixed-point precision using RAY
-     * @dev Implements exponentiation by squaring for (base)^exponent
+     * @dev Implements exponentiation by squaring algorithm for efficient computation.
+     * Time complexity: O(log n) where n is the exponent.
+     *
+     * ## Algorithm
+     * Uses binary exponentiation: if exponent bit is set, multiply result by current base.
+     * Each iteration squares the base and shifts exponent right.
+     *
      * @param base The base number in RAY precision (27 decimals)
-     * @param exponent The exponent (whole number)
+     * @param exponent The exponent (whole number, not RAY-scaled)
      * @return result The result in RAY precision
      */
+    //! TODO: Consider replacing with a cleaner, more precise implementation
     function rayPow(uint256 base, uint256 exponent) internal pure returns (uint256 result) {
-        // TODO!: Remove this function for cleaner and more precise version.
         result = RAY;
 
         if (exponent == 0) {
@@ -50,12 +97,22 @@ library LoanMath {
 
     /**
      * @notice Calculates the loan amount and monthly payment based on collateral and deposit
-     * @dev TODO: Please verify this logic.
-     * @param data Params to calculate loan details.
-     * @return loanAmount The calculated loan amount in USDC (6 decimals)
-     * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
-     * @return minDepositRequired Minimum deposit requried amount
+     * @dev Performs the following calculations:
+     * 1. Converts collateral to USD value using oracle price
+     * 2. Validates deposit meets minimum 33% requirement
+     * 3. Calculates loan amount as: collateralValue - depositValue
+     * 4. Computes EMI using standard amortization formula
+     *
+     * ## Validation
+     * - Reverts with `InsufficientCollateral` if deposit exceeds collateral value
+     * - Reverts with `InsufficientDeposit` if deposit is below 33% of collateral
+     *
+     * @param data Struct containing all calculation parameters
+     * @return loanAmount The calculated loan amount in debt asset decimals
+     * @return monthlyPayAmt The monthly payment amount in debt asset decimals
+     * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
+    //! TODO: Verify EMI calculation logic for edge cases
     function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
         internal
         pure
@@ -115,18 +172,28 @@ library LoanMath {
     }
 
     /**
-     * @notice Calculates the loan amount and monthly payment based on collateral and deposit
-     * @dev TODO: Please verify this logic.
-     * @dev Uses SafeMath for all calculations to prevent overflow/underflow
+     * @notice Calculates loan details for a given collateral amount (used for previewing)
+     * @dev Similar to `calculateLoanAmt` but assumes minimum deposit (33% of collateral).
+     * Used by `Loan.getLoanDetails()` to preview loan terms before creation.
+     *
+     * ## Calculation Flow
+     * 1. Convert collateral to USD value
+     * 2. Calculate minimum deposit as 33% of collateral
+     * 3. Loan amount = collateral value - minimum deposit value
+     * 4. Calculate monthly payment using EMI formula
+     *
      * @param collateralAmount Desired BTC collateral amount (8 decimals)
      * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
+     * @param collateralAssetDecimals Number of decimals for collateral asset
      * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
-     * @param interestRate Interest rate from Aave V2 reserve (27 decimals - ray)
+     * @param debtAssetDecimals Number of decimals for debt asset
+     * @param interestRate Interest rate from Aave V2 reserve (27 decimals - RAY)
      * @param duration Loan duration in months
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
-     * @return minDepositRequired Minimum deposit requried amount
+     * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
+    //! TODO: Verify EMI calculation logic for edge cases
     function calculateLoanDetails(
         uint256 collateralAmount,
         uint256 collateralPriceUSD,
@@ -194,6 +261,18 @@ library LoanMath {
         return a < b ? a : b;
     }
 
+    /**
+     * @notice Calculates the strike price for options based on loan parameters
+     * @dev Formula: `strikePrice = btcPrice * loanAmount / (loanAmount + deposit) * 1.1`
+     *
+     * The 1.1 multiplier (110%) provides a 10% buffer above the break-even price,
+     * ensuring the strike price accounts for potential price appreciation.
+     *
+     * @param btcPriceUSD Current BTC price in USD (8 decimals)
+     * @param loanAmount The loan amount in debt asset (6 decimals for USDC)
+     * @param deposit The deposit amount in debt asset (6 decimals for USDC)
+     * @return strikePrice The calculated strike price in USD (8 decimals)
+     */
     function calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
         internal
         pure

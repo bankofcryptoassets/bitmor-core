@@ -7,11 +7,31 @@ import {DataTypes} from "../types/DataTypes.sol";
 
 /**
  * @title BitmorLendingPoolLogic
- * @notice Handles deposits and borrows on Bitmor Lending Pool
+ * @author Bitmor Protocol
+ * @notice Library for interacting with the Bitmor Lending Pool (Aave V2 fork)
+ * @dev Provides standardized functions for deposit, borrow, repay, and position queries.
+ *
+ * ## Supported Operations
+ * - Depositing collateral (cbBTC) on behalf of LSAs
+ * - Borrowing debt (USDC) on behalf of LSAs
+ * - Repaying debt positions
+ * - Querying user positions and token balances
+ *
+ * ## Interest Rate Mode
+ * All borrow operations use variable rate mode (RATE_MODE = 2).
+ * Stable rate borrowing is not supported in this implementation.
+ *
+ * @custom:security All operations require proper approvals to be set before execution
  */
-
 library BitmorLendingPoolLogic {
+    /**
+     * @dev Variable interest rate mode for Aave V2 borrows
+     */
     uint256 constant RATE_MODE = 2;
+
+    /**
+     * @dev Referral code for Aave operations (0 = no referral)
+     */
     uint16 constant REFERRAL = 0;
 
     /**
@@ -40,11 +60,12 @@ library BitmorLendingPoolLogic {
     }
 
     /**
-     * Returns the amount of vdtTokens `lsa` holds.
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param debtAsset Debt asset token address
-     * @param lsa The loan vault address
-     * @return vdtTokenAmount The aomunt of variable debt token.
+     * @notice Returns the amount of variable debt tokens (vdtTokens) held by an LSA
+     * @dev Queries the variable debt token balance directly from the debt token contract
+     * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
+     * @param debtAsset Debt asset token address (USDC)
+     * @param lsa The Loan Specific Address to query
+     * @return vdtTokenAmount The amount of variable debt tokens representing outstanding debt
      */
     function getVDTTokenAmount(address bitmorPool, address debtAsset, address lsa)
         internal
@@ -57,11 +78,12 @@ library BitmorLendingPoolLogic {
     }
 
     /**
-     * Returns the amount of aToken `lsa` holds.
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param collateralAsset Collateral asset token address
-     * @param lsa The loan vault address
-     * @return aTokenAmount The aomunt of  aToken.
+     * @notice Returns the amount of aTokens (collateral tokens) held by an LSA
+     * @dev Queries the aToken balance directly from the aToken contract
+     * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
+     * @param collateralAsset Collateral asset token address (cbBTC)
+     * @param lsa The Loan Specific Address to query
+     * @return aTokenAmount The amount of aTokens representing deposited collateral
      */
     function getATokenAmount(address bitmorPool, address collateralAsset, address lsa)
         internal
@@ -74,10 +96,12 @@ library BitmorLendingPoolLogic {
     }
 
     /**
-     * @notice Get the latest position value of the `lsa` in `bitmorPool`.
-     * @param lsa Loan Vault Address
-     * @return totalCollateralUSD Total collateral asset value in USD hold by LSA
-     * @return totalDebtUSD Total debt asset value in USD hold by LSA
+     * @notice Retrieves the current USD-denominated positions for an LSA
+     * @dev Calls `getUserAccountData` on the Bitmor Lending Pool to get aggregate position values
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param lsa The Loan Specific Address to query
+     * @return totalCollateralUSD Total collateral value in USD (8 decimals)
+     * @return totalDebtUSD Total debt value in USD (8 decimals)
      */
     function getUserPositions(address bitmorPool, address lsa)
         internal

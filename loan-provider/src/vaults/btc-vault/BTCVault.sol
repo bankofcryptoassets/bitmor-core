@@ -17,12 +17,35 @@ import {TokenizedStrategyLogic} from "../../libraries/logic/TokenizedStrategyLog
 
 import {BTCVault__Storage} from "./BTCVault__Storage.sol";
 
-/// @title BTCVault (Simple Vault with Tokenized Strategies)
-/// @notice Advanced ERC-4626 compliant vault with modular tokenized strategy support
-/// @dev Extends Solady's ERC4626 with role-based access control, multiple strategies, and advanced allocation management
-/// @custom:security Uses reentrancy guards and access control for secure operations
-/// @author Bitmor Protocol
-
+/**
+ * @title BTCVault
+ * @author Bitmor Protocol
+ * @notice Advanced ERC-4626 compliant vault with modular tokenized strategy support
+ * @dev Extends Solady's ERC4626 with role-based access control, multiple strategies,
+ * and advanced allocation management for BTC-based assets.
+ *
+ * ## Features
+ * - **ERC-4626 Compliance**: Standard vault interface for deposits/withdrawals
+ * - **Multi-Strategy Support**: Configurable strategies with allocation caps
+ * - **Fee System**: Entry and exit fees in basis points
+ * - **Queue Management**: Separate supply and withdraw queues for strategy priority
+ * - **Emergency Controls**: Pause functionality and emergency withdrawal
+ *
+ * ## Strategy Flow
+ * ```
+ * Deposit: User -> Vault -> Supply Queue -> Strategies (respecting caps)
+ * Withdraw: Strategies -> Withdraw Queue -> Vault -> User (with exit fee)
+ * ```
+ *
+ * ## Access Control
+ * Uses OpenZeppelin AccessManaged for role-based permissions:
+ * - Deposit/mint requires authorization
+ * - Strategy management requires curator/allocator roles
+ * - Pause/unpause requires emergency roles
+ *
+ * @custom:security Uses reentrancy guards and access control for secure operations
+ * @custom:security Validates all strategy operations to prevent fund loss
+ */
 // aderyn-ignore-next-line(centralization-risk)
 contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard, Pausable {
     using FixedPointMathLib for uint256;
@@ -48,63 +71,95 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
       |_____/_/\_\\__\___|_|  |_| |_|\__,_|_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /// @notice Returns the internal index of a strategy in the strategies array
-    /// @param strategy The address of the strategy to look up
-    /// @return index The index of the strategy in the strategies array
+    /**
+     * @notice Returns the internal index of a strategy in the strategies array
+     * @param strategy The address of the strategy to look up
+     * @return index The index of the strategy in the strategies array
+     */
     function getStrategyIndex(address strategy) external view returns (uint256 index) {
         return s_strategy.getStrategyIndex(strategy);
     }
 
-    /// @notice Returns the current fee recipient address
-    /// @return The address that receives collected entry and exit fees
+    /**
+     * @notice Returns the current fee recipient address
+     * @return The address that receives collected entry and exit fees
+     */
     function getFeeRecipient() external view returns (address) {
         return s_vault.feeRecipient;
     }
 
+    /**
+     * @notice Returns the maximum number of strategies allowed in the vault
+     * @return The maximum strategies limit
+     */
     function getMaxStrategies() external view returns (uint256) {
         return s_vault.maxStrategies;
     }
 
-    /// @notice Returns detailed information about a strategy
-    /// @param strategyIndex The index of the strategy in the strategies array
-    /// @return strategy The strategy struct containing address and allocation cap
+    /**
+     * @notice Returns detailed information about a strategy
+     * @param strategyIndex The index of the strategy in the strategies array
+     * @return strategy The strategy struct containing address and allocation cap
+     */
     function getStrategyDetails(uint256 strategyIndex) external view returns (DataTypes.Strategy memory strategy) {
         strategy = s_strategy.strategies[strategyIndex];
     }
 
-    /// @notice Returns the total number of strategies added to the vault
-    /// @return The count of strategies currently managed by the vault
+    /**
+     * @notice Returns the total number of strategies added to the vault
+     * @return The count of strategies currently managed by the vault
+     */
     function getTotalStrategies() external view returns (uint256) {
         return s_strategy.totalStrategies;
     }
 
-    /// @notice Returns the amount of assets currently deployed in a specific strategy
-    /// @param strategy The address of the strategy to query
-    /// @return assets The amount of underlying assets held by the specified strategy
+    /**
+     * @notice Returns the amount of assets currently deployed in a specific strategy
+     * @param strategy The address of the strategy to query
+     * @return assets The amount of underlying assets held by the specified strategy
+     */
     function getAssetInStrategy(address strategy) external view returns (uint256 assets) {
         assets = TokenizedStrategyLogic.getAssetBalanceInStrategy(
             s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy
         );
     }
 
+    /**
+     * @notice Returns the current supply queue (deposit priority order)
+     * @return supplyQueue Array of strategy indices in supply order
+     */
     function getSupplyQueue() external view returns (uint256[] memory supplyQueue) {
         supplyQueue = s_strategy.supplyQueue;
     }
 
+    /**
+     * @notice Returns the current withdraw queue (withdrawal priority order)
+     * @return withdrawQueue Array of strategy indices in withdrawal order
+     */
     function getWithdrawQueue() external view returns (uint256[] memory withdrawQueue) {
         withdrawQueue = s_strategy.withdrawQueue;
     }
 
+    /**
+     * @notice Returns the number of strategies in the supply queue
+     * @return Length of the supply queue array
+     */
     function getSupplyQueueLength() external view returns (uint256) {
         return s_strategy.supplyQueue.length;
     }
 
+    /**
+     * @notice Returns the number of strategies in the withdraw queue
+     * @return Length of the withdraw queue array
+     */
     function getWithdrawQueueLength() external view returns (uint256) {
         return s_strategy.withdrawQueue.length;
     }
 
-    /// @notice Sets the entry fee for deposits
-    /// @param newEntryFee The new entry fee in basis points (e.g., 50 = 0.5%)
+    /**
+     * @notice Sets the entry fee for deposits
+     * @param newEntryFee The new entry fee in basis points (e.g., 50 = 0.5%)
+     */
     function setEntryFee(uint256 newEntryFee) external restricted {
         if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
 
@@ -113,8 +168,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__EntryFeeUpdated(newEntryFee);
     }
 
-    /// @notice Sets the exit fee for withdrawals
-    /// @param newExitFee The new exit fee in basis points (e.g., 100 = 1%)
+    /**
+     * @notice Sets the exit fee for withdrawals
+     * @param newExitFee The new exit fee in basis points (e.g., 100 = 1%)
+     */
     function setExitFee(uint256 newExitFee) external restricted {
         if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
 
@@ -123,8 +180,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__ExitFeeUpdated(newExitFee);
     }
 
-    /// @notice Sets the address that will receive collected fees
-    /// @param newFeeRecipient The new fee recipient address (cannot be zero address)
+    /**
+     * @notice Sets the address that will receive collected fees
+     * @param newFeeRecipient The new fee recipient address (cannot be zero address)
+     */
     function setFeeRecipient(address newFeeRecipient) external restricted {
         if (newFeeRecipient == address(0)) revert Errors.ZeroAddress();
 
@@ -133,16 +192,23 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__FeeRecipientUpdated(newFeeRecipient);
     }
 
+    /**
+     * @notice Sets the maximum number of strategies the vault can manage
+     * @dev Only callable by authorized role
+     * @param newMaxStrategies The new maximum strategies limit
+     */
     function setMaxStrategies(uint256 newMaxStrategies) external restricted {
         s_vault.maxStrategies = newMaxStrategies;
 
         emit BTCVault__MaxStrategiesUpdated(newMaxStrategies);
     }
 
-    /// @notice Adds a new tokenized strategy to the vault
-    /// @dev Only callable by CURATOR role. Strategy must be compatible with vault asset
-    /// @param strategy The address of the tokenized strategy contract to add
-    /// @param cap The maximum amount of assets this strategy can hold
+    /**
+     * @notice Adds a new tokenized strategy to the vault
+     * @dev Only callable by CURATOR role. Strategy must be compatible with vault asset
+     * @param strategy The address of the tokenized strategy contract to add
+     * @param cap The maximum amount of assets this strategy can hold
+     */
     function addStrategy(address strategy, uint256 cap) external restricted {
         s_strategy.validateStrategyAddition(strategy, i_asset, s_vault.maxStrategies);
 
@@ -153,10 +219,12 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__TokenizedStrategyAdded(strategy, cap);
     }
 
-    /// @notice Changes the asset allocation cap for an existing strategy
-    /// @dev Only callable by CURATOR role. Must validate strategy exists
-    /// @param strategy The address of the strategy to modify
-    /// @param newCap The new maximum amount of assets this strategy can hold
+    /**
+     * @notice Changes the asset allocation cap for an existing strategy
+     * @dev Only callable by CURATOR role. Must validate strategy exists
+     * @param strategy The address of the strategy to modify
+     * @param newCap The new maximum amount of assets this strategy can hold
+     */
     function changeStrategyCap(address strategy, uint256 newCap) external restricted {
         s_strategy.validateCapChange(strategy, newCap);
 
@@ -165,9 +233,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__CapUpdated(strategy, newCap);
     }
 
-    /// @notice Reallocates funds across strategies according to specified allocations
-    /// @dev Only callable by ALLOCATOR role. Validates total allocations and asset availability
-    /// @param allocations Array of allocation instructions specifying strategy and amount changes
+    /**
+     * @notice Reallocates funds across strategies according to specified allocations
+     * @dev Only callable by ALLOCATOR role. Validates total allocations and asset availability
+     * @param allocations Array of allocation instructions specifying strategy and amount changes
+     */
     function reallocateFunds(DataTypes.Allocation[] calldata allocations) external restricted {
         s_strategy.validateReallocateFunds(totalAssets(), i_asset);
 
@@ -176,17 +246,21 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__FundsReallocated();
     }
 
-    /// @notice Emergency function to withdraw all funds from all strategies back to the vault
-    /// @dev Only callable by MANAGER role. Used in emergency situations to secure assets
+    /**
+     * @notice Emergency function to withdraw all funds from all strategies back to the vault
+     * @dev Only callable by MANAGER role. Used in emergency situations to secure assets
+     */
     function emergencyWithdrawFunds() external restricted {
         s_strategy.emergencyWithdraw();
 
         emit BTCVault__EmergencyWithdrawFunds();
     }
 
-    /// @notice Updates the order in which strategies receive deposits
-    /// @dev Only callable by ALLOCATOR role. Queue determines priority for fund deployment
-    /// @param newSupplyQueue Array of strategy indices in desired supply order
+    /**
+     * @notice Updates the order in which strategies receive deposits
+     * @dev Only callable by ALLOCATOR role. Queue determines priority for fund deployment
+     * @param newSupplyQueue Array of strategy indices in desired supply order
+     */
     function updateSupplyQueue(uint256[] memory newSupplyQueue) external restricted {
         s_strategy.validateNewSupplyQueue(newSupplyQueue, s_vault.maxStrategies);
 
@@ -195,9 +269,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__SupplyQueueUpdated(newSupplyQueue);
     }
 
-    /// @notice Updates the order in which strategies are drained for withdrawals
-    /// @dev Only callable by ALLOCATOR role. Queue determines priority for fund withdrawal
-    /// @param newWithdrawQueue Array of strategy indices in desired withdrawal order
+    /**
+     * @notice Updates the order in which strategies are drained for withdrawals
+     * @dev Only callable by ALLOCATOR role. Queue determines priority for fund withdrawal
+     * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
+     */
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
@@ -206,10 +282,18 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
     }
 
+    /**
+     * @notice Pauses all vault operations in case of emergency
+     * @dev Only callable by authorized emergency role when vault is not paused
+     */
     function pause() external whenNotPaused restricted {
         _pause();
     }
 
+    /**
+     * @notice Resumes vault operations after an emergency pause
+     * @dev Only callable by authorized role when vault is paused
+     */
     function unpause() external whenPaused restricted {
         _unpause();
     }
@@ -222,71 +306,87 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
       |_|    \__,_|_.__/|_|_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /// @notice Returns the name of the vault token
-    /// @inheritdoc ERC20
-    /// @return The vault token name
+    /**
+     * @notice Returns the name of the vault token
+     * @inheritdoc ERC20
+     * @return The vault token name
+     */
     function name() public pure override returns (string memory) {
         return "BitmorBTCVault";
     }
 
-    /// @notice Returns the symbol of the vault token
-    /// @inheritdoc ERC20
-    /// @return The vault token symbol
+    /**
+     * @notice Returns the symbol of the vault token
+     * @inheritdoc ERC20
+     * @return The vault token symbol
+     */
     function symbol() public pure override returns (string memory) {
         return "bvBTC";
     }
 
-    /// @notice Returns the address of the underlying asset
-    /// @inheritdoc ERC4626
-    /// @return The address of the underlying ERC20 token
+    /**
+     * @notice Returns the address of the underlying asset
+     * @inheritdoc ERC4626
+     * @return The address of the underlying ERC20 token
+     */
     function asset() public view override returns (address) {
         return i_asset;
     }
 
-    /// @notice Previews the amount of shares that would be minted for a deposit
-    /// @inheritdoc ERC4626
-    /// @dev Deducts entry fees from assets before calculating shares
-    /// @param assets The amount of assets to be deposited
-    /// @return shares The amount of shares that would be minted (after fees)
+    /**
+     * @notice Previews the amount of shares that would be minted for a deposit
+     * @inheritdoc ERC4626
+     * @dev Deducts entry fees from assets before calculating shares
+     * @param assets The amount of assets to be deposited
+     * @return shares The amount of shares that would be minted (after fees)
+     */
     function previewDeposit(uint256 assets) public view override returns (uint256 shares) {
         uint256 fee = _feeOnTotal(assets, getEntryFee());
         return super.previewDeposit(assets.rawSub(fee));
     }
 
-    /// @notice Previews the amount of assets needed to mint a specific amount of shares
-    /// @inheritdoc ERC4626
-    /// @dev Adds entry fees to the required assets
-    /// @param shares The amount of shares to be minted
-    /// @return assets The total amount of assets needed (including fees)
+    /**
+     * @notice Previews the amount of assets needed to mint a specific amount of shares
+     * @inheritdoc ERC4626
+     * @dev Adds entry fees to the required assets
+     * @param shares The amount of shares to be minted
+     * @return assets The total amount of assets needed (including fees)
+     */
     function previewMint(uint256 shares) public view override returns (uint256 assets) {
         assets = super.previewMint(shares);
         return (assets.rawAdd(_feeOnRaw(assets, getEntryFee())));
     }
 
-    /// @notice Previews the amount of shares needed to withdraw a specific amount of assets
-    /// @inheritdoc ERC4626
-    /// @dev Deducts exit fees from assets before calculating shares
-    /// @param assets The amount of assets to be withdrawn
-    /// @return shares The amount of shares that need to be burned
+    /**
+     * @notice Previews the amount of shares needed to withdraw a specific amount of assets
+     * @inheritdoc ERC4626
+     * @dev Deducts exit fees from assets before calculating shares
+     * @param assets The amount of assets to be withdrawn
+     * @return shares The amount of shares that need to be burned
+     */
     function previewWithdraw(uint256 assets) public view override returns (uint256 shares) {
         uint256 fee = _feeOnRaw(assets, getExitFee());
         return super.previewWithdraw(assets.rawAdd(fee));
     }
 
-    /// @notice Previews the amount of assets that would be withdrawn for redeeming shares
-    /// @inheritdoc ERC4626
-    /// @dev Adds exit fees to the assets calculation
-    /// @param shares The amount of shares to be redeemed
-    /// @return assets The total amount of assets that would be withdrawn (including fees)
+    /**
+     * @notice Previews the amount of assets that would be withdrawn for redeeming shares
+     * @inheritdoc ERC4626
+     * @dev Adds exit fees to the assets calculation
+     * @param shares The amount of shares to be redeemed
+     * @return assets The total amount of assets that would be withdrawn (including fees)
+     */
     function previewRedeem(uint256 shares) public view override returns (uint256 assets) {
         assets = super.previewRedeem(shares);
         return (assets.rawSub(_feeOnTotal(assets, getExitFee())));
     }
 
-    /// @notice Returns the total amount of assets under management
-    /// @inheritdoc ERC4626
-    /// @dev Delegates to the strategy contract to calculate total assets across all positions
-    /// @return assets The total amount of underlying assets managed by the vault
+    /**
+     * @notice Returns the total amount of assets under management
+     * @inheritdoc ERC4626
+     * @dev Delegates to the strategy contract to calculate total assets across all positions
+     * @return assets The total amount of underlying assets managed by the vault
+     */
     function totalAssets() public view override returns (uint256 assets) {
         uint256 i = 0;
 
@@ -331,30 +431,64 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         maxAssets = balanceOfUser.rawSub(feeOnWithdraw);
     }
 
-    /// @notice Returns the current entry fee in basis points
-    /// @return The entry fee charged on deposits (in basis points)
+    /**
+     * @notice Returns the current entry fee in basis points
+     * @return The entry fee charged on deposits (in basis points)
+     */
     function getEntryFee() public view returns (uint256) {
         return s_vault.entryFee;
     }
 
-    /// @notice Returns the current exit fee in basis points
-    /// @return The exit fee charged on withdrawals (in basis points)
+    /**
+     * @notice Returns the current exit fee in basis points
+     * @return The exit fee charged on withdrawals (in basis points)
+     */
     function getExitFee() public view returns (uint256) {
         return s_vault.exitFee;
     }
 
+    /**
+     * @notice Deposits assets into the vault and mints shares to the receiver
+     * @dev Overrides ERC4626 deposit with reentrancy guard and access control
+     * @param assets Amount of underlying assets to deposit
+     * @param to Address to receive the minted shares
+     * @return Amount of shares minted
+     */
     function deposit(uint256 assets, address to) public override nonReentrant restricted returns (uint256) {
         return super.deposit(assets, to);
     }
 
+    /**
+     * @notice Mints exact shares to the receiver by depositing assets
+     * @dev Overrides ERC4626 mint with reentrancy guard and access control
+     * @param shares Exact amount of shares to mint
+     * @param to Address to receive the minted shares
+     * @return Amount of assets deposited
+     */
     function mint(uint256 shares, address to) public override nonReentrant restricted returns (uint256) {
         return super.mint(shares, to);
     }
 
+    /**
+     * @notice Withdraws exact assets by burning shares from the owner
+     * @dev Overrides ERC4626 withdraw with reentrancy guard
+     * @param assets Exact amount of assets to withdraw
+     * @param to Address to receive the withdrawn assets
+     * @param owner Address that owns the shares to burn
+     * @return Amount of shares burned
+     */
     function withdraw(uint256 assets, address to, address owner) public override nonReentrant returns (uint256) {
         return super.withdraw(assets, to, owner);
     }
 
+    /**
+     * @notice Redeems exact shares for assets
+     * @dev Overrides ERC4626 redeem with reentrancy guard
+     * @param shares Exact amount of shares to redeem
+     * @param to Address to receive the assets
+     * @param owner Address that owns the shares to redeem
+     * @return Amount of assets received
+     */
     function redeem(uint256 shares, address to, address owner) public override nonReentrant returns (uint256) {
         return super.redeem(shares, to, owner);
     }
@@ -420,35 +554,43 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         super._withdraw(by, to, owner, assets, shares);
     }
 
-    /// @notice Returns the number of decimals used by the underlying asset
-    /// @inheritdoc ERC4626
-    /// @dev Used internally for precise share calculations
-    /// @return The number of decimals of the underlying asset
+    /**
+     * @notice Returns the number of decimals used by the underlying asset
+     * @inheritdoc ERC4626
+     * @dev Used internally for precise share calculations
+     * @return The number of decimals of the underlying asset
+     */
     function _underlyingDecimals() internal view override returns (uint8) {
         return ERC20(i_asset).decimals();
     }
 
-    /// @notice Calculates the fees that should be added to an amount that does not already include fees
-    /// @dev Used in {ERC4626-mint} and {ERC4626-withdraw} operations
-    /// @param assets The base amount of assets (without fees)
-    /// @param feeBasisPoints The fee rate in basis points
-    /// @return The calculated fee amount
+    /**
+     * @notice Calculates the fees that should be added to an amount that does not already include fees
+     * @dev Used in {ERC4626-mint} and {ERC4626-withdraw} operations
+     * @param assets The base amount of assets (without fees)
+     * @param feeBasisPoints The fee rate in basis points
+     * @return The calculated fee amount
+     */
     function _feeOnRaw(uint256 assets, uint256 feeBasisPoints) internal pure returns (uint256) {
         return assets.mulDivUp(feeBasisPoints, BASIS_POINT_SCALE);
     }
 
-    /// @notice Calculates the fee portion of an amount that already includes fees
-    /// @dev Used in {ERC4626-deposit} and {ERC4626-redeem} operations
-    /// @param assets The total amount of assets (including fees)
-    /// @param feeBasisPoints The fee rate in basis points
-    /// @return The calculated fee amount
+    /**
+     * @notice Calculates the fee portion of an amount that already includes fees
+     * @dev Used in {ERC4626-deposit} and {ERC4626-redeem} operations
+     * @param assets The total amount of assets (including fees)
+     * @param feeBasisPoints The fee rate in basis points
+     * @return The calculated fee amount
+     */
     function _feeOnTotal(uint256 assets, uint256 feeBasisPoints) internal pure returns (uint256) {
         return assets.mulDivUp(feeBasisPoints, feeBasisPoints + BASIS_POINT_SCALE);
     }
 
-    /// @notice Deposits assets into strategies following the supply queue order
-    /// @dev Distributes assets across strategies respecting allocation caps and queue priority
-    /// @param assets The total amount of assets to deposit
+    /**
+     * @notice Deposits assets into strategies following the supply queue order
+     * @dev Distributes assets across strategies respecting allocation caps and queue priority
+     * @param assets The total amount of assets to deposit
+     */
     function _depositFunds(uint256 assets) internal {
         uint256 i = 0;
         uint256[] memory supplyQueue = s_strategy.supplyQueue;
@@ -480,9 +622,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         if (assets != 0) revert Errors.AllCapsReached();
     }
 
-    /// @notice Withdraws assets from strategies following the withdraw queue order
-    /// @dev Processes withdrawals across strategies until requested amount is obtained
-    /// @param assets The total amount of assets to withdraw
+    /**
+     * @notice Withdraws assets from strategies following the withdraw queue order
+     * @dev Processes withdrawals across strategies until requested amount is obtained
+     * @param assets The total amount of assets to withdraw
+     */
     function _withdrawFunds(uint256 assets) internal {
         uint256 i = 0;
         uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
@@ -511,9 +655,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         if (assets != 0) revert Errors.NotEnoughLiquidity();
     }
 
-    /// @notice Reallocates funds across strategies according to specified allocations
-    /// @dev Processes withdrawals first, then deposits, ensuring total balance consistency
-    /// @param allocations Array of allocation instructions specifying target amounts per strategy
+    /**
+     * @notice Reallocates funds across strategies according to specified allocations
+     * @dev Processes withdrawals first, then deposits, ensuring total balance consistency
+     * @param allocations Array of allocation instructions specifying target amounts per strategy
+     */
     function _reallocateFunds(DataTypes.Allocation[] memory allocations) internal {
         uint256 totalSupplied;
         uint256 totalWithdrawn;
