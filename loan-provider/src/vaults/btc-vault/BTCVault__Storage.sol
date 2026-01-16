@@ -75,6 +75,9 @@ contract BTCVault__Storage {
     /// @notice Scale factor for basis points calculations (10,000 = 100%)
     uint256 internal constant BASIS_POINT_SCALE = 1e4;
 
+    /// @notice Max Fee BPS
+    uint256 internal constant MAX_FEE_BPS = 10_00; //10%
+
     /// @notice Vault configuration state including fees and recipient
     DataTypes.VaultState internal s_vault;
 

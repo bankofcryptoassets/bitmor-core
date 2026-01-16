@@ -106,6 +106,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /// @notice Sets the entry fee for deposits
     /// @param newEntryFee The new entry fee in basis points (e.g., 50 = 0.5%)
     function setEntryFee(uint256 newEntryFee) external restricted {
+        if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
+
         s_vault.updateEntryFee(newEntryFee);
 
         emit BTCVault__EntryFeeUpdated(newEntryFee);
@@ -114,6 +116,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /// @notice Sets the exit fee for withdrawals
     /// @param newExitFee The new exit fee in basis points (e.g., 100 = 1%)
     function setExitFee(uint256 newExitFee) external restricted {
+        if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
+
         s_vault.updateExitFee(newExitFee);
 
         emit BTCVault__ExitFeeUpdated(newExitFee);

@@ -82,4 +82,6 @@ library Errors {
 
     /// @notice Thrown when reallocation parameters are invalid or inconsistent
     error InvalidReallocation();
+
+    error ExceedMaxFee();
 }
