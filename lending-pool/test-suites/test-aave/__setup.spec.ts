@@ -1,5 +1,4 @@
 import {network, artifacts} from 'hardhat';
-import type { MockContract } from 'ethereum-waffle';
 import {
   insertContractAddressInDb,
   getEthersSigners,
@@ -67,7 +66,7 @@ const USD_ADDRESS = AaveConfig.ProtocolGlobalParams.UsdAddress;
 const LENDING_RATE_ORACLE_RATES_COMMON = AaveConfig.LendingRateOracleRatesCommon;
 
 const deployAllMockTokens = async (deployer: Signer) => {
-  const tokens: { [symbol: string]: MockContract | MintableERC20 | WETH9Mocked } = {};
+  const tokens: { [symbol: string]: MintableERC20 | WETH9Mocked } = {};
 
   const protoConfigData = getReservesConfigByPool(AavePools.proto);
 
@@ -102,7 +101,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const config = loadPoolConfig(ConfigNames.Aave);
 
   const mockTokens: {
-    [symbol: string]: MockContract | MintableERC20 | WETH9Mocked;
+    [symbol: string]: MintableERC20 | WETH9Mocked;
   } = {
     ...(await deployAllMockTokens(deployer)),
   };

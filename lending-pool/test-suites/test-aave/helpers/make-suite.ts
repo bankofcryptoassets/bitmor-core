@@ -1,5 +1,4 @@
 import { evmRevert, evmSnapshot, DRE } from '../../../helpers/misc-utils.js';
-import type { Signer } from 'ethers';
 import {
   getLendingPool,
   getLendingPoolAddressesProvider,
@@ -16,8 +15,7 @@ import {
   getFlashLiquidationAdapter,
   getParaSwapLiquiditySwapAdapter,
 } from '../../../helpers/contracts-getters.js';
-import { eEthereumNetwork } from '../../../helpers/types.js';
-import type { eNetwork, tEthereumAddress, SignerWithAddress } from '../../../helpers/types.js';
+import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
 import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
 import type { AaveProtocolDataProvider } from '../../../types/ethers-contracts/misc/AaveProtocolDataProvider.js';
 import type { MintableERC20 } from '../../../types/ethers-contracts/mocks/tokens/MintableERC20.js';
@@ -38,14 +36,12 @@ import type { ParaSwapLiquiditySwapAdapter } from '../../../types/ethers-contrac
 import { getParamPerNetwork } from '../../../helpers/contracts-helpers.js';
 import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/WETH9Mocked.js';
 import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
-import { solidity } from 'ethereum-waffle';
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
-chai.use(solidity);
 
 export interface TestEnv {
   deployer: SignerWithAddress;

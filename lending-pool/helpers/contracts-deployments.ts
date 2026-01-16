@@ -13,7 +13,6 @@ import type {
   PoolConfiguration,
 } from './types.js';
 import type { MintableERC20, WETH9Mocked } from '../types/ethers-contracts/index.js';
-import { MockContract } from 'ethereum-waffle';
 import { ConfigNames, getReservesConfigByPool, loadPoolConfig } from './configuration.js';
 import { getFirstSigner } from './contracts-getters.js';
 import {
