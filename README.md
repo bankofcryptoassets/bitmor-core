@@ -3,6 +3,13 @@
 Get your first whole 1 BTC with an undercollateralised loan.
 
 
+## Repo Setup
+
+This repo have two projects initialized:
+1. Lending Pool: A fork of Aave v2 with Hardhat v3 (previously was Hardhat v2).
+2. Loan Provider: A foundry setup for other protocol components: Loan Provider, Vaults and Access Manager.
+
+
 ## Setup
 
 ### Testnet (Base Sepolia)

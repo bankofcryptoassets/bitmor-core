@@ -17,8 +17,6 @@ coverage
 forge-out
 */lib/
 broadcast
-.claude
-CLAUDE.md
 
 loan-provider/lcov.info
 loan-provider/lcov.filtered.info
