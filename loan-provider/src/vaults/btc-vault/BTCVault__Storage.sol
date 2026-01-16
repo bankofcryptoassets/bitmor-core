@@ -30,10 +30,6 @@ contract BTCVault__Storage {
     /// @param cap The allocation cap set for the strategy
     event BTCVault__TokenizedStrategyAdded(address indexed strategy, uint256 indexed cap);
 
-    /// @notice Emitted when a tokenized strategy is removed from the vault
-    /// @param strategy The address of the removed strategy
-    event BTCVault__TokenizedStrategyRemoved(address indexed strategy);
-
     /// @notice Emitted when a strategy's allocation cap is updated
     /// @param strategy The address of the strategy
     /// @param newCap The new allocation cap
@@ -60,14 +56,14 @@ contract BTCVault__Storage {
     /// @notice Emitted when funds are withdrawn from a specific strategy
     /// @param strategyIndex The index of the strategy funds were withdrawn from
     /// @param amountWithdrawn The amount of assets withdrawn
-    event BTCVault__WithdrewFromStrategy(uint256 strategyIndex, uint256 amountWithdrawn);
+    event BTCVault__WithdrewFromStrategy(uint256 indexed strategyIndex, uint256 indexed amountWithdrawn);
 
     /// @notice Emitted when funds are deposited into a specific strategy
     /// @param strategyIndex The index of the strategy funds were deposited into
     /// @param amountDeposited The amount of assets deposited
-    event BTCVault__DepositedInStrategy(uint256 strategyIndex, uint256 amountDeposited);
+    event BTCVault__DepositedInStrategy(uint256 indexed strategyIndex, uint256 indexed amountDeposited);
 
-    event BTCVault__MaxStrategiesUpdated(uint256 newMaxStrategies);
+    event BTCVault__MaxStrategiesUpdated(uint256 indexed newMaxStrategies);
 
     /// @notice The underlying asset that the vault accepts (immutable)
     address internal immutable i_asset;
