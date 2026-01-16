@@ -4,7 +4,7 @@ import {
   iMultiPoolsAssets,
   IReserveParams,
   tEthereumAddress,
-} from './types';
+} from './types.js';
 import { AaveProtocolDataProvider } from '../types/AaveProtocolDataProvider';
 import { chunk, getDb, waitForTx } from './misc-utils';
 import {
@@ -17,6 +17,7 @@ import {
 import {
   getContractAddressWithJsonFallback,
   rawInsertContractAddressInDb,
+  getContractAddress,
 } from './contracts-helpers';
 import { BigNumberish } from 'ethers';
 import { ConfigNames } from './configuration';
@@ -107,7 +108,7 @@ export const initReservesByHelper = async (
     if (!strategyAddresses[strategy.name]) {
       // Strategy does not exist, create a new one
       rateStrategies[strategy.name] = [
-        addressProvider.address,
+        getContractAddress(addressProvider),
         optimalUtilizationRate,
         baseVariableBorrowRate,
         variableRateSlope1,
@@ -267,7 +268,7 @@ export const configureReservesByHelper = async (
   }
   if (tokens.length) {
     // Set aTokenAndRatesDeployer as temporal admin
-    await waitForTx(await addressProvider.setPoolAdmin(atokenAndRatesDeployer.address));
+    await waitForTx(await addressProvider.setPoolAdmin(getContractAddress(atokenAndRatesDeployer)));
 
     // Deploy init per chunks
     const enableChunks = 20;

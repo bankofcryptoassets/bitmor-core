@@ -1,10 +1,13 @@
-import { TestEnv, makeSuite } from './helpers/make-suite';
-import { APPROVAL_AMOUNT_LENDING_POOL, RAY } from '../../helpers/constants';
-import { convertToCurrencyDecimals } from '../../helpers/contracts-helpers';
-import { ProtocolErrors } from '../../helpers/types';
-import { strategyWETH } from '../../markets/aave/reservesConfigs';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { APPROVAL_AMOUNT_LENDING_POOL, RAY } from '../../helpers/constants.js';
+import {convertToCurrencyDecimals,
+  getContractAddress} from '../../helpers/contracts-helpers.js';
+import { ProtocolErrors } from '../../helpers/types.js';
+import { strategyWETH } from '../../markets/aave/reservesConfigs.js';
 
-const { expect } = require('chai');
+import chai from 'chai';
+const { expect } = chai;
 
 makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   const {
@@ -23,29 +26,29 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
     const invalidReserveFactor = 65536;
 
     await expect(
-      configurator.setReserveFactor(weth.address, invalidReserveFactor)
+      configurator.setReserveFactor(getContractAddress(weth), invalidReserveFactor)
     ).to.be.revertedWith(RC_INVALID_RESERVE_FACTOR);
   });
 
   it('Deactivates the ETH reserve', async () => {
     const { configurator, weth, helpersContract } = testEnv;
-    await configurator.deactivateReserve(weth.address);
-    const { isActive } = await helpersContract.getReserveConfigurationData(weth.address);
+    await configurator.deactivateReserve(getContractAddress(weth));
+    const { isActive } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
     expect(isActive).to.be.equal(false);
   });
 
   it('Rectivates the ETH reserve', async () => {
     const { configurator, weth, helpersContract } = testEnv;
-    await configurator.activateReserve(weth.address);
+    await configurator.activateReserve(getContractAddress(weth));
 
-    const { isActive } = await helpersContract.getReserveConfigurationData(weth.address);
+    const { isActive } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
     expect(isActive).to.be.equal(true);
   });
 
   it('Check the onlyAaveAdmin on deactivateReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).deactivateReserve(weth.address),
+      configurator.connect(users[2].signer).deactivateReserve(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
@@ -53,7 +56,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on activateReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).activateReserve(weth.address),
+      configurator.connect(users[2].signer).activateReserve(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
@@ -61,7 +64,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Freezes the ETH reserve', async () => {
     const { configurator, weth, helpersContract } = testEnv;
 
-    await configurator.freezeReserve(weth.address);
+    await configurator.freezeReserve(getContractAddress(weth));
     const {
       decimals,
       ltv,
@@ -72,7 +75,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -87,7 +90,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
 
   it('Unfreezes the ETH reserve', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.unfreezeReserve(weth.address);
+    await configurator.unfreezeReserve(getContractAddress(weth));
 
     const {
       decimals,
@@ -99,7 +102,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -115,7 +118,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on freezeReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).freezeReserve(weth.address),
+      configurator.connect(users[2].signer).freezeReserve(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
@@ -123,14 +126,14 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on unfreezeReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).unfreezeReserve(weth.address),
+      configurator.connect(users[2].signer).unfreezeReserve(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 
   it('Deactivates the ETH reserve for borrowing', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.disableBorrowingOnReserve(weth.address);
+    await configurator.disableBorrowingOnReserve(getContractAddress(weth));
     const {
       decimals,
       ltv,
@@ -141,7 +144,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(false);
     expect(isActive).to.be.equal(true);
@@ -156,8 +159,8 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
 
   it('Activates the ETH reserve for borrowing', async () => {
     const { configurator, weth, helpersContract } = testEnv;
-    await configurator.enableBorrowingOnReserve(weth.address, true);
-    const { variableBorrowIndex } = await helpersContract.getReserveData(weth.address);
+    await configurator.enableBorrowingOnReserve(getContractAddress(weth), true);
+    const { variableBorrowIndex } = await helpersContract.getReserveData(getContractAddress(weth));
 
     const {
       decimals,
@@ -169,7 +172,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -187,7 +190,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on disableBorrowingOnReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).disableBorrowingOnReserve(weth.address),
+      configurator.connect(users[2].signer).disableBorrowingOnReserve(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
@@ -195,14 +198,14 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on enableBorrowingOnReserve ', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).enableBorrowingOnReserve(weth.address, true),
+      configurator.connect(users[2].signer).enableBorrowingOnReserve(getContractAddress(weth), true),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 
   it('Deactivates the ETH reserve as collateral', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.configureReserveAsCollateral(weth.address, 0, 0, 0);
+    await configurator.configureReserveAsCollateral(getContractAddress(weth), 0, 0, 0);
 
     const {
       decimals,
@@ -214,7 +217,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -229,7 +232,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
 
   it('Activates the ETH reserve as collateral', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.configureReserveAsCollateral(weth.address, '8000', '8250', '10500');
+    await configurator.configureReserveAsCollateral(getContractAddress(weth), '8000', '8250', '10500');
 
     const {
       decimals,
@@ -241,7 +244,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -259,14 +262,14 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
     await expect(
       configurator
         .connect(users[2].signer)
-        .configureReserveAsCollateral(weth.address, '7500', '8000', '10500'),
+        .configureReserveAsCollateral(getContractAddress(weth), '7500', '8000', '10500'),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 
   it('Disable stable borrow rate on the ETH reserve', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.disableReserveStableRate(weth.address);
+    await configurator.disableReserveStableRate(getContractAddress(weth));
     const {
       decimals,
       ltv,
@@ -277,7 +280,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -292,7 +295,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
 
   it('Enables stable borrow rate on the ETH reserve', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.enableReserveStableRate(weth.address);
+    await configurator.enableReserveStableRate(getContractAddress(weth));
     const {
       decimals,
       ltv,
@@ -303,7 +306,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -319,7 +322,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on disableReserveStableRate', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).disableReserveStableRate(weth.address),
+      configurator.connect(users[2].signer).disableReserveStableRate(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
@@ -327,14 +330,14 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyAaveAdmin on enableReserveStableRate', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).enableReserveStableRate(weth.address),
+      configurator.connect(users[2].signer).enableReserveStableRate(getContractAddress(weth)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 
   it('Changes the reserve factor of WETH', async () => {
     const { configurator, helpersContract, weth } = testEnv;
-    await configurator.setReserveFactor(weth.address, '1000');
+    await configurator.setReserveFactor(getContractAddress(weth), '1000');
     const {
       decimals,
       ltv,
@@ -345,7 +348,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       borrowingEnabled,
       isActive,
       isFrozen,
-    } = await helpersContract.getReserveConfigurationData(weth.address);
+    } = await helpersContract.getReserveConfigurationData(getContractAddress(weth));
 
     expect(borrowingEnabled).to.be.equal(true);
     expect(isActive).to.be.equal(true);
@@ -361,25 +364,25 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   it('Check the onlyLendingPoolManager on setReserveFactor', async () => {
     const { configurator, users, weth } = testEnv;
     await expect(
-      configurator.connect(users[2].signer).setReserveFactor(weth.address, '2000'),
+      configurator.connect(users[2].signer).setReserveFactor(getContractAddress(weth), '2000'),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 
   it('Reverts when trying to disable the DAI reserve with liquidity on it', async () => {
     const { dai, pool, configurator } = testEnv;
-    const userAddress = await pool.signer.getAddress();
-    await dai.mint(await convertToCurrencyDecimals(dai.address, '1000'));
+    const userAddress = await pool.getAddress();
+    await dai.mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
 
     //approve protocol to access depositor wallet
-    await dai.approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-    const amountDAItoDeposit = await convertToCurrencyDecimals(dai.address, '1000');
+    await dai.approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
 
     //user 1 deposits 1000 DAI
-    await pool.deposit(dai.address, amountDAItoDeposit, userAddress, '0');
+    await pool.deposit(getContractAddress(dai), amountDAItoDeposit, userAddress, '0');
 
     await expect(
-      configurator.deactivateReserve(dai.address),
+      configurator.deactivateReserve(getContractAddress(dai)),
       LPC_RESERVE_LIQUIDITY_NOT_0
     ).to.be.revertedWith(LPC_RESERVE_LIQUIDITY_NOT_0);
   });

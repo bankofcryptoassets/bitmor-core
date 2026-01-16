@@ -208,7 +208,7 @@ export const deposit = async (
     await expect(
       pool.connect(sender.signer).deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -280,7 +280,7 @@ export const withdraw = async (
     await expect(
       pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -417,7 +417,7 @@ export const borrow = async (
     await expect(
       pool.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -511,7 +511,7 @@ export const repay = async (
         .connect(user.signer)
         .repay(reserve, amountToRepay, rateMode, onBehalfOf.address, txOptions),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -567,7 +567,7 @@ export const setUseAsCollateral = async (
     await expect(
       pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -632,7 +632,7 @@ export const swapBorrowRateMode = async (
     // });
   } else if (expectedResult === 'revert') {
     await expect(pool.connect(user.signer).swapBorrowRateMode(reserve, rateMode), revertMessage).to
-      .be.reverted;
+      .be.revert(DRE.ethers);
   }
 };
 
@@ -696,7 +696,7 @@ export const rebalanceStableBorrowRate = async (
     await expect(
       pool.connect(user.signer).rebalanceStableBorrowRate(reserve, target.address),
       revertMessage
-    ).to.be.reverted;
+    ).to.be.revert(DRE.ethers);
   }
 };
 

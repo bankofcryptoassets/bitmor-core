@@ -1,23 +1,23 @@
-import {
-  AavePools,
+import { AavePools } from './types.js';
+import type {
   iMultiPoolsAssets,
   IReserveParams,
   PoolConfiguration,
   eNetwork,
   IBaseConfiguration,
-} from './types';
-import { getEthersSignersAddresses, getParamPerPool } from './contracts-helpers';
-import AaveConfig from '../markets/aave';
-import MaticConfig from '../markets/matic';
-import AvalancheConfig from '../markets/avalanche';
-import AmmConfig from '../markets/amm';
-import BitmorConfig from '../markets/bitmor';
+  tEthereumAddress,
+} from './types.js';
+import { getEthersSignersAddresses, getParamPerPool } from './contracts-helpers.js';
+import AaveConfig from '../markets/aave/index.js';
+import MaticConfig from '../markets/matic/index.js';
+import AvalancheConfig from '../markets/avalanche/index.js';
+import AmmConfig from '../markets/amm/index.js';
+import BitmorConfig from '../markets/bitmor/index.js';
 
-import { CommonsConfig } from '../markets/aave/commons';
-import { DRE, filterMapBy } from './misc-utils';
-import { tEthereumAddress } from './types';
-import { getParamPerNetwork } from './contracts-helpers';
-import { deployWETHMocked } from './contracts-deployments';
+import { CommonsConfig } from '../markets/aave/commons.js';
+import { DRE, filterMapBy, getDb } from './misc-utils.js';
+import { getParamPerNetwork } from './contracts-helpers.js';
+// import { deployWETHMocked } from './contracts-deployments'; // Removed to break circular dependency
 
 export enum ConfigNames {
   Commons = 'Commons',
@@ -77,7 +77,7 @@ export const getReservesConfigByPool = (pool: AavePools): iMultiPoolsAssets<IRes
 export const getGenesisPoolAdmin = async (
   config: IBaseConfiguration
 ): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const targetAddress = getParamPerNetwork(config.PoolAdmin, <eNetwork>currentNetwork);
   if (targetAddress) {
     return targetAddress;
@@ -88,7 +88,7 @@ export const getGenesisPoolAdmin = async (
 };
 
 export const getEmergencyAdmin = async (config: IBaseConfiguration): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const targetAddress = getParamPerNetwork(config.EmergencyAdmin, <eNetwork>currentNetwork);
   if (targetAddress) {
     return targetAddress;
@@ -99,7 +99,7 @@ export const getEmergencyAdmin = async (config: IBaseConfiguration): Promise<tEt
 };
 
 export const getTreasuryAddress = async (config: IBaseConfiguration): Promise<tEthereumAddress> => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   return getParamPerNetwork(config.ReserveFactorTreasuryAddress, <eNetwork>currentNetwork);
 };
 
@@ -109,7 +109,7 @@ export const getATokenDomainSeparatorPerNetwork = (
 ): tEthereumAddress => getParamPerNetwork<tEthereumAddress>(config.ATokenDomainSeparator, network);
 
 export const getWethAddress = async (config: IBaseConfiguration) => {
-  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const currentNetwork = process.env.FORK ? process.env.FORK : DRE.network.networkName;
   const wethAddress = getParamPerNetwork(config.WETH, <eNetwork>currentNetwork);
   if (wethAddress) {
     return wethAddress;
@@ -117,21 +117,32 @@ export const getWethAddress = async (config: IBaseConfiguration) => {
   if (currentNetwork.includes('main')) {
     throw new Error('WETH not set at mainnet configuration.');
   }
-  const weth = await deployWETHMocked();
-  return weth.address;
+  // const weth = await deployWETHMocked(); // Commented to break circular dependency
+  // return weth.address;
+  throw new Error('WETH address must be configured - auto-deployment removed to break circular dependency');
 };
 
 export const getWrappedNativeTokenAddress = async (config: IBaseConfiguration) => {
-  const currentNetwork = process.env.MAINNET_FORK === 'true' ? 'main' : DRE.network.name;
+  const currentNetwork = process.env.MAINNET_FORK === 'true' ? 'main' : DRE.network.networkName;
   const wethAddress = getParamPerNetwork(config.WrappedNativeToken, <eNetwork>currentNetwork);
-  if (wethAddress) {
+
+  // If wethAddress is set and not empty string, return it
+  if (wethAddress && wethAddress !== '') {
     return wethAddress;
   }
+
   if (currentNetwork.includes('main')) {
     throw new Error('WETH not set at mainnet configuration.');
   }
-  const weth = await deployWETHMocked();
-  return weth.address;
+
+  // For local networks, try to get WETH from deployed contracts database
+  const db = getDb();
+  const deployedWeth = db.get(`WETH.${currentNetwork}`).value();
+  if (deployedWeth?.address) {
+    return deployedWeth.address;
+  }
+
+  throw new Error('WETH address must be configured - auto-deployment removed to break circular dependency');
 };
 
 export const getLendingRateOracles = (poolConfig: IBaseConfiguration) => {
@@ -141,9 +152,16 @@ export const getLendingRateOracles = (poolConfig: IBaseConfiguration) => {
     ReserveAssets,
   } = poolConfig;
 
-  const network = process.env.FORK ? process.env.FORK : DRE.network.name;
+  const network = process.env.FORK ? process.env.FORK : DRE.network.networkName;
+  const reserveAssets = ReserveAssets[network];
+
+  // If network doesn't have ReserveAssets configured, return empty
+  if (!reserveAssets) {
+    return {};
+  }
+
   return filterMapBy(LendingRateOracleRatesCommon, (key) =>
-    Object.keys(ReserveAssets[network]).includes(key)
+    Object.keys(reserveAssets).includes(key)
   );
 };
 

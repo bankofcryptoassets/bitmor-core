@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: agpl-3.0
-pragma solidity 0.8.30;
+pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 import {ILendingPoolAddressesProvider} from "./ILendingPoolAddressesProvider.sol";
-import {DataTypes} from "../libraries/types/DataTypes.sol";
+import {DataTypes} from "../protocol/libraries/types/DataTypes.sol";
 
 interface ILendingPool {
     /**
@@ -303,7 +304,7 @@ interface ILendingPool {
      * @param user The address of the user to check
      * @return The type of liquidation (0 = none, 1 = micro-liquidation, 2 = full liquidation)
      */
-    function checkTypeOfLiquidation(address user) external returns (uint256);
+    function checkTypeOfLiquidation(address user) external view returns (uint256);
 
     /**
      * @dev Allows smartcontracts to access the liquidity of the pool within one transaction,
@@ -417,7 +418,7 @@ interface ILendingPool {
 
     function getReservesList() external view returns (address[] memory);
 
-    function getAddressesProvider() external view returns (address);
+    function getAddressesProvider() external view returns (ILendingPoolAddressesProvider);
 
     function setPause(bool val) external;
 

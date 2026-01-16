@@ -1,7 +1,10 @@
-import { expect } from 'chai';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { ProtocolErrors, TokenContractId, eContractid } from '../../helpers/types';
-import { getVariableDebtToken } from '../../helpers/contracts-getters';
+import chai from 'chai';
+const { expect } = chai;
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ProtocolErrors, TokenContractId, eContractid } from '../../helpers/types.js';
+import { getVariableDebtToken } from '../../helpers/contracts-getters.js';
+import { getContractAddress } from '../../helpers/contracts-helpers.js';
 
 makeSuite('Variable debt token tests', (testEnv: TestEnv) => {
   const { CT_CALLER_MUST_BE_LENDING_POOL } = ProtocolErrors;
@@ -10,7 +13,7 @@ makeSuite('Variable debt token tests', (testEnv: TestEnv) => {
     const { deployer, pool, dai, helpersContract } = testEnv;
 
     const daiVariableDebtTokenAddress = (
-      await helpersContract.getReserveTokensAddresses(dai.address)
+      await helpersContract.getReserveTokensAddresses(getContractAddress(dai))
     ).variableDebtTokenAddress;
 
     const variableDebtContract = await getVariableDebtToken(daiVariableDebtTokenAddress);
@@ -24,7 +27,7 @@ makeSuite('Variable debt token tests', (testEnv: TestEnv) => {
     const { deployer, pool, dai, helpersContract } = testEnv;
 
     const daiVariableDebtTokenAddress = (
-      await helpersContract.getReserveTokensAddresses(dai.address)
+      await helpersContract.getReserveTokensAddresses(getContractAddress(dai))
     ).variableDebtTokenAddress;
 
     const variableDebtContract = await getVariableDebtToken(daiVariableDebtTokenAddress);

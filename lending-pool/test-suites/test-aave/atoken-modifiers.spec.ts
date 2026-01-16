@@ -1,6 +1,8 @@
-import { expect } from 'chai';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { ProtocolErrors } from '../../helpers/types';
+import chai from 'chai';
+const { expect } = chai;
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ProtocolErrors } from '../../helpers/types.js';
 
 makeSuite('AToken: Modifiers', (testEnv: TestEnv) => {
   const { CT_CALLER_MUST_BE_LENDING_POOL } = ProtocolErrors;

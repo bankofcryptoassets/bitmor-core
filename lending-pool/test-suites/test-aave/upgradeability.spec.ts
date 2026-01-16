@@ -1,23 +1,25 @@
-import { expect } from 'chai';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { ProtocolErrors, eContractid } from '../../helpers/types';
-import { deployContract, getContract } from '../../helpers/contracts-helpers';
-import { MockAToken } from '../../types/MockAToken';
-import { MockStableDebtToken } from '../../types/MockStableDebtToken';
-import { MockVariableDebtToken } from '../../types/MockVariableDebtToken';
-import { ZERO_ADDRESS } from '../../helpers/constants';
+import chai from 'chai';
+const { expect } = chai;
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ProtocolErrors, eContractid } from '../../helpers/types.js';
+import { deployContract, getContract, getContractAddress } from '../../helpers/contracts-helpers.js';
+import type { MockAToken } from '../../types/ethers-contracts/index.js';
+import type { MockStableDebtToken } from '../../types/ethers-contracts/index.js';
+import type { MockVariableDebtToken } from '../../types/ethers-contracts/index.js';
+import { ZERO_ADDRESS } from '../../helpers/constants.js';
 import {
   getAToken,
   getMockStableDebtToken,
   getMockVariableDebtToken,
   getStableDebtToken,
   getVariableDebtToken,
-} from '../../helpers/contracts-getters';
+} from '../../helpers/contracts-getters.js';
 import {
   deployMockAToken,
   deployMockStableDebtToken,
   deployMockVariableDebtToken,
-} from '../../helpers/contracts-deployments';
+} from '../../helpers/contracts-deployments.js';
 
 makeSuite('Upgradeability', (testEnv: TestEnv) => {
   const { CALLER_NOT_POOL_ADMIN } = ProtocolErrors;
@@ -28,8 +30,8 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
   before('deploying instances', async () => {
     const { dai, pool } = testEnv;
     const aTokenInstance = await deployMockAToken([
-      pool.address,
-      dai.address,
+      getContractAddress(pool),
+      getContractAddress(dai),
       ZERO_ADDRESS,
       ZERO_ADDRESS,
       'Aave Interest bearing DAI updated',
@@ -38,8 +40,8 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
     ]);
 
     const stableDebtTokenInstance = await deployMockStableDebtToken([
-      pool.address,
-      dai.address,
+      getContractAddress(pool),
+      getContractAddress(dai),
       ZERO_ADDRESS,
       'Aave stable debt bearing DAI updated',
       'stableDebtDAI',
@@ -47,17 +49,17 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
     ]);
 
     const variableDebtTokenInstance = await deployMockVariableDebtToken([
-      pool.address,
-      dai.address,
+      getContractAddress(pool),
+      getContractAddress(dai),
       ZERO_ADDRESS,
       'Aave variable debt bearing DAI updated',
       'variableDebtDAI',
       '0x10'
     ]);
 
-    newATokenAddress = aTokenInstance.address;
-    newVariableTokenAddress = variableDebtTokenInstance.address;
-    newStableTokenAddress = stableDebtTokenInstance.address;
+    newATokenAddress = getContractAddress(aTokenInstance);
+    newVariableTokenAddress = getContractAddress(variableDebtTokenInstance);
+    newStableTokenAddress = getContractAddress(stableDebtTokenInstance);
   });
 
   it('Tries to update the DAI Atoken implementation with a different address than the lendingPoolManager', async () => {
@@ -75,7 +77,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       treasury: ZERO_ADDRESS,
       incentivesController: ZERO_ADDRESS,
       name: name,
@@ -103,7 +105,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       treasury: ZERO_ADDRESS,
       incentivesController: ZERO_ADDRESS,
       name: name,
@@ -133,7 +135,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string;
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       incentivesController: ZERO_ADDRESS,
       name: name,
       symbol: symbol,
@@ -163,7 +165,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string;
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       incentivesController: ZERO_ADDRESS,
       name: name,
       symbol: symbol,
@@ -173,7 +175,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
 
     await configurator.updateStableDebtToken(updateDebtTokenInput);
 
-    const { stableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(dai.address);
+    const { stableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(dai));
 
     const debtToken = await getMockStableDebtToken(stableDebtTokenAddress);
 
@@ -196,7 +198,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string;
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       incentivesController: ZERO_ADDRESS,
       name: name,
       symbol: symbol,
@@ -225,7 +227,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
       implementation: string;
       params: string;
     } = {
-      asset: dai.address,
+      asset: getContractAddress(dai),
       incentivesController: ZERO_ADDRESS,
       name: name,
       symbol: symbol,
@@ -237,7 +239,7 @@ makeSuite('Upgradeability', (testEnv: TestEnv) => {
     await configurator.updateVariableDebtToken(updateDebtTokenInput);
 
     const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(
-      dai.address
+      getContractAddress(dai)
     );
 
     const debtToken = await getMockVariableDebtToken(variableDebtTokenAddress);

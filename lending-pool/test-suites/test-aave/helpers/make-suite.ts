@@ -1,5 +1,4 @@
-import { evmRevert, evmSnapshot, DRE } from '../../../helpers/misc-utils';
-import { Signer } from 'ethers';
+import { evmRevert, evmSnapshot, DRE } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,
   getLendingPoolAddressesProvider,
@@ -15,42 +14,35 @@ import {
   getUniswapRepayAdapter,
   getFlashLiquidationAdapter,
   getParaSwapLiquiditySwapAdapter,
-} from '../../../helpers/contracts-getters';
-import { eEthereumNetwork, eNetwork, tEthereumAddress } from '../../../helpers/types';
-import { LendingPool } from '../../../types/LendingPool';
-import { AaveProtocolDataProvider } from '../../../types/AaveProtocolDataProvider';
-import { MintableERC20 } from '../../../types/MintableERC20';
-import { AToken } from '../../../types/AToken';
-import { LendingPoolConfigurator } from '../../../types/LendingPoolConfigurator';
+} from '../../../helpers/contracts-getters.js';
+import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
+import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
+import type { AaveProtocolDataProvider } from '../../../types/ethers-contracts/misc/AaveProtocolDataProvider.js';
+import type { MintableERC20 } from '../../../types/ethers-contracts/mocks/tokens/MintableERC20.js';
+import type { AToken } from '../../../types/ethers-contracts/protocol/tokenization/AToken.js';
+import type { LendingPoolConfigurator } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPoolConfigurator.js';
 
 import chai from 'chai';
 // @ts-ignore
 import bignumberChai from 'chai-bignumber';
-import { almostEqual } from './almost-equal';
-import { PriceOracle } from '../../../types/PriceOracle';
-import { LendingPoolAddressesProvider } from '../../../types/LendingPoolAddressesProvider';
-import { LendingPoolAddressesProviderRegistry } from '../../../types/LendingPoolAddressesProviderRegistry';
-import { getEthersSigners } from '../../../helpers/contracts-helpers';
-import { UniswapLiquiditySwapAdapter } from '../../../types/UniswapLiquiditySwapAdapter';
-import { UniswapRepayAdapter } from '../../../types/UniswapRepayAdapter';
-import { ParaSwapLiquiditySwapAdapter } from '../../../types/ParaSwapLiquiditySwapAdapter';
-import { getParamPerNetwork } from '../../../helpers/contracts-helpers';
-import { WETH9Mocked } from '../../../types/WETH9Mocked';
-import { WETHGateway } from '../../../types/WETHGateway';
-import { solidity } from 'ethereum-waffle';
-import { AaveConfig } from '../../../markets/aave';
-import { FlashLiquidationAdapter } from '../../../types';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { usingTenderly } from '../../../helpers/tenderly-utils';
+import { almostEqual } from './almost-equal.js';
+import type { PriceOracle } from '../../../types/ethers-contracts/mocks/oracle/PriceOracle.js';
+import type { LendingPoolAddressesProvider } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProvider.js';
+import type { LendingPoolAddressesProviderRegistry } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProviderRegistry.js';
+import { getEthersSigners } from '../../../helpers/contracts-helpers.js';
+import type { UniswapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/UniswapLiquiditySwapAdapter.js';
+import type { UniswapRepayAdapter } from '../../../types/ethers-contracts/adapters/UniswapRepayAdapter.js';
+import type { ParaSwapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/ParaSwapLiquiditySwapAdapter.js';
+import { getParamPerNetwork } from '../../../helpers/contracts-helpers.js';
+import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/WETH9Mocked.js';
+import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
+import { AaveConfig } from '../../../markets/aave/index.js';
+import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
+import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
-chai.use(solidity);
 
-export interface SignerWithAddress {
-  signer: Signer;
-  address: tEthereumAddress;
-}
 export interface TestEnv {
   deployer: SignerWithAddress;
   users: SignerWithAddress[];
@@ -167,7 +159,7 @@ export async function initializeMakeSuite() {
 }
 
 const setSnapshot = async () => {
-  const hre = DRE as HardhatRuntimeEnvironment;
+  const hre = DRE;
   if (usingTenderly()) {
     setBuidlerevmSnapshotId((await hre.tenderlyNetwork.getHead()) || '0x1');
     return;
@@ -176,7 +168,7 @@ const setSnapshot = async () => {
 };
 
 const revertHead = async () => {
-  const hre = DRE as HardhatRuntimeEnvironment;
+  const hre = DRE;
   if (usingTenderly()) {
     await hre.tenderlyNetwork.setHead(buidlerevmSnapshotId);
     return;
@@ -195,3 +187,6 @@ export function makeSuite(name: string, tests: (testEnv: TestEnv) => void) {
     });
   });
 }
+
+// Re-export for backward compatibility
+export type { SignerWithAddress };

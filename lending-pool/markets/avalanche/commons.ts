@@ -1,4 +1,5 @@
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
+
 import {
   oneEther,
   oneRay,
@@ -6,8 +7,8 @@ import {
   ZERO_ADDRESS,
   MOCK_CHAINLINK_AGGREGATORS_PRICES,
   oneUsd,
-} from '../../helpers/constants';
-import { ICommonConfiguration, eAvalancheNetwork } from '../../helpers/types';
+} from '../../helpers/constants.js';
+import { ICommonConfiguration, eAvalancheNetwork } from '../../helpers/types.js';
 
 // ----------------
 // PROTOCOL GLOBAL PARAMS

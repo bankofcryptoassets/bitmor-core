@@ -1,4 +1,5 @@
-import BigNumber from 'bignumber.js';
+import BigNumberJs from 'bignumber.js';
+const BigNumber: any = BigNumberJs;
 import {
   oneEther,
   oneRay,

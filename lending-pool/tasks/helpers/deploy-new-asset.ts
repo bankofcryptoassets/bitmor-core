@@ -1,17 +1,17 @@
 import { task } from 'hardhat/config';
-import { eEthereumNetwork } from '../../helpers/types';
-import { getTreasuryAddress } from '../../helpers/configuration';
-import * as marketConfigs from '../../markets/aave';
-import * as reserveConfigs from '../../markets/aave/reservesConfigs';
-import { getLendingPoolAddressesProvider } from './../../helpers/contracts-getters';
+import { eEthereumNetwork } from '../../helpers/types.js';
+import { getTreasuryAddress } from '../../helpers/configuration.js';
+import * as marketConfigs from '../../markets/aave/index.js';
+import * as reserveConfigs from '../../markets/aave/reservesConfigs.js';
+import { getLendingPoolAddressesProvider } from './../../helpers/contracts-getters.js';
 import {
   chooseATokenDeployment,
   deployDefaultReserveInterestRateStrategy,
   deployStableDebtToken,
   deployVariableDebtToken,
-} from './../../helpers/contracts-deployments';
-import { setDRE } from '../../helpers/misc-utils';
-import { ZERO_ADDRESS } from './../../helpers/constants';
+} from './../../helpers/contracts-deployments.js';
+import { setDRE } from '../../helpers/misc-utils.js';
+import { ZERO_ADDRESS } from './../../helpers/constants.js';
 
 const LENDING_POOL_ADDRESS_PROVIDER = {
   main: '0xb53c1a33016b2dc2ff3653530bff1848a515c8c5',

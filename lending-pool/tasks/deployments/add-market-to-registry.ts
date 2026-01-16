@@ -8,7 +8,7 @@ import {
   getLendingPoolAddressesProvider,
   getLendingPoolAddressesProviderRegistry,
 } from '../../helpers/contracts-getters';
-import { isAddress, parseEther } from 'ethers/lib/utils';
+import { isAddress, parseEther } from 'ethers';
 import { isZeroAddress } from 'ethereumjs-util';
 import { Signer } from 'ethers';
 import { exit } from 'process';

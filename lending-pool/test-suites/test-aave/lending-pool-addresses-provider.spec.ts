@@ -1,13 +1,14 @@
-import { expect } from 'chai';
-import { createRandomAddress } from '../../helpers/misc-utils';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { ProtocolErrors } from '../../helpers/types';
-import { ethers } from 'ethers';
-import { ZERO_ADDRESS } from '../../helpers/constants';
-import { waitForTx } from '../../helpers/misc-utils';
-import { deployLendingPool } from '../../helpers/contracts-deployments';
-
-const { utils } = ethers;
+import chai from 'chai';
+const { expect } = chai;
+import { createRandomAddress } from '../../helpers/misc-utils.js';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ProtocolErrors } from '../../helpers/types.js';
+import { keccak256, toUtf8Bytes } from 'ethers';
+import { ZERO_ADDRESS } from '../../helpers/constants.js';
+import { waitForTx } from '../../helpers/misc-utils.js';
+import { deployLendingPool } from '../../helpers/contracts-deployments.js';
+import { getContractAddress } from '../../helpers/contracts-helpers.js';
 
 makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
   it('Test the accessibility of the LendingPoolAddressesProvider', async () => {
@@ -30,12 +31,12 @@ makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
     }
 
     await expect(
-      addressesProvider.setAddress(utils.keccak256(utils.toUtf8Bytes('RANDOM_ID')), mockAddress)
+      addressesProvider.setAddress(keccak256(toUtf8Bytes('RANDOM_ID')), mockAddress)
     ).to.be.revertedWith(INVALID_OWNER_REVERT_MSG);
 
     await expect(
       addressesProvider.setAddressAsProxy(
-        utils.keccak256(utils.toUtf8Bytes('RANDOM_ID')),
+        keccak256(toUtf8Bytes('RANDOM_ID')),
         mockAddress
       )
     ).to.be.revertedWith(INVALID_OWNER_REVERT_MSG);
@@ -48,12 +49,12 @@ makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
     const currentAddressesProviderOwner = users[1];
 
     const mockLendingPool = await deployLendingPool();
-    const proxiedAddressId = utils.keccak256(utils.toUtf8Bytes('RANDOM_PROXIED'));
+    const proxiedAddressId = keccak256(toUtf8Bytes('RANDOM_PROXIED'));
 
     const proxiedAddressSetReceipt = await waitForTx(
       await addressesProvider
         .connect(currentAddressesProviderOwner.signer)
-        .setAddressAsProxy(proxiedAddressId, mockLendingPool.address)
+        .setAddressAsProxy(proxiedAddressId, getContractAddress(mockLendingPool))
     );
 
     if (!proxiedAddressSetReceipt.events || proxiedAddressSetReceipt.events?.length < 1) {
@@ -64,7 +65,7 @@ makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
     expect(proxiedAddressSetReceipt.events[1].event).to.be.equal('AddressSet');
     expect(proxiedAddressSetReceipt.events[1].args?.id).to.be.equal(proxiedAddressId);
     expect(proxiedAddressSetReceipt.events[1].args?.newAddress).to.be.equal(
-      mockLendingPool.address
+      getContractAddress(mockLendingPool)
     );
     expect(proxiedAddressSetReceipt.events[1].args?.hasProxy).to.be.equal(true);
   });
@@ -75,7 +76,7 @@ makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
 
     const currentAddressesProviderOwner = users[1];
     const mockNonProxiedAddress = createRandomAddress();
-    const nonProxiedAddressId = utils.keccak256(utils.toUtf8Bytes('RANDOM_NON_PROXIED'));
+    const nonProxiedAddressId = keccak256(toUtf8Bytes('RANDOM_NON_PROXIED'));
 
     const nonProxiedAddressSetReceipt = await waitForTx(
       await addressesProvider

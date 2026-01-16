@@ -1,7 +1,7 @@
-import { oneRay, ZERO_ADDRESS } from '../../helpers/constants';
-import { IAaveConfiguration, eEthereumNetwork } from '../../helpers/types';
+import { oneRay, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { IAaveConfiguration, eEthereumNetwork } from '../../helpers/types.js';
 
-import { CommonsConfig } from './commons';
+import { CommonsConfig } from './commons.js';
 import {
   strategyBUSD,
   strategyDAI,
@@ -24,7 +24,7 @@ import {
   strategyYFI,
   strategyXSUSHI,
   strategyENJ,
-} from './reservesConfigs';
+} from './reservesConfigs.js';
 
 // ----------------
 // POOL--SPECIFIC PARAMS

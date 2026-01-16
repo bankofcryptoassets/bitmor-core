@@ -1,10 +1,12 @@
-import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants';
-import { convertToCurrencyDecimals } from '../../helpers/contracts-helpers';
-import { expect } from 'chai';
-import { ethers } from 'ethers';
-import { RateMode, ProtocolErrors } from '../../helpers/types';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { CommonsConfig } from '../../markets/aave/commons';
+import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
+import chai from 'chai';
+const { expect } = chai;
+import { parseEther } from 'ethers';
+import { RateMode, ProtocolErrors } from '../../helpers/types.js';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { CommonsConfig } from '../../markets/aave/commons.js';
 
 const AAVE_REFERRAL = CommonsConfig.ProtocolGlobalParams.AaveReferral;
 
@@ -18,16 +20,16 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
   it('User 0 deposits 1000 DAI, transfers to user 1', async () => {
     const { users, pool, dai, aDai } = testEnv;
 
-    await dai.connect(users[0].signer).mint(await convertToCurrencyDecimals(dai.address, '1000'));
+    await dai.connect(users[0].signer).mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
 
-    await dai.connect(users[0].signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    await dai.connect(users[0].signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     //user 1 deposits 1000 DAI
-    const amountDAItoDeposit = await convertToCurrencyDecimals(dai.address, '1000');
+    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
 
     await pool
       .connect(users[0].signer)
-      .deposit(dai.address, amountDAItoDeposit, users[0].address, '0');
+      .deposit(getContractAddress(dai), amountDAItoDeposit, users[0].address, '0');
 
     await aDai.connect(users[0].signer).transfer(users[1].address, amountDAItoDeposit);
 
@@ -47,37 +49,37 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
 
   it('User 0 deposits 1 WETH and user 1 tries to borrow the WETH with the received DAI as collateral', async () => {
     const { users, pool, weth, helpersContract } = testEnv;
-    const userAddress = await pool.signer.getAddress();
+    const userAddress = await pool.getAddress();
 
-    await weth.connect(users[0].signer).mint(await convertToCurrencyDecimals(weth.address, '1'));
+    await weth.connect(users[0].signer).mint(await convertToCurrencyDecimals(getContractAddress(weth), '1'));
 
-    await weth.connect(users[0].signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    await weth.connect(users[0].signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     await pool
       .connect(users[0].signer)
-      .deposit(weth.address, ethers.utils.parseEther('1.0'), userAddress, '0');
+      .deposit(getContractAddress(weth), parseEther('1.0'), userAddress, '0');
     await pool
       .connect(users[1].signer)
       .borrow(
-        weth.address,
-        ethers.utils.parseEther('0.1'),
+        getContractAddress(weth),
+        parseEther('0.1'),
         RateMode.Stable,
         AAVE_REFERRAL,
         users[1].address
       );
 
     const userReserveData = await helpersContract.getUserReserveData(
-      weth.address,
+      getContractAddress(weth),
       users[1].address
     );
 
-    expect(userReserveData.currentStableDebt.toString()).to.be.eq(ethers.utils.parseEther('0.1'));
+    expect(userReserveData.currentStableDebt.toString()).to.be.eq(parseEther('0.1'));
   });
 
   it('User 1 tries to transfer all the DAI used as collateral back to user 0 (revert expected)', async () => {
     const { users, pool, aDai, dai, weth } = testEnv;
 
-    const aDAItoTransfer = await convertToCurrencyDecimals(dai.address, '1000');
+    const aDAItoTransfer = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
 
     await expect(
       aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer),
@@ -88,7 +90,7 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
   it('User 1 tries to transfer a small amount of DAI used as collateral back to user 0', async () => {
     const { users, pool, aDai, dai, weth } = testEnv;
 
-    const aDAItoTransfer = await convertToCurrencyDecimals(dai.address, '100');
+    const aDAItoTransfer = await convertToCurrencyDecimals(getContractAddress(dai), '100');
 
     await aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer);
 

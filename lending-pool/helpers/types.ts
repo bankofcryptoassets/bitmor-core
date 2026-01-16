@@ -1,4 +1,4 @@
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
 
 export interface SymbolMap<T> {
   [symbol: string]: T;
@@ -586,3 +586,8 @@ export interface ITokenAddress {
 }
 
 export type PoolConfiguration = ICommonConfiguration | IAaveConfiguration;
+
+export interface SignerWithAddress {
+  signer: Signer;
+  address: tEthereumAddress;
+}

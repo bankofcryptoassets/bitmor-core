@@ -1,5 +1,5 @@
-import { LendingPool } from '../../../../types/LendingPool';
-import { ReserveData, UserReserveData } from './interfaces';
+import { LendingPool } from '../../../../types/ethers-contracts/index.js';
+import { ReserveData, UserReserveData } from './interfaces/index.js';
 import {
   getLendingRateOracle,
   getIErc20Detailed,
@@ -7,11 +7,12 @@ import {
   getAToken,
   getStableDebtToken,
   getVariableDebtToken,
-} from '../../../../helpers/contracts-getters';
-import { tEthereumAddress } from '../../../../helpers/types';
-import BigNumber from 'bignumber.js';
-import { getDb, DRE } from '../../../../helpers/misc-utils';
-import { AaveProtocolDataProvider } from '../../../../types/AaveProtocolDataProvider';
+} from '../../../../helpers/contracts-getters.js';
+import { tEthereumAddress } from '../../../../helpers/types.js';
+import BigNumber from "bignumber.js";
+import { getDb, DRE } from '../../../../helpers/misc-utils.js';
+import { getContractAddress } from '../../../../helpers/contracts-helpers.js';
+import { AaveProtocolDataProvider } from '../../../../types/ethers-contracts/index.js';
 
 export const getReserveData = async (
   helper: AaveProtocolDataProvider,
@@ -103,14 +104,18 @@ export const getUserData = async (
 };
 
 export const getReserveAddressFromSymbol = async (symbol: string) => {
-  const token = await getMintableERC20(
-    (await getDb().get(`${symbol}.${DRE.network.name}`).value()).address
-  );
+  const dbEntry = await getDb().get(`${symbol}.${DRE.network.networkName}`).value();
 
-  if (!token) {
-    throw `Could not find instance for contract ${symbol}`;
+  if (!dbEntry) {
+    throw `Could not find database entry for token ${symbol} in network ${DRE.network.networkName}`;
   }
-  return token.address;
+
+  if (!dbEntry.address || dbEntry.address === '' || dbEntry.address === '0x') {
+    throw `Invalid or missing address for token ${symbol} in network ${DRE.network.networkName}. Address: ${dbEntry.address}`;
+  }
+
+  // Directly return the address from the database entry instead of trying to instantiate and call getContractAddress
+  return dbEntry.address;
 };
 
 const getATokenUserData = async (

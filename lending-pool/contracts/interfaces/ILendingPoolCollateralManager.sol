@@ -98,5 +98,5 @@ interface ILendingPoolCollateralManager {
    * 2 => MicroLiquidation
    * @param user Address of the borrower
    */
-  function checkTypeOfLiquidation(address user) external returns (uint256);
+  function checkTypeOfLiquidation(address user) external view returns (uint256);
 }

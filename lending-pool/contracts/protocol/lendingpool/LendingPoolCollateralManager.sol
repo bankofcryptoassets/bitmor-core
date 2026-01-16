@@ -392,7 +392,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
      * 2 => MicroLiquidation
      * @param user Address of the borrower
      */
-    function checkTypeOfLiquidation(address user) external override returns (uint256) {
+    function checkTypeOfLiquidation(address user) external view override  returns (uint256) {
         address oracle = _addressesProvider.getPriceOracle();
         (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
             user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle

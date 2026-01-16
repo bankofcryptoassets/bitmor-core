@@ -1,4 +1,4 @@
-import { formatEther, parseEther } from 'ethers/lib/utils';
+import { formatEther, parseEther } from 'ethers';
 import { task } from 'hardhat/config';
 import { DRE } from '../../helpers/misc-utils';
 
