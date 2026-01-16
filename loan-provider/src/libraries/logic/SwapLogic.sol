@@ -9,14 +9,44 @@ import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol
 
 /**
  * @title SwapLogic
+ * @author Bitmor Protocol
  * @notice Library for executing token swaps with optional zQuoter price validation
- * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter)
+ * @dev Supports both Aerodrome (with zQuoter) and Uniswap V4 (without zQuoter).
+ *
+ * ## Swap Modes
+ * - **Aerodrome (Base Mainnet)**: Uses zQuoter for price validation before swapping
+ * - **Uniswap V4 (Base Sepolia)**: Uses oracle prices for minimum output calculation
+ *
+ * ## Slippage Protection
+ * All swaps include slippage protection via `maxSlippageBps` parameter.
+ * Minimum acceptable output is calculated as: `expectedOutput * (100% - slippage)`
+ *
+ * @custom:security Reverts if output amount is less than calculated minimum
  */
 library SwapLogic {
-    uint256 constant BASIS_POINTS = 100_00; // 100%
+    /**
+     * @dev Basis points denominator for percentage calculations (100% = 10000)
+     */
+    uint256 constant BASIS_POINTS = 100_00;
+
+    /**
+     * @dev Flag for exact output swaps (false = exact input)
+     */
     bool constant EXACT_OUT = false;
+
+    /**
+     * @dev Flag for Sushi router compatibility (false = Aerodrome V2-style)
+     */
     bool constant SUSHI = false;
+
+    /**
+     * @dev Flag for stable pool swaps (false = volatile pools)
+     */
     bool constant STABLE = false;
+
+    /**
+     * @dev Oracle price precision (8 decimals)
+     */
     uint256 constant PRICE_PRECISION = 1e8;
 
     /**
@@ -45,6 +75,22 @@ library SwapLogic {
         return amountOut;
     }
 
+    /**
+     * @notice Calculates the minimum acceptable output amount for a swap with slippage protection
+     * @dev Uses zQuoter for mainnet price discovery, or oracle prices for testnet fallback
+     *
+     * ## Calculation Methods
+     * - **With zQuoter**: Queries expected output from Aerodrome quoter and applies slippage
+     * - **Without zQuoter**: Uses oracle prices to calculate fair value and applies slippage
+     *
+     * @param zQuoter zQuoter contract address (address(0) for testnet/Uniswap V4 mode)
+     * @param tokenIn Input token address (e.g., USDC)
+     * @param tokenOut Output token address (e.g., cbBTC)
+     * @param oracle Price oracle address for fallback calculation
+     * @param amountIn Amount of input tokens to swap
+     * @param maxSlippageBps Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
+     * @return minAcceptable Minimum output amount after slippage tolerance
+     */
     function calculateMinBTCAmt(
         address zQuoter,
         address tokenIn,
@@ -53,7 +99,7 @@ library SwapLogic {
         uint256 amountIn,
         uint256 maxSlippageBps
     ) internal returns (uint256 minAcceptable) {
-        //! TODO: Shift all to Uniswap
+        //! TODO: Shift all swaps to Uniswap V4 router
         if (zQuoter != address(0)) {
             // Base Mainnet: Use zQuoter for Aerodrome price validation
             (, uint256 expectedOut) = IzQuoter(zQuoter)

@@ -11,27 +11,37 @@ import {AccessManaged} from "../../dependencies/openzeppelin/AccessManaged.sol";
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 
-/// @title USDCVault
+/**
+ * @title USDCVault
+ */
 contract USDCVault is ERC4626, AccessManaged, Pausable {
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
 
-    /// @notice Emitted when the strategy contract is updated
-    /// @param newStrategy The new strategy contract address
+    /**
+     * @notice Emitted when the strategy contract is updated
+     * @param newStrategy The new strategy contract address
+     */
     event SimpleVault__StrategyUpdated(address newStrategy);
 
-    /// @notice The underlying asset that the vault accepts (immutable)
+    /**
+     * @notice The underlying asset that the vault accepts (immutable)
+     */
     address internal immutable i_asset;
 
     address internal immutable i_blp;
 
-    /// @notice The strategy contract that manages yield generation
+    /**
+     * @notice The strategy contract that manages yield generation
+     */
     ISimpleStrategy private s_strategy;
 
-    /// @notice Initializes the vault with the specified underlying asset
-    /// @param _manager Access Manager address
-    /// @param _asset The address of the ERC20 token to be used as the underlying asset
-    /// @param _blp Bitmor Lending Pool Address
+    /**
+     * @notice Initializes the vault with the specified underlying asset
+     * @param _manager Access Manager address
+     * @param _asset The address of the ERC20 token to be used as the underlying asset
+     * @param _blp Bitmor Lending Pool Address
+     */
     constructor(address _manager, address _asset, address _blp) AccessManaged(_manager) {
         if (_asset == address(0) || _blp == address(0)) revert Errors.ZeroAddress();
         i_asset = _asset;
@@ -46,9 +56,11 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
       |_____/_/\_\\__\___|_|  |_| |_|\__,_|_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /// @notice Updates the strategy contract used for yield generation
-    /// @dev Withdraws funds from current strategy before switching to new one
-    /// @param newStrategy The address of the new strategy contract (cannot be zero address)
+    /**
+     * @notice Updates the strategy contract used for yield generation
+     * @dev Withdraws funds from current strategy before switching to new one
+     * @param newStrategy The address of the new strategy contract (cannot be zero address)
+     */
     function setStrategy(address newStrategy) external restricted whenNotPaused {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
@@ -99,31 +111,39 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
       |_|    \__,_|_.__/|_|_|\___| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /// @notice Returns the name of the vault token
-    /// @inheritdoc ERC20
-    /// @return The vault token name
+    /**
+     * @notice Returns the name of the vault token
+     * @inheritdoc ERC20
+     * @return The vault token name
+     */
     function name() public pure override returns (string memory) {
         return "Simple Vault";
     }
 
-    /// @notice Returns the symbol of the vault token
-    /// @inheritdoc ERC20
-    /// @return The vault token symbol
+    /**
+     * @notice Returns the symbol of the vault token
+     * @inheritdoc ERC20
+     * @return The vault token symbol
+     */
     function symbol() public pure override returns (string memory) {
         return "SV";
     }
 
-    /// @notice Returns the address of the underlying asset
-    /// @inheritdoc ERC4626
-    /// @return The address of the underlying ERC20 token
+    /**
+     * @notice Returns the address of the underlying asset
+     * @inheritdoc ERC4626
+     * @return The address of the underlying ERC20 token
+     */
     function asset() public view override returns (address) {
         return i_asset;
     }
 
-    /// @notice Returns the total amount of assets under management
-    /// @inheritdoc ERC4626
-    /// @dev Delegates to the strategy contract to calculate total assets across all positions
-    /// @return assets The total amount of underlying assets managed by the vault
+    /**
+     * @notice Returns the total amount of assets under management
+     * @inheritdoc ERC4626
+     * @dev Delegates to the strategy contract to calculate total assets across all positions
+     * @return assets The total amount of underlying assets managed by the vault
+     */
     function totalAssets() public view override returns (uint256 assets) {
         assets = s_strategy.totalAssets();
     }
@@ -157,10 +177,12 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
       |___|_| |_|\__\___|_|  |_| |_|\__,_|_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /// @notice Returns the number of decimals used by the underlying asset
-    /// @inheritdoc ERC4626
-    /// @dev Used internally for precise share calculations
-    /// @return The number of decimals of the underlying asset
+    /**
+     * @notice Returns the number of decimals used by the underlying asset
+     * @inheritdoc ERC4626
+     * @dev Used internally for precise share calculations
+     * @return The number of decimals of the underlying asset
+     */
     function _underlyingDecimals() internal view override returns (uint8) {
         return ERC20(i_asset).decimals();
     }

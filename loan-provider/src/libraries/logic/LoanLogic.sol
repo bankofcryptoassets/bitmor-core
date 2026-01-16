@@ -20,13 +20,47 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
 
 /**
  * @title LoanLogic
- * @notice Library for loan calculation logic
- * @dev Handles fetching prices and interest rates from Aave V2, delegates math to LoanMath
+ * @author Bitmor Protocol
+ * @notice Library for loan initialization and calculation logic
+ * @dev Handles loan creation, state updates, and delegates math to LoanMath.
+ *
+ * ## Responsibilities
+ * - Validating loan parameters (collateral bounds, deposit requirements)
+ * - Computing loan amounts and monthly payments based on oracle prices
+ * - Creating Loan Vaults (LSAs) via factory
+ * - Initiating flash loans for loan funding
+ * - Managing loan state updates for liquidations
+ *
+ * ## Integration Points
+ * - Bitmor Lending Pool for interest rate data
+ * - Price Oracle for asset valuations
+ * - LoanVaultFactory for LSA creation
+ * - Aave V3 for flash loans
  */
 library LoanLogic {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
 
+    /**
+     * @notice Executes the full loan initialization flow
+     * @dev Creates LSA, stores loan data, transfers funds, and initiates flash loan
+     *
+     * ## Execution Steps
+     * 1. Validates deposit, collateral, and duration parameters
+     * 2. Calculates loan amount and monthly payment based on oracle prices
+     * 3. Deploys LSA via `LoanVaultFactory` using CREATE2
+     * 4. Stores loan data in `loansByLSA` mapping
+     * 5. Updates user loan indexing for multi-loan support
+     * 6. Transfers deposit from user and premium to collector
+     * 7. Initiates flash loan from Aave V3
+     *
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param userLoanCount Storage mapping of loan counts per user
+     * @param userLoanAtIndex Storage mapping of LSA addresses by user and index
+     * @param ctx Context containing protocol addresses and configuration
+     * @param params Parameters for loan initialization
+     * @return lsa The address of the created Loan Specific Address
+     */
     function executeInitializeLoan(
         mapping(address => DataTypes.LoanData) storage loansByLSA,
         mapping(address => uint256) storage userLoanCount,
@@ -102,6 +136,13 @@ library LoanLogic {
         return lsa;
     }
 
+    /**
+     * @notice Updates the insurance ID for a specific loan
+     * @dev Called after insurance is confirmed for a loan
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param lsa The Loan Specific Address
+     * @param insuranceID The new insurance ID to set
+     */
     function updateInsuranceId(
         mapping(address => DataTypes.LoanData) storage loansByLSA,
         address lsa,
@@ -110,6 +151,15 @@ library LoanLogic {
         loansByLSA[lsa].insuranceID = insuranceID;
     }
 
+    /**
+     * @notice Updates loan data after a micro-liquidation event
+     * @dev Reduces duration by 1 month and updates payment timestamp.
+     * Micro-liquidation occurs when a monthly payment is missed and the protocol
+     * liquidates one month's worth of collateral.
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param lsa The Loan Specific Address being liquidated
+     * @return newDuration The remaining loan duration after deduction
+     */
     function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
         internal
         returns (uint256 newDuration)
@@ -122,6 +172,13 @@ library LoanLogic {
         loan.lastPaymentTimestamp = block.timestamp;
     }
 
+    /**
+     * @notice Updates loan data after a full liquidation event
+     * @dev Sets duration to 0 and status to Liquidated.
+     * Full liquidation occurs when collateral value drops below debt threshold.
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param lsa The Loan Specific Address being liquidated
+     */
     function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
         internal
     {
@@ -172,6 +229,20 @@ library LoanLogic {
         );
     }
 
+    /**
+     * @notice Calculates loan details for a given collateral amount and duration
+     * @dev Used by `Loan.getLoanDetails()` to preview loan terms before creation.
+     * Fetches current oracle prices and interest rates to compute values.
+     * @param bitmorPool Bitmor Lending Pool address for interest rate data
+     * @param _oracle Price oracle address for asset valuations
+     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param debtAsset Debt asset address (USDC)
+     * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
+     * @param duration Loan duration in months
+     * @return exactLoanAmt The loan amount in debt asset (6 decimals for USDC)
+     * @return monthlyPayAmt The estimated monthly payment (6 decimals)
+     * @return minDepositRequired The minimum deposit required (6 decimals)
+     */
     function calculateLoanDetails(
         address bitmorPool,
         address _oracle,

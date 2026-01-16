@@ -196,7 +196,10 @@ abstract contract BaseLoanTest is Utilities {
             address premiumCollector,
             uint256 preClosureFeeBps,
             uint256 gracePeriod,
-            uint256 liquidationBuffer
+            uint256 liquidationBuffer,, // usdc
+            , // usdc_holder
+            , // entryFee
+            // exitFee
         ) = config.networkConfig();
 
         // Store addresses

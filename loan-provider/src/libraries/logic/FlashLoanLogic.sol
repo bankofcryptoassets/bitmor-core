@@ -8,22 +8,83 @@ import {SwapLogic} from "./SwapLogic.sol";
 import {Errors} from "../helpers/Errors.sol";
 import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
 
+/**
+ * @title FlashLoanLogic
+ * @author Bitmor Protocol
+ * @notice Library for handling Aave V3 flash loan callbacks
+ * @dev Processes flash loan operations for both loan initialization and loan closure.
+ *
+ * ## Flash Loan Operations
+ *
+ * ### Loan Initialization
+ * 1. Receive flash loaned USDC
+ * 2. Combine with user deposit
+ * 3. Swap total USDC to cbBTC via swap adapter
+ * 4. Deposit cbBTC to Bitmor Lending Pool (LSA receives aTokens)
+ * 5. Borrow from Bitmor Pool to repay flash loan + premium
+ *
+ * ### Loan Closure
+ * 1. Receive flash loaned USDC to repay debt
+ * 2. Repay debt on Bitmor Lending Pool
+ * 3. Withdraw collateral from Bitmor Pool
+ * 4. Send pre-closure fee to collector
+ * 5. Swap collateral to USDC to repay flash loan
+ *
+ * @custom:security Validates flash loan callback caller and initiator
+ */
 library FlashLoanLogic {
     using SafeERC20 for IERC20;
 
+    /**
+     * @notice Local variables for close loan flash loan operations
+     * @dev Used internally to organize intermediate values and avoid stack too deep
+     */
     struct LocalVarsCloseLoan {
-        address lsa;
-        bool withdrawInCollateralAsset;
-        uint256 preClosureFee;
-        uint256 finalAmountRepaid;
-        uint256 collateralAmountWithdrawn;
-        uint256 totalDebtRemaining;
-        uint256 collateralAmountToSwap;
-        uint256 minimumAcceptable;
-        uint256 debtAssetAmtReceived;
-        uint256 totalFlashLoanBorrowedAmt;
+        address lsa; /**
+                      * @dev Loan Specific Address being closed
+                      */
+        bool withdrawInCollateralAsset; /**
+                                         * @dev If true, user receives cbBTC; if false, receives USDC
+                                         */
+        uint256 preClosureFee; /**
+                                * @dev Fee charged for early loan closure
+                                */
+        uint256 finalAmountRepaid; /**
+                                    * @dev Actual amount repaid to Bitmor Pool
+                                    */
+        uint256 collateralAmountWithdrawn; /**
+                                            * @dev Amount of collateral withdrawn from Bitmor Pool
+                                            */
+        uint256 totalDebtRemaining; /**
+                                     * @dev Remaining debt after repayment
+                                     */
+        uint256 collateralAmountToSwap; /**
+                                         * @dev Amount of collateral to swap for flash loan repayment
+                                         */
+        uint256 minimumAcceptable; /**
+                                    * @dev Minimum output from swap (slippage protection)
+                                    */
+        uint256 debtAssetAmtReceived; /**
+                                       * @dev Amount of debt asset received from swap
+                                       */
+        uint256 totalFlashLoanBorrowedAmt; /**
+                                            * @dev Total flash loan amount including premium
+                                            */
     }
 
+    /**
+     * @notice Executes flash loan callback for loan initialization
+     * @dev Called by Aave V3 pool during loan creation. Swaps USDC to cbBTC,
+     * deposits collateral, and borrows to repay flash loan.
+     *
+     * ## Security Checks
+     * - Caller must be Aave V3 pool
+     * - Initiator must be the Loan contract (this)
+     *
+     * @param ctx Execution context with protocol addresses
+     * @param params Flash loan parameters (asset, amount, premium, etc.)
+     * @param loansByLSA Storage mapping of loans by LSA
+     */
     function executeFLOperationInitiailizingLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,
         DataTypes.ExecuteFLOperationParams memory params,
@@ -83,6 +144,23 @@ library FlashLoanLogic {
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, borrowAmount);
     }
 
+    /**
+     * @notice Executes flash loan callback for loan closure
+     * @dev Called by Aave V3 pool during loan closure. Repays debt, withdraws collateral,
+     * charges pre-closure fee, and swaps collateral to repay flash loan.
+     *
+     * ## Execution Flow
+     * 1. Validate caller (Aave pool) and initiator (this contract)
+     * 2. Repay full debt amount to Bitmor Lending Pool
+     * 3. Withdraw all collateral from Bitmor Pool if debt fully repaid
+     * 4. Transfer pre-closure fee to fee collector
+     * 5. Swap required collateral amount to debt asset
+     * 6. Approve Aave pool to pull flash loan repayment
+     *
+     * @param ctx Execution context with protocol addresses
+     * @param params Flash loan parameters (asset, amount, premium, etc.)
+     * @param loansByLSA Storage mapping of loans by LSA
+     */
     function executeFLOperationCloseLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,
         DataTypes.ExecuteFLOperationParams memory params,

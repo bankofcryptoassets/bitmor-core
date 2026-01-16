@@ -23,6 +23,11 @@ contract HelperConfig is Script {
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
         uint256 liquidationBuffer;
+        // Vault test config
+        address usdc;
+        address usdc_holder;
+        uint256 entryFee;
+        uint256 exitFee;
     }
 
     NetworkConfig public networkConfig;
@@ -48,6 +53,13 @@ contract HelperConfig is Script {
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
     address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     bytes public constant DATA = "0xLOAN";
+    // USDC on Base Sepolia (Circle's USDC)
+    address public constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
+    // USDC holder on Base Sepolia (whale address with large USDC balance for fork testing)
+    address public constant USDC_HOLDER_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
+    // Default vault fees in basis points
+    uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
+    uint256 public constant DEFAULT_EXIT_FEE = 10; // 0.1%
 
     constructor() {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
@@ -69,8 +81,16 @@ contract HelperConfig is Script {
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee(),
             gracePeriod: getGracePeriod(),
-            liquidationBuffer: getLiquidationBuffer()
+            liquidationBuffer: getLiquidationBuffer(),
+            usdc: USDC_BASE_SEPOLIA,
+            usdc_holder: USDC_HOLDER_BASE_SEPOLIA,
+            entryFee: DEFAULT_ENTRY_FEE,
+            exitFee: DEFAULT_EXIT_FEE
         });
+    }
+
+    function getNetworkConfig() public view returns (NetworkConfig memory) {
+        return networkConfig;
     }
 
     function getAccessManager() public view returns (address) {

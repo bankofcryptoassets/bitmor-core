@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {Address} from "@openzeppelin/utils/Address.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {ERC20} from "@solady/tokens/ERC20.sol";
@@ -13,10 +13,11 @@ import {ILendingPool as IBLP} from "../../interfaces/ILendingPool.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 import {IPool as IAave} from "../../interfaces/IPool.sol";
 
-/// @title USDCStrategy
-/// @notice A yield strategy that splits deposited assets in 4:1 ratio between Aave and BLP protocols
-/// @dev Implements ISimpleStrategy interface and manages asset allocation across DeFi protocols
-
+/**
+ * @title USDCStrategy
+ * @notice A yield strategy that splits deposited assets in 4:1 ratio between Aave and BLP protocols
+ * @dev Implements ISimpleStrategy interface and manages asset allocation across DeFi protocols
+ */
 contract USDCStrategy is ISimpleStrategy {
     using Address for address;
     using FixedPointMathLib for uint256;
@@ -26,38 +27,58 @@ contract USDCStrategy is ISimpleStrategy {
 
     event USDCStrategy__AAVEAllocationUpdated(uint256 indexed newAaveAllocation);
 
-    /// @notice The Aave lending pool contract
+    /**
+     * @notice The Aave lending pool contract
+     */
     IAave public immutable i_aave;
 
-    /// @notice The Bitmor Lending Pool contract
+    /**
+     * @notice The Bitmor Lending Pool contract
+     */
     IBLP public immutable i_blp;
 
-    /// @notice The vault contract that owns this strategy
+    /**
+     * @notice The vault contract that owns this strategy
+     */
     address public immutable i_vault;
 
-    /// @notice Address of the base `asset` from the vault.
+    /**
+     * @notice Address of the base `asset` from the vault.
+     */
     address public immutable i_asset;
 
-    /// @notice Referral code for Aave deposits (0 = no referral)
+    /**
+     * @notice Referral code for Aave deposits (0 = no referral)
+     */
     uint16 internal constant REFERRAL_CODE = 0;
 
-    /// @notice Scale factor for percentage calculations (100%)
+    /**
+     * @notice Scale factor for percentage calculations (100%)
+     */
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
-    /// @notice Curator role which can change the allocation.
-    /// @dev This curator role needs to be given to the address who have curator role in `i_vault`.
+    /**
+     * @notice Curator role which can change the allocation.
+     * @dev This curator role needs to be given to the address who have curator role in `i_vault`.
+     */
     bytes32 internal constant CURATOR = keccak256("CURATOR");
 
-    /// @notice Minimum Delta required for reallocation of assets, expressed in basis points.
+    /**
+     * @notice Minimum Delta required for reallocation of assets, expressed in basis points.
+     */
     uint256 private s_minimumDeltaRequired;
 
-    /// @notice Percentage to allocate to Aave.
+    /**
+     * @notice Percentage to allocate to Aave.
+     */
     uint256 private s_aaveAllocation;
 
-    /// @notice Initializes the strategy with required protocol addresses
-    /// @param _vault The address of the vault that will use this strategy
-    /// @param _aave The address of the Aave lending pool
-    /// @param _blp The address of the Bitmor Lending Pool
+    /**
+     * @notice Initializes the strategy with required protocol addresses
+     * @param _vault The address of the vault that will use this strategy
+     * @param _aave The address of the Aave lending pool
+     * @param _blp The address of the Bitmor Lending Pool
+     */
     constructor(address _vault, address _aave, address _blp) {
         if (_vault == address(0) || _aave == address(0) || _blp == address(0) || _aave == address(0)) {
             revert Errors.ZeroAddress();
@@ -88,22 +109,28 @@ contract USDCStrategy is ISimpleStrategy {
       |_|    \___/|____/|_____|___\____| |_|    \___/|_| \_|\____| |_| |___\___/|_| \_|____/
     */
 
-    /// @notice Returns the underlying asset address.
-    /// @return assetAddress The address of the underlying ERC20 asset
+    /**
+     * @notice Returns the underlying asset address.
+     * @return assetAddress The address of the underlying ERC20 asset
+     */
     function asset() public view returns (address assetAddress) {
         return i_asset;
     }
 
-    /// @notice Returns the total assets under management across all positions
-    /// @dev Sums vault balance and deployed assets in external protocols
-    /// @return totalBalance The total amount of assets managed by this strategy
+    /**
+     * @notice Returns the total assets under management across all positions
+     * @dev Sums vault balance and deployed assets in external protocols
+     * @return totalBalance The total amount of assets managed by this strategy
+     */
     function totalAssets() public view returns (uint256 totalBalance) {
         totalBalance = _getTotalBalanceInMarkets();
     }
 
-    /// @notice Returns the total balance deployed across external protocols
-    /// @dev Sums balances in Aave and BLP
-    /// @return balance The total amount deployed in external protocols
+    /**
+     * @notice Returns the total balance deployed across external protocols
+     * @dev Sums balances in Aave and BLP
+     * @return balance The total amount deployed in external protocols
+     */
     function getTotalBalanceInMarkets() public view returns (uint256 balance) {
         balance = _getTotalBalanceInMarkets();
     }
@@ -144,8 +171,10 @@ contract USDCStrategy is ISimpleStrategy {
         i_blp.deposit(i_asset, amountToDepositInBLP, address(this), REFERRAL_CODE);
     }
 
-    /// @notice Withdraws the requested amount from AAVE and deposit in BLP.
-    /// @param amount The amount of assets to make available for withdrawal in BLP.
+    /**
+     * @notice Withdraws the requested amount from AAVE and deposit in BLP.
+     * @param amount The amount of assets to make available for withdrawal in BLP.
+     */
     function withdraw(uint256 amount) external onlyVault {
         _withdrawFunds(amount);
     }
@@ -158,8 +187,10 @@ contract USDCStrategy is ISimpleStrategy {
         _withdrawFundsToBLP(amountToWithdraw);
     }
 
-    /// @notice Withdraws all funds from AAVE back to the BLP
-    /// @dev Called when strategy is being replaced or vault needs to liquidate all positions
+    /**
+     * @notice Withdraws all funds from AAVE back to the BLP
+     * @dev Called when strategy is being replaced or vault needs to liquidate all positions
+     */
     function withdrawAllFunds() external onlyVault {
         _withdrawAllFunds();
     }
@@ -178,24 +209,30 @@ contract USDCStrategy is ISimpleStrategy {
       |___|_| \_| |_| |_____|_| \_\_| \_/_/   \_\_____| |_|    \___/|_| \_|\____| |_| |___\___/|_| \_|____/
     */
 
-    /// @notice Returns the total balance deployed across external protocols
-    /// @dev Sums balances in Aave and BLP
-    /// @return balance The total amount deployed in external protocols
+    /**
+     * @notice Returns the total balance deployed across external protocols
+     * @dev Sums balances in Aave and BLP
+     * @return balance The total amount deployed in external protocols
+     */
     function _getTotalBalanceInMarkets() internal view returns (uint256 balance) {
         return _getBalanceInAave() + _getBalanceInBLP();
     }
 
-    /// @notice Gets the balance of assets deposited in Aave
-    /// @dev Queries the aToken balance which represents deposits in Aave
-    /// @return balance The amount of assets deposited in Aave
+    /**
+     * @notice Gets the balance of assets deposited in Aave
+     * @dev Queries the aToken balance which represents deposits in Aave
+     * @return balance The amount of assets deposited in Aave
+     */
     function _getBalanceInAave() internal view returns (uint256 balance) {
         address aToken = IAave(i_aave).getReserveAToken(i_asset);
         balance = ERC20(aToken).balanceOf(address(this));
     }
 
-    /// @notice Gets the balance of assets deposited in BLP
-    /// @dev Queries the aToken balance from BLP reserve data
-    /// @return balance The amount of assets deposited in BLP
+    /**
+     * @notice Gets the balance of assets deposited in BLP
+     * @dev Queries the aToken balance from BLP reserve data
+     * @return balance The amount of assets deposited in BLP
+     */
     function _getBalanceInBLP() internal view returns (uint256 balance) {
         //! TODO: This get's the balance of aToken not the underlying assets meaning the total assets can be wrong.
         //! get the i_asset.balanceOf(aToken)
@@ -205,7 +242,9 @@ contract USDCStrategy is ISimpleStrategy {
         balance = ERC20(i_asset).balanceOf(aToken);
     }
 
-    /// @notice Reallocates assets between Aave and BLP.
+    /**
+     * @notice Reallocates assets between Aave and BLP.
+     */
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
 
@@ -232,7 +271,9 @@ contract USDCStrategy is ISimpleStrategy {
         }
     }
 
-    /// @notice Withdraw all funds in the vault.
+    /**
+     * @notice Withdraw all funds in the vault.
+     */
     function _withdrawAllFunds() internal {
         i_aave.withdraw(i_asset, _getBalanceInAave(), address(this));
         i_blp.withdraw(i_asset, _getBalanceInBLP(), address(this));

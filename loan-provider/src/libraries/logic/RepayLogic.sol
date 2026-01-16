@@ -11,16 +11,40 @@ import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
 import {LSALogic} from "./LSALogic.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
+/**
+ * @title RepayLogic
+ * @author Bitmor Protocol
+ * @notice Library for loan repayment execution logic
+ * @dev Handles the full repayment flow including validation, execution, and state updates.
+ *
+ * ## Repayment Flow
+ * 1. Validates LSA and amount parameters
+ * 2. Caps repayment to outstanding debt (no overpayment)
+ * 3. Pulls funds from payer and approves Bitmor Pool
+ * 4. Executes repayment on Bitmor Lending Pool
+ * 5. Updates loan state (duration, status)
+ * 6. Withdraws collateral if fully repaid
+ * 7. Refunds excess payment if any
+ */
 library RepayLogic {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
 
     /**
-     * Execute Repay checks the `params.lsa` debt position and calculates and repay the `maxRepayableAmt` to the Bitmor Lending Pool. With `finalAmountRepaid` the duration of the Loan is changed accordingly, i.e, if there's no remainig debt then the `loan` status updated to `Completed` and `duration` sets to zero, else the duration is deducted based on the no of `periods` `maxRepayableAmt` has covered.
+     * @notice Executes a loan repayment for a specific LSA
+     * @dev Checks the LSA debt position, calculates the repayable amount, and executes
+     * repayment to the Bitmor Lending Pool. Updates loan duration based on amount repaid.
+     *
+     * ## State Changes
+     * - If fully repaid: status = `Completed`, duration = 0, collateral withdrawn to borrower
+     * - If partial: duration reduced by number of periods covered
+     *
      * @param bitmorPool Bitmor Lending Pool address
-     * @param debtAsset Debt asset address
-     * @param params Params the function is being called with.
-     * @param loansByLSA Mapping of all the loans.
+     * @param debtAsset Debt asset address (USDC)
+     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param params Repayment parameters containing LSA and amount
+     * @param loansByLSA Storage mapping of all loans by LSA
+     * @return finalAmountRepaid The actual amount repaid to the pool
      */
     function executeRepay(
         address bitmorPool,

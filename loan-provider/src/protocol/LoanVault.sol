@@ -7,22 +7,42 @@ import {ILoanVault} from "../interfaces/ILoanVault.sol";
 
 /**
  * @title LoanVault
+ * @author Bitmor Protocol
  * @notice Loan Specific Address (LSA) that holds the Aave V2 position
- * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses
- * Each loan gets its own LSA which holds acbBTC collateral and vdtUSDC debt
+ * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses.
+ * Each loan gets its own LSA which holds acbBTC collateral and vdtUSDC debt.
+ *
+ * ## Design
+ * - Each loan creates a new LoanVault instance via minimal proxy (clone)
+ * - The vault holds aTokens (acbBTC) representing collateral
+ * - The vault holds variable debt tokens (vdtUSDC) representing the borrowed amount
+ * - Only the Loan contract (owner) can execute operations on this vault
+ *
+ * ## Security Model
+ * - Single owner (Loan contract) controls all operations
+ * - Initialization can only happen once
+ * - Arbitrary execution allows flexibility while maintaining access control
+ *
+ * @custom:security Only owner can approve, transfer, or execute operations
  */
 contract LoanVault is ILoanVault {
     using SafeERC20 for IERC20;
 
     // ============ State Variables ============
 
-    /// @notice The Loan contract that controls this vault
+    /**
+     * @notice The Loan contract that controls this vault
+     */
     address private s_owner; // This will be our Loan.sol contract address
 
-    /// @notice The user who created this loan
+    /**
+     * @notice The user who created this loan
+     */
     address private s_borrower;
 
-    /// @notice Prevents re-initialization
+    /**
+     * @notice Prevents re-initialization
+     */
     bool private s_initialized;
 
     // ============ Modifiers ============
@@ -145,13 +165,25 @@ contract LoanVault is ILoanVault {
         return IERC20(token).balanceOf(address(this));
     }
 
+    /**
+     * @notice Internal validation to ensure vault is not already initialized
+     * @dev Reverts if `s_initialized` is true
+     */
     function _notInitialized() internal view {
         require(!s_initialized, "LoanVault: already initialized");
     }
 
+    /**
+     * @notice Internal validation to ensure caller is the owner
+     * @dev Reverts if `msg.sender` is not `s_owner`
+     */
     function _onlyOwner() internal view {
         require(msg.sender == s_owner, "LoanVault: caller is not owner");
     }
 
+    /**
+     * @notice Allows the vault to receive native tokens (ETH)
+     * @dev Required for potential gas refunds or protocol operations
+     */
     receive() external payable {}
 }

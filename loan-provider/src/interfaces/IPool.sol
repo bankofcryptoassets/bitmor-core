@@ -52,7 +52,9 @@ library DataTypes {
         uint128 variableBorrowIndex;
         //the current variable borrow rate. Expressed in ray
         uint128 currentVariableBorrowRate;
-        /// @notice reused `__deprecatedStableBorrowRate` storage from pre 3.2
+        /**
+         * @notice reused `__deprecatedStableBorrowRate` storage from pre 3.2
+         */
         // the current accumulate deficit in underlying tokens
         uint128 deficit;
         //timestamp of last update
