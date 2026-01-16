@@ -9,13 +9,14 @@ The BTC swapped while `initializingLoan` on Bitmor, gets deposited into this vau
 
 The BTC Vault is managed by **Access Manager**, the following are the roles, their corresponding functions and expected delay for each role:
 
-| Role Label                         | RoleId | Role                                               | Contract  | Function                                       | Expected Delay | Type     |
-| ---------------------------------- | ------ | -------------------------------------------------- | --------- | ---------------------------------------------- | -------------- | -------- |
-| **BVM_FAST** (BTC Vault Manager)   | 11     | Pause, emergency withdraw                          | BTC Vault | pause, emergencyWithdraw                       | 0              | Multisig |
-| **BVM_SLOW** (BTC Vault Manager)   | 110    | Set fee recipient and unpause contract             | BTC Vault | setFeeRecipient, unpause                       | 1 DAY          | Multisig |
-| **BVC** (BTC Vault Curator)        | 12     | Change strategy cap, add strategy, remove strategy | BTC Vault | addStrategy, removeStrategy, changeStrategyCap | 1 DAY          | Multisig |
-| **BVA_SLOW** (BTC Vault Allocator) | 130    | Set supply queue, set withdraw queue               | BTC Vault | setSupplyQueue, setWithdrawQueue               | 1 DAY          | TBD      |
-| **BVA_FAST** (BTC Vault Allocator) | 13     | Reallocate assets                                  | BTC Vault | reallocateAssets                               | 0              | TBD      |
+| Role Label                         | RoleId | Role                                               | Contract  | Function                                       | Expected Delay | Type                     |
+| ---------------------------------- | ------ | -------------------------------------------------- | --------- | ---------------------------------------------- | -------------- | ------------------------ |
+| **BVM_FAST** (BTC Vault Manager)   | 11     | Pause, emergency withdraw                          | BTC Vault | pause, emergencyWithdraw                       | 0              | Multisig                 |
+| **BVM_SLOW** (BTC Vault Manager)   | 110    | Set fee recipient and unpause contract             | BTC Vault | setFeeRecipient, unpause                       | 1 DAY          | Multisig                 |
+| **BVC** (BTC Vault Curator)        | 12     | Change strategy cap, add strategy, remove strategy | BTC Vault | addStrategy, removeStrategy, changeStrategyCap | 1 DAY          | Multisig                 |
+| **BVA_SLOW** (BTC Vault Allocator) | 130    | Set supply queue, set withdraw queue               | BTC Vault | setSupplyQueue, setWithdrawQueue               | 1 DAY          | TBD                      |
+| **BVA_FAST** (BTC Vault Allocator) | 13     | Reallocate assets                                  | BTC Vault | reallocateAssets                               | 0              | TBD                      |
+| **BVD** (BTC Vault Depositor)      | 14     | Deposit assets in vault.                           | BTC Vault | deposit                                        | 0              | Contract (Loan Provider) |
 
 ### Asset
 The only asset acceptable in Bitmor BTC Vault is **cbBTC**.
