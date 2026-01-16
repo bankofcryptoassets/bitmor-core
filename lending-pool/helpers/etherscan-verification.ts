@@ -1,6 +1,4 @@
 import { exit } from 'process';
-import fs from 'fs';
-import { file } from 'tmp-promise';
 import { DRE } from './misc-utils.js';
 
 const fatalErrors = [
@@ -52,20 +50,19 @@ export const verifyEtherscanContract = async (
     );
     const msDelay = 3000;
     const times = 4;
-    // Write a temporal file to host complex parameters for buidler-etherscan https://github.com/nomiclabs/buidler/tree/development/packages/buidler-etherscan#complex-arguments
-    const { fd, path, cleanup } = await file({
-      prefix: 'verify-params-',
-      postfix: '.js',
-    });
-    fs.writeSync(fd, `module.exports = ${JSON.stringify([...constructorArguments])};`);
 
+    // Hardhat v3 uses verify task with constructorArgs as array
     const params = {
       address: address,
-      libraries,
-      constructorArgs: path,
-      relatedSources: true,
+      constructorArgs: constructorArguments,
     };
-    await runTaskWithRetry('verify', params, times, msDelay, cleanup);
+
+    // Add libraries if provided
+    if (libraries) {
+      (params as any).libraries = libraries;
+    }
+
+    await runTaskWithRetry('verify', params, times, msDelay);
   } catch (error) {}
 };
 
@@ -73,23 +70,15 @@ export const runTaskWithRetry = async (
   task: string,
   params: any,
   times: number,
-  msDelay: number,
-  cleanup: () => void
+  msDelay: number
 ) => {
   let counter = times;
   await delay(msDelay);
 
   try {
-    if (times > 1) {
-      await DRE.run(task, params);
-      cleanup();
-    } else if (times === 1) {
-      console.log('[ETHERSCAN][WARNING] Trying to verify via uploading all sources.');
-      delete params.relatedSources;
-      await DRE.run(task, params);
-      cleanup();
+    if (times > 0) {
+      await DRE.tasks.getTask(task).run(params);
     } else {
-      cleanup();
       console.error(
         '[ETHERSCAN][ERROR] Errors after all the retries, check the logs for more information.'
       );
@@ -112,11 +101,7 @@ export const runTaskWithRetry = async (
     console.error('[ETHERSCAN][ERROR]', error.message);
     console.log();
     console.info(`[ETHERSCAN][[INFO] Retrying attemps: ${counter}.`);
-    if (error.message.includes(unableVerifyError)) {
-      console.log('[ETHERSCAN][WARNING] Trying to verify via uploading all sources.');
-      delete params.relatedSources;
-    }
-    await runTaskWithRetry(task, params, counter, msDelay, cleanup);
+    await runTaskWithRetry(task, params, counter, msDelay);
   }
 };
 

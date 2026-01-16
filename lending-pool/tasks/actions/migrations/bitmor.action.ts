@@ -28,25 +28,25 @@ export default async function bitmorSepoliaAction(
   console.log("Migration started\n");
 
   console.log("0. Deploy address provider registry");
-  await runTask(hre, "full:deploy-address-provider-registry", { pool: POOL_NAME });
+  await runTask(hre, "full:deploy-address-provider-registry", { pool: POOL_NAME, verify });
 
   console.log("1. Deploy address provider");
-  await runTask(hre, "full:deploy-address-provider", { pool: POOL_NAME, skipRegistry });
+  await runTask(hre, "full:deploy-address-provider", { pool: POOL_NAME, skipRegistry, verify });
 
   console.log("2. Deploy lending pool");
-  await runTask(hre, "full:deploy-lending-pool", { pool: POOL_NAME });
+  await runTask(hre, "full:deploy-lending-pool", { pool: POOL_NAME, verify });
 
   console.log("3. Deploy oracles");
-  await runTask(hre, "full:deploy-oracles", { pool: POOL_NAME });
+  await runTask(hre, "full:deploy-oracles", { pool: POOL_NAME, verify });
 
   console.log("4. Deploy Data Provider");
-  await runTask(hre, "full:data-provider", { pool: POOL_NAME });
+  await runTask(hre, "full:data-provider", { pool: POOL_NAME, verify });
 
   console.log("5. Deploy WETH Gateway");
-  await runTask(hre, "full-deploy-weth-gateway", { pool: POOL_NAME });
+  await runTask(hre, "full-deploy-weth-gateway", { pool: POOL_NAME, verify });
 
   console.log("6. Initialize lending pool");
-  await runTask(hre, "full:initialize-lending-pool", { pool: POOL_NAME });
+  await runTask(hre, "full:initialize-lending-pool", { pool: POOL_NAME, verify });
 
   console.log("7. Deploy UI helpers");
   await runTask(hre, "deploy-UiPoolDataProviderV2V3", { verify });

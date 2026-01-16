@@ -31,22 +31,22 @@ export default async function bitmorDevAction(
   await hre.tasks.getTask('dev:deploy-bitmor-mock-tokens').run({ verify });
 
   console.log("2. Deploy address provider registry");
-  await hre.tasks.getTask('full:deploy-address-provider-registry').run({ pool: POOL_NAME });
+  await hre.tasks.getTask('full:deploy-address-provider-registry').run({ pool: POOL_NAME, verify });
 
   console.log("3. Deploy address provider");
-  await hre.tasks.getTask('full:deploy-address-provider').run({ pool: POOL_NAME, skipRegistry });
+  await hre.tasks.getTask('full:deploy-address-provider').run({ pool: POOL_NAME, skipRegistry, verify });
 
   console.log("4. Deploy lending pool");
-  await hre.tasks.getTask('full:deploy-lending-pool').run({ pool: POOL_NAME });
+  await hre.tasks.getTask('full:deploy-lending-pool').run({ pool: POOL_NAME, verify });
 
   console.log("5. Deploy oracles");
-  await hre.tasks.getTask('full:deploy-oracles').run({ pool: POOL_NAME });
+  await hre.tasks.getTask('full:deploy-oracles').run({ pool: POOL_NAME, verify });
 
   console.log("6. Deploy Data Provider");
-  await hre.tasks.getTask('full:data-provider').run({ pool: POOL_NAME });
+  await hre.tasks.getTask('full:data-provider').run({ pool: POOL_NAME, verify });
 
   console.log("7. Deploy WETH Gateway");
-  await hre.tasks.getTask('full-deploy-weth-gateway').run({ pool: POOL_NAME });
+  await hre.tasks.getTask('full-deploy-weth-gateway').run({ pool: POOL_NAME, verify });
 
   console.log("8. Initialize lending pool");
   await hre.tasks.getTask('dev:initialize-lending-pool').run({ verify, pool: POOL_NAME });

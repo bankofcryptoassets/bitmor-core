@@ -97,7 +97,7 @@ export default defineConfig({
         etherscan: {
           name: "BaseScan",
           url: "https://sepolia.basescan.org",
-          apiUrl: "https://api-sepolia.basescan.org/api",
+          apiUrl: "https://api.etherscan.io/v2/api",
         },
       },
     },
@@ -107,7 +107,7 @@ export default defineConfig({
         etherscan: {
           name: "BaseScan",
           url: "https://basescan.org",
-          apiUrl: "https://api.basescan.org/api",
+          apiUrl: "https://api.etherscan.io/v2/api",
         },
       },
     },
