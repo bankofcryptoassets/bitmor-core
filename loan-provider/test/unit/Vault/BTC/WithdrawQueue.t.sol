@@ -19,7 +19,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
         newWithdrawQueue[3] = 4;
         newWithdrawQueue[4] = 0;
 
-        _scheduleAndExecute(bva_slow, bva_slow_id, abi.encodeCall(BTCVault.updateWithdrawQueue, (newWithdrawQueue)));
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (newWithdrawQueue)));
 
         uint256[] memory withdrawQueue = vault.getWithdrawQueue();
 
@@ -30,7 +30,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
         uint256[] memory newWithdrawQueue = new uint256[](vault.getTotalStrategies() + 1);
         bytes memory data = abi.encodeCall(BTCVault.updateWithdrawQueue, (newWithdrawQueue));
 
-        _scheduleAndExpectRevert(bva_slow, bva_slow_id, data, abi.encodeWithSelector(Errors.WrongLength.selector));
+        _scheduleAndExpectRevert(bva_slow, bva_slow_id(), data, abi.encodeWithSelector(Errors.WrongLength.selector));
     }
 
     function _addStrategies() public {
@@ -38,7 +38,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
             MockTokenizedStrategy newStrategy = new MockTokenizedStrategy(address(yieldSource), address(vault));
 
             _scheduleAndExecute(
-                bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(newStrategy), STANDARD_STRATEGY_CAP))
+                bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(newStrategy), STANDARD_STRATEGY_CAP))
             );
         }
     }

@@ -11,6 +11,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
+import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 
 /// @title InitializeLoanTest
 /// @notice Tests for loan initialization functionality
@@ -175,9 +176,12 @@ contract InitializeLoanTest is BaseLoanTest {
     function test_initializeLoan_flashLoanIntegration_success() public {
         MockAaveV3Pool mockPool = new MockAaveV3Pool();
 
+        // Create a new AccessManager for loan2
+        BitmorAccessManager manager2 = new BitmorAccessManager(owner);
+
         vm.startPrank(owner);
         Loan loan2 = new Loan(
-            owner, // accessManager
+            address(manager2), // Use proper AccessManager
             address(mockPool),
             s_addressesProvider,
             s_bitmorPool,
@@ -192,9 +196,15 @@ contract InitializeLoanTest is BaseLoanTest {
             loan.getLiquidationBuffer()
         );
 
+        // Set up roles for loan2 before setting target selectors
         address loanVaultImplementation = address(new LoanVault());
         address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan2)));
         loan2.setLoanVaultFactory(loanVaultFactory);
+
+        // Now set up roles and target selectors
+        manager2.grantRole(EXECUTOR_ID, user, NO_DELAY);
+        manager2.setTargetFunctionRole(address(loan2), rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID);
+
         vm.stopPrank();
 
         _utilSeedUserAndApprove(user, debtAsset, address(loan2), DEBT_ASSET_TO_MINT_TO_USER);

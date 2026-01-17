@@ -76,7 +76,7 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
         _addStrategy(firstStrategyCap);
 
         MockTokenizedStrategy strategy2 = new MockTokenizedStrategy(address(yieldSource), address(vault));
-        _scheduleAndExecute(bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy2), secondStrategyCap)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy2), secondStrategyCap)));
 
         _deposit(DEPOSIT_AMOUNT);
 
@@ -102,7 +102,7 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
     function test_addStrategy_StrategyWithZeroAddress() public {
         bytes memory data = abi.encodeCall(BTCVault.addStrategy, (address(0), 0));
 
-        _scheduleAndExpectRevert(bvc, bvc_id, data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        _scheduleAndExpectRevert(bvc, bvc_id(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
     }
 
     /**
@@ -112,10 +112,10 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
     function test_addStrategy_StrategyAlreadyAdded() public {
         uint256 cap = DEPOSIT_AMOUNT;
 
-        _scheduleAndExecute(bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), cap)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), cap)));
 
         bytes memory data = abi.encodeCall(BTCVault.addStrategy, (address(strategy), SMALL_STRATEGY_CAP));
-        _scheduleAndExpectRevert(bvc, bvc_id, data, abi.encodeWithSelector(Errors.StrategyAlreadyAdded.selector));
+        _scheduleAndExpectRevert(bvc, bvc_id(), data, abi.encodeWithSelector(Errors.StrategyAlreadyAdded.selector));
     }
 
     /**
@@ -125,7 +125,7 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
     function test_addStrategy_WithLargeCap() public {
         uint256 largeCap = VERY_LARGE_CAP;
 
-        _scheduleAndExecute(bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), largeCap)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), largeCap)));
 
         assertEq(vault.getStrategyDetails(0).cap, largeCap);
     }
@@ -135,7 +135,7 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
      * @dev Zero caps are allowed in the current implementation
      */
     function test_addStrategy_StrategyWithZeroCap() public {
-        _scheduleAndExecute(bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), 0)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), 0)));
 
         assertEq(vault.getStrategyDetails(0).cap, 0);
     }
@@ -170,6 +170,6 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
      * @param cap Cap amount in USDC (e.g., 50_000e6 = 50,000 USDC)
      */
     function _addStrategy(uint256 cap) internal {
-        _scheduleAndExecute(bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), cap)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), cap)));
     }
 }

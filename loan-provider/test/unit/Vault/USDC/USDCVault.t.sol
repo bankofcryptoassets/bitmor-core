@@ -217,7 +217,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
 
         // Set new strategy via manager
         _scheduleAndExecute(
-            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
+            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
         );
 
         // Verify strategy was updated
@@ -228,7 +228,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     function test_setStrategy_zeroAddress_reverts() public {
         bytes memory data = abi.encodeCall(USDCVault.setStrategy, (address(0)));
         _scheduleAndExpectRevert(
-            manager_slow, MANAGER_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
+            uvm_slow, UVM_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
     }
 

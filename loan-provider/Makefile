@@ -62,6 +62,9 @@ mintTokens:
 depositDebtTokenToBitmorLendingPool:
 	forge script script/interaction/MockToken.s.sol:MockToken_AddToLendingPool --rpc-url base_sepolia --broadcast --account bitmor_owner
 
+deployAccessManager:
+	forge script script/deployment/DeployAccessManager.s.sol:DeployAccessManager --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
+
 deployLoanVault:
 	forge script script/deployment/DeployLoanVault.s.sol:DeployLoanVault --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
@@ -88,7 +91,7 @@ verifyAll:
 	forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
 
 setup:
-	make deploySwapAdapterWrapper && make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
+	make deployAccessManager && make deploySwapAdapterWrapper && make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
 
 # ==============================================================
 

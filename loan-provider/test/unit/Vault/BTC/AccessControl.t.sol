@@ -26,7 +26,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
     function test_SetEntryFee_AsBvmSlow() public {
         uint256 newFee = 100;
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setEntryFee, (newFee)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setEntryFee, (newFee)));
 
         assertEq(vault.getEntryFee(), newFee);
     }
@@ -42,7 +42,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
     function test_SetExitFee_AsBvmSlow() public {
         uint256 newFee = 200;
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setExitFee, (newFee)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setExitFee, (newFee)));
 
         assertEq(vault.getExitFee(), newFee);
     }
@@ -58,7 +58,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
     function test_SetFeeRecipient_AsBvmSlow() public {
         address newRecipient = makeAddr("NEW_RECIPIENT");
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setFeeRecipient, (newRecipient)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setFeeRecipient, (newRecipient)));
 
         assertEq(vault.getFeeRecipient(), newRecipient);
     }
@@ -73,7 +73,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_RevertWhen_SetFeeRecipient_ZeroAddress() public {
         bytes memory data = abi.encodeCall(BTCVault.setFeeRecipient, (address(0)));
-        uint48 when = _scheduleOperation(bvm_slow, bvm_slow_id, data);
+        uint48 when = _scheduleOperation(bvm_slow, bvm_slow_id(), data);
 
         vm.warp(when);
         vm.prank(bvm_slow);
@@ -84,7 +84,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
     function test_SetMaxStrategies_AsBvmSlow() public {
         uint256 newMax = 12;
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setMaxStrategies, (newMax)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setMaxStrategies, (newMax)));
 
         assertEq(vault.getMaxStrategies(), newMax);
     }
@@ -112,7 +112,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         vm.prank(bvm_fast);
         vault.pause();
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.unpause, ()));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.unpause, ()));
 
         assertFalse(vault.paused());
     }
@@ -128,7 +128,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_AddStrategy_AsBvc() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         assertEq(vault.getTotalStrategies(), 1);
@@ -142,11 +142,11 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_ChangeStrategyCap_AsBvc() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.changeStrategyCap, (address(strategy), LARGE_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strategy), LARGE_STRATEGY_CAP))
         );
 
         assertEq(vault.getStrategyDetails(0).cap, LARGE_STRATEGY_CAP);
@@ -154,7 +154,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_RevertWhen_ChangeStrategyCap_AsUnauthorized() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         vm.prank(unauthorized);
@@ -169,7 +169,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         supplyQueue[0] = 0;
         supplyQueue[1] = 1;
 
-        _scheduleAndExecute(bva_slow, bva_slow_id, abi.encodeCall(BTCVault.updateSupplyQueue, (supplyQueue)));
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateSupplyQueue, (supplyQueue)));
 
         assertEq(vault.getSupplyQueueLength(), 2);
     }
@@ -193,7 +193,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         withdrawQueue[0] = 0;
         withdrawQueue[1] = 1;
 
-        _scheduleAndExecute(bva_slow, bva_slow_id, abi.encodeCall(BTCVault.updateWithdrawQueue, (withdrawQueue)));
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (withdrawQueue)));
 
         assertEq(vault.getWithdrawQueueLength(), 2);
     }
@@ -212,7 +212,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_ReallocateFunds_AsBvaFast() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         _depositAsUser(DEPOSIT_AMOUNT);
@@ -227,7 +227,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_RevertWhen_ReallocateFunds_AsUnauthorized() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         _depositAsUser(DEPOSIT_AMOUNT);
@@ -241,7 +241,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function test_Deposit_AsUserRole() public {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
         _depositAsUser(DEPOSIT_AMOUNT);
@@ -257,10 +257,10 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
 
     function _addStrategies() internal {
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
         _scheduleAndExecute(
-            bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(strategy2), STANDARD_STRATEGY_CAP))
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy2), STANDARD_STRATEGY_CAP))
         );
     }
 

@@ -4,10 +4,12 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {Ownable} from "@bitmor/dependencies/openzeppelin/Ownable.sol";
+import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {Loan} from "@bitmor/protocol/Loan.sol";
 
 /// @title AccessControlsTest
 /// @notice Test suite for verifying access control mechanisms in the Bitmor Protocol
+/// @dev Updated to use AccessManaged pattern instead of Ownable
 contract AccessControlsTest is BaseLoanTest {
     address internal attacker;
 
@@ -24,47 +26,44 @@ contract AccessControlsTest is BaseLoanTest {
         attacker = makeAddr("attacker");
     }
 
-    /// @notice Non-owner cannot call admin setter functions.
-    function test_onlyOwner_adminSetters_revertForNonOwner() public {
+    /// @notice Unauthorized caller cannot call admin setter functions (expects AccessManagedUnauthorized)
+    function test_unauthorized_adminSetters_revert() public {
         vm.startPrank(attacker);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setLoanVaultFactory(NEW_FACTORY);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setSwapAdapter(NEW_SWAP_ADAPTER);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setZQuoter(NEW_ZQUOTER);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setLiquidationBuffer(NEW_LIQUIDATION_BUFFER);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setGracePeriod(NEW_GRACE_PERIOD);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setPreClosureFee(NEW_PRE_CLOSURE_FEE);
 
         vm.stopPrank();
     }
 
-    /// @notice Owner can call admin setters and updates are persisted.
-    function test_owner_adminSetters_updateState() public {
-        vm.startPrank(owner);
-
-        loan.setLoanVaultFactory(NEW_FACTORY);
-        loan.setSwapAdapter(NEW_SWAP_ADAPTER);
-        loan.setZQuoter(NEW_ZQUOTER);
-        loan.setLiquidationBuffer(NEW_LIQUIDATION_BUFFER);
-        loan.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
-        loan.setGracePeriod(NEW_GRACE_PERIOD);
-        loan.setPreClosureFee(NEW_PRE_CLOSURE_FEE);
-
-        vm.stopPrank();
+    /// @notice LPM_SLOW role can call admin setters and updates are persisted
+    function test_lpmSlow_adminSetters_updateState() public {
+        // Use _scheduleAndExecute with lpm_slow role for each setter
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE)));
 
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
         assertEq(loan.s_swapAdapter(), NEW_SWAP_ADAPTER);
@@ -75,23 +74,31 @@ contract AccessControlsTest is BaseLoanTest {
         assertEq(loan.getPreClosureFee(), NEW_PRE_CLOSURE_FEE);
     }
 
-    /// @notice Owner address setters revert on the zero address.
-    function test_owner_addressSetters_revertOnZeroAddress() public {
-        vm.startPrank(owner);
+    /// @notice LPM_SLOW address setters revert on the zero address
+    function test_lpmSlow_addressSetters_revertOnZeroAddress() public {
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID,
+            abi.encodeCall(Loan.setLoanVaultFactory, (address(0))),
+            abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
 
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        loan.setLoanVaultFactory(address(0));
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID,
+            abi.encodeCall(Loan.setSwapAdapter, (address(0))),
+            abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
 
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        loan.setSwapAdapter(address(0));
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID,
+            abi.encodeCall(Loan.setZQuoter, (address(0))),
+            abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
 
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        loan.setZQuoter(address(0));
-
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        loan.setPremiumCollector(address(0));
-
-        vm.stopPrank();
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID,
+            abi.encodeCall(Loan.setPremiumCollector, (address(0))),
+            abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
     }
 
     /// @notice Unauthorized callers cannot update loan status.
