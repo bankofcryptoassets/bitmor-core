@@ -22,7 +22,7 @@ contract SupplyQueueTest__BTCVaultHarness is BaseTestForBTCVault {
         newSupplyQueue[4] = 0;
         newSupplyQueue[3] = 2;
 
-        _scheduleAndExecute(bva_slow, bva_slow_id, abi.encodeCall(BTCVault.updateSupplyQueue, (newSupplyQueue)));
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateSupplyQueue, (newSupplyQueue)));
 
         uint256[] memory supplyQueue = vault.getSupplyQueue();
 
@@ -34,7 +34,7 @@ contract SupplyQueueTest__BTCVaultHarness is BaseTestForBTCVault {
         bytes memory data = abi.encodeCall(BTCVault.updateSupplyQueue, (newSupplyQueue));
 
         _scheduleAndExpectRevert(
-            bva_slow, bva_slow_id, data, abi.encodeWithSelector(Errors.MaxStrategiesReached.selector)
+            bva_slow, bva_slow_id(), data, abi.encodeWithSelector(Errors.MaxStrategiesReached.selector)
         );
     }
 
@@ -43,7 +43,7 @@ contract SupplyQueueTest__BTCVaultHarness is BaseTestForBTCVault {
             MockTokenizedStrategy newStrategy = new MockTokenizedStrategy(address(yieldSource), address(vault));
 
             _scheduleAndExecute(
-                bvc, bvc_id, abi.encodeCall(BTCVault.addStrategy, (address(newStrategy), STANDARD_STRATEGY_CAP))
+                bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(newStrategy), STANDARD_STRATEGY_CAP))
             );
         }
     }

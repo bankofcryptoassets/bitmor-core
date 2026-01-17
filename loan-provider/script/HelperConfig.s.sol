@@ -5,8 +5,9 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {Script} from "forge-std/Script.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import {RolesData} from "@bitmor/accessManager/RolesData.sol";
 
-contract HelperConfig is Script {
+contract HelperConfig is Script, RolesData {
     using stdJson for string;
 
     struct NetworkConfig {
@@ -67,7 +68,7 @@ contract HelperConfig is Script {
         }
     }
 
-    function getBaseSepoliaNetworkConfig() public returns (NetworkConfig memory config) {
+    function getBaseSepoliaNetworkConfig() public view returns (NetworkConfig memory config) {
         config = NetworkConfig({
             accessManager: getAccessManager(),
             bitmorPool: getBitmorPool(),
@@ -89,13 +90,17 @@ contract HelperConfig is Script {
         });
     }
 
+    function getInitialAdmin() public pure returns (address) {
+        return BITMOR_OWNER;
+    }
+
     function getNetworkConfig() public view returns (NetworkConfig memory) {
         return networkConfig;
     }
 
     function getAccessManager() public view returns (address) {
-        string memory contractName = "AccessManager";
-        return _readAddress(contractName);
+        string memory contractName = "BitmorAccessManager";
+        return _getAddress(contractName);
     }
 
     function getGracePeriod() public pure returns (uint256) {

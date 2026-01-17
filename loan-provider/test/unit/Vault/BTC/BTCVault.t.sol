@@ -28,7 +28,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
     function test_setEntryFee() public {
         uint256 entryFeeInBPS = 100;
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setEntryFee, (entryFeeInBPS)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setEntryFee, (entryFeeInBPS)));
 
         assertEq(vault.getEntryFee(), entryFeeInBPS);
     }
@@ -36,7 +36,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
     function test_setExitFee() public {
         uint256 exitFeeInBps = 100;
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setExitFee, (exitFeeInBps)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setExitFee, (exitFeeInBps)));
 
         assertEq(vault.getExitFee(), exitFeeInBps);
     }
@@ -44,7 +44,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
     function test_setFeeRecipient() public {
         address newFeeRecipient = makeAddr("newRecipient");
 
-        _scheduleAndExecute(bvm_slow, bvm_slow_id, abi.encodeCall(BTCVault.setFeeRecipient, (newFeeRecipient)));
+        _scheduleAndExecute(bvm_slow, bvm_slow_id(), abi.encodeCall(BTCVault.setFeeRecipient, (newFeeRecipient)));
 
         assertEq(vault.getFeeRecipient(), newFeeRecipient);
     }
@@ -52,7 +52,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
     function test_setFeeRecipient_withZeroAddress() public {
         bytes memory data = abi.encodeCall(BTCVault.setFeeRecipient, (address(0)));
 
-        _scheduleAndExpectRevert(bvm_slow, bvm_slow_id, data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        _scheduleAndExpectRevert(bvm_slow, bvm_slow_id(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
     }
 
     /*

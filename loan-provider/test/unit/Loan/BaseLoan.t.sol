@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Utilities} from "../Utilities.t.sol";
+import {BitmorTestBase} from "../BitmorTestBase.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
@@ -15,9 +16,11 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
 /// @title BaseLoanTest
+/// @author Bitmor Protocol
 /// @notice Shared base contract for Bitmor protocol test suites
-/// @dev Provides common state, constants, and setUp/helpers. Inherits from Utilities (Test).
-abstract contract BaseLoanTest is Utilities {
+/// @dev Provides common state, constants, and setUp/helpers.
+///      Inherits from BitmorTestBase for AccessManager configuration and Utilities for loan-specific helpers.
+abstract contract BaseLoanTest is BitmorTestBase, Utilities {
     using FixedPointMathLib for uint256;
 
     // ============ Core Protocol Contracts ============
@@ -171,20 +174,25 @@ abstract contract BaseLoanTest is Utilities {
     // ============ Setup ============
 
     /// @notice Core test setup - deploys/attaches contracts, creates actors, sets up roles
-    /// @dev Uses vm.startPrank instead of vm.startBroadcast for test environment
+    /// @dev Uses vm.startPrank instead of vm.startBroadcast for test environment.
+    ///      Initializes AccessManager through BitmorTestBase for unified role management.
     function setUp() public virtual {
         config = new HelperConfig();
 
         // Create test actors with labeled addresses
-        owner = makeAddr("owner");
+        owner = config.BITMOR_OWNER();
         user = makeAddr("user");
         liquidator = makeAddr("liquidator");
+
+        // Initialize AccessManager and RolesData through BitmorTestBase
+        // This deploys a fresh AccessManager and creates all role actor addresses
+        _initializeAccessManager(owner);
 
         // Deploy contracts as owner
         vm.startPrank(owner);
 
         (
-            address accessManager,
+            , // accessManager - we use our own from BitmorTestBase
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
@@ -210,9 +218,9 @@ abstract contract BaseLoanTest is Utilities {
         s_gracePeriod = gracePeriod;
         s_addressesProvider = aaveAddressesProvider;
 
-        // Deploy Loan contract
+        // Deploy Loan contract with our AccessManager
         loan = new Loan(
-            accessManager,
+            address(manager), // Use inherited manager from BitmorTestBase
             aaveV3Pool,
             aaveAddressesProvider,
             bitmorPool,
@@ -227,10 +235,16 @@ abstract contract BaseLoanTest is Utilities {
             liquidationBuffer
         );
 
-        // Deploy LoanVault infrastructure
+        // Deploy LoanVault infrastructure BEFORE setting target selectors
+        // (so we can call setLoanVaultFactory without access control restrictions)
         address loanVaultImplementation = address(new LoanVault());
         address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan)));
         loan.setLoanVaultFactory(loanVaultFactory);
+
+        // Set up Loan roles and target selectors using BitmorTestBase helpers
+        // (done AFTER setLoanVaultFactory so it doesn't require LPM_SLOW role)
+        _setLoanRoles(user);
+        _setLoanTargetSelectors(address(loan));
 
         vm.stopPrank();
     }

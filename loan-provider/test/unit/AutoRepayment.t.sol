@@ -13,17 +13,17 @@ contract AutoRepaymentTest is BaseLoanTest {
     // ============ State Variables ============
 
     AutoRepayment internal autoRepay;
-    address internal executor;
+    address internal autoRepaymentExecutor;
 
     // ============ Setup ============
 
     function setUp() public override {
         super.setUp();
 
-        executor = makeAddr("executor");
+        autoRepaymentExecutor = makeAddr("autoRepaymentExecutor");
 
         vm.prank(owner);
-        autoRepay = new AutoRepayment(address(loan), debtAsset, executor);
+        autoRepay = new AutoRepayment(address(loan), debtAsset, autoRepaymentExecutor);
     }
 
     // ============ Modifiers ============
@@ -53,7 +53,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(lsa);
         uint256 durationBefore = loanDataBefore.duration;
 
-        vm.prank(executor);
+        vm.prank(autoRepaymentExecutor);
         autoRepay.executeAutoRepayment(lsa, user, loanDataBefore.estimatedMonthlyPayment);
 
         DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);

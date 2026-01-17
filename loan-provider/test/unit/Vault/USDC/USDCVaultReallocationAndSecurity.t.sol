@@ -93,7 +93,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
 
         // Manager CAN set strategy (via schedule/execute)
         _scheduleAndExecute(
-            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
+            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
         );
 
         // Verify strategy was updated
@@ -113,7 +113,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.pause();
 
         // Manager fast CAN pause
-        vm.prank(manager_fast);
+        vm.prank(uvm_fast);
         vault.pause();
 
         assertTrue(vault.paused(), "Vault should be paused");
@@ -122,7 +122,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
     /// @notice Test that only authorized roles can unpause
     function test_accessControl_unpause_onlyManagerSlow() public {
         // First pause the vault
-        vm.prank(manager_fast);
+        vm.prank(uvm_fast);
         vault.pause();
         assertTrue(vault.paused(), "Vault should be paused");
 
@@ -132,7 +132,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.unpause();
 
         // Manager slow CAN unpause (via schedule/execute)
-        _scheduleAndExecute(manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
 
         assertFalse(vault.paused(), "Vault should be unpaused");
     }
@@ -147,7 +147,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         assertGt(shares, 0, "Deposit should work before pause");
 
         // Pause the vault
-        vm.prank(manager_fast);
+        vm.prank(uvm_fast);
         vault.pause();
 
         // Deposit should fail when paused
@@ -163,7 +163,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.withdraw(1000e6, lender, lender);
 
         // Unpause
-        _scheduleAndExecute(manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
 
         // Withdraw should work after unpause
         uint256 withdrawn = _withdraw(lender, 1000e6);
@@ -184,7 +184,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.reallocateAssets(amount);
 
         // Manager cannot call reallocateAssets with amount
-        vm.prank(manager_slow);
+        vm.prank(uvm_slow);
         vm.expectRevert();
         vault.reallocateAssets(amount);
 
@@ -208,7 +208,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
 
         // Manager CAN update min delta
         _scheduleAndExecute(
-            manager_slow, MANAGER_SLOW_ID, abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta))
+            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta))
         );
 
         // Note: No getter for minimum delta, but the call should succeed without revert
