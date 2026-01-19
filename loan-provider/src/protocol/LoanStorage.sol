@@ -37,19 +37,19 @@ contract LoanStorage {
     address public immutable i_BITMOR_POOL;
 
     /**
-     * @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
+     * @notice Oracle address to get prices for the assets.
+     * @dev Same oracle address is utilized in BLP.
      */
     address public immutable i_ORACLE;
 
-    /**
-     * @notice Collateral asset address (cbBTC)
-     */
+    /// @notice Collateral asset address (cbBTC)
     address internal immutable i_COLLATERAL_ASSET;
 
-    /**
-     * @notice Debt asset address (USDC)
-     */
+    /// @notice Debt asset address (USDC)
     address internal immutable i_DEBT_ASSET;
+
+    /// @notice Wrapped Bitcoin address
+    address internal immutable i_BTC;
 
     // ============ Protocol Contract Addresses ============
 
@@ -151,11 +151,12 @@ contract LoanStorage {
         address _bitmorPool,
         address _oracle,
         address _collateralAsset,
-        address _debtAsset
+        address _debtAsset,
+        address _btc
     ) {
         if (
             _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
-                || _collateralAsset == address(0) || _debtAsset == address(0)
+                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;
@@ -164,5 +165,6 @@ contract LoanStorage {
         i_COLLATERAL_ASSET = _collateralAsset;
         i_DEBT_ASSET = _debtAsset;
         i_AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
+        i_BTC = _btc;
     }
 }

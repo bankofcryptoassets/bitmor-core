@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
-import {DataTypes} from "../types/DataTypes.sol";
-import {LSALogic} from "./LSALogic.sol";
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
-import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
-import {SwapLogic} from "./SwapLogic.sol";
+
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
 import {Errors} from "../helpers/Errors.sol";
-import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+
+import {LSALogic} from "./LSALogic.sol";
+import {SwapLogic} from "./SwapLogic.sol";
+import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
 /**
  * @title FlashLoanLogic
  * @author Bitmor Protocol
  * @notice Library for handling Aave V3 flash loan callbacks
  * @dev Processes flash loan operations for both loan initialization and loan closure.
- *
- * ## Flash Loan Operations
- *
- * ### Loan Initialization
- * 1. Receive flash loaned USDC
- * 2. Combine with user deposit
- * 3. Swap total USDC to cbBTC via swap adapter
- * 4. Deposit cbBTC to Bitmor Lending Pool (LSA receives aTokens)
- * 5. Borrow from Bitmor Pool to repay flash loan + premium
  *
  * ### Loan Closure
  * 1. Receive flash loaned USDC to repay debt
@@ -34,48 +29,47 @@ import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
  */
 library FlashLoanLogic {
     using SafeERC20 for IERC20;
+    using LSALogic for address;
+    using BTCVaultLogic for address;
+    using BitmorLendingPoolLogic for address;
 
     /**
      * @notice Local variables for close loan flash loan operations
      * @dev Used internally to organize intermediate values and avoid stack too deep
      */
     struct LocalVarsCloseLoan {
-        address lsa; /**
-                      * @dev Loan Specific Address being closed
-                      */
-        bool withdrawInCollateralAsset; /**
-                                         * @dev If true, user receives cbBTC; if false, receives USDC
-                                         */
-        uint256 preClosureFee; /**
-                                * @dev Fee charged for early loan closure
-                                */
-        uint256 finalAmountRepaid; /**
-                                    * @dev Actual amount repaid to Bitmor Pool
-                                    */
-        uint256 collateralAmountWithdrawn; /**
-                                            * @dev Amount of collateral withdrawn from Bitmor Pool
-                                            */
-        uint256 totalDebtRemaining; /**
-                                     * @dev Remaining debt after repayment
-                                     */
-        uint256 collateralAmountToSwap; /**
-                                         * @dev Amount of collateral to swap for flash loan repayment
-                                         */
-        uint256 minimumAcceptable; /**
-                                    * @dev Minimum output from swap (slippage protection)
-                                    */
-        uint256 debtAssetAmtReceived; /**
-                                       * @dev Amount of debt asset received from swap
-                                       */
-        uint256 totalFlashLoanBorrowedAmt; /**
-                                            * @dev Total flash loan amount including premium
-                                            */
+        /// @dev Loan Specific Address being closed
+        address lsa;
+        /// @dev If true, user receives cbBTC; if false, receives USDC
+        bool withdrawInCollateralAsset;
+        /// @dev Fee charged for early loan closure
+        uint256 preClosureFee;
+        /// @dev Actual amount repaid to Bitmor Pool
+        uint256 finalAmountRepaid;
+        /// @dev Amount of collateral withdrawn from Bitmor Pool
+        uint256 collateralAmountWithdrawn;
+        /// @dev Remaining debt after repayment
+        uint256 totalDebtRemaining;
+        /// @dev Amount of collateral to swap for flash loan repayment
+        uint256 collateralAmountToSwap;
+        /// @dev Minimum output from swap (slippage protection)
+        uint256 minimumAcceptable;
+        /// @dev Amount of debt asset received from swap
+        uint256 debtAssetAmtReceived;
+        /// @dev Total flash loan amount including premium
+        uint256 totalFlashLoanBorrowedAmt;
     }
 
     /**
      * @notice Executes flash loan callback for loan initialization
-     * @dev Called by Aave V3 pool during loan creation. Swaps USDC to cbBTC,
-     * deposits collateral, and borrows to repay flash loan.
+     * @dev Called by Aave V3 pool during loan creation.
+     *
+     * Flow:
+     * 1. Swap `debtAsset` to `btc`
+     * 2. Deposit `btc` to `collateralAsset` which is BTC vault and receives `bvBTC` shares.
+     * 3. Deposit `bvBTC` in `bitmorPool`
+     * 4. Borrow `debtAsset` from `bitmorPool`
+     * 5. Repay the Flash Loan `amount` and `premium`
      *
      * ## Security Checks
      * - Caller must be Aave V3 pool
@@ -95,9 +89,6 @@ library FlashLoanLogic {
         }
         if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
-        // Flash loan execution logic will be implemented here
-        // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
-
         (address lsa,) = abi.decode(params.params, (address, uint256));
 
         // Retrieve loan data from storage
@@ -108,39 +99,49 @@ library FlashLoanLogic {
         uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
             ctx.zQuoter,
             ctx.debtAsset, // tokenIn
-            ctx.collateralAsset, // tokenOut
+            ctx.btc, // tokenOut
             ctx.oracle,
             totalSwapAmount, // amountIn
             ctx.maxSlippage
         );
 
-        // Approve SwapAdaptor to spend tokens
+        /// @dev Approve SwapAdaptor to spend tokens
         IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
 
+        /// @dev Swap USDC to BTC
         uint256 amountReceived = SwapLogic.executeSwap(
             ctx.swapAdapter, ctx.debtAsset, ctx.collateralAsset, totalSwapAmount, minimumAcceptable
         );
 
         if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
 
+        /// @dev Approve BTC Vault, `collateralAsset` to spend `btc`.
+        IERC20(ctx.collateralAsset).forceApprove(ctx.btc, amountReceived);
+
+        /// @dev Depositing BTC into BTC Vault and receiving its shares `bvBTC`.
+        uint256 bvBTCSharesReceived = ctx.collateralAsset.deposit(amountReceived, address(this));
+
+        /// @dev Approve Aave V2 pool to spend `bvBTC`
+        IERC20(ctx.collateralAsset).forceApprove(ctx.bitmorPool, bvBTCSharesReceived);
+
+        /// @dev Depositing `bvBTC` shares onbehalf of `lsa`
+        ctx.bitmorPool.depositCollateral(ctx.collateralAsset, bvBTCSharesReceived, lsa);
+
+        /// @dev this borrow amount includes amount to borrow and flash loan premium.
         uint256 borrowAmount = params.amount + params.premium;
 
-        LSALogic.approveCreditDelegation(
-            lsa,
+        /// @dev Approving Loan, address(this), to borrow.
+        lsa.approveCreditDelegation(
             ctx.bitmorPool,
             ctx.debtAsset,
             borrowAmount,
             address(this) // Protocol is the delegatee
         );
 
-        // Approve Aave V2 pool to spend asset
-        IERC20(ctx.collateralAsset).forceApprove(ctx.bitmorPool, amountReceived);
+        /// @dev Borrowing DebtAsset worth of `borrowAmount` onbehalf of `lsa`.
+        ctx.bitmorPool.borrowDebt(ctx.debtAsset, borrowAmount, lsa);
 
-        BitmorLendingPoolLogic.depositCollateral(ctx.bitmorPool, ctx.collateralAsset, amountReceived, lsa);
-
-        BitmorLendingPoolLogic.borrowDebt(ctx.bitmorPool, ctx.debtAsset, borrowAmount, lsa);
-
-        // To allow aavePool to withdraw borrow amount
+        /// @dev To allow aavePool to withdraw borrow amount for Flash Loan repayment.
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, borrowAmount);
     }
 
@@ -184,19 +185,18 @@ library FlashLoanLogic {
         // =========== Close Loan ==========
         IERC20(ctx.debtAsset).forceApprove(ctx.bitmorPool, params.amount);
 
-        vars.finalAmountRepaid =
-            BitmorLendingPoolLogic.executeLoanRepayment(ctx.bitmorPool, ctx.debtAsset, vars.lsa, params.amount);
+        vars.finalAmountRepaid = ctx.bitmorPool.executeLoanRepayment(ctx.debtAsset, vars.lsa, params.amount);
         // ===============================================================
 
         // =========== Withdraw collateral asset ==========
 
-        vars.totalDebtRemaining = BitmorLendingPoolLogic.getVDTTokenAmount(ctx.bitmorPool, ctx.debtAsset, vars.lsa);
+        vars.totalDebtRemaining = ctx.bitmorPool.getVDTTokenAmount(ctx.debtAsset, vars.lsa);
         if (vars.totalDebtRemaining == 0) {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
             vars.collateralAmountWithdrawn =
-                LSALogic.withdrawCollateral(ctx.bitmorPool, vars.lsa, ctx.collateralAsset, address(this));
+                vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, address(this));
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
         }
