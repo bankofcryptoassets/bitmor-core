@@ -138,8 +138,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             aavePool: i_AAVE_V3_POOL,
             loanVaultFactory: s_loanVaultFactory,
             premiumCollector: s_premiumCollector,
-            minCollateralAmt: MIN_COLLATERAL_AMOUNT,
-            maxCollateralAmt: MAX_COLLATERAL_AMOUNT,
+            minCollateralAmt: s_minBTCAmt,
+            maxCollateralAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
         });
 
@@ -163,7 +163,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 finalAmountRepaid)
     {
         finalAmountRepaid = RepayLogic.executeRepay(
-            i_BITMOR_POOL, i_DEBT_ASSET, i_COLLATERAL_ASSET, DataTypes.ExecuteRepayParams(lsa, amount), s_loansByLSA
+            i_BITMOR_POOL,
+            i_DEBT_ASSET,
+            i_COLLATERAL_ASSET,
+            DataTypes.ExecuteRepayParams(lsa, amount, s_slippage_sharesToAsset),
+            s_loansByLSA
         );
     }
 
@@ -180,7 +184,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
             s_preClosureFeeBps,
-            MAX_SLIPPAGE_BPS
+            s_slippage_swap
         );
         DataTypes.ExecuteCloseLoanParams memory params =
             DataTypes.ExecuteCloseLoanParams(lsa, withdrawInCollateralAsset);
@@ -239,7 +243,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_swapAdapter,
             s_premiumCollector,
             i_ORACLE,
-            MAX_SLIPPAGE_BPS
+            s_slippage_swap
         );
 
         DataTypes.ExecuteFLOperationParams memory flOpParams =

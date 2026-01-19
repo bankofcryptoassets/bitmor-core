@@ -315,6 +315,8 @@ library DataTypes {
          * @dev Amount to repay in debt asset
          */
         uint256 amount;
+        /// @dev Acceptable slippage while converting shares to asset.
+        uint256 slippage_sharesToAsset;
     }
 
     /**

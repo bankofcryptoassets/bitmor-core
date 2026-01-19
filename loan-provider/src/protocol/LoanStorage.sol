@@ -88,6 +88,18 @@ contract LoanStorage {
      */
     uint256 internal s_liquidationBuffer;
 
+    /// @notice Slippage in BPS while convert `bvBTC` shares to btc.
+    uint256 internal s_slippage_sharesToAsset;
+
+    /// @notice Slippage in BPS while swapping.
+    uint256 internal s_slippage_swap;
+
+    /// @notice Max amount of BTC that can be used as collateral.
+    uint256 internal s_maxBTCAmt;
+
+    /// @notice Min. amount of BTC require to use as collateral.
+    uint256 internal s_minBTCAmt;
+
     // ============ Storage Mappings ============
 
     /**
@@ -111,24 +123,9 @@ contract LoanStorage {
     // ============ Constants ============
 
     /**
-     * @notice Maximum slippage tolerance in basis points (50 = 0.5%)
-     */
-    uint256 public constant MAX_SLIPPAGE_BPS = 50;
-
-    /**
      * @notice Loan repayment interval in seconds (30 days)
      */
     uint256 internal constant LOAN_REPAYMENT_INTERVAL = 30 days;
-
-    /**
-     * @notice MAX collateral amount user can take.
-     */
-    uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
-
-    /**
-     * @notice MIN collateral amount user can take.
-     */
-    uint256 public constant MIN_COLLATERAL_AMOUNT = 0.01 * 1e8;
 
     /**
      * @notice Initial Insurance ID
