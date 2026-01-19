@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 import {DataTypes} from "../types/DataTypes.sol";
@@ -11,6 +12,8 @@ import {LSALogic} from "./LSALogic.sol";
 import {SwapLogic} from "./SwapLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
+
+import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 
 /**
  * @title FlashLoanLogic
@@ -32,6 +35,7 @@ library FlashLoanLogic {
     using LSALogic for address;
     using BTCVaultLogic for address;
     using BitmorLendingPoolLogic for address;
+    using FixedPointMathLib for uint256;
 
     /**
      * @notice Local variables for close loan flash loan operations
@@ -43,7 +47,8 @@ library FlashLoanLogic {
         /// @dev If true, user receives cbBTC; if false, receives USDC
         bool withdrawInCollateralAsset;
         /// @dev Fee charged for early loan closure
-        uint256 preClosureFee;
+        uint256 preClosureFeeBps;
+        uint256 preClosureFeeAmt;
         /// @dev Actual amount repaid to Bitmor Pool
         uint256 finalAmountRepaid;
         /// @dev Amount of collateral withdrawn from Bitmor Pool
@@ -51,14 +56,16 @@ library FlashLoanLogic {
         /// @dev Remaining debt after repayment
         uint256 totalDebtRemaining;
         /// @dev Amount of collateral to swap for flash loan repayment
-        uint256 collateralAmountToSwap;
+        uint256 btcAmtToSwap;
         /// @dev Minimum output from swap (slippage protection)
         uint256 minimumAcceptable;
         /// @dev Amount of debt asset received from swap
         uint256 debtAssetAmtReceived;
         /// @dev Total flash loan amount including premium
         uint256 totalFlashLoanBorrowedAmt;
+        uint256 btcAmtReceived;
     }
+    uint256 constant BASIS_POINT_SCALE = 100_00;
 
     /**
      * @notice Executes flash loan callback for loan initialization
@@ -176,11 +183,14 @@ library FlashLoanLogic {
         // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
         LocalVarsCloseLoan memory vars;
 
-        (vars.lsa, vars.withdrawInCollateralAsset, vars.collateralAmountToSwap, vars.preClosureFee) =
-            abi.decode(params.params, (address, bool, uint256, uint256));
+        (vars.lsa, vars.withdrawInCollateralAsset, vars.preClosureFeeBps) =
+            abi.decode(params.params, (address, bool, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[vars.lsa];
+
+        // To allow aavePool to withdraw borrow amount
+        vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
 
         // =========== Close Loan ==========
         IERC20(ctx.debtAsset).forceApprove(ctx.bitmorPool, params.amount);
@@ -199,43 +209,55 @@ library FlashLoanLogic {
                 vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, address(this));
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
+
+            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, loan.borrower, params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 
+        vars.preClosureFeeAmt = vars.btcAmtReceived.mulDivUp(vars.preClosureFeeBps, BASIS_POINT_SCALE);
+
         // Sends the pre-closure fee to the fee collector
-        IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFee);
+        IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmt);
 
         // =========== Swap the required amount to debt asset ==========
 
-        if (!vars.withdrawInCollateralAsset) {
+        if (vars.withdrawInCollateralAsset) {
+            uint256 debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
+            uint256 debtAssetToRepayUSD = vars.totalFlashLoanBorrowedAmt * debtAssetPrice;
+
+            uint256 btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
+            vars.btcAmtToSwap = debtAssetToRepayUSD.mulDiv(8, btcPrice);
+        } else {
             // When not withdrawing in collateral asset, swap all remaining after fee
-            vars.collateralAmountToSwap = vars.collateralAmountWithdrawn - vars.preClosureFee;
+            vars.btcAmtToSwap = vars.btcAmtReceived - vars.preClosureFeeAmt;
         }
         // When withdrawInCollateralAsset=true, use the amount calculated in CloseLoanLogic
 
         vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
             ctx.zQuoter,
-            ctx.collateralAsset, // tokenIn
+            ctx.btc, // tokenIn
             ctx.debtAsset, // tokenOut
             ctx.oracle,
-            vars.collateralAmountToSwap, // amountIn
+            vars.btcAmtToSwap, // amountIn
             ctx.maxSlippage
         );
 
         // Approve SwapAdaptor to spend tokens
-        IERC20(ctx.collateralAsset).forceApprove(ctx.swapAdapter, vars.collateralAmountToSwap);
+        IERC20(ctx.collateralAsset).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
 
         vars.debtAssetAmtReceived = SwapLogic.executeSwap(
             ctx.swapAdapter,
             ctx.collateralAsset, //tokenIn
             ctx.debtAsset, // tokenOut
-            vars.collateralAmountToSwap, // amountIn
+            vars.btcAmtToSwap, // amountIn
             vars.minimumAcceptable
         );
         // ===============================================================
 
-        // To allow aavePool to withdraw borrow amount
-        vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);
     }
 }

@@ -222,4 +222,7 @@ library Errors {
      * @notice Thrown when fee exceeds the maximum allowed percentage
      */
     error ExceedMaxFee();
+
+    /// @notice Thrown when slippage exceeds while converting shares to assets.
+    error SlippageExceededWhileConvertingToAssets();
 }

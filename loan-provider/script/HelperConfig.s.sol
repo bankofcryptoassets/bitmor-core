@@ -18,6 +18,7 @@ contract HelperConfig is Script, RolesData {
         address oracle;
         address collateralAsset;
         address debtAsset;
+        address btc;
         address getSwapAdapterWrapper;
         address zQuoter;
         address premiumCollector;
@@ -58,6 +59,7 @@ contract HelperConfig is Script, RolesData {
     address public constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
     // USDC holder on Base Sepolia (whale address with large USDC balance for fork testing)
     address public constant USDC_HOLDER_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
+    address public constant BTC_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
     // Default vault fees in basis points
     uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
     uint256 public constant DEFAULT_EXIT_FEE = 10; // 0.1%
@@ -77,6 +79,7 @@ contract HelperConfig is Script, RolesData {
             oracle: getOracle(),
             collateralAsset: getCollateralAsset(),
             debtAsset: getDebtAsset(),
+            btc: BTC_BASE_SEPOLIA,
             getSwapAdapterWrapper: getSwapAdapterWrapper(),
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),

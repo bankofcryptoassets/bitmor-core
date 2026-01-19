@@ -149,7 +149,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Reverts when slippage protection bounds are violated.
     function test_initializeLoan_slippageProtection() public mintDebtAssetToUser {
-        // Goal: force swap to exceed MAX_SLIPPAGE_BPS (0.5%) and ensure revert
+        // Goal: force swap to exceed s_slippage_swap (0.5%) and ensure revert
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -188,6 +188,7 @@ contract InitializeLoanTest is BaseLoanTest {
             loan.i_ORACLE(),
             collateralAsset,
             debtAsset,
+            btc,
             loan.s_swapAdapter(),
             loan.s_zQuoter(),
             loan.getPremiumCollector(),

@@ -183,6 +183,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_ORACLE,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
+            i_BTC,
             s_preClosureFeeBps,
             s_slippage_swap
         );
@@ -247,7 +248,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         );
 
         DataTypes.ExecuteFLOperationParams memory flOpParams =
-            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData);
+            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData, s_slippage_sharesToAsset);
 
         if (initializingLoan) {
             FlashLoanLogic.executeFLOperationInitiailizingLoan(ctx, flOpParams, s_loansByLSA);

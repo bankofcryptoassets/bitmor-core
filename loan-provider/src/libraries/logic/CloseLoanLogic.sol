@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {DataTypes} from "../types/DataTypes.sol";
-import {ILoan} from "../../interfaces/ILoan.sol";
-import {Errors} from "../helpers/Errors.sol";
-import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
-import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol";
-import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
+
+import {Errors} from "../helpers/Errors.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 
 /**
@@ -31,6 +34,9 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
  */
 library CloseLoanLogic {
     using SafeERC20 for IERC20;
+    using FixedPointMathLib for uint256;
+    using BitmorLendingPoolLogic for address;
+    using AavePoolLogic for address;
 
     /**
      * @dev Oracle price precision (8 decimals)
@@ -59,18 +65,12 @@ library CloseLoanLogic {
         uint256 debtAssetPrice; /**
                                  * @dev Current USDC price in USD (8 decimals)
                                  */
-        uint256 collateralAssetDecimals; /**
-                                          * @dev Collateral asset decimal multiplier (10^8 for cbBTC)
-                                          */
-        uint256 debtAssetDecimals; /**
-                                    * @dev Debt asset decimal multiplier (10^6 for USDC)
-                                    */
         uint256 collateralAmt; /**
                                 * @dev Amount of aTokens (collateral) held by LSA
                                 */
-        uint256 preClosureFee; /**
-                                * @dev Pre-closure fee in collateral asset
-                                */
+        uint256 preClosureFeeAmt; /**
+                                   * @dev Pre-closure fee in collateral asset
+                                   */
         uint256 preClosureFeeUSD; /**
                                    * @dev Pre-closure fee in USD
                                    */
@@ -89,9 +89,9 @@ library CloseLoanLogic {
         uint256 totalCollateralAmtToSwap; /**
                                            * @dev Amount of collateral to swap for debt repayment
                                            */
-        uint256 remainingCollateralAssetBal; /**
-                                              * @dev Remaining collateral after operations
-                                              */
+        uint256 remainingBTCAmt; /**
+                                  * @dev Remaining collateral after operations
+                                  */
         uint256 remainingDebtAssetBal; /**
                                         * @dev Remaining debt asset after operations
                                         */
@@ -124,27 +124,28 @@ library CloseLoanLogic {
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.borrower != msg.sender) revert Errors.UnauthorizedCaller();
 
-        (vars.totalCollateralUSD, vars.totalDebtUSD) =
-            BitmorLendingPoolLogic.getUserPositions(ctx.bitmorPool, params.lsa);
+        (vars.totalCollateralUSD, vars.totalDebtUSD) = ctx.bitmorPool.getUserPositions(params.lsa);
 
+        /**
+         * @dev `collateralAssetPrice` is the price of `bvBTC` shares.
+         * It is calculated by converting 1 `bvBTC` share into BTC and mutiplying it by `BTC` price.
+         */
         vars.collateralAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.collateralAsset);
         vars.debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
 
-        vars.collateralAssetDecimals = 10 ** (IERC20Metadata(ctx.collateralAsset).decimals());
-        vars.debtAssetDecimals = 10 ** (IERC20Metadata(ctx.debtAsset).decimals());
+        vars.collateralAmt = ctx.bitmorPool.getATokenAmount(ctx.collateralAsset, params.lsa);
 
-        vars.collateralAmt = BitmorLendingPoolLogic.getATokenAmount(ctx.bitmorPool, ctx.collateralAsset, params.lsa);
+        vars.preClosureFeeAmt = vars.collateralAmt.mulDivUp(ctx.preClosureFeeBps, BASIS_POINTS);
 
-        vars.preClosureFee = (vars.collateralAmt * ctx.preClosureFeeBps) / BASIS_POINTS;
+        vars.preClosureFeeUSD = vars.preClosureFeeAmt.mulDivUp(vars.collateralAssetPrice, PRICE_PRECISION);
 
-        vars.preClosureFeeUSD = (vars.preClosureFee * vars.collateralAssetPrice) / vars.collateralAssetDecimals;
+        vars.debtAmt = ctx.bitmorPool.getVDTTokenAmount(ctx.debtAsset, params.lsa);
 
-        vars.debtAmt = BitmorLendingPoolLogic.getVDTTokenAmount(ctx.bitmorPool, ctx.debtAsset, params.lsa);
+        vars.flashLoanPremiumBps = ctx.aavePool.getFlashLoanPremium();
 
-        vars.flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
+        vars.flashLoanPremiumAmount = vars.debtAmt.mulDivUp(vars.flashLoanPremiumBps, BASIS_POINTS);
 
-        vars.flashLoanPremiumAmount = (vars.debtAmt * vars.flashLoanPremiumBps) / BASIS_POINTS;
-        vars.flashLoanPremiumAmountUSD = (vars.flashLoanPremiumAmount * vars.debtAssetPrice) / vars.debtAssetDecimals;
+        vars.flashLoanPremiumAmountUSD = vars.flashLoanPremiumAmount.mulDivUp(vars.debtAssetPrice, PRICE_PRECISION);
 
         if (vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD > vars.totalCollateralUSD) {
             revert Errors.InsufficientCollateral();
@@ -154,26 +155,24 @@ library CloseLoanLogic {
             // Only swap enough collateral to repay flash loan (debt + premium in debt asset terms)
             uint256 flashLoanRepaymentAmount = vars.debtAmt + vars.flashLoanPremiumAmount;
             vars.totalCollateralAmtToSwap =
-                (flashLoanRepaymentAmount * vars.debtAssetPrice * vars.collateralAssetDecimals)
-                    / (vars.collateralAssetPrice * vars.debtAssetDecimals);
+                flashLoanRepaymentAmount.mulDiv(vars.debtAssetPrice, vars.collateralAssetPrice);
         } else {
             // Swap all collateral minus pre-closure fee to debt asset
-            vars.totalCollateralAmtToSwap = vars.collateralAmt - vars.preClosureFee;
+            vars.totalCollateralAmtToSwap = vars.collateralAmt - vars.preClosureFeeAmt;
         }
 
         bool initializingLoan = false;
 
-        bytes memory flData =
-            abi.encode(params.lsa, params.withdrawInCollateralAsset, vars.totalCollateralAmtToSwap, vars.preClosureFee);
+        bytes memory flData = abi.encode(params.lsa, params.withdrawInCollateralAsset, ctx.preClosureFeeBps);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
-        AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, vars.debtAmt, paramsForFL);
+        ctx.aavePool.executeFlashLoan(address(this), ctx.debtAsset, vars.debtAmt, paramsForFL);
 
-        vars.remainingCollateralAssetBal = IERC20(ctx.collateralAsset).balanceOf(address(this));
+        vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this));
         vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this));
 
-        if (vars.remainingCollateralAssetBal > 0) {
-            IERC20(ctx.collateralAsset).safeTransfer(loan.borrower, vars.remainingCollateralAssetBal);
+        if (vars.remainingBTCAmt > 0) {
+            IERC20(ctx.btc).safeTransfer(loan.borrower, vars.remainingBTCAmt);
         }
         if (vars.remainingDebtAssetBal > 0) {
             IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);

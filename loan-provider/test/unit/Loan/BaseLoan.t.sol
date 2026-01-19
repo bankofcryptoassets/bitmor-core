@@ -39,6 +39,7 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
     address internal debtAsset;
     address internal aavePool;
     address internal collateralAsset;
+    address internal btc;
     address internal s_bitmorPool;
     address internal s_addressesProvider;
 
@@ -191,14 +192,14 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
         // Deploy contracts as owner
         vm.startPrank(owner);
 
-        (
-            , // accessManager - we use our own from BitmorTestBase
+        (, // accessManager - we use our own from BitmorTestBase
             address bitmorPool,
             address aaveV3Pool,
             address aaveAddressesProvider,
             address oracle,
             address collateralAssetAddr,
             address debtAssetAddr,
+            address _btc,
             address swapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
@@ -213,6 +214,7 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
         // Store addresses
         debtAsset = debtAssetAddr;
         aavePool = aaveV3Pool;
+        btc = _btc;
         collateralAsset = collateralAssetAddr;
         s_bitmorPool = bitmorPool;
         s_gracePeriod = gracePeriod;
@@ -227,6 +229,7 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
             oracle,
             collateralAsset,
             debtAsset,
+            btc,
             swapAdapterWrapper,
             zQuoter,
             premiumCollector,
