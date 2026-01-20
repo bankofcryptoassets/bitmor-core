@@ -44,3 +44,21 @@ make setup
 ```
 
 This will you mock tokens, add them to the Lending Pool, deploy all the contracts and save it in the `./loan-provider/deployments.json`
+
+
+
+## New Deployment Flow 
+
+Only for testnet which should work with test.
+
+> Lending pool local testing will require local deployment of the vaults. 
+> Mock USDC vault and you will require bvBTC mock 
+
+1. Deploy Access Manager
+2. Deploy USDC and BTC mock token.
+4. Deploy USDC and BTC vaults. 
+   1. bvBTC shares means. Need to initialize them as a reserve.
+5. Deploy Lending Pool 
+6. Deploy loan provider
+7. Set addresses in AddressesProvider (USDC, BTC vault)
+8. 
