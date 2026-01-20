@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
@@ -216,9 +216,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
         USDCStrategy newStrategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
 
         // Set new strategy via manager
-        _scheduleAndExecute(
-            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
-        );
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -227,9 +225,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     /// @notice Test that setting strategy to address(0) reverts
     function test_setStrategy_zeroAddress_reverts() public {
         bytes memory data = abi.encodeCall(USDCVault.setStrategy, (address(0)));
-        _scheduleAndExpectRevert(
-            uvm_slow, UVM_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
-        );
+        _scheduleAndExpectRevert(uvm_slow, UVM_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
     }
 
     // ============================================

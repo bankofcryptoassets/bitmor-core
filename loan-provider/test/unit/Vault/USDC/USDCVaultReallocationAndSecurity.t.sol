@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
-import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
-import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
 import {ERC20} from "@solady/tokens/ERC20.sol";
-import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
+import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
+import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
 
 /// @title USDCVaultReallocationAndSecurityTest
 /// @notice Test suite for vault security measures and access control
@@ -92,9 +93,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.setStrategy(address(newStrategy));
 
         // Manager CAN set strategy (via schedule/execute)
-        _scheduleAndExecute(
-            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
-        );
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -207,9 +206,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.updateMinimumDeltaRequired(newMinDelta);
 
         // Manager CAN update min delta
-        _scheduleAndExecute(
-            uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta))
-        );
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta)));
 
         // Note: No getter for minimum delta, but the call should succeed without revert
     }

@@ -5,7 +5,7 @@ import {BitmorTestBase} from "../BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
@@ -15,7 +15,6 @@ import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 /// @dev Tests vault operations using AccessManager pattern.
 ///      Inherits from BitmorTestBase for AccessManager configuration and VaultUtilities for ERC-4626 testing helpers.
 contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
-
     /// @notice USDCVault contract instance under test
     USDCVault internal vault;
 
@@ -233,5 +232,4 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     {
         _scheduleAndExpectRevertLocal(caller, roleId, data, revertData);
     }
-
 }
