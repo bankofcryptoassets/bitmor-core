@@ -214,6 +214,8 @@ export type { LendingPoolCollateralManager } from './protocol/lendingpool/Lendin
 export { LendingPoolCollateralManager__factory } from './factories/protocol/lendingpool/LendingPoolCollateralManager__factory.js';
 export type { LendingPoolConfigurator } from './protocol/lendingpool/LendingPoolConfigurator.js';
 export { LendingPoolConfigurator__factory } from './factories/protocol/lendingpool/LendingPoolConfigurator__factory.js';
+export type { USDCReserveInterestRateStrategy } from './protocol/lendingpool/USDCReserveInterestRateStrategy.js';
+export { USDCReserveInterestRateStrategy__factory } from './factories/protocol/lendingpool/USDCReserveInterestRateStrategy__factory.js';
 export type { BaseImmutableAdminUpgradeabilityProxy } from './protocol/libraries/aave-upgradeability/BaseImmutableAdminUpgradeabilityProxy.js';
 export { BaseImmutableAdminUpgradeabilityProxy__factory } from './factories/protocol/libraries/aave-upgradeability/BaseImmutableAdminUpgradeabilityProxy__factory.js';
 export type { InitializableImmutableAdminUpgradeabilityProxy } from './protocol/libraries/aave-upgradeability/InitializableImmutableAdminUpgradeabilityProxy.js';

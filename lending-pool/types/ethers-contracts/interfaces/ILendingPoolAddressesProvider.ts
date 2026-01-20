@@ -6,11 +6,12 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface ILendingPoolAddressesProviderInterface extends Interface {
-    getFunction(nameOrSignature: "getAddress" | "getBitmorLoan" | "getEmergencyAdmin" | "getLendingPool" | "getLendingPoolCollateralManager" | "getLendingPoolConfigurator" | "getLendingRateOracle" | "getMarketId" | "getPoolAdmin" | "getPriceOracle" | "getUSDCVault" | "setAddress" | "setAddressAsProxy" | "setBitmorLoan" | "setEmergencyAdmin" | "setLendingPoolCollateralManager" | "setLendingPoolConfiguratorImpl" | "setLendingPoolImpl" | "setLendingRateOracle" | "setMarketId" | "setPoolAdmin" | "setPriceOracle" | "setUSDCVault"): FunctionFragment;
+    getFunction(nameOrSignature: "getAddress" | "getBTCVault" | "getBitmorLoan" | "getEmergencyAdmin" | "getLendingPool" | "getLendingPoolCollateralManager" | "getLendingPoolConfigurator" | "getLendingRateOracle" | "getMarketId" | "getPoolAdmin" | "getPriceOracle" | "getUSDCVault" | "setAddress" | "setAddressAsProxy" | "setBTCVault" | "setBitmorLoan" | "setEmergencyAdmin" | "setLendingPoolCollateralManager" | "setLendingPoolConfiguratorImpl" | "setLendingPoolImpl" | "setLendingRateOracle" | "setMarketId" | "setPoolAdmin" | "setPriceOracle" | "setUSDCVault"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AddressSet" | "BitmorLoanUpdated" | "ConfigurationAdminUpdated" | "EmergencyAdminUpdated" | "LendingPoolCollateralManagerUpdated" | "LendingPoolConfiguratorUpdated" | "LendingPoolUpdated" | "LendingRateOracleUpdated" | "MarketIdSet" | "PriceOracleUpdated" | "ProxyCreated" | "USDCVaultUpdated"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AddressSet" | "BTCVaultUpdated" | "BitmorLoanUpdated" | "ConfigurationAdminUpdated" | "EmergencyAdminUpdated" | "LendingPoolCollateralManagerUpdated" | "LendingPoolConfiguratorUpdated" | "LendingPoolUpdated" | "LendingRateOracleUpdated" | "MarketIdSet" | "PriceOracleUpdated" | "ProxyCreated" | "USDCVaultUpdated"): EventFragment;
 
     encodeFunctionData(functionFragment: 'getAddress', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'getBTCVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getBitmorLoan', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getEmergencyAdmin', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getLendingPool', values?: undefined): string;
@@ -23,6 +24,7 @@ encodeFunctionData(functionFragment: 'getPriceOracle', values?: undefined): stri
 encodeFunctionData(functionFragment: 'getUSDCVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'setAddress', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'setAddressAsProxy', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setBTCVault', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setBitmorLoan', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setEmergencyAdmin', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setLendingPoolCollateralManager', values: [AddressLike]): string;
@@ -35,6 +37,7 @@ encodeFunctionData(functionFragment: 'setPriceOracle', values: [AddressLike]): s
 encodeFunctionData(functionFragment: 'setUSDCVault', values: [AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'getAddress', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'getBTCVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getBitmorLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getEmergencyAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getLendingPool', data: BytesLike): Result;
@@ -47,6 +50,7 @@ decodeFunctionResult(functionFragment: 'getPriceOracle', data: BytesLike): Resul
 decodeFunctionResult(functionFragment: 'getUSDCVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setAddress', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setAddressAsProxy', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setBTCVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setBitmorLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setEmergencyAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setLendingPoolCollateralManager', data: BytesLike): Result;
@@ -64,6 +68,18 @@ decodeFunctionResult(functionFragment: 'setUSDCVault', data: BytesLike): Result;
       export type InputTuple = [id: BytesLike, newAddress: AddressLike, hasProxy: boolean];
       export type OutputTuple = [id: string, newAddress: string, hasProxy: boolean];
       export interface OutputObject {id: string, newAddress: string, hasProxy: boolean };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace BTCVaultUpdatedEvent {
+      export type InputTuple = [newAddress: AddressLike];
+      export type OutputTuple = [newAddress: string];
+      export interface OutputObject {newAddress: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -246,6 +262,14 @@ decodeFunctionResult(functionFragment: 'setUSDCVault', data: BytesLike): Result;
     
 
     
+    getBTCVault: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     getBitmorLoan: TypedContractMethod<
       [],
       [string],
@@ -342,6 +366,14 @@ decodeFunctionResult(functionFragment: 'setUSDCVault', data: BytesLike): Result;
     
 
     
+    setBTCVault: TypedContractMethod<
+      [btcVault: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     setBitmorLoan: TypedContractMethod<
       [bitmorLoan: AddressLike, ],
       [void],
@@ -429,6 +461,11 @@ decodeFunctionResult(functionFragment: 'setUSDCVault', data: BytesLike): Result;
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'getBTCVault'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'getBitmorLoan'): TypedContractMethod<
       [],
       [string],
@@ -489,6 +526,11 @@ getFunction(nameOrSignature: 'setAddressAsProxy'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setBTCVault'): TypedContractMethod<
+      [btcVault: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'setBitmorLoan'): TypedContractMethod<
       [bitmorLoan: AddressLike, ],
       [void],
@@ -541,6 +583,7 @@ getFunction(nameOrSignature: 'setUSDCVault'): TypedContractMethod<
     >;
 
     getEvent(key: 'AddressSet'): TypedContractEvent<AddressSetEvent.InputTuple, AddressSetEvent.OutputTuple, AddressSetEvent.OutputObject>;
+getEvent(key: 'BTCVaultUpdated'): TypedContractEvent<BTCVaultUpdatedEvent.InputTuple, BTCVaultUpdatedEvent.OutputTuple, BTCVaultUpdatedEvent.OutputObject>;
 getEvent(key: 'BitmorLoanUpdated'): TypedContractEvent<BitmorLoanUpdatedEvent.InputTuple, BitmorLoanUpdatedEvent.OutputTuple, BitmorLoanUpdatedEvent.OutputObject>;
 getEvent(key: 'ConfigurationAdminUpdated'): TypedContractEvent<ConfigurationAdminUpdatedEvent.InputTuple, ConfigurationAdminUpdatedEvent.OutputTuple, ConfigurationAdminUpdatedEvent.OutputObject>;
 getEvent(key: 'EmergencyAdminUpdated'): TypedContractEvent<EmergencyAdminUpdatedEvent.InputTuple, EmergencyAdminUpdatedEvent.OutputTuple, EmergencyAdminUpdatedEvent.OutputObject>;
@@ -557,6 +600,10 @@ getEvent(key: 'USDCVaultUpdated'): TypedContractEvent<USDCVaultUpdatedEvent.Inpu
       
       'AddressSet(bytes32,address,bool)': TypedContractEvent<AddressSetEvent.InputTuple, AddressSetEvent.OutputTuple, AddressSetEvent.OutputObject>;
       AddressSet: TypedContractEvent<AddressSetEvent.InputTuple, AddressSetEvent.OutputTuple, AddressSetEvent.OutputObject>;
+    
+
+      'BTCVaultUpdated(address)': TypedContractEvent<BTCVaultUpdatedEvent.InputTuple, BTCVaultUpdatedEvent.OutputTuple, BTCVaultUpdatedEvent.OutputObject>;
+      BTCVaultUpdated: TypedContractEvent<BTCVaultUpdatedEvent.InputTuple, BTCVaultUpdatedEvent.OutputTuple, BTCVaultUpdatedEvent.OutputObject>;
     
 
       'BitmorLoanUpdated(address)': TypedContractEvent<BitmorLoanUpdatedEvent.InputTuple, BitmorLoanUpdatedEvent.OutputTuple, BitmorLoanUpdatedEvent.OutputObject>;
