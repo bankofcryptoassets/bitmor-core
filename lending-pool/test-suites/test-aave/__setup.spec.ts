@@ -231,6 +231,8 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await deployAaveOracle([
     tokens,
     aggregators,
+    getContractAddress(mockTokens.WBTC), // btc - use WBTC as mock BTC
+    ZERO_ADDRESS, // bvBTC
     getContractAddress(fallbackOracle),
     getContractAddress(mockTokens.WETH),
     oneEther.toString(),

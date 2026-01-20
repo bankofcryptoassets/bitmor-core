@@ -38,6 +38,8 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const userGlobalData = await pool.getUserAccountData(borrower.address);
     const daiPrice = await oracle.getAssetPrice(getContractAddress(dai));
 
+    console.log("Dai Price", daiPrice.toString());
+
     const amountDAIToBorrow = await convertToCurrencyDecimals(
       getContractAddress(dai),
       new BigNumber(userGlobalData.availableBorrowsETH.toString())

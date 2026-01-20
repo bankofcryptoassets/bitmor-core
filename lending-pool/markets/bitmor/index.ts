@@ -2,7 +2,6 @@ import { eBaseNetwork, eEthereumNetwork, IBitmorConfiguration } from '../../help
 import { BitmorCommonsConfig } from './commons.js';
 import { strategyUSDC, strategyBVBTC } from './reservesConfigs.js';
 import sepoliaBUSDC from '../../deployments/sepolia-busdc.json';
-import sepoliaBcbBTC from '../../deployments/sepolia-bcbbtc.json';
 
 export const BitmorConfig: IBitmorConfiguration = {
   ...BitmorCommonsConfig,
@@ -13,10 +12,13 @@ export const BitmorConfig: IBitmorConfiguration = {
     bvBTC: strategyBVBTC,
   },
   ReserveAssets: {
-    [eBaseNetwork.base]: {},
+    [eBaseNetwork.base]: {
+      bUSDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      bvBTC: '', // To be populated from loan-provider deployment
+    },
     [eBaseNetwork.sepolia]: {
       bUSDC: sepoliaBUSDC.address,
-      bcbBTC: sepoliaBcbBTC.address,
+      bvBTC: '', // To be populated from loan-provider deployment
     },
     // For hardhat/localhost, addresses are loaded dynamically from deployed-contracts.json
     // This will be populated at runtime by getParamPerNetwork

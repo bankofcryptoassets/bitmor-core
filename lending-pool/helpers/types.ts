@@ -273,7 +273,7 @@ export interface iAssetBase<T> {
   xSUSHI: T;
   WAVAX: T;
   bvBTC: T;
-  bUSDC: T
+  bUSDC: T;
 }
 
 export type iAssetsWithoutETH<T> = Omit<iAssetBase<T>, 'ETH'>;

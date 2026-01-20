@@ -68,6 +68,7 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     // User 1 tries to borrow WETH using DAI vault shares as collateral
     // In Bitmor, vault shares are not recognized as collateral
     // Expected: Borrow should fail with error '9' (VL_COLLATERAL_BALANCE_IS_0)
+    // You can reference WETH as CBBTC and DAI as USDC in Bitmor context
     await expect(
       pool
         .connect(users[1].signer)

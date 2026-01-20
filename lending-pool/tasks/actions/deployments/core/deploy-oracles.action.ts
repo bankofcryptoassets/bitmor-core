@@ -10,6 +10,8 @@ import {
   getGenesisPoolAdmin,
   getLendingRateOracles,
   getQuoteCurrency,
+  getBcbBTCAddress,
+  getBvBTCAddress,
 } from '../../../../helpers/configuration.js';
 import {
   getAaveOracle,
@@ -68,6 +70,17 @@ export default async function deployOraclesAction(
       }
     }
 
+    // Dynamically populate bvBTC address from loan-provider deployment
+    if (reserveAssets['bvBTC'] === '') {
+      try {
+        const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+        reserveAssets = { ...reserveAssets, bvBTC: bvBTCAddress };
+        console.log(`bvBTC address loaded from loan-provider: ${bvBTCAddress}`);
+      } catch (error) {
+        console.warn(`Could not load bvBTC address: ${error}`);
+      }
+    }
+
     const chainlinkAggregators = await getParamPerNetwork(ChainlinkAggregator, network);
 
     const tokensToWatch: SymbolMap<string> = {
@@ -86,11 +99,22 @@ export default async function deployOraclesAction(
     if (notFalsyOrZeroAddress(aaveOracleAddress)) {
       aaveOracle = await getAaveOracle(aaveOracleAddress);
       await waitForTx(await aaveOracle.setAssetSources(tokens, aggregators));
+
+      const bcbBTCAddress = await getBcbBTCAddress(poolConfig, network);
+      const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+
+      await waitForTx(await aaveOracle.setBTC(bcbBTCAddress));
+      await waitForTx(await aaveOracle.setbvBTC(bvBTCAddress));
     } else {
+      const bcbBTCAddress = await getBcbBTCAddress(poolConfig, network);
+      const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+
       aaveOracle = await deployAaveOracle(
         [
           tokens,
           aggregators,
+          bcbBTCAddress,
+          bvBTCAddress,
           fallbackOracleAddress,
           await getQuoteCurrency(poolConfig),
           poolConfig.OracleQuoteUnit,

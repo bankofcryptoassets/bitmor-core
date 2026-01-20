@@ -280,7 +280,15 @@ export const deployMockAggregator = async (price: tStringTokenSmallUnits, verify
   );
 
 export const deployAaveOracle = async (
-  args: [tEthereumAddress[], tEthereumAddress[], tEthereumAddress, tEthereumAddress, string],
+  args: [
+    tEthereumAddress[],
+    tEthereumAddress[],
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    string
+  ],
   verify?: boolean
 ) =>
   withSaveAndVerify(
