@@ -200,6 +200,8 @@ export type { MockStableDebtToken } from './mocks/upgradeability/MockStableDebtT
 export { MockStableDebtToken__factory } from './factories/mocks/upgradeability/MockStableDebtToken__factory.js';
 export type { MockVariableDebtToken } from './mocks/upgradeability/MockVariableDebtToken.js';
 export { MockVariableDebtToken__factory } from './factories/mocks/upgradeability/MockVariableDebtToken__factory.js';
+export type { MockUSDCVault } from './mocks/vault/MockUSDCVault.js';
+export { MockUSDCVault__factory } from './factories/mocks/vault/MockUSDCVault__factory.js';
 export type { LendingPoolAddressesProvider } from './protocol/configuration/LendingPoolAddressesProvider.js';
 export { LendingPoolAddressesProvider__factory } from './factories/protocol/configuration/LendingPoolAddressesProvider__factory.js';
 export type { LendingPoolAddressesProviderRegistry } from './protocol/configuration/LendingPoolAddressesProviderRegistry.js';

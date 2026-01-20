@@ -102,6 +102,7 @@ getContractFactory(name: 'WETH9Mocked', signerOrOptions?: ethers.Signer | Factor
 getContractFactory(name: 'MockAToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockAToken__factory>
 getContractFactory(name: 'MockStableDebtToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockStableDebtToken__factory>
 getContractFactory(name: 'MockVariableDebtToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockVariableDebtToken__factory>
+getContractFactory(name: 'MockUSDCVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockUSDCVault__factory>
 getContractFactory(name: 'LendingPoolAddressesProvider', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPoolAddressesProvider__factory>
 getContractFactory(name: 'LendingPoolAddressesProviderRegistry', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPoolAddressesProviderRegistry__factory>
 getContractFactory(name: 'DefaultReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.DefaultReserveInterestRateStrategy__factory>
@@ -213,6 +214,7 @@ getContractAt(name: 'WETH9Mocked', address: string | ethers.Addressable, signer?
 getContractAt(name: 'MockAToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockAToken>
 getContractAt(name: 'MockStableDebtToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockStableDebtToken>
 getContractAt(name: 'MockVariableDebtToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockVariableDebtToken>
+getContractAt(name: 'MockUSDCVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockUSDCVault>
 getContractAt(name: 'LendingPoolAddressesProvider', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPoolAddressesProvider>
 getContractAt(name: 'LendingPoolAddressesProviderRegistry', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPoolAddressesProviderRegistry>
 getContractAt(name: 'DefaultReserveInterestRateStrategy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.DefaultReserveInterestRateStrategy>
@@ -324,6 +326,7 @@ deployContract(name: 'WETH9Mocked', signerOrOptions?: ethers.Signer | DeployCont
 deployContract(name: 'MockAToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockAToken>
 deployContract(name: 'MockStableDebtToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockStableDebtToken>
 deployContract(name: 'MockVariableDebtToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockVariableDebtToken>
+deployContract(name: 'MockUSDCVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockUSDCVault>
 deployContract(name: 'LendingPoolAddressesProvider', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolAddressesProvider>
 deployContract(name: 'LendingPoolAddressesProviderRegistry', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolAddressesProviderRegistry>
 deployContract(name: 'DefaultReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DefaultReserveInterestRateStrategy>
@@ -435,6 +438,7 @@ deployContract(name: 'WETH9Mocked', args: any[], signerOrOptions?: ethers.Signer
 deployContract(name: 'MockAToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockAToken>
 deployContract(name: 'MockStableDebtToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockStableDebtToken>
 deployContract(name: 'MockVariableDebtToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockVariableDebtToken>
+deployContract(name: 'MockUSDCVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockUSDCVault>
 deployContract(name: 'LendingPoolAddressesProvider', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolAddressesProvider>
 deployContract(name: 'LendingPoolAddressesProviderRegistry', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolAddressesProviderRegistry>
 deployContract(name: 'DefaultReserveInterestRateStrategy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DefaultReserveInterestRateStrategy>

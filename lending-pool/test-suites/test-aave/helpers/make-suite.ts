@@ -14,6 +14,9 @@ import {
   getUniswapRepayAdapter,
   getFlashLiquidationAdapter,
   getParaSwapLiquiditySwapAdapter,
+  getMockUSDCVault,
+  getMockActualUSDCVault,
+  getMockWETHVault,
 } from '../../../helpers/contracts-getters.js';
 import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
 import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
@@ -38,6 +41,7 @@ import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/W
 import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
+import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 
 chai.use(bignumberChai());
@@ -63,6 +67,9 @@ export interface TestEnv {
   wethGateway: WETHGateway;
   flashLiquidationAdapter: FlashLiquidationAdapter;
   paraswapLiquiditySwapAdapter: ParaSwapLiquiditySwapAdapter;
+  usdcVault: MockUSDCVault;
+  actualUSDCVault: MockUSDCVault;
+  wethVault: MockUSDCVault;
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -156,6 +163,10 @@ export async function initializeMakeSuite() {
   testEnv.flashLiquidationAdapter = await getFlashLiquidationAdapter();
 
   testEnv.paraswapLiquiditySwapAdapter = await getParaSwapLiquiditySwapAdapter();
+
+  testEnv.usdcVault = await getMockUSDCVault();
+  testEnv.actualUSDCVault = await getMockActualUSDCVault();
+  testEnv.wethVault = await getMockWETHVault();
 }
 
 const setSnapshot = async () => {

@@ -150,11 +150,17 @@ export const deposit = async (
 
   const txOptions: any = {};
 
+  // BITMOR ARCHITECTURE: Get vault data for aToken balance checks
+  // In Bitmor, vault holds aTokens, users hold vault shares
+  const { usdcVault } = testEnv;
+  const vaultAddress = await usdcVault.getAddress();
+
+  // BITMOR: Get vault's aToken balance AND user's wallet balance
   const { reserveData: reserveDataBefore, userData: userDataBefore } = await getContractsData(
     reserve,
-    onBehalfOf,
+    vaultAddress, // Check vault's aToken balance
     testEnv,
-    sender.address
+    sender.address // But check user's wallet balance for tokens
   );
 
   if (sendValue) {
@@ -162,17 +168,23 @@ export const deposit = async (
   }
 
   if (expectedResult === 'success') {
+    // Get the token contract
+    const token = await getMintableERC20(reserve);
+
+    // Approve vault (user already has tokens from mint action)
+    await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
+
+    // BITMOR: Deposit via vault (sender receives vault shares, vault receives aTokens)
     const txResult = await waitForTx(
-      await pool
-        .connect(sender.signer)
-        .deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions)
+      await usdcVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
     );
 
+    // BITMOR: Check vault's aToken balance AND user's wallet balance
     const {
       reserveData: reserveDataAfter,
       userData: userDataAfter,
       timestamp,
-    } = await getContractsData(reserve, onBehalfOf, testEnv, sender.address);
+    } = await getContractsData(reserve, vaultAddress, testEnv, sender.address);
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
@@ -195,6 +207,12 @@ export const deposit = async (
     expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserReserveData);
 
+    // BITMOR: Verify user received vault shares (not aTokens)
+    // In Bitmor architecture, users hold vault shares while the vault holds aTokens.
+    // This is a key difference from standard Aave where users directly hold aTokens.
+    const userVaultShares = await usdcVault.balanceOf(sender.address);
+    expect(userVaultShares).to.be.gte(amountToDeposit, 'BITMOR: User should have vault shares');
+
     // truffleAssert.eventEmitted(txResult, "Deposit", (ev: any) => {
     //   const {_reserve, _user, _amount} = ev;
     //   return (
@@ -204,10 +222,16 @@ export const deposit = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
+    // Get the token contract
+    const token = await getMintableERC20(reserve);
+
+    // Approve vault (user already has tokens from mint action)
+    await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
+
+    // BITMOR: Expect revert when depositing via vault
     await expect(
-      pool.connect(sender.signer).deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions),
-      revertMessage
-    ).to.be.revert(DRE.ethers);
+      usdcVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
+    ).to.be.reverted;
   }
 };
 

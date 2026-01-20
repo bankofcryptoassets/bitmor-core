@@ -32,6 +32,9 @@ import {
   authorizeWETHGateway,
   deployATokenImplementations,
   deployAaveOracle,
+  deployMockUSDCVault,
+  deployMockActualUSDCVault,
+  deployMockWETHVault,
 } from '../../helpers/contracts-deployments.js';
 import type { Signer } from 'ethers';
 import { TokenContractId, eContractid, AavePools } from '../../helpers/types.js';
@@ -283,6 +286,29 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await waitForTx(
     await addressesProvider.setLendingPoolCollateralManager(getContractAddress(collateralManager))
   );
+
+  // Deploy vault for DAI
+  const mockUSDCVault = await deployMockUSDCVault([
+    getContractAddress(addressesProvider),
+    getContractAddress(mockTokens.DAI),
+  ]);
+  await waitForTx(await addressesProvider.setUSDCVault(getContractAddress(mockUSDCVault)));
+  console.log('MockUSDCVault (DAI) deployed and configured');
+
+  // Deploy vault for actual USDC
+  const mockActualUSDCVault = await deployMockActualUSDCVault([
+    getContractAddress(addressesProvider),
+    getContractAddress(mockTokens.USDC),
+  ]);
+  console.log('MockActualUSDCVault (USDC) deployed');
+
+  // Deploy vault for WETH
+  const mockWETHVault = await deployMockWETHVault([
+    getContractAddress(addressesProvider),
+    getContractAddress(mockTokens.WETH),
+  ]);
+  console.log('MockWETHVault deployed');
+
   await deployMockFlashLoanReceiver(getContractAddress(addressesProvider));
 
   const mockUniswapRouter = await deployMockUniswapRouter();
