@@ -78,6 +78,7 @@ export enum eContractid {
   LendingRateOracle = 'LendingRateOracle',
   AaveOracle = 'AaveOracle',
   DefaultReserveInterestRateStrategy = 'DefaultReserveInterestRateStrategy',
+  USDCReserveInterestRateStrategy = "USDCReserveInterestRateStrategy",
   LendingPoolCollateralManager = 'LendingPoolCollateralManager',
   InitializableAdminUpgradeabilityProxy = 'InitializableAdminUpgradeabilityProxy',
   MockFlashLoanReceiver = 'MockFlashLoanReceiver',
@@ -267,7 +268,7 @@ export interface iAssetBase<T> {
   STAKE: T;
   xSUSHI: T;
   WAVAX: T;
-  bcbBTC: T;
+  bvBTC: T;
   bUSDC: T
 }
 
@@ -340,7 +341,7 @@ export type iAvalanchePoolAssets<T> = Pick<
   'WETH' | 'DAI' | 'USDT' | 'AAVE' | 'WBTC' | 'WAVAX' | 'USDC'
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bcbBTC'>;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bvBTC'>;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 
@@ -390,7 +391,7 @@ export enum TokenContractId {
   STAKE = 'STAKE',
   xSUSHI = 'xSUSHI',
   WAVAX = 'WAVAX',
-  bcbBTC = 'bcbBTC',
+  bvBTC = 'bvBTC',
   bUSDC = 'bUSDC'
 }
 
