@@ -5,3 +5,4 @@ export { DefaultReserveInterestRateStrategy__factory } from './DefaultReserveInt
 export { LendingPool__factory } from './LendingPool__factory.js';
 export { LendingPoolCollateralManager__factory } from './LendingPoolCollateralManager__factory.js';
 export { LendingPoolConfigurator__factory } from './LendingPoolConfigurator__factory.js';
+export { USDCReserveInterestRateStrategy__factory } from './USDCReserveInterestRateStrategy__factory.js';

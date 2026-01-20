@@ -108,6 +108,7 @@ getContractFactory(name: 'DefaultReserveInterestRateStrategy', signerOrOptions?:
 getContractFactory(name: 'LendingPool', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPool__factory>
 getContractFactory(name: 'LendingPoolCollateralManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPoolCollateralManager__factory>
 getContractFactory(name: 'LendingPoolConfigurator', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPoolConfigurator__factory>
+getContractFactory(name: 'USDCReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.USDCReserveInterestRateStrategy__factory>
 getContractFactory(name: 'BaseImmutableAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.BaseImmutableAdminUpgradeabilityProxy__factory>
 getContractFactory(name: 'InitializableImmutableAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.InitializableImmutableAdminUpgradeabilityProxy__factory>
 getContractFactory(name: 'Errors', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Errors__factory>
@@ -219,6 +220,7 @@ getContractAt(name: 'DefaultReserveInterestRateStrategy', address: string | ethe
 getContractAt(name: 'LendingPool', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPool>
 getContractAt(name: 'LendingPoolCollateralManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPoolCollateralManager>
 getContractAt(name: 'LendingPoolConfigurator', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPoolConfigurator>
+getContractAt(name: 'USDCReserveInterestRateStrategy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.USDCReserveInterestRateStrategy>
 getContractAt(name: 'BaseImmutableAdminUpgradeabilityProxy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.BaseImmutableAdminUpgradeabilityProxy>
 getContractAt(name: 'InitializableImmutableAdminUpgradeabilityProxy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.InitializableImmutableAdminUpgradeabilityProxy>
 getContractAt(name: 'Errors', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Errors>
@@ -330,6 +332,7 @@ deployContract(name: 'DefaultReserveInterestRateStrategy', signerOrOptions?: eth
 deployContract(name: 'LendingPool', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPool>
 deployContract(name: 'LendingPoolCollateralManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolCollateralManager>
 deployContract(name: 'LendingPoolConfigurator', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolConfigurator>
+deployContract(name: 'USDCReserveInterestRateStrategy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.USDCReserveInterestRateStrategy>
 deployContract(name: 'BaseImmutableAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BaseImmutableAdminUpgradeabilityProxy>
 deployContract(name: 'InitializableImmutableAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.InitializableImmutableAdminUpgradeabilityProxy>
 deployContract(name: 'Errors', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>
@@ -441,6 +444,7 @@ deployContract(name: 'DefaultReserveInterestRateStrategy', args: any[], signerOr
 deployContract(name: 'LendingPool', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPool>
 deployContract(name: 'LendingPoolCollateralManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolCollateralManager>
 deployContract(name: 'LendingPoolConfigurator', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolConfigurator>
+deployContract(name: 'USDCReserveInterestRateStrategy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.USDCReserveInterestRateStrategy>
 deployContract(name: 'BaseImmutableAdminUpgradeabilityProxy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BaseImmutableAdminUpgradeabilityProxy>
 deployContract(name: 'InitializableImmutableAdminUpgradeabilityProxy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.InitializableImmutableAdminUpgradeabilityProxy>
 deployContract(name: 'Errors', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>

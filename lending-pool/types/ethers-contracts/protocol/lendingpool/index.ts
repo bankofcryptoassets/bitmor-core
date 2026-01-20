@@ -5,3 +5,4 @@ export type { DefaultReserveInterestRateStrategy } from './DefaultReserveInteres
 export type { LendingPool } from './LendingPool.js';
 export type { LendingPoolCollateralManager } from './LendingPoolCollateralManager.js';
 export type { LendingPoolConfigurator } from './LendingPoolConfigurator.js';
+export type { USDCReserveInterestRateStrategy } from './USDCReserveInterestRateStrategy.js';
