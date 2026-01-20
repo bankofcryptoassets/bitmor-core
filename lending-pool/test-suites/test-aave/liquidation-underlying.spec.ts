@@ -8,6 +8,7 @@ import { makeSuite } from './helpers/make-suite.js';
 import { ProtocolErrors, RateMode } from '../../helpers/types.js';
 import { calcExpectedStableDebtTokenBalance } from './helpers/utils/calculations.js';
 import { getUserData } from './helpers/utils/helpers.js';
+import { depositViaVault } from './helpers/vault-helpers.js';
 
 import { parseEther } from 'ethers';
 
@@ -50,30 +51,13 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
     const depositor = users[0];
     const borrower = users[1];
 
-    //mints DAI to depositor
-    await dai.connect(depositor.signer).mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
-
-    //approve protocol to access depositor wallet
-    await dai.connect(depositor.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 1 deposits 1000 DAI
+    //user 1 deposits 1000 DAI via vault
     const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
+    await depositViaVault(dai, amountDAItoDeposit, depositor, testEnv);
 
-    await pool
-      .connect(depositor.signer)
-      .deposit(getContractAddress(dai), amountDAItoDeposit, depositor.address, '0');
-    //user 2 deposits 1 ETH
+    //user 2 deposits 1 WETH via vault
     const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(weth), '1');
-
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(await convertToCurrencyDecimals(getContractAddress(weth), '1000'));
-
-    //approve protocol to access the borrower wallet
-    await weth.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    await pool
-      .connect(borrower.signer)
-      .deposit(getContractAddress(weth), amountETHtoDeposit, borrower.address, '0');
+    await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
 
     //user 2 borrows
 
@@ -233,33 +217,13 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
     const borrower = users[4];
     const liquidator = users[5];
 
-    //mints USDC to depositor
-    await usdc
-      .connect(depositor.signer)
-      .mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000'));
-
-    //approve protocol to access depositor wallet
-    await usdc.connect(depositor.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //depositor deposits 1000 USDC
+    //depositor deposits 1000 USDC via vault
     const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+    await depositViaVault(usdc, amountUSDCtoDeposit, depositor, testEnv);
 
-    await pool
-      .connect(depositor.signer)
-      .deposit(getContractAddress(usdc), amountUSDCtoDeposit, depositor.address, '0');
-
-    //borrower deposits 1 ETH
+    //borrower deposits 1 WETH via vault
     const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(weth), '1');
-
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(await convertToCurrencyDecimals(getContractAddress(weth), '1000'));
-
-    //approve protocol to access the borrower wallet
-    await weth.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    await pool
-      .connect(borrower.signer)
-      .deposit(getContractAddress(weth), amountETHtoDeposit, borrower.address, '0');
+    await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
 
     //borrower borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -386,18 +350,9 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
     const borrower = users[4];
     const liquidator = users[5];
 
-    //mints AAVE to borrower
-    await aave.connect(borrower.signer).mint(await convertToCurrencyDecimals(getContractAddress(aave), '10'));
-
-    //approve protocol to access the borrower wallet
-    await aave.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //borrower deposits 10 AAVE
+    //borrower deposits 10 AAVE via vault
     const amountToDeposit = await convertToCurrencyDecimals(getContractAddress(aave), '10');
-
-    await pool
-      .connect(borrower.signer)
-      .deposit(getContractAddress(aave), amountToDeposit, borrower.address, '0');
+    await depositViaVault(aave, amountToDeposit, borrower, testEnv);
     const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
 
     //drops HF below 1

@@ -468,6 +468,20 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      *   0 if the action is executed directly by the user, without any middle-man
      *
      */
+    /**
+     * BITMOR: Flash loans are disabled in Bitmor protocol
+     *
+     * REASON: Flash loan modes 1 and 2 require users to have collateral (aTokens).
+     * In Bitmor's vault architecture, users own vault shares while vaults own aTokens.
+     * The lending pool only recognizes aTokens as collateral, not vault shares.
+     * Therefore, flash loans with debt positions (modes 1 & 2) would fail.
+     * Mode 0 (standard flash loan) would work but for consistency and security,
+     * all flash loan functionality is disabled.
+     *
+     * ERROR CODE: 86 (LP_FLASHLOAN_DISABLED)
+     *
+     * Original flash loan code is preserved below for reference (unreachable).
+     */
     function flashLoan(
         address receiverAddress,
         address[] calldata assets,
@@ -477,7 +491,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         bytes calldata params,
         uint16 referralCode
     ) external override whenNotPaused {
-        require(1 == 0, Errors.LP_FLASH_LOAN_DISABLED);
+        revert(Errors.LP_FLASHLOAN_DISABLED);
+
         // FlashLoanLocalVars memory vars;
 
         // ValidationLogic.validateFlashloan(assets, amounts);

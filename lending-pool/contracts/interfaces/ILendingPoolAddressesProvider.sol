@@ -68,5 +68,9 @@ interface ILendingPoolAddressesProvider {
 
     function getUSDCVault() external view returns (address);
 
+    function getBTCVault() external view returns (address);
+
     function setUSDCVault(address usdcVault) external;
+
+    function setBTCVault(address btcVault) external;
 }

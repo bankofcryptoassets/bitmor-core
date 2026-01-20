@@ -15,3 +15,5 @@ import type * as tokens from './tokens/index.js';
 export type { tokens };
 import type * as upgradeability from './upgradeability/index.js';
 export type { upgradeability };
+import type * as vault from './vault/index.js';
+export type { vault };

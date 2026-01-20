@@ -34,6 +34,7 @@ import {
   WETHGateway__factory,
   FlashLiquidationAdapter__factory,
   IERC20Detailed__factory,
+  MockUSDCVault__factory,
 } from '../types/ethers-contracts/index.js';
 import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers.js';
 import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils.js';
@@ -322,6 +323,33 @@ export const getMockStableDebtToken = async (address?: tEthereumAddress) =>
     address ||
       (
         await getDb().get(`${eContractid.MockStableDebtToken}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+export const getMockUSDCVault = async (address?: tEthereumAddress) =>
+  await MockUSDCVault__factory.connect(
+    address ||
+      (
+        await getDb().get(`${eContractid.MockUSDCVault}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+export const getMockActualUSDCVault = async (address?: tEthereumAddress) =>
+  await MockUSDCVault__factory.connect(
+    address ||
+      (
+        await getDb().get(`${eContractid.MockActualUSDCVault}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+export const getMockWETHVault = async (address?: tEthereumAddress) =>
+  await MockUSDCVault__factory.connect(
+    address ||
+      (
+        await getDb().get(`${eContractid.MockWETHVault}.${DRE.network.networkName}`).value()
       ).address,
     await getFirstSigner()
   );

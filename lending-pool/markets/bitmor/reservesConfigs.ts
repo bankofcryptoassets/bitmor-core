@@ -1,5 +1,5 @@
-import { eContractid, IReserveParams } from '../../helpers/types';
-import { rateStrategyUSDC, rateStrategyBVBTC } from './rateStrategies';
+import { eContractid, IReserveParams } from '../../helpers/types.js';
+import { rateStrategyUSDC, rateStrategyBVBTC } from './rateStrategies.js';
 
 export const strategyUSDC: IReserveParams = {
   strategy: rateStrategyUSDC,
@@ -12,8 +12,6 @@ export const strategyUSDC: IReserveParams = {
   aTokenImpl: eContractid.AToken,
   reserveFactor: '1000',
 };
-
-
 
 export const strategyBVBTC: IReserveParams = {
   strategy: rateStrategyBVBTC,

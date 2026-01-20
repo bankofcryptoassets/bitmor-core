@@ -107,6 +107,9 @@ export enum eContractid {
   LendingPoolConfiguratorImpl = 'LendingPoolConfiguratorImpl',
   LendingPoolCollateralManagerImpl = 'LendingPoolCollateralManagerImpl',
   MockUniswapV2Router02 = 'MockUniswapV2Router02',
+  MockUSDCVault = 'MockUSDCVault',
+  MockActualUSDCVault = 'MockActualUSDCVault',
+  MockWETHVault = 'MockWETHVault',
   UniswapLiquiditySwapAdapter = 'UniswapLiquiditySwapAdapter',
   UniswapRepayAdapter = 'UniswapRepayAdapter',
   FlashLiquidationAdapter = 'FlashLiquidationAdapter',
@@ -206,6 +209,7 @@ export enum ProtocolErrors {
   RC_INVALID_DECIMALS = '70',
   RC_INVALID_RESERVE_FACTOR = '71',
   LPAPR_INVALID_ADDRESSES_PROVIDER_ID = '72',
+  LP_FLASHLOAN_DISABLED = '86', // Flash loans are disabled in Bitmor
 
   // old
 
@@ -269,7 +273,7 @@ export interface iAssetBase<T> {
   xSUSHI: T;
   WAVAX: T;
   bvBTC: T;
-  bUSDC: T
+  bUSDC: T;
 }
 
 export type iAssetsWithoutETH<T> = Omit<iAssetBase<T>, 'ETH'>;

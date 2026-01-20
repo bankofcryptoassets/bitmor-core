@@ -55,6 +55,7 @@ import {
   UiPoolDataProviderV2__factory,
   UiPoolDataProviderV2V3__factory,
   UiIncentiveDataProviderV2__factory,
+  MockUSDCVault__factory,
 } from '../types/ethers-contracts/index.js';
 import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
@@ -279,7 +280,15 @@ export const deployMockAggregator = async (price: tStringTokenSmallUnits, verify
   );
 
 export const deployAaveOracle = async (
-  args: [tEthereumAddress[], tEthereumAddress[], tEthereumAddress, tEthereumAddress, string],
+  args: [
+    tEthereumAddress[],
+    tEthereumAddress[],
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    string
+  ],
   verify?: boolean
 ) =>
   withSaveAndVerify(
@@ -691,6 +700,39 @@ export const deployMockUniswapRouter = async (verify?: boolean) =>
     await new MockUniswapV2Router02__factory(await getFirstSigner()).deploy(),
     eContractid.MockUniswapV2Router02,
     [],
+    verify
+  );
+
+export const deployMockUSDCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockUSDCVault,
+    args,
+    verify
+  );
+
+export const deployMockActualUSDCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockActualUSDCVault,
+    args,
+    verify
+  );
+
+export const deployMockWETHVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockWETHVault,
+    args,
     verify
   );
 

@@ -37,6 +37,19 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "newAddress",
+        "type": "address"
+      }
+    ],
+    "name": "BTCVaultUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "bitmorLoan",
         "type": "address"
       }
@@ -189,6 +202,19 @@
       }
     ],
     "name": "getAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getBTCVault",
     "outputs": [
       {
         "internalType": "address",
@@ -361,6 +387,19 @@
       }
     ],
     "name": "setAddressAsProxy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "btcVault",
+        "type": "address"
+      }
+    ],
+    "name": "setBTCVault",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

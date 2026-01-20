@@ -5,6 +5,7 @@ import {convertToCurrencyDecimals,
   getContractAddress} from '../../helpers/contracts-helpers.js';
 import { ProtocolErrors } from '../../helpers/types.js';
 import { strategyWETH } from '../../markets/aave/reservesConfigs.js';
+import { depositViaVault } from './helpers/vault-helpers.js';
 
 import chai from 'chai';
 const { expect } = chai;
@@ -370,16 +371,34 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   });
 
   it('Reverts when trying to disable the DAI reserve with liquidity on it', async () => {
-    const { dai, pool, configurator } = testEnv;
-    const userAddress = await pool.getAddress();
+    // [BITMOR AUDIT NOTE - Test Adaptation for Vault-Only Deposits]
+    // CHANGE: This test was modified to comply with Bitmor's architectural requirement
+    // that ALL deposits must go through the USDC Vault (enforced at LendingPool.sol:117).
+    //
+    // BEFORE: Direct user deposits were used: pool.deposit(asset, amount, userAddress, '0')
+    // ERROR: This would fail with error code 85 (LP_CALLER_NOT_VAULT) because direct
+    //        deposits to the pool are prohibited in Bitmor.
+    //
+    // AFTER: Using depositViaVault() helper which:
+    // 1. Accepts the actual ERC20 token contract (not address string)
+    // 2. Accepts a SignerWithAddress user object (not plain address string)
+    // 3. Routes deposit through the vault as required by Bitmor
+    //
+    // IMPACT: This is NOT a bug fix - it's a design adaptation. The test still validates
+    //         the same business logic (cannot disable reserve with liquidity), just with
+    //         Bitmor's required deposit mechanism.
+    
+    const { dai, pool, configurator, users } = testEnv;
+    const user = users[0]; // Use actual user signer, not pool address
     await dai.mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
 
     //approve protocol to access depositor wallet
     await dai.approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
     const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
 
-    //user 1 deposits 1000 DAI
-    await pool.deposit(getContractAddress(dai), amountDAItoDeposit, userAddress, '0');
+    //user 1 deposits 1000 DAI via vault
+    await depositViaVault(dai, amountDAItoDeposit, user, testEnv);
+    
 
     await expect(
       configurator.deactivateReserve(getContractAddress(dai)),
