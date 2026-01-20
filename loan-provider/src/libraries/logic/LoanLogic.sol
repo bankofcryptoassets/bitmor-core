@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
-import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
-import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol";
-import {FixedPointMathLib} from "../../dependencies/solady/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 
 import {ILoan} from "../../interfaces/ILoan.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
 import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
@@ -212,7 +213,8 @@ library LoanLogic {
         // Fetch current variable borrow rate from Aave V2 USDC reserve
         DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
 
-        uint256 interestRate = reserveData.currentVariableBorrowRate;
+        uint256 maxInterestRate =
+            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
@@ -223,7 +225,7 @@ library LoanLogic {
                 data.collateralAssetDecimals,
                 collateralPriceUSD,
                 debtPriceUSD,
-                interestRate,
+                maxInterestRate,
                 data.duration
             )
         );
