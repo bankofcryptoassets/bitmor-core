@@ -1,6 +1,6 @@
 import { eBaseNetwork, eEthereumNetwork, IBitmorConfiguration } from '../../helpers/types.js';
 import { BitmorCommonsConfig } from './commons.js';
-import { strategyUSDC, strategyCBBTC } from './reservesConfigs.js';
+import { strategyUSDC, strategyBVBTC } from './reservesConfigs.js';
 import sepoliaBUSDC from '../../deployments/sepolia-busdc.json';
 import sepoliaBcbBTC from '../../deployments/sepolia-bcbbtc.json';
 
@@ -10,7 +10,7 @@ export const BitmorConfig: IBitmorConfiguration = {
   ProviderId: 100,
   ReservesConfig: {
     bUSDC: strategyUSDC,
-    bcbBTC: strategyCBBTC,
+    bvBTC: strategyBVBTC,
   },
   ReserveAssets: {
     [eBaseNetwork.base]: {},

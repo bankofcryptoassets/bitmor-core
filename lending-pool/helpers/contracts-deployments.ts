@@ -21,6 +21,7 @@ import {
   ATokensAndRatesHelper__factory,
   AaveOracle__factory,
   DefaultReserveInterestRateStrategy__factory,
+  USDCReserveInterestRateStrategy__factory,
   DelegationAwareAToken__factory,
   InitializableAdminUpgradeabilityProxy__factory,
   LendingPoolAddressesProvider__factory,
@@ -379,6 +380,17 @@ export const deployDefaultReserveInterestRateStrategy = async (
     verify
   );
 
+export const deployUSDCReserveInterestRateStrategy = async (
+  args: [tEthereumAddress, string, string, string, string, string, string],
+  verify: boolean
+) =>
+  withSaveAndVerify(
+    await new USDCReserveInterestRateStrategy__factory(await getFirstSigner()).deploy(...args),
+    eContractid.USDCReserveInterestRateStrategy,
+    args,
+    verify
+  );
+
 export const deployStableDebtToken = async (
   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress, string, string],
   verify: boolean
@@ -538,7 +550,7 @@ export const deployMockTokens = async (config: PoolConfiguration, verify?: boole
         tokenSymbol,
         tokenSymbol,
         configData[tokenSymbol as keyof iMultiPoolsAssets<IReserveParams>].reserveDecimals ||
-          defaultDecimals.toString(),
+        defaultDecimals.toString(),
       ],
       verify
     );
@@ -812,6 +824,9 @@ export const deployRateStrategy = async (
   verify: boolean
 ): Promise<tEthereumAddress> => {
   switch (strategyName) {
+    case 'rateStrategyUSDC': return getContractAddress(
+      await deployUSDCReserveInterestRateStrategy(args, verify)
+    );
     default:
       return getContractAddress(
         await deployDefaultReserveInterestRateStrategy(args, verify)

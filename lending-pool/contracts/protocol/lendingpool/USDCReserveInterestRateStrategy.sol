@@ -7,19 +7,19 @@ import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
 import {ILendingRateOracle} from "../../interfaces/ILendingRateOracle.sol";
-import {IERC20} from "../../dependencies/openzeppelin/contracts/IERC20.sol";
+import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
 /**
- * @title DefaultReserveInterestRateStrategy contract
+ * @title USDCReserveInterestRateStrategy contract
  * @notice Implements the calculation of the interest rates depending on the reserve state
  * @dev The model of interest rate is based on 2 slopes, one before the `OPTIMAL_UTILIZATION_RATE`
  * point of utilization and another from that one to 100%
  * - An instance of this same contract, can't be used across different Aave markets, due to the caching
  *   of the LendingPoolAddressesProvider
- * @author Aave
+ * @author Bitmor Protocol
  *
  */
-contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
+contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
     using WadRayMath for uint256;
     using SafeMath for uint256;
     using PercentageMath for uint256;
@@ -102,6 +102,9 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
     /**
      * @dev Calculates the interest rates depending on the reserve's state and configurations
+     * The `availableLiquidity` is considered to be the `totalAssets()` present in the `vault`.
+     * This creates a virtual utilization where underlying asset is accessible to the lending pool, but
+     * not present in it to generate additional yield.
      * @param reserve The address of the reserve
      * @param liquidityAdded The liquidity added during the operation
      * @param liquidityTaken The liquidity taken during the operation
@@ -122,7 +125,11 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
         uint256 averageStableBorrowRate,
         uint256 reserveFactor
     ) external view override returns (uint256, uint256, uint256) {
-        uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
+        address vaultAddress = addressesProvider.getUSDCVault();
+
+        require(reserve != IUSDCVault(vaultAddress).asset(), "WA");
+
+        uint256 availableLiquidity = IUSDCVault(vaultAddress).totalAssets();
         //avoid stack too deep
         availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
 

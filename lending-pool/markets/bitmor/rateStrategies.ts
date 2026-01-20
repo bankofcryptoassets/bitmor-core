@@ -12,8 +12,8 @@ export const rateStrategyUSDC: IInterestRateStrategyParams = {
   stableRateSlope2: '0',
 };
 
-export const rateStrategyCBBTC: IInterestRateStrategyParams = {
-  name: 'rateStrategyCBBTC',
+export const rateStrategyBVBTC: IInterestRateStrategyParams = {
+  name: 'rateStrategyBVBTC',
   optimalUtilizationRate: new BigNumber(0.65).multipliedBy(oneRay).toFixed(),
   baseVariableBorrowRate: new BigNumber(0).multipliedBy(oneRay).toFixed(),
   variableRateSlope1: new BigNumber(0).multipliedBy(oneRay).toFixed(),

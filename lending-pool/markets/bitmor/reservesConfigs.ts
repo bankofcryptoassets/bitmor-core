@@ -1,5 +1,5 @@
 import { eContractid, IReserveParams } from '../../helpers/types';
-import { rateStrategyUSDC, rateStrategyCBBTC } from './rateStrategies';
+import { rateStrategyUSDC, rateStrategyBVBTC } from './rateStrategies';
 
 export const strategyUSDC: IReserveParams = {
   strategy: rateStrategyUSDC,
@@ -15,8 +15,8 @@ export const strategyUSDC: IReserveParams = {
 
 
 
-export const strategyCBBTC: IReserveParams = {
-  strategy: rateStrategyCBBTC,
+export const strategyBVBTC: IReserveParams = {
+  strategy: rateStrategyBVBTC,
   baseLTVAsCollateral: '9000', // Borrow can borrow upto 90% of the collateral value.
   liquidationThreshold: '9479', // Collateral Value * 94.79% > Borrowed Value
   liquidationBonus: '10500', // 105% => 5% liquidation bonus
