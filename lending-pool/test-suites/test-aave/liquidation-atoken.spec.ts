@@ -7,6 +7,7 @@ import { makeSuite } from './helpers/make-suite.js';
 import { ProtocolErrors, RateMode } from '../../helpers/types.js';
 import { calcExpectedVariableDebtTokenBalance } from './helpers/utils/calculations.js';
 import { getUserData, getReserveData } from './helpers/utils/helpers.js';
+import { depositViaVault } from './helpers/vault-helpers.js';
 
 import chai from 'chai';
 const { expect } = chai;
@@ -25,30 +26,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const depositor = users[0];
     const borrower = users[1];
 
-    //mints DAI to depositor
-    await dai.connect(depositor.signer).mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
-
-    //approve protocol to access depositor wallet
-    await dai.connect(depositor.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 1 deposits 1000 DAI
+    //user 1 deposits 1000 DAI via vault
     const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
-    await pool
-      .connect(depositor.signer)
-      .deposit(getContractAddress(dai), amountDAItoDeposit, depositor.address, '0');
+    await depositViaVault(dai, amountDAItoDeposit, depositor, testEnv);
 
+    //user 2 deposits 1 WETH via vault
     const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(weth), '1');
-
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(amountETHtoDeposit);
-
-    //approve protocol to access borrower wallet
-    await weth.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 2 deposits 1 WETH
-    await pool
-      .connect(borrower.signer)
-      .deposit(getContractAddress(weth), amountETHtoDeposit, borrower.address, '0');
+    await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
 
     //user 2 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -235,33 +219,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const depositor = users[3];
     const borrower = users[4];
 
-    //mints USDC to depositor
-    await usdc
-      .connect(depositor.signer)
-      .mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000'));
-
-    //approve protocol to access depositor wallet
-    await usdc.connect(depositor.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 3 deposits 1000 USDC
+    //user 3 deposits 1000 USDC via vault
     const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+    await depositViaVault(usdc, amountUSDCtoDeposit, depositor, testEnv);
 
-    await pool
-      .connect(depositor.signer)
-      .deposit(getContractAddress(usdc), amountUSDCtoDeposit, depositor.address, '0');
-
-    //user 4 deposits 1 ETH
+    //user 4 deposits 1 WETH via vault
     const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(weth), '1');
-
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(amountETHtoDeposit);
-
-    //approve protocol to access borrower wallet
-    await weth.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    await pool
-      .connect(borrower.signer)
-      .deposit(getContractAddress(weth), amountETHtoDeposit, borrower.address, '0');
+    await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
 
     //user 4 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);

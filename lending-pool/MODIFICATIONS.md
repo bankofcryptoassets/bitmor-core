@@ -277,7 +277,7 @@ The helper automatically:
 
 ### Problem Analysis
 
-**Current Status**: 105 tests failing with Error 85 (LP_CALLER_NOT_VAULT)
+**Current Status**: 105 tests failing with Error 85 (LP_CALLER_NOT_VAULT) not all but most of were failing due to 85 we resolved few of them in the lendingPool and now they are failing with different error string and it was expected, so to fix this we have to change the expectedOutcome as per new flow which is correct actually just fix the expectedResult.
 
 **Root Cause**: The WETHGateway contract calls `pool.deposit()` at line 49 of `contracts/misc/WETHGateway.sol`. The deposit function in LendingPool.sol (line 117) requires `msg.sender == usdcVaultAddress`, which blocks WETHGateway from depositing.
 
