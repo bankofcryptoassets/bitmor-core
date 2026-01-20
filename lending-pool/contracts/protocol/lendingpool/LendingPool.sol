@@ -25,7 +25,7 @@ import {ReserveConfiguration} from "../libraries/configuration/ReserveConfigurat
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
-import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
 /**
  * @title LendingPool contract
@@ -112,9 +112,16 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
 
-        // Access Control (Only vault can deposit in BLP)
+        /**
+         * @dev This access control check provides security against external funds.
+         * If `msg.sender` is `loanProvider` it CAN ONLY BE for `bvBTC` deposit.
+         * If `msg.sender` is `usdcVaultAddress` it CAN ONLY BE for `USDC` deposit.
+         */
         address usdcVaultAddress = _addressesProvider.getUSDCVault();
-        require(msg.sender == usdcVaultAddress, Errors.LP_CALLER_NOT_VAULT);
+        address loanProvider = _addressesProvider.getBitmorLoan();
+        require(
+            msg.sender == usdcVaultAddress || msg.sender == loanProvider, Errors.LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER
+        );
 
         ValidationLogic.validateDeposit(reserve, amount);
 
@@ -470,66 +477,67 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         bytes calldata params,
         uint16 referralCode
     ) external override whenNotPaused {
-        FlashLoanLocalVars memory vars;
+        require(1 == 0, Errors.LP_FLASH_LOAN_DISABLED);
+        // FlashLoanLocalVars memory vars;
 
-        ValidationLogic.validateFlashloan(assets, amounts);
+        // ValidationLogic.validateFlashloan(assets, amounts);
 
-        address[] memory aTokenAddresses = new address[](assets.length);
-        uint256[] memory premiums = new uint256[](assets.length);
+        // address[] memory aTokenAddresses = new address[](assets.length);
+        // uint256[] memory premiums = new uint256[](assets.length);
 
-        vars.receiver = IFlashLoanReceiver(receiverAddress);
+        // vars.receiver = IFlashLoanReceiver(receiverAddress);
 
-        for (vars.i = 0; vars.i < assets.length; vars.i++) {
-            aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress;
+        // for (vars.i = 0; vars.i < assets.length; vars.i++) {
+        //     aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress;
 
-            premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000);
+        //     premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000);
 
-            IAToken(aTokenAddresses[vars.i]).transferUnderlyingTo(receiverAddress, amounts[vars.i]);
-        }
+        //     IAToken(aTokenAddresses[vars.i]).transferUnderlyingTo(receiverAddress, amounts[vars.i]);
+        // }
 
-        require(
-            vars.receiver.executeOperation(assets, amounts, premiums, msg.sender, params),
-            Errors.LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN
-        );
+        // require(
+        //     vars.receiver.executeOperation(assets, amounts, premiums, msg.sender, params),
+        //     Errors.LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN
+        // );
 
-        for (vars.i = 0; vars.i < assets.length; vars.i++) {
-            vars.currentAsset = assets[vars.i];
-            vars.currentAmount = amounts[vars.i];
-            vars.currentPremium = premiums[vars.i];
-            vars.currentATokenAddress = aTokenAddresses[vars.i];
-            vars.currentAmountPlusPremium = vars.currentAmount.add(vars.currentPremium);
+        // for (vars.i = 0; vars.i < assets.length; vars.i++) {
+        //     vars.currentAsset = assets[vars.i];
+        //     vars.currentAmount = amounts[vars.i];
+        //     vars.currentPremium = premiums[vars.i];
+        //     vars.currentATokenAddress = aTokenAddresses[vars.i];
+        //     vars.currentAmountPlusPremium = vars.currentAmount.add(vars.currentPremium);
 
-            if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) {
-                _reserves[vars.currentAsset].updateState();
-                _reserves[vars.currentAsset].cumulateToLiquidityIndex(
-                    IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium
-                );
-                _reserves[vars.currentAsset].updateInterestRates(
-                    vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0
-                );
+        //     if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) {
+        //         _reserves[vars.currentAsset].updateState();
+        //         _reserves[vars.currentAsset].cumulateToLiquidityIndex(
+        //             IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium
+        //         );
+        //         _reserves[vars.currentAsset].updateInterestRates(
+        //             vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0
+        //         );
 
-                IERC20(vars.currentAsset)
-                    .safeTransferFrom(receiverAddress, vars.currentATokenAddress, vars.currentAmountPlusPremium);
-            } else {
-                // If the user chose to not return the funds, the system checks if there is enough collateral and
-                // eventually opens a debt position
-                _executeBorrow(
-                    ExecuteBorrowParams(
-                        vars.currentAsset,
-                        msg.sender,
-                        onBehalfOf,
-                        vars.currentAmount,
-                        modes[vars.i],
-                        vars.currentATokenAddress,
-                        referralCode,
-                        false
-                    )
-                );
-            }
-            emit FlashLoan(
-                receiverAddress, msg.sender, vars.currentAsset, vars.currentAmount, vars.currentPremium, referralCode
-            );
-        }
+        //         IERC20(vars.currentAsset)
+        //             .safeTransferFrom(receiverAddress, vars.currentATokenAddress, vars.currentAmountPlusPremium);
+        //     } else {
+        //         // If the user chose to not return the funds, the system checks if there is enough collateral and
+        //         // eventually opens a debt position
+        //         _executeBorrow(
+        //             ExecuteBorrowParams(
+        //                 vars.currentAsset,
+        //                 msg.sender,
+        //                 onBehalfOf,
+        //                 vars.currentAmount,
+        //                 modes[vars.i],
+        //                 vars.currentATokenAddress,
+        //                 referralCode,
+        //                 false
+        //             )
+        //         );
+        //     }
+        //     emit FlashLoan(
+        //         receiverAddress, msg.sender, vars.currentAsset, vars.currentAmount, vars.currentPremium, referralCode
+        //     );
+        // }
     }
 
     /**
@@ -809,6 +817,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     }
 
     function _executeBorrow(ExecuteBorrowParams memory vars) internal {
+        require(vars.user == _addressesProvider.getBitmorLoan(), Errors.LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER);
+
         DataTypes.ReserveData storage reserve = _reserves[vars.asset];
         DataTypes.UserConfigurationMap storage userConfig = _usersConfig[vars.onBehalfOf];
 
@@ -826,18 +836,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          */
 
         address vaultAddress = _addressesProvider.getUSDCVault();
-        if (vaultAddress != address(0) && vars.asset == IUSDCVault(vaultAddress).asset() && vars.releaseUnderlying) {
+        if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
             uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
 
             if (vars.amount > availableBalance) {
                 IUSDCVault(vaultAddress).reallocateAssets(vars.amount);
             }
         }
-
-        /**
-         * !TODO: Disable borrowing for vBTC
-         *
-         */
 
         ValidationLogic.validateBorrow(
             vars.asset,
