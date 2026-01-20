@@ -2,11 +2,12 @@
 pragma solidity 0.6.12;
 
 import {Ownable} from "../dependencies/openzeppelin/contracts/Ownable.sol";
-import {IERC20} from "../dependencies/openzeppelin/contracts/IERC20.sol";
+import {IERC20Detailed} from "../dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import {SafeMath} from "../dependencies/openzeppelin/contracts/SafeMath.sol";
 
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
 import {IChainlinkAggregator} from "../interfaces/IChainlinkAggregator.sol";
-import {SafeERC20} from "../dependencies/openzeppelin/contracts/SafeERC20.sol";
+import {IERC4626} from "../interfaces/IERC4626.sol";
 
 /// @title AaveOracle
 /// @author Aave
@@ -16,16 +17,20 @@ import {SafeERC20} from "../dependencies/openzeppelin/contracts/SafeERC20.sol";
 /// - Owned by the Aave governance system, allowed to add sources for assets, replace them
 ///   and change the fallbackOracle
 contract AaveOracle is IPriceOracleGetter, Ownable {
-    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
 
     event BaseCurrencySet(address indexed baseCurrency, uint256 baseCurrencyUnit);
     event AssetSourceUpdated(address indexed asset, address indexed source);
     event FallbackOracleUpdated(address indexed fallbackOracle);
+    event BTCAddressUpdated(address indexed newBTCAddress);
+    event BVBTCAddressUpdated(address indexed newBVBTCAddress);
 
     mapping(address => IChainlinkAggregator) private assetsSources;
     IPriceOracleGetter private _fallbackOracle;
     address public immutable BASE_CURRENCY;
     uint256 public immutable BASE_CURRENCY_UNIT;
+    address public s_btc;
+    address public s_bvBTC;
 
     /// @notice Constructor
     /// @param assets The addresses of the assets
@@ -37,12 +42,16 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     constructor(
         address[] memory assets,
         address[] memory sources,
+        address btc,
+        address bvBTC,
         address fallbackOracle,
         address baseCurrency,
         uint256 baseCurrencyUnit
     ) public {
         _setFallbackOracle(fallbackOracle);
         _setAssetsSources(assets, sources);
+        _setBTC(btc);
+        _setbvBTC(bvBTC);
         BASE_CURRENCY = baseCurrency;
         BASE_CURRENCY_UNIT = baseCurrencyUnit;
         emit BaseCurrencySet(baseCurrency, baseCurrencyUnit);
@@ -60,6 +69,24 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @param fallbackOracle The address of the fallbackOracle
     function setFallbackOracle(address fallbackOracle) external onlyOwner {
         _setFallbackOracle(fallbackOracle);
+    }
+
+    function setBTC(address _btc) external onlyOwner {
+        _setBTC(_btc);
+    }
+
+    function setbvBTC(address _bvBTC) external onlyOwner {
+        _setbvBTC(_bvBTC);
+    }
+
+    function _setBTC(address _btc) internal {
+        s_btc = _btc;
+        emit BTCAddressUpdated(_btc);
+    }
+
+    function _setbvBTC(address _bvBTC) internal {
+        s_bvBTC = _bvBTC;
+        emit BVBTCAddressUpdated(_bvBTC);
     }
 
     /// @notice Internal function to set the sources for each asset
@@ -83,6 +110,16 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @notice Gets an asset price by address
     /// @param asset The asset address
     function getAssetPrice(address asset) public view override returns (uint256) {
+        if (asset == s_bvBTC) {
+            uint256 btcPrice = _getAssetPrice(s_btc);
+            uint256 assetPerShare = IERC4626(s_bvBTC).convertToAssets(1);
+
+            return btcPrice.mul(assetPerShare).div(10 ** IERC20Detailed(s_btc).decimals());
+        }
+        return _getAssetPrice(asset);
+    }
+
+    function _getAssetPrice(address asset) internal view returns (uint256) {
         /**
          * !TODO: Implement a condition if asset==vBTC then return the price in USD by calculatign the price of 1 vBTC in BTC and then using BTC price to find the price for vBTC.
          *
@@ -108,7 +145,7 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     function getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {
         uint256[] memory prices = new uint256[](assets.length);
         for (uint256 i = 0; i < assets.length; i++) {
-            prices[i] = getAssetPrice(assets[i]);
+            prices[i] = _getAssetPrice(assets[i]);
         }
         return prices;
     }
