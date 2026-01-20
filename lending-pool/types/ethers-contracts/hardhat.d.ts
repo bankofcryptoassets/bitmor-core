@@ -21,6 +21,7 @@ getContractFactory(name: 'IBaseUniswapAdapter', signerOrOptions?: ethers.Signer 
 getContractFactory(name: 'ERC20', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ERC20__factory>
 getContractFactory(name: 'IERC20', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20__factory>
 getContractFactory(name: 'IERC20Detailed', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20Detailed__factory>
+getContractFactory(name: 'IERC20Metadata', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20Metadata__factory>
 getContractFactory(name: 'Ownable', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Ownable__factory>
 getContractFactory(name: 'AdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.AdminUpgradeabilityProxy__factory>
 getContractFactory(name: 'BaseAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.BaseAdminUpgradeabilityProxy__factory>
@@ -39,6 +40,7 @@ getContractFactory(name: 'IChainlinkAggregator', signerOrOptions?: ethers.Signer
 getContractFactory(name: 'ICreditDelegationToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ICreditDelegationToken__factory>
 getContractFactory(name: 'IDelegationToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IDelegationToken__factory>
 getContractFactory(name: 'IERC20WithPermit', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20WithPermit__factory>
+getContractFactory(name: 'IERC4626', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC4626__factory>
 getContractFactory(name: 'IExchangeAdapter', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IExchangeAdapter__factory>
 getContractFactory(name: 'IInitializableAToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IInitializableAToken__factory>
 getContractFactory(name: 'IInitializableDebtToken', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IInitializableDebtToken__factory>
@@ -130,6 +132,7 @@ getContractAt(name: 'IBaseUniswapAdapter', address: string | ethers.Addressable,
 getContractAt(name: 'ERC20', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ERC20>
 getContractAt(name: 'IERC20', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20>
 getContractAt(name: 'IERC20Detailed', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20Detailed>
+getContractAt(name: 'IERC20Metadata', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20Metadata>
 getContractAt(name: 'Ownable', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Ownable>
 getContractAt(name: 'AdminUpgradeabilityProxy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.AdminUpgradeabilityProxy>
 getContractAt(name: 'BaseAdminUpgradeabilityProxy', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.BaseAdminUpgradeabilityProxy>
@@ -148,6 +151,7 @@ getContractAt(name: 'IChainlinkAggregator', address: string | ethers.Addressable
 getContractAt(name: 'ICreditDelegationToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ICreditDelegationToken>
 getContractAt(name: 'IDelegationToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IDelegationToken>
 getContractAt(name: 'IERC20WithPermit', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20WithPermit>
+getContractAt(name: 'IERC4626', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC4626>
 getContractAt(name: 'IExchangeAdapter', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IExchangeAdapter>
 getContractAt(name: 'IInitializableAToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IInitializableAToken>
 getContractAt(name: 'IInitializableDebtToken', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IInitializableDebtToken>
@@ -239,6 +243,7 @@ deployContract(name: 'IBaseUniswapAdapter', signerOrOptions?: ethers.Signer | De
 deployContract(name: 'ERC20', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ERC20>
 deployContract(name: 'IERC20', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20>
 deployContract(name: 'IERC20Detailed', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Detailed>
+deployContract(name: 'IERC20Metadata', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Metadata>
 deployContract(name: 'Ownable', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Ownable>
 deployContract(name: 'AdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.AdminUpgradeabilityProxy>
 deployContract(name: 'BaseAdminUpgradeabilityProxy', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BaseAdminUpgradeabilityProxy>
@@ -257,6 +262,7 @@ deployContract(name: 'IChainlinkAggregator', signerOrOptions?: ethers.Signer | D
 deployContract(name: 'ICreditDelegationToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICreditDelegationToken>
 deployContract(name: 'IDelegationToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IDelegationToken>
 deployContract(name: 'IERC20WithPermit', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20WithPermit>
+deployContract(name: 'IERC4626', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC4626>
 deployContract(name: 'IExchangeAdapter', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IExchangeAdapter>
 deployContract(name: 'IInitializableAToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IInitializableAToken>
 deployContract(name: 'IInitializableDebtToken', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IInitializableDebtToken>
@@ -348,6 +354,7 @@ deployContract(name: 'IBaseUniswapAdapter', args: any[], signerOrOptions?: ether
 deployContract(name: 'ERC20', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ERC20>
 deployContract(name: 'IERC20', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20>
 deployContract(name: 'IERC20Detailed', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Detailed>
+deployContract(name: 'IERC20Metadata', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Metadata>
 deployContract(name: 'Ownable', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Ownable>
 deployContract(name: 'AdminUpgradeabilityProxy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.AdminUpgradeabilityProxy>
 deployContract(name: 'BaseAdminUpgradeabilityProxy', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BaseAdminUpgradeabilityProxy>
@@ -366,6 +373,7 @@ deployContract(name: 'IChainlinkAggregator', args: any[], signerOrOptions?: ethe
 deployContract(name: 'ICreditDelegationToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICreditDelegationToken>
 deployContract(name: 'IDelegationToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IDelegationToken>
 deployContract(name: 'IERC20WithPermit', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20WithPermit>
+deployContract(name: 'IERC4626', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC4626>
 deployContract(name: 'IExchangeAdapter', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IExchangeAdapter>
 deployContract(name: 'IInitializableAToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IInitializableAToken>
 deployContract(name: 'IInitializableDebtToken', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IInitializableDebtToken>

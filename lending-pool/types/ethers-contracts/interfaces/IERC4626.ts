@@ -5,8 +5,8 @@ import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, I
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../common.js"
   
 
-  export interface IUSDCVaultInterface extends Interface {
-    getFunction(nameOrSignature: "allowance" | "approve" | "asset" | "balanceOf" | "convertToAssets" | "convertToShares" | "decimals" | "deposit" | "maxDeposit" | "maxMint" | "maxRedeem" | "maxWithdraw" | "mint" | "name" | "previewDeposit" | "previewMint" | "previewRedeem" | "previewWithdraw" | "reallocateAssets" | "redeem" | "symbol" | "totalAssets" | "totalSupply" | "transfer" | "transferFrom" | "withdraw"): FunctionFragment;
+  export interface IERC4626Interface extends Interface {
+    getFunction(nameOrSignature: "allowance" | "approve" | "asset" | "balanceOf" | "convertToAssets" | "convertToShares" | "decimals" | "deposit" | "maxDeposit" | "maxMint" | "maxRedeem" | "maxWithdraw" | "mint" | "name" | "previewDeposit" | "previewMint" | "previewRedeem" | "previewWithdraw" | "redeem" | "symbol" | "totalAssets" | "totalSupply" | "transfer" | "transferFrom" | "withdraw"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "Deposit" | "Transfer" | "Withdraw"): EventFragment;
 
@@ -28,7 +28,6 @@ encodeFunctionData(functionFragment: 'previewDeposit', values: [BigNumberish]): 
 encodeFunctionData(functionFragment: 'previewMint', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewRedeem', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewWithdraw', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'reallocateAssets', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'redeem', values: [BigNumberish, AddressLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalAssets', values?: undefined): string;
@@ -55,7 +54,6 @@ decodeFunctionResult(functionFragment: 'previewDeposit', data: BytesLike): Resul
 decodeFunctionResult(functionFragment: 'previewMint', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewRedeem', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewWithdraw', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'reallocateAssets', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'redeem', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'symbol', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalAssets', data: BytesLike): Result;
@@ -114,12 +112,12 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
 
   
 
-  export interface IUSDCVault extends BaseContract {
+  export interface IERC4626 extends BaseContract {
     
-    connect(runner?: ContractRunner | null): IUSDCVault;
+    connect(runner?: ContractRunner | null): IERC4626;
     waitForDeployment(): Promise<this>;
 
-    interface: IUSDCVaultInterface;
+    interface: IERC4626Interface;
 
     
   queryFilter<TCEvent extends TypedContractEvent>(
@@ -292,14 +290,6 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
     
 
     
-    reallocateAssets: TypedContractMethod<
-      [amountToWithdraw: BigNumberish, ],
-      [void],
-      'nonpayable'
-    >
-    
-
-    
     redeem: TypedContractMethod<
       [shares: BigNumberish, receiver: AddressLike, owner: AddressLike, ],
       [bigint],
@@ -447,11 +437,6 @@ getFunction(nameOrSignature: 'previewWithdraw'): TypedContractMethod<
       [assets: BigNumberish, ],
       [bigint],
       'view'
-    >;
-getFunction(nameOrSignature: 'reallocateAssets'): TypedContractMethod<
-      [amountToWithdraw: BigNumberish, ],
-      [void],
-      'nonpayable'
     >;
 getFunction(nameOrSignature: 'redeem'): TypedContractMethod<
       [shares: BigNumberish, receiver: AddressLike, owner: AddressLike, ],

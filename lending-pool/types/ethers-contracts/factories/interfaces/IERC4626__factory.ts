@@ -3,7 +3,7 @@
 /* eslint-disable */
 
   import { Contract, Interface, type ContractRunner } from "ethers";
-  import type { IUSDCVault, IUSDCVaultInterface } from "../../interfaces/IUSDCVault.js";
+  import type { IERC4626, IERC4626Interface } from "../../interfaces/IERC4626.js";
 
   const _abi = [
   {
@@ -472,19 +472,6 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "amountToWithdraw",
-        "type": "uint256"
-      }
-    ],
-    "name": "reallocateAssets",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "shares",
         "type": "uint256"
       },
@@ -633,13 +620,13 @@
   }
 ] as const;
 
-  export class IUSDCVault__factory {
+  export class IERC4626__factory {
     static readonly abi = _abi;
-    static createInterface(): IUSDCVaultInterface {
-      return new Interface(_abi) as IUSDCVaultInterface;
+    static createInterface(): IERC4626Interface {
+      return new Interface(_abi) as IERC4626Interface;
     }
-    static connect(address: string, runner?: ContractRunner | null): IUSDCVault {
-      return new Contract(address, _abi, runner) as unknown as IUSDCVault;
+    static connect(address: string, runner?: ContractRunner | null): IERC4626 {
+      return new Contract(address, _abi, runner) as unknown as IERC4626;
     }
   }
   

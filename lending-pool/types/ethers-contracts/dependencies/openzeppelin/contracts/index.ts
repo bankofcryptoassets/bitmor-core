@@ -4,4 +4,5 @@
 export type { ERC20 } from './ERC20.js';
 export type { IERC20 } from './IERC20.js';
 export type { IERC20Detailed } from './IERC20Detailed.js';
+export type { IERC20Metadata } from './IERC20Metadata.js';
 export type { Ownable } from './Ownable.js';

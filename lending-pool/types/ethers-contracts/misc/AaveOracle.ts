@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface AaveOracleInterface extends Interface {
-    getFunction(nameOrSignature: "BASE_CURRENCY" | "BASE_CURRENCY_UNIT" | "getAssetPrice" | "getAssetsPrices" | "getFallbackOracle" | "getSourceOfAsset" | "owner" | "renounceOwnership" | "setAssetSources" | "setFallbackOracle" | "transferOwnership"): FunctionFragment;
+    getFunction(nameOrSignature: "BASE_CURRENCY" | "BASE_CURRENCY_UNIT" | "getAssetPrice" | "getAssetsPrices" | "getFallbackOracle" | "getSourceOfAsset" | "owner" | "renounceOwnership" | "s_btc" | "s_bvBTC" | "setAssetSources" | "setBTC" | "setFallbackOracle" | "setbvBTC" | "transferOwnership"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AssetSourceUpdated" | "BaseCurrencySet" | "FallbackOracleUpdated" | "OwnershipTransferred"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AssetSourceUpdated" | "BTCAddressUpdated" | "BVBTCAddressUpdated" | "BaseCurrencySet" | "FallbackOracleUpdated" | "OwnershipTransferred"): EventFragment;
 
     encodeFunctionData(functionFragment: 'BASE_CURRENCY', values?: undefined): string;
 encodeFunctionData(functionFragment: 'BASE_CURRENCY_UNIT', values?: undefined): string;
@@ -18,8 +18,12 @@ encodeFunctionData(functionFragment: 'getFallbackOracle', values?: undefined): s
 encodeFunctionData(functionFragment: 'getSourceOfAsset', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
+encodeFunctionData(functionFragment: 's_btc', values?: undefined): string;
+encodeFunctionData(functionFragment: 's_bvBTC', values?: undefined): string;
 encodeFunctionData(functionFragment: 'setAssetSources', values: [AddressLike[], AddressLike[]]): string;
+encodeFunctionData(functionFragment: 'setBTC', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setFallbackOracle', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'setbvBTC', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'BASE_CURRENCY', data: BytesLike): Result;
@@ -30,8 +34,12 @@ decodeFunctionResult(functionFragment: 'getFallbackOracle', data: BytesLike): Re
 decodeFunctionResult(functionFragment: 'getSourceOfAsset', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 's_btc', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 's_bvBTC', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setAssetSources', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setBTC', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setFallbackOracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setbvBTC', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
   }
 
@@ -40,6 +48,30 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
       export type InputTuple = [asset: AddressLike, source: AddressLike];
       export type OutputTuple = [asset: string, source: string];
       export interface OutputObject {asset: string, source: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace BTCAddressUpdatedEvent {
+      export type InputTuple = [newBTCAddress: AddressLike];
+      export type OutputTuple = [newBTCAddress: string];
+      export interface OutputObject {newBTCAddress: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace BVBTCAddressUpdatedEvent {
+      export type InputTuple = [newBVBTCAddress: AddressLike];
+      export type OutputTuple = [newBVBTCAddress: string];
+      export interface OutputObject {newBVBTCAddress: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -182,6 +214,22 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
 
     
+    s_btc: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    s_bvBTC: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     setAssetSources: TypedContractMethod<
       [assets: AddressLike[], sources: AddressLike[], ],
       [void],
@@ -190,8 +238,24 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
 
     
+    setBTC: TypedContractMethod<
+      [_btc: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     setFallbackOracle: TypedContractMethod<
       [fallbackOracle: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setbvBTC: TypedContractMethod<
+      [_bvBTC: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -248,13 +312,33 @@ getFunction(nameOrSignature: 'renounceOwnership'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 's_btc'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 's_bvBTC'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'setAssetSources'): TypedContractMethod<
       [assets: AddressLike[], sources: AddressLike[], ],
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setBTC'): TypedContractMethod<
+      [_btc: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'setFallbackOracle'): TypedContractMethod<
       [fallbackOracle: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setbvBTC'): TypedContractMethod<
+      [_bvBTC: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -265,6 +349,8 @@ getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<
     >;
 
     getEvent(key: 'AssetSourceUpdated'): TypedContractEvent<AssetSourceUpdatedEvent.InputTuple, AssetSourceUpdatedEvent.OutputTuple, AssetSourceUpdatedEvent.OutputObject>;
+getEvent(key: 'BTCAddressUpdated'): TypedContractEvent<BTCAddressUpdatedEvent.InputTuple, BTCAddressUpdatedEvent.OutputTuple, BTCAddressUpdatedEvent.OutputObject>;
+getEvent(key: 'BVBTCAddressUpdated'): TypedContractEvent<BVBTCAddressUpdatedEvent.InputTuple, BVBTCAddressUpdatedEvent.OutputTuple, BVBTCAddressUpdatedEvent.OutputObject>;
 getEvent(key: 'BaseCurrencySet'): TypedContractEvent<BaseCurrencySetEvent.InputTuple, BaseCurrencySetEvent.OutputTuple, BaseCurrencySetEvent.OutputObject>;
 getEvent(key: 'FallbackOracleUpdated'): TypedContractEvent<FallbackOracleUpdatedEvent.InputTuple, FallbackOracleUpdatedEvent.OutputTuple, FallbackOracleUpdatedEvent.OutputObject>;
 getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
@@ -273,6 +359,14 @@ getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEv
       
       'AssetSourceUpdated(address,address)': TypedContractEvent<AssetSourceUpdatedEvent.InputTuple, AssetSourceUpdatedEvent.OutputTuple, AssetSourceUpdatedEvent.OutputObject>;
       AssetSourceUpdated: TypedContractEvent<AssetSourceUpdatedEvent.InputTuple, AssetSourceUpdatedEvent.OutputTuple, AssetSourceUpdatedEvent.OutputObject>;
+    
+
+      'BTCAddressUpdated(address)': TypedContractEvent<BTCAddressUpdatedEvent.InputTuple, BTCAddressUpdatedEvent.OutputTuple, BTCAddressUpdatedEvent.OutputObject>;
+      BTCAddressUpdated: TypedContractEvent<BTCAddressUpdatedEvent.InputTuple, BTCAddressUpdatedEvent.OutputTuple, BTCAddressUpdatedEvent.OutputObject>;
+    
+
+      'BVBTCAddressUpdated(address)': TypedContractEvent<BVBTCAddressUpdatedEvent.InputTuple, BVBTCAddressUpdatedEvent.OutputTuple, BVBTCAddressUpdatedEvent.OutputObject>;
+      BVBTCAddressUpdated: TypedContractEvent<BVBTCAddressUpdatedEvent.InputTuple, BVBTCAddressUpdatedEvent.OutputTuple, BVBTCAddressUpdatedEvent.OutputObject>;
     
 
       'BaseCurrencySet(address,uint256)': TypedContractEvent<BaseCurrencySetEvent.InputTuple, BaseCurrencySetEvent.OutputTuple, BaseCurrencySetEvent.OutputObject>;
