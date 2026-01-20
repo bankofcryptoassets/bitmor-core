@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {SafeERC20} from "../dependencies/openzeppelin/SafeERC20.sol";
-import {IERC20} from "../dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
 import {IUniswapV4SwapAdapter} from "../interfaces/IUniswapV4SwapAdapter.sol";
 
 /**

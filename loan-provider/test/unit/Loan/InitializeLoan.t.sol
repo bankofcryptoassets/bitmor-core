@@ -6,7 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
+import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
+
 import {IzQuoter} from "../../interfaces/IzQuoter.sol";
 import {ISwapAdaptor} from "../../interfaces/ISwapAdaptor.sol";
-import {Errors} from "../helpers/Errors.sol";
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
-import {IERC20Metadata} from "../../dependencies/openzeppelin/IERC20Metadata.sol";
+
+import {Errors} from "../helpers/Errors.sol";
 
 /**
  * @title SwapLogic

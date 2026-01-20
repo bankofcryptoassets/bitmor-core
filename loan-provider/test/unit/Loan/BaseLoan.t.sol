@@ -7,7 +7,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
