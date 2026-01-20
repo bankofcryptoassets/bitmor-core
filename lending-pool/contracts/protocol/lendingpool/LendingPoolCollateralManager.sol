@@ -279,8 +279,6 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
 
         DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
-        // TODO! : Fix this logic to get the remaining debt from the lsa vdt balance
-        // Implemented a fix using Helpers lib, it should work as expected.
         vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < vars.userVariableDebt
             ? loanData.estimatedMonthlyPayment
             : vars.userVariableDebt;

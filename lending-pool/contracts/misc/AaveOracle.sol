@@ -120,10 +120,6 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     }
 
     function _getAssetPrice(address asset) internal view returns (uint256) {
-        /**
-         * !TODO: Implement a condition if asset==vBTC then return the price in USD by calculatign the price of 1 vBTC in BTC and then using BTC price to find the price for vBTC.
-         *
-         */
         IChainlinkAggregator source = assetsSources[asset];
 
         if (asset == BASE_CURRENCY) {

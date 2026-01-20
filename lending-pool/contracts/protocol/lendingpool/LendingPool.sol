@@ -589,12 +589,9 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
             uint256 healthFactor
         )
     {
-        /**
-         * !TODO: In address provider the oracle address should be the address of the contract which will send the price of the `vBTC` in the contract when `.getAssetPrice(assetAddress)` function is called.
-         * This oracle contract will include a function which will convert 1 $vBTC into $BTC and return (1 $vBTC in $BTC x $BTC price) as price of 1 $vBTC.
-         *
-         */
-        (totalCollateralETH, totalDebtETH, ltv, currentLiquidationThreshold, healthFactor) =
+        (
+            totalCollateralETH, totalDebtETH, ltv, currentLiquidationThreshold, healthFactor
+        ) =
             GenericLogic.calculateUserAccountData(
                 user, _reserves, _usersConfig[user], _reservesList, _reservesCount, _addressesProvider.getPriceOracle()
             );
@@ -771,11 +768,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         address interestRateStrategyAddress
     ) external override onlyLendingPoolConfigurator {
         require(Address.isContract(asset), Errors.LP_NOT_CONTRACT);
-        /**
-         * !TODO: Here the interet rate strategy address for USDC should include utilizationRate which uses USDC vault's totalAssets() in place of balance of USDC of aToken
-         *
-         *
-         */
+
         _reserves[asset].init(aTokenAddress, stableDebtAddress, variableDebtAddress, interestRateStrategyAddress);
         _addReserveToList(asset);
     }
