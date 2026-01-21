@@ -34,8 +34,9 @@ contract HelperConfig is Script, RolesData {
 
     NetworkConfig public networkConfig;
 
-    uint256 constant CHAIN_ID_LOCAL = 31337;
-    uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
+    uint256 public constant CHAIN_ID_LOCAL = 31337;
+    uint256 public constant CHAIN_ID_BASE_SEPOLIA = 84532;
+    uint256 public constant CHAIN_ID_BASE_MAINNET = 8453;
     uint256 public constant DECIMAL_USDC = 1e6;
     uint256 public constant DECIMAL_CBBTC = 1e8;
     uint256 constant DEPOSIT_AMT = 1e8 * DECIMAL_USDC;
