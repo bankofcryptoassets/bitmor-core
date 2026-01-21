@@ -1,4 +1,4 @@
-import { defineConfig } from "hardhat/config";
+import { defineConfig, configVariable } from "hardhat/config";
 import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 import hardhatEthers from "@nomicfoundation/hardhat-ethers";
 import hardhatMocha from "@nomicfoundation/hardhat-mocha";
@@ -14,7 +14,7 @@ const testWallets = accounts as TestWallet[];
 const SKIP_LOAD = process.env.SKIP_LOAD === 'true';
 const UNLIMITED_BYTECODE_SIZE = process.env.UNLIMITED_BYTECODE_SIZE === 'true';
 const DEFAULT_BLOCK_GAS_LIMIT = 8000000;
-const MNEMONIC = process.env.MNEMONIC || '';
+const MNEMONIC = configVariable("MNEMONIC");
 const MNEMONIC_PATH = "m/44'/60'/0'/0";
 const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || '';
 
