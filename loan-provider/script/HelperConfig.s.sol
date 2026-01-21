@@ -69,7 +69,7 @@ contract HelperConfig is Script, RolesData {
     uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
     uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
 
-    /// @notice Returns human-readable network name for a given chain ID
+    /// @notice Returns human-readable network name for a given `chainId`
     /// @param chainId The chain ID to look up
     /// @return name The network name (e.g., "base-sepolia", "local")
     function getNetworkName(uint256 chainId) public pure returns (string memory name) {
@@ -85,7 +85,7 @@ contract HelperConfig is Script, RolesData {
     }
 
     /// @notice Returns network name for current chain
-    /// @return name The network name for block.chainid
+    /// @return name The network name for `block.chainid`
     function getCurrentNetworkName() public view returns (string memory) {
         return getNetworkName(block.chainid);
     }
@@ -268,6 +268,96 @@ contract HelperConfig is Script, RolesData {
 
     function getLoan() public view returns (address) {
         return _getAddress("Loan");
+    }
+
+    /// @notice Returns the deployed BTCVault address
+    /// @return The BTCVault proxy address from most recent deployment
+    function getBTCVault() public view returns (address) {
+        return _getAddress("BTCVault");
+    }
+
+    /// @notice Returns the deployed USDCVault address
+    /// @return The USDCVault proxy address from most recent deployment
+    function getUSDCVault() public view returns (address) {
+        return _getAddress("USDCVault");
+    }
+
+    /// @notice Returns the deployed AaveTokenizedStrategy address for BTCVault
+    /// @return The AaveTokenizedStrategy address from most recent deployment
+    function getAaveTokenizedStrategy() public view returns (address) {
+        return _getAddress("AaveTokenizedStrategy");
+    }
+
+    /// @notice Returns the deployed USDCStrategy address
+    /// @return The USDCStrategy address from most recent deployment
+    function getUSDCStrategy() public view returns (address) {
+        return _getAddress("USDCStrategy");
+    }
+
+    /// @notice Returns the cbBTC/BTC token address
+    /// @dev For local chain, reads from deployments.json; for testnet/mainnet uses constant
+    /// @return The cbBTC token address
+    function getCbBTC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            return _readLocalDeployment("cbBTC");
+        }
+        return BTC_BASE_SEPOLIA;
+    }
+
+    /// @notice Returns the USDC token address
+    /// @dev For local chain, reads from deployments.json; for testnet/mainnet uses constant
+    /// @return The USDC token address
+    function getUSDC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            return _readLocalDeployment("debtAsset");
+        }
+        return USDC_BASE_SEPOLIA;
+    }
+
+    /// @notice Returns the deployed mock cbBTC contract address (local only)
+    /// @return The MockCbBTC address from most recent deployment, or address(0) if not local
+    function getMockCbBTC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            return _getAddress("MockCbBTC");
+        }
+        return address(0);
+    }
+
+    /// @notice Returns the deployed mock USDC contract address (local only)
+    /// @return The MockUSDC address from most recent deployment, or address(0) if not local
+    function getMockUSDC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            return _getAddress("MockUSDC");
+        }
+        return address(0);
+    }
+
+    /// @notice Returns the deployed BTC/USD Chainlink oracle address (local only)
+    /// @return The BTC/USD mock oracle address from most recent deployment
+    function getBtcUsdOracle() public view returns (address) {
+        return _getAddress("MockChainlinkOracle");
+    }
+
+    /// @notice Returns the path to loan-provider's deployments.json
+    /// @return The absolute path to deployments.json
+    function getDeploymentsJsonPath() public view returns (string memory) {
+        return string.concat(vm.projectRoot(), "/deployments.json");
+    }
+
+    /// @notice Returns the path to lending-pool's deployed-contracts.json
+    /// @return The absolute path to deployed-contracts.json
+    function getLendingPoolDeploymentsPath() public view returns (string memory) {
+        return string.concat(vm.projectRoot(), "/../lending-pool/deployed-contracts.json");
+    }
+
+    /// @notice Returns the broadcast directory for a given script
+    /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
+    /// @return The absolute path to the broadcast directory
+    function getBroadcastPath(string memory scriptName) public view returns (string memory) {
+        return
+            string.concat(
+                vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+            );
     }
 
     function getLoanConfig()
