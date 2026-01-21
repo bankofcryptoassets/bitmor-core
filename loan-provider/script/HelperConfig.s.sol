@@ -69,6 +69,27 @@ contract HelperConfig is Script, RolesData {
     uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
     uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
 
+    /// @notice Returns human-readable network name for a given chain ID
+    /// @param chainId The chain ID to look up
+    /// @return name The network name (e.g., "base-sepolia", "local")
+    function getNetworkName(uint256 chainId) public pure returns (string memory name) {
+        if (chainId == CHAIN_ID_LOCAL) {
+            name = "local";
+        } else if (chainId == CHAIN_ID_BASE_SEPOLIA) {
+            name = "base-sepolia";
+        } else if (chainId == CHAIN_ID_BASE_MAINNET) {
+            name = "base";
+        } else {
+            name = "unknown";
+        }
+    }
+
+    /// @notice Returns network name for current chain
+    /// @return name The network name for block.chainid
+    function getCurrentNetworkName() public view returns (string memory) {
+        return getNetworkName(block.chainid);
+    }
+
     constructor() {
         if (block.chainid == CHAIN_ID_LOCAL) {
             networkConfig = getLocalNetworkConfig();
@@ -298,8 +319,7 @@ contract HelperConfig is Script, RolesData {
 
         try vm.readFile(path) returns (string memory json) {
             // Build jsonpath: .deployments.31337.networkConfig.<key>
-            string memory jsonKey =
-                string.concat(".deployments.", vm.toString(CHAIN_ID_LOCAL), ".networkConfig.", key);
+            string memory jsonKey = string.concat(".deployments.", vm.toString(CHAIN_ID_LOCAL), ".networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

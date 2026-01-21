@@ -36,7 +36,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         vm.startBroadcast();
 
         // Step 1-2: Setup target function roles and grant roles
-        _initialSetupWithTargets();
+        _initialSetup();
 
         // Step 3: Setup guardians (chain-aware)
         _setupGuardians();
@@ -79,24 +79,12 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         rolesData = new RolesData();
     }
 
-    /// @notice Override to provide actual deployed addresses
-    /// @return RoleTargets with deployed contract addresses
-    function _buildRoleTargets() internal view override returns (RolesData.RoleTargets memory) {
-        return RolesData.RoleTargets({
-            loan: loan,
-            btcVault: btcVault,
-            usdcVault: usdcVault,
-            autoRepayment: autoRepayment,
-            lpcm: config.readLendingPoolAddress("LendingPoolCollateralManager")
-        });
-    }
-
     // ===== Guardian Setup =====
 
     /// @notice Sets up guardian roles based on chain
     /// @dev Simplified for local chain, full setup for other chains
     function _setupGuardians() internal {
-        address admin = _getAdmin();
+        address admin = rolesData.INITIAL_ADMIN();
 
         if (isLocalChain()) {
             _setupSimplifiedGuardians(admin);
