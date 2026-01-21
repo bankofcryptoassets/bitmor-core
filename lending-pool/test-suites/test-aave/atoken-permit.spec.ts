@@ -1,5 +1,4 @@
 import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
-import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants.js';
 import { buildPermitParams, getSignatureFromTypedData, getContractAddress } from '../../helpers/contracts-helpers.js';
 import chai from 'chai';
 const { expect } = chai;
@@ -10,6 +9,7 @@ import { DRE } from '../../helpers/misc-utils.js';
 import { waitForTx } from '../../helpers/misc-utils.js';
 import { TypedDataEncoder, parseEther } from 'ethers';
 import { accounts } from '../../test-wallets.js';
+import { depositViaVault } from './helpers/vault-helpers.js';
 
 
 makeSuite('AToken: Permit', (testEnv: TestEnv) => {
@@ -29,12 +29,13 @@ makeSuite('AToken: Permit', (testEnv: TestEnv) => {
   });
 
   it('Get aDAI for tests', async () => {
-    const { dai, pool, deployer } = testEnv;
+    const { dai, deployer } = testEnv;
 
-    await dai.mint(parseEther('20000'));
-    await dai.approve(getContractAddress(pool), parseEther('20000'));
+    // await dai.mint(parseEther('20000'));
+    // await dai.approve(getContractAddress(pool), parseEther('20000'));
 
-    await pool.deposit(getContractAddress(dai), parseEther('20000'), deployer.address, 0);
+    // await pool.deposit(getContractAddress(dai), parseEther('20000'), deployer.address, 0);
+    await depositViaVault(dai, parseEther('20000'), deployer, testEnv);
   });
 
   it('Reverts submitting a permit with 0 expiration', async () => {

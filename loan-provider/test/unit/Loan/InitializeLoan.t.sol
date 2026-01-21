@@ -6,7 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
@@ -149,7 +149,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Reverts when slippage protection bounds are violated.
     function test_initializeLoan_slippageProtection() public mintDebtAssetToUser {
-        // Goal: force swap to exceed MAX_SLIPPAGE_BPS (0.5%) and ensure revert
+        // Goal: force swap to exceed s_slippage_swap (0.5%) and ensure revert
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -188,6 +188,7 @@ contract InitializeLoanTest is BaseLoanTest {
             loan.i_ORACLE(),
             collateralAsset,
             debtAsset,
+            btc,
             loan.s_swapAdapter(),
             loan.s_zQuoter(),
             loan.getPremiumCollector(),

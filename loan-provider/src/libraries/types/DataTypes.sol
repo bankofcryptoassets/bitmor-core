@@ -256,6 +256,9 @@ library DataTypes {
          * @dev Encoded operation-specific parameters
          */
         bytes params;
+
+        /// @dev Acceptable slippage while converting shares to asset.
+        uint256 slippage_sharesToAsset;
     }
 
     /**
@@ -280,9 +283,11 @@ library DataTypes {
          */
         address debtAsset;
         /**
-         * @dev Collateral asset address (cbBTC)
+         * @dev Collateral asset address (bvBTC)
          */
         address collateralAsset;
+        /// @dev BTC address
+        address btc;
         /**
          * @dev Swap adapter for token swaps
          */
@@ -313,6 +318,8 @@ library DataTypes {
          * @dev Amount to repay in debt asset
          */
         uint256 amount;
+        /// @dev Acceptable slippage while converting shares to asset.
+        uint256 slippage_sharesToAsset;
     }
 
     /**
@@ -339,6 +346,8 @@ library DataTypes {
          * @dev Collateral asset address (cbBTC)
          */
         address collateralAsset;
+
+        address btc;
         /**
          * @dev Pre-closure fee in basis points
          */

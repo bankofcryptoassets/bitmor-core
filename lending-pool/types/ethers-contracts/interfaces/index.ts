@@ -7,6 +7,7 @@ export type { IChainlinkAggregator } from './IChainlinkAggregator.js';
 export type { ICreditDelegationToken } from './ICreditDelegationToken.js';
 export type { IDelegationToken } from './IDelegationToken.js';
 export type { IERC20WithPermit } from './IERC20WithPermit.js';
+export type { IERC4626 } from './IERC4626.js';
 export type { IExchangeAdapter } from './IExchangeAdapter.js';
 export type { IInitializableAToken } from './IInitializableAToken.js';
 export type { IInitializableDebtToken } from './IInitializableDebtToken.js';

@@ -14,4 +14,8 @@ library BTCVaultLogic {
     function deposit(address btcVault, uint256 amount, address to) internal returns (uint256 shares) {
         shares = ERC4626(btcVault).deposit(amount, to);
     }
+
+    function convertToAssets(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
+        assets = ERC4626(btcVault).convertToAssets(sharesAmount);
+    }
 }

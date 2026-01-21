@@ -106,6 +106,7 @@ contract LoanContract is BaseLoanTest {
             address oracle,
             address collateralAssetAddr,
             address debtAssetAddr,
+            address btc,
             address swapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
@@ -119,8 +120,15 @@ contract LoanContract is BaseLoanTest {
 
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
         for (uint256 i = 0; i < 7; i++) {
-            address[7] memory params = [
-                aaveV3Pool, bitmorPool, oracle, collateralAssetAddr, debtAssetAddr, swapAdapterWrapper, premiumCollector
+            address[8] memory params = [
+                aaveV3Pool,
+                bitmorPool,
+                oracle,
+                collateralAssetAddr,
+                debtAssetAddr,
+                btc,
+                swapAdapterWrapper,
+                premiumCollector
             ];
 
             params[i] = address(0);
@@ -134,9 +142,10 @@ contract LoanContract is BaseLoanTest {
                 params[2], // oracle
                 params[3], // collateralAsset
                 params[4], // debtAsset
-                params[5], // swapAdapterWrapper
-                zQuoter, // allowed to be zero
-                params[6], // premiumCollector
+                params[5], // btc
+                zQuoter, // swapAdapterWrapper
+                params[6], // allowed to be zero
+                params[7], // premiumCollector
                 preClosureFeeBps,
                 gracePeriod,
                 liquidationBuffer
@@ -153,6 +162,7 @@ contract LoanContract is BaseLoanTest {
             address oracle,
             address collateralAssetAddr,
             address debtAssetAddr,
+            address btc,
             address swapAdapterWrapper,
             address zQuoter,
             address premiumCollector,
@@ -172,6 +182,7 @@ contract LoanContract is BaseLoanTest {
             oracle,
             collateralAssetAddr,
             debtAssetAddr,
+            btc,
             swapAdapterWrapper,
             zQuoter,
             premiumCollector,

@@ -13,6 +13,7 @@ import {
   getTreasuryAddress,
   loadPoolConfig,
   getEmergencyAdmin,
+  getBvBTCAddress,
 } from '../../../helpers/configuration.js';
 
 import { tEthereumAddress, eContractid } from '../../../helpers/types.js';
@@ -64,9 +65,20 @@ export default async function devInitializeLendingPoolAction(
   const addressesProvider = await getLendingPoolAddressesProvider();
 
   // Filter out UNI tokens for pool reserves
-  const protoPoolReservesAddresses = <{ [symbol: string]: tEthereumAddress }>(
+  let protoPoolReservesAddresses = <{ [symbol: string]: tEthereumAddress }>(
     filterMapBy(allTokenAddresses, (key: string) => !key.includes('UNI_'))
   );
+
+  // Dynamically populate bvBTC address from loan-provider deployment if not in mock tokens
+  if (!protoPoolReservesAddresses['bvBTC']) {
+    try {
+      const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+      protoPoolReservesAddresses = { ...protoPoolReservesAddresses, bvBTC: bvBTCAddress };
+      console.log(`bvBTC address loaded from loan-provider: ${bvBTCAddress}`);
+    } catch (error) {
+      console.warn(`Could not load bvBTC address: ${error}`);
+    }
+  }
 
   const testHelpers = await deployAaveProtocolDataProvider(getContractAddress(addressesProvider), verify);
   await insertContractAddressInDb(eContractid.AaveProtocolDataProvider, getContractAddress(testHelpers));

@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";

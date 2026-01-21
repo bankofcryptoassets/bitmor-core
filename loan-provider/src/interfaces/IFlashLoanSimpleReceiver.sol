@@ -25,7 +25,15 @@ interface IFlashLoanSimpleReceiver {
         external
         returns (bool);
 
+    /**
+     * @notice Returns the Aave Pool Addresses Provider
+     * @return The pool addresses provider contract
+     */
     function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider);
 
+    /**
+     * @notice Returns the Aave Pool
+     * @return The pool contract
+     */
     function POOL() external view returns (IPool);
 }

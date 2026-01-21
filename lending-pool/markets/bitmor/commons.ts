@@ -34,9 +34,9 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
     USDC: {
       borrowRate: oneRay.multipliedBy(0.039).toFixed(),
     },
-    cbBTC: {
+    bvBTC: {
       borrowRate: oneRay.multipliedBy(0.03).toFixed(),
-    },
+    }
   },
 
   PoolAdmin: {
@@ -104,8 +104,8 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
   ChainlinkAggregator: {
     [eBaseNetwork.base]: {},
     [eBaseNetwork.sepolia]: {
-      USDC: '0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165',
-      cbBTC: '0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298',
+      bUSDC: '0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165',
+      bvBTC: '0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298',
     },
     [eEthereumNetwork.hardhat]: {},
   },

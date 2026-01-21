@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {Clones} from "../dependencies/openzeppelin/Clones.sol";
+import {Clones} from "@openzeppelin/proxy/Clones.sol";
 import {ILoanVault} from "../interfaces/ILoanVault.sol";
 import {ILoanVaultFactory} from "../interfaces/ILoanVaultFactory.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";

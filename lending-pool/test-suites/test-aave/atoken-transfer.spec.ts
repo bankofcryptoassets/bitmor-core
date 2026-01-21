@@ -18,27 +18,32 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
   } = ProtocolErrors;
 
   it('User 0 deposits 1000 DAI, transfers to user 1', async () => {
-    const { users, pool, dai, aDai } = testEnv;
+    const { users, pool, dai, aDai, usdcVault } = testEnv;
 
     await dai.connect(users[0].signer).mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
 
-    await dai.connect(users[0].signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 1 deposits 1000 DAI
+    // BITMOR: Deposit via vault instead of direct pool deposit
     const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
+    const vaultAddress = await usdcVault.getAddress();
 
-    await pool
+    await dai.connect(users[0].signer).approve(vaultAddress, APPROVAL_AMOUNT_LENDING_POOL);
+
+    // BITMOR: User deposits to vault, receives vault shares
+    await usdcVault
       .connect(users[0].signer)
-      .deposit(getContractAddress(dai), amountDAItoDeposit, users[0].address, '0');
+      .deposit(amountDAItoDeposit, users[0].address);
 
-    await aDai.connect(users[0].signer).transfer(users[1].address, amountDAItoDeposit);
+    // BITMOR: Transfer vault shares (not aTokens)
+    // In Bitmor, users hold vault shares and can transfer them
+    await usdcVault.connect(users[0].signer).transfer(users[1].address, amountDAItoDeposit);
 
-    const name = await aDai.name();
+    const name = await usdcVault.name();
 
-    expect(name).to.be.equal('Aave interest bearing DAI');
+    expect(name).to.be.equal('Mock Vault Shares');
 
-    const fromBalance = await aDai.balanceOf(users[0].address);
-    const toBalance = await aDai.balanceOf(users[1].address);
+    // BITMOR: Check vault share balances (not aToken balances)
+    const fromBalance = await usdcVault.balanceOf(users[0].address);
+    const toBalance = await usdcVault.balanceOf(users[1].address);
 
     expect(fromBalance.toString()).to.be.equal('0', INVALID_FROM_BALANCE_AFTER_TRANSFER);
     expect(toBalance.toString()).to.be.equal(
@@ -48,54 +53,33 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
   });
 
   it('User 0 deposits 1 WETH and user 1 tries to borrow the WETH with the received DAI as collateral', async () => {
-    const { users, pool, weth, helpersContract } = testEnv;
-    const userAddress = await pool.getAddress();
+    const { users, pool, weth, helpersContract, wethVault, addressesProvider, deployer } = testEnv;
+
+    // Switch to WETH vault
+    const wethVaultAddress = await wethVault.getAddress();
+    await addressesProvider.connect(deployer.signer).setUSDCVault(wethVaultAddress);
 
     await weth.connect(users[0].signer).mint(await convertToCurrencyDecimals(getContractAddress(weth), '1'));
 
-    await weth.connect(users[0].signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+    // Deposit WETH via WETH vault
+    await weth.connect(users[0].signer).approve(wethVaultAddress, APPROVAL_AMOUNT_LENDING_POOL);
+    await wethVault.connect(users[0].signer).deposit(parseEther('1.0'), users[0].address);
 
-    await pool
-      .connect(users[0].signer)
-      .deposit(getContractAddress(weth), parseEther('1.0'), userAddress, '0');
-    await pool
-      .connect(users[1].signer)
-      .borrow(
-        getContractAddress(weth),
-        parseEther('0.1'),
-        RateMode.Stable,
-        AAVE_REFERRAL,
-        users[1].address
-      );
-
-    const userReserveData = await helpersContract.getUserReserveData(
-      getContractAddress(weth),
-      users[1].address
-    );
-
-    expect(userReserveData.currentStableDebt.toString()).to.be.eq(parseEther('0.1'));
-  });
-
-  it('User 1 tries to transfer all the DAI used as collateral back to user 0 (revert expected)', async () => {
-    const { users, pool, aDai, dai, weth } = testEnv;
-
-    const aDAItoTransfer = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
-
+    // User 1 tries to borrow WETH using DAI vault shares as collateral
+    // In Bitmor, vault shares are not recognized as collateral
+    // Expected: Borrow should fail with error '9' (VL_COLLATERAL_BALANCE_IS_0)
+    // You can reference WETH as CBBTC and DAI as USDC in Bitmor context
     await expect(
-      aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer),
-      VL_TRANSFER_NOT_ALLOWED
-    ).to.be.revertedWith(VL_TRANSFER_NOT_ALLOWED);
+      pool
+        .connect(users[1].signer)
+        .borrow(
+          getContractAddress(weth),
+          parseEther('0.1'),
+          RateMode.Stable,
+          AAVE_REFERRAL,
+          users[1].address
+        )
+    ).to.be.revertedWith('9');
   });
 
-  it('User 1 tries to transfer a small amount of DAI used as collateral back to user 0', async () => {
-    const { users, pool, aDai, dai, weth } = testEnv;
-
-    const aDAItoTransfer = await convertToCurrencyDecimals(getContractAddress(dai), '100');
-
-    await aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer);
-
-    const user0Balance = await aDai.balanceOf(users[0].address);
-
-    expect(user0Balance.toString()).to.be.eq(aDAItoTransfer.toString());
-  });
 });

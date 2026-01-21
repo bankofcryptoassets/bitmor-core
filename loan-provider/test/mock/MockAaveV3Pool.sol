@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IFlashLoanSimpleReceiver} from "@bitmor/interfaces/IFlashLoanSimpleReceiver.sol";
 
 /// @dev Minimal mock of Aave V3 pool for flash loans.

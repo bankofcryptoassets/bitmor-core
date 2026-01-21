@@ -10,6 +10,9 @@ Key Bitmor modifications to Aave V2:
 - **Micro-liquidation**: Sells just enough collateral to restore healthy position rather than liquidating the full position
 - **Full liquidation**: Standard liquidation with modified checks that include `isInsured` parameter
 - **`checkTypeOfLiquidation`**: Returns liquidation type (0=none, 1=full, 2=micro) based on loan status, health factor, and payment history
+- **Vault-only deposits**: All deposits must go through vault contracts (Error 85: LP_CALLER_NOT_VAULT)
+- **Flash loans disabled**: Flash loans are completely disabled (Error 86: LP_FLASHLOAN_DISABLED)
+- **Vault shares vs aTokens**: Users hold vault shares (ERC20), vaults hold aTokens (collateral in pool)
 
 ## Commands
 

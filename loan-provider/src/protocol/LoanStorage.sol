@@ -37,19 +37,19 @@ contract LoanStorage {
     address public immutable i_BITMOR_POOL;
 
     /**
-     * @notice Aave V2 addresses provider for accessing protocol contracts (oracle, etc.)
+     * @notice Oracle address to get prices for the assets.
+     * @dev Same oracle address is utilized in BLP.
      */
     address public immutable i_ORACLE;
 
-    /**
-     * @notice Collateral asset address (cbBTC)
-     */
+    /// @notice Collateral asset address (cbBTC)
     address internal immutable i_COLLATERAL_ASSET;
 
-    /**
-     * @notice Debt asset address (USDC)
-     */
+    /// @notice Debt asset address (USDC)
     address internal immutable i_DEBT_ASSET;
+
+    /// @notice Wrapped Bitcoin address
+    address internal immutable i_BTC;
 
     // ============ Protocol Contract Addresses ============
 
@@ -88,6 +88,18 @@ contract LoanStorage {
      */
     uint256 internal s_liquidationBuffer;
 
+    /// @notice Slippage in BPS while convert `bvBTC` shares to btc.
+    uint256 internal s_slippage_sharesToAsset;
+
+    /// @notice Slippage in BPS while swapping.
+    uint256 internal s_slippage_swap;
+
+    /// @notice Max amount of BTC that can be used as collateral.
+    uint256 internal s_maxBTCAmt;
+
+    /// @notice Min. amount of BTC require to use as collateral.
+    uint256 internal s_minBTCAmt;
+
     // ============ Storage Mappings ============
 
     /**
@@ -111,24 +123,9 @@ contract LoanStorage {
     // ============ Constants ============
 
     /**
-     * @notice Maximum slippage tolerance in basis points (50 = 0.5%)
-     */
-    uint256 public constant MAX_SLIPPAGE_BPS = 50;
-
-    /**
      * @notice Loan repayment interval in seconds (30 days)
      */
     uint256 internal constant LOAN_REPAYMENT_INTERVAL = 30 days;
-
-    /**
-     * @notice MAX collateral amount user can take.
-     */
-    uint256 public constant MAX_COLLATERAL_AMOUNT = 1 * 1e8;
-
-    /**
-     * @notice MIN collateral amount user can take.
-     */
-    uint256 public constant MIN_COLLATERAL_AMOUNT = 0.01 * 1e8;
 
     /**
      * @notice Initial Insurance ID
@@ -151,11 +148,12 @@ contract LoanStorage {
         address _bitmorPool,
         address _oracle,
         address _collateralAsset,
-        address _debtAsset
+        address _debtAsset,
+        address _btc
     ) {
         if (
             _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
-                || _collateralAsset == address(0) || _debtAsset == address(0)
+                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;
@@ -164,5 +162,6 @@ contract LoanStorage {
         i_COLLATERAL_ASSET = _collateralAsset;
         i_DEBT_ASSET = _debtAsset;
         i_AAVE_ADDRESSES_PROVIDER = _aaveAddressesProvider;
+        i_BTC = _btc;
     }
 }

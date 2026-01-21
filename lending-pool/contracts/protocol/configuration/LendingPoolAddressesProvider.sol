@@ -32,11 +32,8 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
     bytes32 private constant LENDING_RATE_ORACLE = "LENDING_RATE_ORACLE";
     bytes32 private constant BITMOR_LOAN = "BITMOR_LOAN";
     bytes32 private constant USDC_VAULT = "USDC_VAULT";
+    bytes32 private constant BTC_VAULT = "BTC_VAULT";
 
-    /**
-     * !TODO: Add functions to get btc vault and usdc vault address.
-     *
-     */
     constructor(string memory marketId) public {
         _setMarketId(marketId);
     }
@@ -201,9 +198,18 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
         return getAddress(USDC_VAULT);
     }
 
+    function getBTCVault() external view override returns (address) {
+        return getAddress(BTC_VAULT);
+    }
+
     function setBitmorLoan(address bitmorLoan) external override onlyOwner {
         _addresses[BITMOR_LOAN] = bitmorLoan;
         emit BitmorLoanUpdated(bitmorLoan);
+    }
+
+    function setBTCVault(address btcVault) external override onlyOwner {
+        _addresses[BTC_VAULT] = btcVault;
+        emit BTCVaultUpdated(btcVault);
     }
 
     function setUSDCVault(address usdcVault) external override onlyOwner {
@@ -221,6 +227,7 @@ contract LendingPoolAddressesProvider is Ownable, ILendingPoolAddressesProvider 
      * @param newAddress The address of the new implementation
      *
      */
+
     function _updateImpl(bytes32 id, address newAddress) internal {
         address payable proxyAddress = payable(_addresses[id]);
 

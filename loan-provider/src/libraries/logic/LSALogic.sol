@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
+import {ERC4626} from "@solady/tokens/ERC4626.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
-import {DataTypes} from "../types/DataTypes.sol";
 import {ILoanVault} from "../../interfaces/ILoanVault.sol";
+
+import {DataTypes} from "../types/DataTypes.sol";
+
+import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {Errors} from "../helpers/Errors.sol";
 
 /**
  * @title LSALogic
@@ -23,10 +30,13 @@ import {ILoanVault} from "../../interfaces/ILoanVault.sol";
  * @custom:security All operations are executed through the LSA's `execute()` function
  */
 library LSALogic {
-    /**
-     * @dev Maximum uint256 value used for max withdrawal amounts
-     */
+    using BTCVaultLogic for address;
+    using FixedPointMathLib for uint256;
+
+    /// @dev Maximum uint256 value used for max withdrawal amounts
     uint256 internal constant MAX_U256 = type(uint256).max;
+
+    uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
     /**
      * @notice Approve credit delegation on LSA before borrowing
@@ -75,16 +85,38 @@ library LSALogic {
      * @param recipient Address to receive the withdrawn collateral
      * @return amountWithdrawn The actual amount of collateral withdrawn
      */
-    function withdrawCollateral(address bitmorPool, address lsa, address collateralAsset, address recipient)
+    function withdrawCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
         internal
         returns (uint256 amountWithdrawn)
     {
         bytes memory withdrawData =
-            abi.encodeWithSignature("withdraw(address,uint256,address)", collateralAsset, MAX_U256, recipient);
+            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
 
         bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
 
         // Decode the actual amount withdrawn
         amountWithdrawn = abi.decode(result, (uint256));
+    }
+
+    function redeemBTC(
+        address lsa,
+        address collateralAsset,
+        uint256 sharesAmount,
+        address recipient,
+        uint256 slippage_sharesToAsset
+    ) internal returns (uint256 assetsReceived) {
+        uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
+
+        uint256 minimumReceivable = estimatedReceivable.mulDiv(slippage_sharesToAsset, BASIS_POINT_SCALE);
+
+        bytes memory redeemData =
+            abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, address(this));
+
+        bytes memory result = ILoanVault(lsa).execute(collateralAsset, redeemData);
+
+        // Decode the actual amount redeemed.
+        assetsReceived = abi.decode(result, (uint256));
+
+        if (assetsReceived < minimumReceivable) revert Errors.SlippageExceededWhileConvertingToAssets();
     }
 }

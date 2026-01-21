@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
-import {ILoan} from "../../interfaces/ILoan.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
 import {DataTypes} from "../types/DataTypes.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
+
 import {Errors} from "../helpers/Errors.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
-import {SafeERC20} from "../../dependencies/openzeppelin/SafeERC20.sol";
+
 import {LSALogic} from "./LSALogic.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
 /**
  * @title RepayLogic
@@ -29,6 +32,8 @@ import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 library RepayLogic {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
+    using BitmorLendingPoolLogic for address;
+    using LSALogic for address;
 
     /**
      * @notice Executes a loan repayment for a specific LSA
@@ -64,7 +69,7 @@ library RepayLogic {
         if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
         // Cap the requested amount to outstanding principal so we never custody more than needed
-        uint256 totalDebt = BitmorLendingPoolLogic.getVDTTokenAmount(bitmorPool, debtAsset, params.lsa);
+        uint256 totalDebt = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
         uint256 maxRepayableAmt = LoanMath.min(params.amount, totalDebt);
 
         // Pull only what might be needed from the borrower
@@ -74,11 +79,10 @@ library RepayLogic {
         IERC20(debtAsset).forceApprove(bitmorPool, maxRepayableAmt);
 
         // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
-        finalAmountRepaid =
-            BitmorLendingPoolLogic.executeLoanRepayment(bitmorPool, debtAsset, params.lsa, maxRepayableAmt);
+        finalAmountRepaid = bitmorPool.executeLoanRepayment(debtAsset, params.lsa, maxRepayableAmt);
 
         // Update accounting
-        uint256 totalDebtRemaining = BitmorLendingPoolLogic.getVDTTokenAmount(bitmorPool, debtAsset, params.lsa);
+        uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
 
         // Advance schedule only if loan remains active
         if (totalDebtRemaining == 0) {
@@ -87,10 +91,15 @@ library RepayLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
-            uint256 amountWithdrawn =
-                LSALogic.withdrawCollateral(bitmorPool, params.lsa, collateralAsset, loan.borrower);
+            /// @dev Withdraw Collateral `bvBTC` shares to `lsa`
+            uint256 amountWithdrawn = params.lsa.withdrawCollateral(bitmorPool, collateralAsset, params.lsa);
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
+
+            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
+
+            emit ILoan.Loan__ClosedLoan(params.lsa);
         } else {
             uint256 periods = finalAmountRepaid.mulDiv(1, loan.estimatedMonthlyPayment);
             loan.duration -= periods;

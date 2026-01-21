@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {ReentrancyGuard} from "../dependencies/openzeppelin/ReentrancyGuard.sol";
-import {AccessManaged} from "../dependencies/openzeppelin/AccessManaged.sol";
-import {Pausable} from "../dependencies/openzeppelin/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/utils/ReentrancyGuard.sol";
+import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
+import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
@@ -51,8 +51,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _aaveAddressesProvider Addresses Provider for flash loan operations
      * @param _bitmorPool Bitmor Lending Pool
      * @param _oracle Price Oracle
-     * @param _collateralAsset cbBTC address
+     * @param _collateralAsset `bvBTC` address
      * @param _debtAsset USDC address
+     * @param _btc Wrapped BTC address
      * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
      * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
@@ -67,6 +68,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         address _oracle,
         address _collateralAsset,
         address _debtAsset,
+        address _btc,
         address _swapAdapterWrapper,
         address _zQuoter,
         address _premiumCollector,
@@ -74,7 +76,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         uint256 _gracePeriod,
         uint256 _liquidationBuffer
     )
-        LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset)
+        LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
         AccessManaged(_manager)
     {
         if (_swapAdapterWrapper == address(0) || _premiumCollector == address(0)) {
@@ -136,8 +138,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             aavePool: i_AAVE_V3_POOL,
             loanVaultFactory: s_loanVaultFactory,
             premiumCollector: s_premiumCollector,
-            minCollateralAmt: MIN_COLLATERAL_AMOUNT,
-            maxCollateralAmt: MAX_COLLATERAL_AMOUNT,
+            minCollateralAmt: s_minBTCAmt,
+            maxCollateralAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
         });
 
@@ -161,7 +163,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 finalAmountRepaid)
     {
         finalAmountRepaid = RepayLogic.executeRepay(
-            i_BITMOR_POOL, i_DEBT_ASSET, i_COLLATERAL_ASSET, DataTypes.ExecuteRepayParams(lsa, amount), s_loansByLSA
+            i_BITMOR_POOL,
+            i_DEBT_ASSET,
+            i_COLLATERAL_ASSET,
+            DataTypes.ExecuteRepayParams(lsa, amount, s_slippage_sharesToAsset),
+            s_loansByLSA
         );
     }
 
@@ -177,8 +183,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_ORACLE,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
+            i_BTC,
             s_preClosureFeeBps,
-            MAX_SLIPPAGE_BPS
+            s_slippage_swap
         );
         DataTypes.ExecuteCloseLoanParams memory params =
             DataTypes.ExecuteCloseLoanParams(lsa, withdrawInCollateralAsset);
@@ -233,14 +240,15 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_zQuoter,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
+            i_BTC,
             s_swapAdapter,
             s_premiumCollector,
             i_ORACLE,
-            MAX_SLIPPAGE_BPS
+            s_slippage_swap
         );
 
         DataTypes.ExecuteFLOperationParams memory flOpParams =
-            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData);
+            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData, s_slippage_sharesToAsset);
 
         if (initializingLoan) {
             FlashLoanLogic.executeFLOperationInitiailizingLoan(ctx, flOpParams, s_loansByLSA);

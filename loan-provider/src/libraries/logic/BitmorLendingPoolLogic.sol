@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 /**
@@ -12,7 +12,7 @@ import {DataTypes} from "../types/DataTypes.sol";
  * @dev Provides standardized functions for deposit, borrow, repay, and position queries.
  *
  * ## Supported Operations
- * - Depositing collateral (cbBTC) on behalf of LSAs
+ * - Depositing collateral (bvBTC) on behalf of LSAs
  * - Borrowing debt (USDC) on behalf of LSAs
  * - Repaying debt positions
  * - Querying user positions and token balances
@@ -24,40 +24,11 @@ import {DataTypes} from "../types/DataTypes.sol";
  * @custom:security All operations require proper approvals to be set before execution
  */
 library BitmorLendingPoolLogic {
-    /**
-     * @dev Variable interest rate mode for Aave V2 borrows
-     */
+    /// @dev Variable interest rate mode for Aave V2 borrows
     uint256 constant RATE_MODE = 2;
 
-    /**
-     * @dev Referral code for Aave operations (0 = no referral)
-     */
+    /// @dev Referral code for Aave operations (0 = no referral)
     uint16 constant REFERRAL = 0;
-
-    /**
-     * @notice Deposits collateral to Aave V2 on behalf of LSA
-     * @dev LSA receives aTokens (acbBTC), Protocol holds cbBTC before deposit
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param asset Collateral asset (cbBTC)
-     * @param amount Amount to deposit (8 decimals)
-     * @param onBehalfOf LSA address that receives aTokens
-     */
-    function depositCollateral(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
-        ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
-    }
-
-    /**
-     * @notice Borrows debt from Aave V2 on behalf of LSA
-     * @dev Protocol receives USDC, LSA receives variable debt tokens
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param asset Debt asset (USDC)
-     * @param amount Amount to borrow (6 decimals)
-     * @param onBehalfOf LSA address that receives debt tokens
-     */
-    function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
-        // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
-        ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
-    }
 
     /**
      * @notice Returns the amount of variable debt tokens (vdtTokens) held by an LSA
@@ -81,7 +52,7 @@ library BitmorLendingPoolLogic {
      * @notice Returns the amount of aTokens (collateral tokens) held by an LSA
      * @dev Queries the aToken balance directly from the aToken contract
      * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
-     * @param collateralAsset Collateral asset token address (cbBTC)
+     * @param collateralAsset Collateral asset token address (bvBTC)
      * @param lsa The Loan Specific Address to query
      * @return aTokenAmount The amount of aTokens representing deposited collateral
      */
@@ -109,6 +80,31 @@ library BitmorLendingPoolLogic {
         returns (uint256 totalCollateralUSD, uint256 totalDebtUSD)
     {
         (totalCollateralUSD, totalDebtUSD,,,,) = ILendingPool(bitmorPool).getUserAccountData(lsa);
+    }
+
+    /**
+     * @notice Deposits collateral to Aave V2 on behalf of LSA
+     * @dev LSA receives aTokens (acbBTC), Protocol holds bvBTC before deposit
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param asset Collateral asset (bvBTC)
+     * @param amount Amount to deposit (8 decimals)
+     * @param onBehalfOf LSA address that receives aTokens
+     */
+    function depositCollateral(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
+        ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
+    }
+
+    /**
+     * @notice Borrows debt from Aave V2 on behalf of LSA
+     * @dev Protocol receives USDC, LSA receives variable debt tokens
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param asset Debt asset (USDC)
+     * @param amount Amount to borrow (6 decimals)
+     * @param onBehalfOf LSA address that receives debt tokens
+     */
+    function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
+        // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
+        ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
     }
 
     /**

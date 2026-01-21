@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@bitmor/dependencies/openzeppelin/IERC20.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";

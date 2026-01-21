@@ -20,9 +20,9 @@ pragma solidity 0.6.12;
  *  - P = Pausable
  */
 library Errors {
-  //common errors
-  string public constant CALLER_NOT_POOL_ADMIN = '33'; // 'The caller must be the pool admin'
-  string public constant BORROW_ALLOWANCE_NOT_ENOUGH = '59'; // User borrows on behalf, but allowance are too small
+    //common errors
+    string public constant CALLER_NOT_POOL_ADMIN = "33"; // 'The caller must be the pool admin'
+    string public constant BORROW_ALLOWANCE_NOT_ENOUGH = "59"; // User borrows on behalf, but allowance are too small
 
   //contract specific errors
   string public constant VL_INVALID_AMOUNT = '1'; // 'Amount must be greater than 0'
@@ -107,20 +107,21 @@ library Errors {
   string public constant LPCM_CANNOT_MICRO_LIQUIDATE = '82';
   string public constant LPCM_CANNOT_FULL_LIQUIDATE = '83';
   string public constant LP_CHECK_TYPE_OF_LIQUIDATION_FAILED = '84';
-  string public constant LP_CALLER_NOT_VAULT = '85'; // 'Only vault can deposit this asset'
+  string public constant LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER = '85'; // 'Only vault can deposit this asset'
+  string public constant LP_FLASHLOAN_DISABLED = '86'; // Flash loans are disabled
 
-  enum CollateralManagerErrors {
-    NO_ERROR,
-    NO_COLLATERAL_AVAILABLE,
-    COLLATERAL_CANNOT_BE_LIQUIDATED,
-    CURRRENCY_NOT_BORROWED,
-    HEALTH_FACTOR_ABOVE_THRESHOLD,
-    NOT_ENOUGH_LIQUIDITY,
-    NO_ACTIVE_RESERVE,
-    HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD,
-    INVALID_EQUAL_ASSETS_TO_SWAP,
-    FROZEN_RESERVE,
-    CANNOT_MICRO_LIQUIDATE,
-    CANNOT_FULL_LIQUIDATE
-  }
+    enum CollateralManagerErrors {
+        NO_ERROR,
+        NO_COLLATERAL_AVAILABLE,
+        COLLATERAL_CANNOT_BE_LIQUIDATED,
+        CURRRENCY_NOT_BORROWED,
+        HEALTH_FACTOR_ABOVE_THRESHOLD,
+        NOT_ENOUGH_LIQUIDITY,
+        NO_ACTIVE_RESERVE,
+        HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD,
+        INVALID_EQUAL_ASSETS_TO_SWAP,
+        FROZEN_RESERVE,
+        CANNOT_MICRO_LIQUIDATE,
+        CANNOT_FULL_LIQUIDATE
+    }
 }

@@ -176,3 +176,107 @@ export const getQuoteCurrency = async (config: IBaseConfiguration) => {
       throw `Quote ${config.OracleQuoteCurrency} currency not set. Add a new case to getQuoteCurrency switch`;
   }
 };
+
+export const getBcbBTCAddress = async (
+  config: PoolConfiguration,
+  network: eNetwork
+): Promise<tEthereumAddress> => {
+  // mainnet
+  if (network === 'base') {
+    return '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
+  }
+
+  // For testnet (sepolia): fetch mock cbBTC from loan-provider
+  if (network === 'sepolia') {
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+
+      const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
+
+      if (fs.existsSync(loanProviderPath)) {
+        const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
+        const deployments = JSON.parse(deploymentsContent);
+
+        const chainId = await getChainIdFromNetwork(network);
+        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
+
+        if (cbBTCMock) {
+          return cbBTCMock;
+        }
+      }
+
+      throw new Error(
+        `cbBTC mock not found in loan-provider deployments for sepolia. ` +
+        `Please ensure loan-provider mocks are deployed and cbBTC field exists.`
+      );
+    } catch (error) {
+      throw new Error(`Failed to load cbBTC mock for sepolia: ${error}`);
+    }
+  }
+
+  // For hardhat: fetch from database
+  if (network === 'hardhat') {
+    const db = getDb();
+    const actualNetwork = DRE.network.networkName;
+    const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
+    if (bcbBTC) {
+      return bcbBTC;
+    }
+    throw new Error(
+      `bcbBTC address not found in database for local network ${actualNetwork}. ` +
+      `Please ensure bcbBTC mock is deployed.`
+    );
+  }
+
+  throw new Error(`cbBTC address not configured for network ${network}.`);
+};
+
+export const getBvBTCAddress = async (
+  config: PoolConfiguration,
+  network: eNetwork
+): Promise<tEthereumAddress> => {
+  let bvBTCAddress: string | undefined;
+
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
+
+    if (fs.existsSync(loanProviderPath)) {
+      const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
+      const deployments = JSON.parse(deploymentsContent);
+
+      const chainId = await getChainIdFromNetwork(network);
+      const collateralAsset =
+        deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
+
+      if (collateralAsset) bvBTCAddress = collateralAsset;
+    } else {
+      console.warn(`loan-provider deployments.json not found at: ${loanProviderPath}`);
+    }
+  } catch (error) {
+    console.warn('Could not load bvBTC from loan-provider deployments:', error);
+  }
+
+  if (!bvBTCAddress || bvBTCAddress === '') {
+    throw new Error(
+      `bvBTC address not found for network ${network}. ` +
+      `Please ensure loan-provider is deployed first and deployments.json exists at ../loan-provider/deployments.json`
+    );
+  }
+
+  return bvBTCAddress;
+};
+
+const getChainIdFromNetwork = async (network: eNetwork): Promise<string> => {
+  const chainIds: { [key: string]: string } = {
+    'sepolia': '84532',
+    'base': '8453',
+    'hardhat': '31337',
+    'localhost': '31337',
+  };
+
+  return chainIds[network] || '31337';
+};

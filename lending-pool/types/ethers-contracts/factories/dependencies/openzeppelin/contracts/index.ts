@@ -4,4 +4,5 @@
 export { ERC20__factory } from './ERC20__factory.js';
 export { IERC20__factory } from './IERC20__factory.js';
 export { IERC20Detailed__factory } from './IERC20Detailed__factory.js';
+export { IERC20Metadata__factory } from './IERC20Metadata__factory.js';
 export { Ownable__factory } from './Ownable__factory.js';

@@ -7,6 +7,7 @@ export { IChainlinkAggregator__factory } from './IChainlinkAggregator__factory.j
 export { ICreditDelegationToken__factory } from './ICreditDelegationToken__factory.js';
 export { IDelegationToken__factory } from './IDelegationToken__factory.js';
 export { IERC20WithPermit__factory } from './IERC20WithPermit__factory.js';
+export { IERC4626__factory } from './IERC4626__factory.js';
 export { IExchangeAdapter__factory } from './IExchangeAdapter__factory.js';
 export { IInitializableAToken__factory } from './IInitializableAToken__factory.js';
 export { IInitializableDebtToken__factory } from './IInitializableDebtToken__factory.js';

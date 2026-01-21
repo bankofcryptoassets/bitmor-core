@@ -5,7 +5,7 @@ import {
   deployWalletBalancerProvider,
   authorizeWETHGateway,
 } from '../../../helpers/contracts-deployments.js';
-import { loadPoolConfig, ConfigNames, getTreasuryAddress } from '../../../helpers/configuration.js';
+import { loadPoolConfig, ConfigNames, getTreasuryAddress, getBvBTCAddress } from '../../../helpers/configuration.js';
 import { getWETHGateway } from '../../../helpers/contracts-getters.js';
 import { eNetwork, ICommonConfiguration } from '../../../helpers/types.js';
 import { notFalsyOrZeroAddress, waitForTx } from '../../../helpers/misc-utils.js';
@@ -49,9 +49,20 @@ export default async function initializeLendingPoolAction(
       IncentivesController,
     } = poolConfig as ICommonConfiguration;
 
-    const reserveAssets = await getParamPerNetwork(ReserveAssets, network);
+    let reserveAssets = await getParamPerNetwork(ReserveAssets, network);
     const incentivesController = await getParamPerNetwork(IncentivesController, network);
     const addressesProvider = await getLendingPoolAddressesProvider();
+
+    // Dynamically populate bvBTC address from loan-provider deployment
+    if (reserveAssets['bvBTC'] === '') {
+      try {
+        const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+        reserveAssets = { ...reserveAssets, bvBTC: bvBTCAddress };
+        console.log(`bvBTC address loaded from loan-provider: ${bvBTCAddress}`);
+      } catch (error) {
+        console.warn(`Could not load bvBTC address: ${error}`);
+      }
+    }
 
     const testHelpers = await getAaveProtocolDataProvider();
 

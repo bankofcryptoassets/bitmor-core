@@ -21,6 +21,7 @@ import {
   ATokensAndRatesHelper__factory,
   AaveOracle__factory,
   DefaultReserveInterestRateStrategy__factory,
+  USDCReserveInterestRateStrategy__factory,
   DelegationAwareAToken__factory,
   InitializableAdminUpgradeabilityProxy__factory,
   LendingPoolAddressesProvider__factory,
@@ -54,6 +55,7 @@ import {
   UiPoolDataProviderV2__factory,
   UiPoolDataProviderV2V3__factory,
   UiIncentiveDataProviderV2__factory,
+  MockUSDCVault__factory,
 } from '../types/ethers-contracts/index.js';
 import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
@@ -278,7 +280,15 @@ export const deployMockAggregator = async (price: tStringTokenSmallUnits, verify
   );
 
 export const deployAaveOracle = async (
-  args: [tEthereumAddress[], tEthereumAddress[], tEthereumAddress, tEthereumAddress, string],
+  args: [
+    tEthereumAddress[],
+    tEthereumAddress[],
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    tEthereumAddress,
+    string
+  ],
   verify?: boolean
 ) =>
   withSaveAndVerify(
@@ -374,6 +384,17 @@ export const deployDefaultReserveInterestRateStrategy = async (
   withSaveAndVerify(
     await new DefaultReserveInterestRateStrategy__factory(await getFirstSigner()).deploy(...args),
     eContractid.DefaultReserveInterestRateStrategy,
+    args,
+    verify
+  );
+
+export const deployUSDCReserveInterestRateStrategy = async (
+  args: [tEthereumAddress, string, string, string, string, string, string],
+  verify: boolean
+) =>
+  withSaveAndVerify(
+    await new USDCReserveInterestRateStrategy__factory(await getFirstSigner()).deploy(...args),
+    eContractid.USDCReserveInterestRateStrategy,
     args,
     verify
   );
@@ -537,7 +558,7 @@ export const deployMockTokens = async (config: PoolConfiguration, verify?: boole
         tokenSymbol,
         tokenSymbol,
         configData[tokenSymbol as keyof iMultiPoolsAssets<IReserveParams>].reserveDecimals ||
-          defaultDecimals.toString(),
+        defaultDecimals.toString(),
       ],
       verify
     );
@@ -682,6 +703,39 @@ export const deployMockUniswapRouter = async (verify?: boolean) =>
     verify
   );
 
+export const deployMockUSDCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockUSDCVault,
+    args,
+    verify
+  );
+
+export const deployMockActualUSDCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockActualUSDCVault,
+    args,
+    verify
+  );
+
+export const deployMockWETHVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockWETHVault,
+    args,
+    verify
+  );
+
 export const deployUniswapLiquiditySwapAdapter = async (
   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
   verify?: boolean
@@ -778,6 +832,9 @@ export const deployRateStrategy = async (
   verify: boolean
 ): Promise<tEthereumAddress> => {
   switch (strategyName) {
+    case 'rateStrategyUSDC': return getContractAddress(
+      await deployUSDCReserveInterestRateStrategy(args, verify)
+    );
     default:
       return getContractAddress(
         await deployDefaultReserveInterestRateStrategy(args, verify)
