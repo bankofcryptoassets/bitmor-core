@@ -34,6 +34,7 @@ contract HelperConfig is Script, RolesData {
 
     NetworkConfig public networkConfig;
 
+    uint256 constant CHAIN_ID_LOCAL = 31337;
     uint256 constant CHAIN_ID_BASE_SEPOLIA = 84532;
     uint256 public constant DECIMAL_USDC = 1e6;
     uint256 public constant DECIMAL_CBBTC = 1e8;
@@ -63,9 +64,14 @@ contract HelperConfig is Script, RolesData {
     // Default vault fees in basis points
     uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
     uint256 public constant DEFAULT_EXIT_FEE = 10; // 0.1%
+    // USDC Strategy allocation config (in basis points)
+    uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
+    uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
 
     constructor() {
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            networkConfig = getLocalNetworkConfig();
+        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             networkConfig = getBaseSepoliaNetworkConfig();
         }
     }
@@ -88,6 +94,36 @@ contract HelperConfig is Script, RolesData {
             liquidationBuffer: getLiquidationBuffer(),
             usdc: USDC_BASE_SEPOLIA,
             usdc_holder: USDC_HOLDER_BASE_SEPOLIA,
+            entryFee: DEFAULT_ENTRY_FEE,
+            exitFee: DEFAULT_EXIT_FEE
+        });
+    }
+
+    /// @notice Returns network config for local Anvil (chainId 31337)
+    /// @dev Reads from loan-provider/deployments.json and lending-pool/deployed-contracts.json
+    function getLocalNetworkConfig() public view returns (NetworkConfig memory config) {
+        // Read from deployments.json (Phase 1 addresses from loan-provider)
+        address mockUsdc = _readLocalDeployment("debtAsset");
+        address mockCbBTC = _readLocalDeployment("cbBTC");
+        address localAccessManager = _readLocalDeployment("accessManager");
+
+        config = NetworkConfig({
+            accessManager: localAccessManager,
+            bitmorPool: getBitmorPool(),
+            aaveV3Pool: _readLocalDeployment("aaveV3Pool"),
+            aaveAddressesProvider: address(0), // Not used for local
+            oracle: getOracle(),
+            collateralAsset: _readLocalDeployment("collateralAsset"), // bvBTC
+            debtAsset: mockUsdc,
+            btc: mockCbBTC,
+            getSwapAdapterWrapper: getSwapAdapterWrapper(),
+            zQuoter: address(0), // Not used for local
+            premiumCollector: BITMOR_OWNER,
+            preClosureFeeBps: getPreClosureFee(),
+            gracePeriod: getGracePeriod(),
+            liquidationBuffer: getLiquidationBuffer(),
+            usdc: mockUsdc,
+            usdc_holder: BITMOR_OWNER, // Use owner as USDC holder for local testing
             entryFee: DEFAULT_ENTRY_FEE,
             exitFee: DEFAULT_EXIT_FEE
         });
@@ -122,19 +158,32 @@ contract HelperConfig is Script, RolesData {
         return PRE_CLOSURE_FEE;
     }
 
+    function getAaveAllocation() public pure returns (uint256) {
+        return DEFAULT_AAVE_ALLOCATION;
+    }
+
+    function getMinimumDeltaRequired() public pure returns (uint256) {
+        return DEFAULT_MINIMUM_DELTA_REQUIRED;
+    }
+
     function getBitmorPool() public view returns (address) {
         string memory contractName = "LendingPool";
         return _readAddress(contractName);
     }
 
     function getAaveV3Pool() public view returns (address aavePool) {
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            // For local: read from deployments.json or return address(0) if using mocks
+            aavePool = _readLocalDeployment("aaveV3Pool");
+        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             aavePool = AAVE_V3_POOL_BASE_SEPOLIA;
         }
     }
 
     function getAaveAddressesProvider() public view returns (address addressesProvider) {
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            addressesProvider = address(0); // Not needed for local mock setup
+        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             addressesProvider = AAVE_V3_ADDRESSES_PROVIDER;
         }
     }
@@ -223,7 +272,7 @@ contract HelperConfig is Script, RolesData {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             // Your JSON uses "sepolia" for Base Sepolia deployments
             network = "sepolia";
-        } else if (block.chainid == 31337 || block.chainid == 1337) {
+        } else if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {
             network = "hardhat";
         } else {
             revert("HelperConfig: unsupported chainid for deployed-contracts.json");
@@ -239,5 +288,32 @@ contract HelperConfig is Script, RolesData {
         // Parse and return
         addr = json.readAddress(key);
         require(addr != address(0), "HelperConfig: empty address in deployed-contracts.json");
+    }
+
+    /// @notice Reads address from loan-provider/deployments.json for local chain
+    /// @param key The key to read from networkConfig (e.g., "collateralAsset", "debtAsset")
+    function _readLocalDeployment(string memory key) internal view returns (address addr) {
+        string memory path = string.concat(vm.projectRoot(), "/deployments.json");
+
+        try vm.readFile(path) returns (string memory json) {
+            // Build jsonpath: .deployments.31337.networkConfig.<key>
+            string memory jsonKey =
+                string.concat(".deployments.", vm.toString(CHAIN_ID_LOCAL), ".networkConfig.", key);
+
+            try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
+                addr = parsed;
+            } catch {
+                addr = address(0);
+            }
+        } catch {
+            addr = address(0);
+        }
+    }
+
+    /// @notice Public wrapper to read address from lending-pool/deployed-contracts.json
+    /// @param contractName The contract name key (e.g., "LendingPoolCollateralManager")
+    /// @return addr The address from the JSON file
+    function readLendingPoolAddress(string memory contractName) public view returns (address addr) {
+        return _readAddress(contractName);
     }
 }
