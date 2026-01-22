@@ -77,11 +77,17 @@ abstract contract BitmorTestBase is Test {
     address internal uvc;
     address internal uva;
 
+    // ============ Setup ============
+
+    /// @notice Override this function in derived test contracts
+    /// @dev Base implementation is empty - child classes implement their specific setup
+    function setUp() public virtual {}
+
     // ============ Initialization Functions ============
 
     /// @notice Deploy AccessManager and RolesData, then create all role actor addresses
     /// @param initialAdmin The initial admin address for the AccessManager
-    function _initializeAccessManager(address initialAdmin) internal {
+    function _initializeAccessManager(address initialAdmin) internal virtual {
         manager = new BitmorAccessManager(initialAdmin);
         rolesData = new RolesData();
         _createRoleActors();

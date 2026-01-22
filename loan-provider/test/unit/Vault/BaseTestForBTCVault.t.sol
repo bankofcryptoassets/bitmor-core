@@ -68,7 +68,7 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @notice Sets up test environment with vault, strategy, and test accounts
     /// @dev Creates fresh contracts and configures them with network-specific addresses.
     ///      Uses BitmorTestBase for AccessManager initialization and role management.
-    function setUp() public virtual {
+    function setUp() public virtual override {
         HelperConfig config = new HelperConfig();
         networkConfig = config.getNetworkConfig();
 

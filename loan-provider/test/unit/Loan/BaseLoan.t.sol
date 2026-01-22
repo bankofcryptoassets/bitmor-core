@@ -184,7 +184,7 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
     /// @notice Core test setup - deploys/attaches contracts, creates actors, sets up roles
     /// @dev Uses vm.startPrank instead of vm.startBroadcast for test environment.
     ///      Initializes AccessManager through BitmorTestBase for unified role management.
-    function setUp() public virtual {
+    function setUp() public virtual override {
         config = new HelperConfig();
 
         // Create test actors with labeled addresses

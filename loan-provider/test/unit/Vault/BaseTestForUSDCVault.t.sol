@@ -63,7 +63,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     /// @dev Creates fresh contracts and configures them with network-specific addresses.
     ///      Uses BitmorTestBase for AccessManager initialization and role management.
     ///      Note: Role IDs now use correct USDC vault IDs (21, 210, 22, 23) from RolesData.
-    function setUp() public virtual {
+    function setUp() public virtual override {
         HelperConfig config = new HelperConfig();
         networkConfig = config.getNetworkConfig();
 
