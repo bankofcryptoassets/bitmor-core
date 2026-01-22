@@ -270,6 +270,43 @@ export const getBvBTCAddress = async (
   return bvBTCAddress;
 };
 
+export const getBUSDCAddress = async (
+  config: PoolConfiguration,
+  network: eNetwork
+): Promise<tEthereumAddress> => {
+  let bUSDCAddress: string | undefined;
+
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+
+    const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
+
+    if (fs.existsSync(loanProviderPath)) {
+      const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
+      const deployments = JSON.parse(deploymentsContent);
+
+      const chainId = await getChainIdFromNetwork(network);
+      const debtAsset = deployments.deployments?.[chainId]?.networkConfig?.debtAsset;
+
+      if (debtAsset) bUSDCAddress = debtAsset;
+    } else {
+      console.warn(`loan-provider deployments.json not found at: ${loanProviderPath}`);
+    }
+  } catch (error) {
+    console.warn('Could not load bUSDC from loan-provider deployments:', error);
+  }
+
+  if (!bUSDCAddress || bUSDCAddress === '') {
+    throw new Error(
+      `bUSDC address not found for network ${network}. ` +
+        `Please ensure loan-provider is deployed first and deployments.json exists at ../loan-provider/deployments.json`
+    );
+  }
+
+  return bUSDCAddress;
+};
+
 const getChainIdFromNetwork = async (network: eNetwork): Promise<string> => {
   const chainIds: { [key: string]: string } = {
     'sepolia': '84532',

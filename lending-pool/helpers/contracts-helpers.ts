@@ -215,6 +215,7 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
     case eEthereumNetwork.buidlerevm:
       return buidlerevm;
     case eEthereumNetwork.hardhat:
+    case 'localhost' as eNetwork: // Hardhat v3 localhost network
       return hardhat || buidlerevm;
     case eEthereumNetwork.kovan:
       return kovan;

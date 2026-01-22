@@ -14,6 +14,7 @@ import {
   loadPoolConfig,
   getEmergencyAdmin,
   getBvBTCAddress,
+  getBUSDCAddress,
 } from '../../../helpers/configuration.js';
 
 import { tEthereumAddress, eContractid } from '../../../helpers/types.js';
@@ -77,6 +78,17 @@ export default async function devInitializeLendingPoolAction(
       console.log(`bvBTC address loaded from loan-provider: ${bvBTCAddress}`);
     } catch (error) {
       console.warn(`Could not load bvBTC address: ${error}`);
+    }
+  }
+
+  // Dynamically populate bUSDC address from loan-provider deployment if not in mock tokens
+  if (!protoPoolReservesAddresses['bUSDC']) {
+    try {
+      const bUSDCAddress = await getBUSDCAddress(poolConfig, network);
+      protoPoolReservesAddresses = { ...protoPoolReservesAddresses, bUSDC: bUSDCAddress };
+      console.log(`bUSDC address loaded from loan-provider: ${bUSDCAddress}`);
+    } catch (error) {
+      console.warn(`Could not load bUSDC address: ${error}`);
     }
   }
 
