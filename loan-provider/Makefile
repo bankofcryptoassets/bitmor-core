@@ -50,6 +50,50 @@ test-integration:
 # Run both (unit first, then integration)
 test-all: test-unit test-integration
 
+# ============ Profile-Based Test Commands ============
+
+# Unit tests with FOUNDRY_PROFILE=unit
+test-unit-profile:
+	FOUNDRY_PROFILE=unit forge test --match-path "test/unit/**/*.sol" -vvv
+
+# Fork tests with FOUNDRY_PROFILE=fork
+test-fork-profile:
+	FOUNDRY_PROFILE=fork forge test --match-path "test/fork/**/*.sol" -vvv
+
+# Integration tests with FOUNDRY_PROFILE=integration
+test-integration-profile:
+	FOUNDRY_PROFILE=integration forge test --match-path "test/integration/**/*.sol" -vvv
+
+# Fuzz tests with FOUNDRY_PROFILE=fuzz
+test-fuzz-profile:
+	FOUNDRY_PROFILE=fuzz forge test --match-path "test/fuzz/**/*.sol" -vvv
+
+# Invariant tests with FOUNDRY_PROFILE=invariant
+test-invariant-profile:
+	FOUNDRY_PROFILE=invariant forge test --match-path "test/invariant/**/*.sol" -vvv
+
+# All profile-based tests
+test-all-profiles: test-unit-profile test-fork-profile test-fuzz-profile test-invariant-profile
+
+# ============ Domain-Specific Tests ============
+
+test-loan:
+	FOUNDRY_PROFILE=unit forge test --match-path "test/unit/Loan/**/*.sol" -vvv
+
+test-vault:
+	FOUNDRY_PROFILE=unit forge test --match-path "test/unit/Vault/**/*.sol" -vvv
+
+test-liquidation:
+	FOUNDRY_PROFILE=unit forge test --match-path "test/unit/*Liquidation*.sol" -vvv
+
+# ============ Single Test Helpers ============
+
+test-single:
+	forge test --match-test $(TEST) -vvvv
+
+test-contract:
+	forge test --match-contract $(CONTRACT) -vvv
+
 snapshot :; forge snapshot
 
 format :; forge fmt

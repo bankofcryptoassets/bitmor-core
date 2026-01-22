@@ -72,3 +72,31 @@ test-unit:
 test-lending-pool:
 	@echo "Running lending-pool tests..."
 	cd lending-pool && npm run test-bitmor
+
+# ============ Comprehensive Testing ============
+
+test-unit-profile:
+	@echo "Running loan-provider unit tests with profile..."
+	cd loan-provider && FOUNDRY_PROFILE=unit forge test --match-path "test/unit/**/*.sol" -vvv
+
+test-fork:
+	@echo "Running loan-provider fork tests..."
+	cd loan-provider && FOUNDRY_PROFILE=fork forge test --match-path "test/fork/**/*.sol" -vvv
+
+test-integration:
+	@echo "Running loan-provider integration tests..."
+	cd loan-provider && FOUNDRY_PROFILE=integration forge test --match-path "test/integration/**/*.sol" -vvv
+
+test-fuzz:
+	@echo "Running loan-provider fuzz tests..."
+	cd loan-provider && FOUNDRY_PROFILE=fuzz forge test --match-path "test/fuzz/**/*.sol" -vvv
+
+test-invariant:
+	@echo "Running loan-provider invariant tests..."
+	cd loan-provider && FOUNDRY_PROFILE=invariant forge test --match-path "test/invariant/**/*.sol" -vvv
+
+test-lending-pool-bitmor:
+	@echo "Running lending-pool Bitmor tests..."
+	cd lending-pool && npm run test-bitmor
+
+test-all: test-unit test-fork test-fuzz test-invariant test-lending-pool test-lending-pool-bitmor
