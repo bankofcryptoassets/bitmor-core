@@ -122,14 +122,13 @@ contract HelperConfig is Script, RolesData {
         address mockCbBTC = _readDeployment("cbBTC");
         address localAccessManager = _readDeployment("accessManager");
 
-        // For local testing, use lending pool address as placeholder for Aave V3
-        // (flash loans won't work in local mode, but deployment will succeed)
+        // Get Bitmor Pool from lending-pool deployment
         address bitmorPool = getBitmorPool();
         config = NetworkConfig({
             accessManager: localAccessManager,
             bitmorPool: bitmorPool,
-            aaveV3Pool: bitmorPool, // Use Bitmor pool as placeholder for local
-            aaveAddressesProvider: bitmorPool, // Use Bitmor pool as placeholder for local
+            aaveV3Pool: _readDeployment("aaveV3Pool"),
+            aaveAddressesProvider: _readDeployment("aaveAddressesProvider"),
             oracle: getOracle(),
             collateralAsset: _readDeployment("collateralAsset"), // bvBTC
             debtAsset: mockUsdc,

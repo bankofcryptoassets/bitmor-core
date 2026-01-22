@@ -30,7 +30,25 @@ DEPLOYMENT_BLOCK := $(shell if [ -f "deployments.json" ]; then node -e "try { co
 
 FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(DEPLOYMENT_BLOCK) --etherscan-api-key etherscan_api_key
 
+# Local args (for unit tests - Anvil)
+LOCAL_NETWORK_ARGS := --rpc-url http://127.0.0.1:8545
+
+# Fork args for Base Mainnet (for integration tests)
+MAINNET_FORK_ARGS := --fork-url base_mainnet
+
 test :; forge test $(FORK_NETWORK_ARGS)
+
+# Unit tests (local Anvil + MockAaveV3Pool)
+# Requires: make anvil (in separate terminal)
+test-unit:
+	forge test $(LOCAL_NETWORK_ARGS)
+
+# Integration tests (Base Mainnet fork + real Aave V3)
+test-integration:
+	forge test $(MAINNET_FORK_ARGS)
+
+# Run both (unit first, then integration)
+test-all: test-unit test-integration
 
 snapshot :; forge snapshot
 
@@ -119,3 +137,14 @@ initializeLoan:
 
 initializeLoanOnFork:
 	forge script script/interaction/Interaction.s.sol:LoanInteraction $(FORK_NETWORK_ARGS) --account bitmor_user -vvvvv
+
+# ============ Unit Test Variants ============
+
+testLoanInitialization-unit:
+	forge test --mt test_initializeLoan $(LOCAL_NETWORK_ARGS) -vvvv
+
+testRepay-unit:
+	forge test --mt test_repay $(LOCAL_NETWORK_ARGS) -vvvv
+
+testCloseLoan-unit:
+	forge test --mt test_closeLoan $(LOCAL_NETWORK_ARGS) -vvvv

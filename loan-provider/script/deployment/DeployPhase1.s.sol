@@ -6,12 +6,13 @@ import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol
 import {MockUSDC, MockCbBTC} from "@bitmor/mocks/MintableERC20.sol";
 import {MockChainlinkOracle} from "../../test/mock/MockChainlinkOracle.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
+import {MockAaveV3Pool} from "../../test/mock/MockAaveV3Pool.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
 
 /// @title DeployPhase1
 /// @author Bitmor Protocol
 /// @notice Consolidated Phase 1 deployment for local development
-/// @dev Deploys: AccessManager, MockTokens, MockOracles, BTCVault
+/// @dev Deploys: AccessManager, MockTokens, MockOracles, BTCVault, MockAaveV3Pool
 /// @custom:security Only for local Anvil deployments (chainId 31337)
 contract DeployPhase1 is Script {
     /// @notice Deployed AccessManager address
@@ -26,6 +27,8 @@ contract DeployPhase1 is Script {
     address public usdcOracle;
     /// @notice Deployed BTCVault address
     address public btcVault;
+    /// @notice Deployed MockAaveV3Pool address
+    address public mockAaveV3Pool;
 
     /// @notice Main entry point for Phase 1 deployment
     /// @dev Deploys all Phase 1 contracts and saves addresses to deployments.json
@@ -68,16 +71,20 @@ contract DeployPhase1 is Script {
         btcVault = address(new BTCVault(mockCbBTC, accessManager));
         console2.log("BTCVault:", btcVault);
 
+        // 5. Mock Aave V3 Pool
+        mockAaveV3Pool = address(new MockAaveV3Pool());
+        console2.log("MockAaveV3Pool:", mockAaveV3Pool);
+
         vm.stopBroadcast();
 
-        // 5. Save to deployments.json
+        // 6. Save to deployments.json
         _saveDeployments();
 
         console2.log("=== Phase 1 Complete ===");
     }
 
     /// @notice Saves deployed addresses to deployments.json
-    /// @dev Creates JSON structure compatible with HelperConfig._readLocalDeployment()
+    /// @dev Creates JSON structure compatible with HelperConfig._readDeployment()
     function _saveDeployments() internal {
         string memory networkConfig = string.concat(
             "{",
@@ -101,6 +108,12 @@ contract DeployPhase1 is Script {
             '",',
             '"usdcOracle":"',
             vm.toString(usdcOracle),
+            '",',
+            '"aaveV3Pool":"',
+            vm.toString(mockAaveV3Pool),
+            '",',
+            '"aaveAddressesProvider":"',
+            vm.toString(mockAaveV3Pool),
             '"',
             "}"
         );
