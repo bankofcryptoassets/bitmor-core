@@ -67,8 +67,11 @@ contract SaveLocalDeployment is DeploymentHelper {
         address btcVault,
         address usdcVault,
         address btcOracle
-    ) internal view returns (string memory) {
-        // Build networkConfig object - lending-pool reads collateralAsset from here
+    ) internal returns (string memory) {
+        HelperConfig helperConfig = new HelperConfig();
+        address bitmorPool = helperConfig.getBitmorPool();
+
+        // Build networkConfig object with all required keys for unified JSON structure
         return string.concat(
             "{",
             '"accessManager":"',
@@ -76,7 +79,7 @@ contract SaveLocalDeployment is DeploymentHelper {
             '",',
             '"collateralAsset":"',
             vm.toString(btcVault),
-            '",', // bvBTC = BTCVault address
+            '",',
             '"debtAsset":"',
             vm.toString(usdc),
             '",',
@@ -85,12 +88,28 @@ contract SaveLocalDeployment is DeploymentHelper {
             '",',
             '"btc":"',
             vm.toString(cbBTC),
-            '",', // btc field for oracle
+            '",',
             '"usdcVault":"',
             vm.toString(usdcVault),
             '",',
             '"btcOracle":"',
             vm.toString(btcOracle),
+            '",',
+            // Add missing keys for unified JSON structure
+            '"aaveV3Pool":"',
+            vm.toString(bitmorPool),
+            '",', // Use Bitmor pool as placeholder for local
+            '"aaveAddressesProvider":"',
+            vm.toString(bitmorPool),
+            '",', // Use Bitmor pool as placeholder for local
+            '"zQuoter":"',
+            vm.toString(address(0)),
+            '",',
+            '"premiumCollector":"',
+            vm.toString(helperConfig.getPremiumCollector()),
+            '",',
+            '"usdcHolder":"',
+            vm.toString(helperConfig.getInitialAdmin()),
             '"',
             "}"
         );
