@@ -48,22 +48,13 @@ contract HelperConfig is Script, RolesData {
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
     uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
-    address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
-    address constant AAVE_V3_ADDRESSES_PROVIDER = 0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a;
-    // Base Mainnet External Protocol Constants
+    // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
-    address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
-    address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
     address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     bytes public constant DATA = "0xLOAN";
-    // USDC on Base Sepolia (Circle's USDC)
-    address public constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
-    // USDC holder on Base Sepolia (whale address with large USDC balance for fork testing)
-    address public constant USDC_HOLDER_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
-    address public constant BTC_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
     // Default vault fees in basis points
     uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
     uint256 public constant DEFAULT_EXIT_FEE = 10; // 0.1%
@@ -109,15 +100,15 @@ contract HelperConfig is Script, RolesData {
             oracle: getOracle(),
             collateralAsset: getCollateralAsset(),
             debtAsset: getDebtAsset(),
-            btc: BTC_BASE_SEPOLIA,
+            btc: getCbBTC(),
             getSwapAdapterWrapper: getSwapAdapterWrapper(),
             zQuoter: getZQuoter(),
             premiumCollector: getPremiumCollector(),
             preClosureFeeBps: getPreClosureFee(),
             gracePeriod: getGracePeriod(),
             liquidationBuffer: getLiquidationBuffer(),
-            usdc: USDC_BASE_SEPOLIA,
-            usdc_holder: USDC_HOLDER_BASE_SEPOLIA,
+            usdc: getUSDC(),
+            usdc_holder: getUSDCHolder(),
             entryFee: DEFAULT_ENTRY_FEE,
             exitFee: DEFAULT_EXIT_FEE
         });
@@ -200,8 +191,6 @@ contract HelperConfig is Script, RolesData {
     function getAaveV3Pool() public view returns (address aavePool) {
         if (block.chainid == CHAIN_ID_BASE_MAINNET) {
             aavePool = AAVE_V3_POOL_BASE_MAINNET;
-        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            aavePool = AAVE_V3_POOL_BASE_SEPOLIA;
         } else {
             // Local & testnet: read from deployments.json (mocks)
             aavePool = _readDeployment("aaveV3Pool");
@@ -211,8 +200,6 @@ contract HelperConfig is Script, RolesData {
     function getAaveAddressesProvider() public view returns (address addressesProvider) {
         if (block.chainid == CHAIN_ID_BASE_MAINNET) {
             addressesProvider = AAVE_ADDRESSES_PROVIDER_BASE_MAINNET;
-        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            addressesProvider = AAVE_V3_ADDRESSES_PROVIDER;
         } else {
             // Local & testnet: read from deployments.json (mocks)
             addressesProvider = _readDeployment("aaveAddressesProvider");
@@ -246,11 +233,7 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getSwapAdapter() public view returns (address swapAdapter) {
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            swapAdapter = SWAP_ADAPTER_BASE_SEPOLIA;
-        } else if (block.chainid == CHAIN_ID_LOCAL) {
-            swapAdapter = _readDeployment("swapAdapter");
-        }
+        swapAdapter = _readDeployment("swapAdapter");
     }
 
     function getSwapAdapterWrapper() public view returns (address) {
@@ -258,9 +241,7 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getZQuoter() public view returns (address zQuoter) {
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            zQuoter = ZQUOTER_BASE_SEPOLIA;
-        }
+        zQuoter = _readDeployment("zQuoter");
     }
 
     function getLoan() public view returns (address) {
@@ -292,23 +273,24 @@ contract HelperConfig is Script, RolesData {
     }
 
     /// @notice Returns the cbBTC/BTC token address
-    /// @dev For local chain, reads from deployments.json; for testnet/mainnet uses constant
+    /// @dev Reads from deployments.json for all chains
     /// @return The cbBTC token address
     function getCbBTC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
-            return _readDeployment("cbBTC");
-        }
-        return BTC_BASE_SEPOLIA;
+        return _readDeployment("cbBTC");
     }
 
     /// @notice Returns the USDC token address
-    /// @dev For local chain, reads from deployments.json; for testnet/mainnet uses constant
+    /// @dev Reads from deployments.json for all chains
     /// @return The USDC token address
     function getUSDC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
-            return _readDeployment("debtAsset");
-        }
-        return USDC_BASE_SEPOLIA;
+        return _readDeployment("debtAsset");
+    }
+
+    /// @notice Returns the USDC holder address (for testing)
+    /// @dev Reads from deployments.json for all chains
+    /// @return The USDC holder address
+    function getUSDCHolder() public view returns (address) {
+        return _readDeployment("usdcHolder");
     }
 
     /// @notice Returns the deployed mock cbBTC contract address (local only)
