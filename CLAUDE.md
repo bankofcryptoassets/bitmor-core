@@ -64,6 +64,38 @@ make coverage
 make gasReport
 ```
 
+### Local Development (Root)
+
+```bash
+# Start local Anvil node
+make anvil
+
+# Deploy full system to local Anvil (run in separate terminal)
+make deploy-local
+
+# Verify deployment
+cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
+```
+
+The local deployment runs an optimized multi-phase orchestration:
+
+```
+make deploy-local (FOUNDRY_PROFILE=local)
+├── Phase 1: DeployPhase1.s.sol
+│   └── AccessManager → MockTokens → MockOracles → BTCVault → save JSON
+├── Phase 2: lending-pool
+│   └── npm run bitmor:localhost:dev:migration
+├── Phase 3a: DeployPhase3.s.sol
+│   └── USDCVault → SwapAdapter → Loan → Strategies → roles → save JSON
+├── Phase 3b: SchedulePhase3.s.sol
+│   └── Schedule timelocked operations (1-day delay + 10min buffer)
+├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
+└── Phase 3c: ExecutePhase3.s.sol
+    └── Execute scheduled operations via AccessManager
+```
+
+**Note**: The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays for role-protected functions. The `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
+
 ## Architecture
 
 ### Loan Flow (loan-provider/)
@@ -113,6 +145,50 @@ Standard Aave V2 structure:
 - **Bitmor Lending Pool**: Stores collateral, issues aTokens/debt tokens
 - **Uniswap V4**: Token swaps
 - **Chainlink**: Price feeds via `IPriceOracleGetter`
+
+### Script Architecture (loan-provider/script/)
+
+**HelperConfig.s.sol** is the single source of truth for deployment configuration:
+- Network config and chain ID constants (`CHAIN_ID_LOCAL`, `CHAIN_ID_BASE_SEPOLIA`, `CHAIN_ID_BASE_MAINNET`)
+- `_readDeployment(key)` - Chain-aware JSON reading from `deployments.json` (replaced DevOpsTools)
+- **Type A getters** (read from JSON): `getAccessManager()`, `getLoan()`, `getBTCVault()`, `getUSDCVault()`, `getLoanVaultFactory()`, `getAaveTokenizedStrategy()`, `getUSDCStrategy()`, `getSwapAdapterWrapper()`
+- **Type B getters** (mainnet constants): `getAaveV3Pool()`, `getAaveAddressesProvider()` - return constants only for mainnet
+- **Type C getters** (lending pool): `getBitmorPool()`, `getOracle()` - read from `deployed-contracts.json`
+- Token getters: `getCbBTC()`, `getUSDC()` (chain-aware)
+- Path helpers: `getDeploymentsJsonPath()`, `getLendingPoolDeploymentsPath()`
+
+**DeploymentHelper.s.sol** provides utilities:
+- `readLendingPoolAddress()` - Delegates to HelperConfig
+- `warpTime()` / `warpTimeTo()` - Anvil time manipulation
+- `isLocalChain()` - Chain detection
+
+**Consolidated Deployment Scripts** (`deployment/`):
+- `DeployPhase1.s.sol` - Phase 1: AccessManager, MockTokens, MockOracles, BTCVault
+- `DeployPhase3.s.sol` - Phase 3a: USDCVault, SwapAdapter, Loan, Strategies, roles
+- `SchedulePhase3.s.sol` - Phase 3b: Schedule timelocked operations
+- `ExecutePhase3.s.sol` - Phase 3c: Execute scheduled operations
+- `DeploymentConstants.sol` - Shared constants (EXECUTION_DELAY, SCHEDULE_BUFFER)
+
+**AccessManager Setup**:
+- `interaction/AccessManager/LocalFullSetup.s.sol` - Full setup with schedule/execute pattern
+- `StrategyConfig.s.sol` - Strategy deployment configuration
+
+**Chain Behavior**:
+| Chain | Bitmor Contracts | External Protocols | Lending Pool |
+|-------|------------------|-------------------|--------------|
+| Local (31337) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
+| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
+| Mainnet (8453) | `deployments.json` | Constants | `deployed-contracts.json` |
+
+**JSON Key Mapping** (HelperConfig getter → deployments.json key):
+- `getAccessManager()` → `accessManager`
+- `getLoan()` → `loan`
+- `getBTCVault()` → `collateralAsset`
+- `getUSDCVault()` → `usdcVault`
+- `getLoanVaultFactory()` → `loanVaultFactory`
+- `getSwapAdapterWrapper()` → `swapAdapterWrapper`
+- `getCbBTC()` → `cbBTC`
+- `getUSDC()` → `debtAsset`
 
 ## Testing
 
@@ -194,3 +270,55 @@ FOUNDRY_PROFILE=security forge build
 2. **Loan system changes**: Work in `loan-provider/` with Foundry
 3. **Full deployment**: Deploy lending pool first, then loan system
 4. **Integration**: Loan system reads Bitmor addresses from `../lending-pool/deployed-contracts.json`
+5. **Local development**: Use `make anvil` + `make deploy-local` for full local testing
+
+## Role Configuration (AccessManager)
+
+### Operational Roles
+| Role     | ID  | Target        | Grantee                      |
+|----------|-----|---------------|------------------------------|
+| ADMIN    | 0   | -             | admin EOA                    |
+| EXECUTOR | 1   | Loan          | admin EOA                    |
+| LPCM     | 2   | Loan          | LendingPoolCollateralManager |
+| LPM_FAST | 3   | Loan          | admin EOA                    |
+| LPM_SLOW | 30  | Loan          | admin EOA (1-day delay)      |
+| BVC      | 12  | BTCVault      | admin EOA (1-day delay)      |
+| BVD      | 14  | BTCVault      | Loan contract                |
+| UVC      | 22  | USDCVault     | admin EOA (1-day delay)      |
+
+### Guardian Roles
+Guardian roles can cancel delayed operations for their protected roles:
+- `GUARDIAN_LPM_SLOW` (930) → protects LPM_SLOW
+- `GUARDIAN_BVC` (912) → protects BVC
+- `GUARDIAN_UVC` (922) → protects UVC
+
+**Role definitions**: `loan-provider/src/accessManager/RolesData.sol`
+
+## Key Files Reference
+
+| Category                  | File                                                                  |
+|---------------------------|-----------------------------------------------------------------------|
+| **Configuration**         |                                                                       |
+| Network config            | `loan-provider/script/HelperConfig.s.sol`                             |
+| Deployment helper         | `loan-provider/script/helpers/DeploymentHelper.s.sol`                 |
+| Strategy config           | `loan-provider/script/StrategyConfig.s.sol`                           |
+| Deployment constants      | `loan-provider/script/deployment/DeploymentConstants.sol`             |
+| **Deployment Scripts**    |                                                                       |
+| Phase 1 (consolidated)    | `loan-provider/script/deployment/DeployPhase1.s.sol`                  |
+| Phase 3a (deploy)         | `loan-provider/script/deployment/DeployPhase3.s.sol`                  |
+| Phase 3b (schedule)       | `loan-provider/script/deployment/SchedulePhase3.s.sol`                |
+| Phase 3c (execute)        | `loan-provider/script/deployment/ExecutePhase3.s.sol`                 |
+| Orchestrator              | `deploy/scripts/deploy-local.sh`                                      |
+| **AccessManager**         |                                                                       |
+| Role definitions          | `loan-provider/src/accessManager/RolesData.sol`                       |
+| AccessManager contract    | `loan-provider/src/accessManager/BitmorAccessManager.sol`             |
+| Local setup               | `loan-provider/script/interaction/AccessManager/LocalFullSetup.s.sol` |
+| **Addresses**             |                                                                       |
+| loan-provider addresses   | `loan-provider/deployments.json`                                      |
+| lending-pool addresses    | `lending-pool/deployed-contracts.json`                                |
+
+## Documentation
+
+- **Deployment guide**: `DEPLOYMENT_SETUP.md` - Comprehensive deployment instructions
+- **Session plans**: `docs/plans/SESSION_CONTINUATION.md` - Tracks implementation progress and completed work
+- **Implementation plans**: `docs/plans/` - Detailed architecture and design decisions

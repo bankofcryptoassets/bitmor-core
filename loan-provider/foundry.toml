@@ -36,8 +36,28 @@ targets = ['assert', 'underflow', 'overflow', 'divByZero']
 auto_detect_solc = true  # Let Foundry handle version selection
 solc_version = "0.8.30"  # Default version, overridden per file as needed
 
+# Fast local development profile - reduced optimizer runs for speed
+# Note: via_ir required due to stack depth in forge-std/Solady
+[profile.local]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+optimizer = true
+optimizer_runs = 1      # Minimal optimization for faster compilation
+via_ir = true           # Required for stack depth
+sizes = false           # Skip size reporting for speed
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" }
+]
+cbor_metadata = true
+ffi = true
+
 # Network configurations
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 base = "${BASE_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+base_mainnet = "${BASE_MAINNET_RPC_URL}"

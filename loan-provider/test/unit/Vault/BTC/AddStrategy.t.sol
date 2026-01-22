@@ -76,7 +76,9 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
         _addStrategy(firstStrategyCap);
 
         MockTokenizedStrategy strategy2 = new MockTokenizedStrategy(address(yieldSource), address(vault));
-        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy2), secondStrategyCap)));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy2), secondStrategyCap))
+        );
 
         _deposit(DEPOSIT_AMOUNT);
 

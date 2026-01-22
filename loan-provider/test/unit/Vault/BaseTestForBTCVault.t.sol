@@ -15,7 +15,6 @@ import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 /// @dev Tests vault operations, fee calculations, and strategy integration using mainnet fork.
 ///      Inherits from BitmorTestBase for AccessManager configuration and VaultUtilities for ERC-4626 testing helpers.
 contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
-
     /// @notice BTCVault contract instance under test
     BTCVaultHarness vault;
 

@@ -14,6 +14,7 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
+import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
 
 /// @title BaseLoanTest
 /// @author Bitmor Protocol
@@ -43,9 +44,15 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
     address internal s_bitmorPool;
     address internal s_addressesProvider;
 
+    /// @notice Mock Aave V3 pool for local testing
+    MockAaveV3Pool internal mockAavePool;
+
     // ============ Protocol Parameters ============
 
     uint256 internal s_gracePeriod;
+
+    /// @dev Local chain ID for Anvil
+    uint256 internal constant CHAIN_ID_LOCAL = 31337;
 
     // ============ Constants ============
 
@@ -213,17 +220,28 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
 
         // Store addresses
         debtAsset = debtAssetAddr;
-        aavePool = aaveV3Pool;
         btc = _btc;
         collateralAsset = collateralAssetAddr;
         s_bitmorPool = bitmorPool;
         s_gracePeriod = gracePeriod;
         s_addressesProvider = aaveAddressesProvider;
 
+        // Chain-specific Aave V3 Pool setup
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            // Local Anvil: deploy fresh MockAaveV3Pool for test isolation
+            mockAavePool = new MockAaveV3Pool();
+            aavePool = address(mockAavePool);
+            // Fund the mock pool with USDC for flash loans
+            _fundMockAavePool(debtAssetAddr);
+        } else {
+            // Fork mode (Base Mainnet or Sepolia): use real Aave V3
+            aavePool = aaveV3Pool;
+        }
+
         // Deploy Loan contract with our AccessManager
         loan = new Loan(
             address(manager), // Use inherited manager from BitmorTestBase
-            aaveV3Pool,
+            aavePool, // Use mock or real based on chain
             aaveAddressesProvider,
             bitmorPool,
             oracle,
@@ -250,6 +268,13 @@ abstract contract BaseLoanTest is BitmorTestBase, Utilities {
         _setLoanTargetSelectors(address(loan));
 
         vm.stopPrank();
+    }
+
+    /// @dev Fund MockAaveV3Pool with USDC for flash loan liquidity (local only)
+    function _fundMockAavePool(address usdc) internal {
+        // Use deal() to give mock pool 10M USDC liquidity
+        uint256 fundAmount = 10_000_000e6;
+        deal(usdc, address(mockAavePool), fundAmount);
     }
 
     // ============ Modifiers ============

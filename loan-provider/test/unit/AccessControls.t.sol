@@ -57,13 +57,25 @@ contract AccessControlsTest is BaseLoanTest {
     /// @notice LPM_SLOW role can call admin setters and updates are persisted
     function test_lpmSlow_adminSetters_updateState() public {
         // Use _scheduleAndExecute with lpm_slow role for each setter
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY)));
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER)));
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
+        );
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER)));
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR)));
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD)));
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE)));
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
+        );
 
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
         assertEq(loan.s_swapAdapter(), NEW_SWAP_ADAPTER);
@@ -77,25 +89,33 @@ contract AccessControlsTest is BaseLoanTest {
     /// @notice LPM_SLOW address setters revert on the zero address
     function test_lpmSlow_addressSetters_revertOnZeroAddress() public {
         _scheduleAndExpectRevert(
-            address(loan), lpm_slow, LPM_SLOW_ID,
+            address(loan),
+            lpm_slow,
+            LPM_SLOW_ID,
             abi.encodeCall(Loan.setLoanVaultFactory, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
 
         _scheduleAndExpectRevert(
-            address(loan), lpm_slow, LPM_SLOW_ID,
+            address(loan),
+            lpm_slow,
+            LPM_SLOW_ID,
             abi.encodeCall(Loan.setSwapAdapter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
 
         _scheduleAndExpectRevert(
-            address(loan), lpm_slow, LPM_SLOW_ID,
+            address(loan),
+            lpm_slow,
+            LPM_SLOW_ID,
             abi.encodeCall(Loan.setZQuoter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
 
         _scheduleAndExpectRevert(
-            address(loan), lpm_slow, LPM_SLOW_ID,
+            address(loan),
+            lpm_slow,
+            LPM_SLOW_ID,
             abi.encodeCall(Loan.setPremiumCollector, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
