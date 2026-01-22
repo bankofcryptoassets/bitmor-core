@@ -62,6 +62,10 @@ contract HelperConfig is Script, RolesData {
     uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
     uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
 
+    // Oracle price constants (8 decimals)
+    uint256 public constant BTC_USD_PRICE = 100_000e8;      // $100,000
+    uint256 public constant USDC_USD_PRICE = 1e8;           // $1
+
     /// @notice Returns human-readable network name for a given `chainId`
     /// @param chainId The chain ID to look up
     /// @return name The network name (e.g., "base-sepolia", "local")
