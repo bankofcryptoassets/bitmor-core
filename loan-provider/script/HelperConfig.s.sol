@@ -125,17 +125,20 @@ contract HelperConfig is Script, RolesData {
     /// @dev Reads from loan-provider/deployments.json and lending-pool/deployed-contracts.json
     function getLocalNetworkConfig() public view returns (NetworkConfig memory config) {
         // Read from deployments.json (Phase 1 addresses from loan-provider)
-        address mockUsdc = _readLocalDeployment("debtAsset");
-        address mockCbBTC = _readLocalDeployment("cbBTC");
-        address localAccessManager = _readLocalDeployment("accessManager");
+        address mockUsdc = _readDeployment("debtAsset");
+        address mockCbBTC = _readDeployment("cbBTC");
+        address localAccessManager = _readDeployment("accessManager");
 
+        // For local testing, use lending pool address as placeholder for Aave V3
+        // (flash loans won't work in local mode, but deployment will succeed)
+        address bitmorPool = getBitmorPool();
         config = NetworkConfig({
             accessManager: localAccessManager,
-            bitmorPool: getBitmorPool(),
-            aaveV3Pool: _readLocalDeployment("aaveV3Pool"),
-            aaveAddressesProvider: address(0), // Not used for local
+            bitmorPool: bitmorPool,
+            aaveV3Pool: bitmorPool, // Use Bitmor pool as placeholder for local
+            aaveAddressesProvider: bitmorPool, // Use Bitmor pool as placeholder for local
             oracle: getOracle(),
-            collateralAsset: _readLocalDeployment("collateralAsset"), // bvBTC
+            collateralAsset: _readDeployment("collateralAsset"), // bvBTC
             debtAsset: mockUsdc,
             btc: mockCbBTC,
             getSwapAdapterWrapper: getSwapAdapterWrapper(),
@@ -196,7 +199,7 @@ contract HelperConfig is Script, RolesData {
     function getAaveV3Pool() public view returns (address aavePool) {
         if (block.chainid == CHAIN_ID_LOCAL) {
             // For local: read from deployments.json or return address(0) if using mocks
-            aavePool = _readLocalDeployment("aaveV3Pool");
+            aavePool = _readDeployment("aaveV3Pool");
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             aavePool = AAVE_V3_POOL_BASE_SEPOLIA;
         }
@@ -239,6 +242,19 @@ contract HelperConfig is Script, RolesData {
     function getSwapAdapter() public view returns (address swapAdapter) {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             swapAdapter = SWAP_ADAPTER_BASE_SEPOLIA;
+        } else if (block.chainid == CHAIN_ID_LOCAL) {
+            // For local deployment, try to get the mock swap adapter
+            string memory broadcastPath = string.concat(
+                vm.projectRoot(),
+                "/broadcast/DeployMockSwapAdapter.s.sol/",
+                vm.toString(block.chainid),
+                "/run-latest.json"
+            );
+            try vm.readFile(broadcastPath) returns (string memory) {
+                swapAdapter = DevOpsTools.get_most_recent_deployment("MockUniswapV4SwapAdapter", block.chainid);
+            } catch {
+                swapAdapter = address(0); // Not deployed yet
+            }
         }
     }
 
@@ -299,7 +315,7 @@ contract HelperConfig is Script, RolesData {
     /// @return The cbBTC token address
     function getCbBTC() public view returns (address) {
         if (block.chainid == CHAIN_ID_LOCAL) {
-            return _readLocalDeployment("cbBTC");
+            return _readDeployment("cbBTC");
         }
         return BTC_BASE_SEPOLIA;
     }
@@ -309,7 +325,7 @@ contract HelperConfig is Script, RolesData {
     /// @return The USDC token address
     function getUSDC() public view returns (address) {
         if (block.chainid == CHAIN_ID_LOCAL) {
-            return _readLocalDeployment("debtAsset");
+            return _readDeployment("debtAsset");
         }
         return USDC_BASE_SEPOLIA;
     }
@@ -385,7 +401,8 @@ contract HelperConfig is Script, RolesData {
             // Your JSON uses "sepolia" for Base Sepolia deployments
             network = "sepolia";
         } else if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {
-            network = "hardhat";
+            // lending-pool deployment saves under "localhost" key
+            network = "localhost";
         } else {
             revert("HelperConfig: unsupported chainid for deployed-contracts.json");
         }
@@ -402,14 +419,15 @@ contract HelperConfig is Script, RolesData {
         require(addr != address(0), "HelperConfig: empty address in deployed-contracts.json");
     }
 
-    /// @notice Reads address from loan-provider/deployments.json for local chain
-    /// @param key The key to read from networkConfig (e.g., "collateralAsset", "debtAsset")
-    function _readLocalDeployment(string memory key) internal view returns (address addr) {
+    /// @notice Reads address from deployments.json for any supported chain
+    /// @param key The key to read (e.g., "accessManager", "loan")
+    /// @return addr The address, or address(0) if not found
+    function _readDeployment(string memory key) internal view returns (address addr) {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
 
         try vm.readFile(path) returns (string memory json) {
-            // Build jsonpath: .deployments.31337.networkConfig.<key>
-            string memory jsonKey = string.concat(".deployments.", vm.toString(CHAIN_ID_LOCAL), ".networkConfig.", key);
+            // Build jsonpath: .deployments.<chainId>.networkConfig.<key>
+            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

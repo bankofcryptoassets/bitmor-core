@@ -70,7 +70,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         loan = requireDeployed("Loan");
         btcVault = requireDeployed("BTCVault");
         usdcVault = requireDeployed("USDCVault");
-        autoRepayment = getDeployedAddressOrZero("AutoRepayment");
+        autoRepayment = getDeployedAddressOrZero("AutoRepayment", "DeployAutoRepayment.s.sol");
     }
 
     /// @notice Loads configuration instances
@@ -174,13 +174,13 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
 
         // BVC Operations (BTCVault strategy) - if strategy deployed
-        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy");
+        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy", "DeployStrategies.s.sol");
         if (aaveStrategy != address(0)) {
             manager.schedule(btcVault, abi.encodeWithSignature("addStrategy(address)", aaveStrategy), when);
         }
 
         // UVC Operations (USDCVault strategy) - if strategy deployed
-        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy");
+        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy", "DeployStrategies.s.sol");
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
             manager.schedule(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy), when);
@@ -209,13 +209,13 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
 
         // BVC Operations
-        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy");
+        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy", "DeployStrategies.s.sol");
         if (aaveStrategy != address(0)) {
             manager.execute(btcVault, abi.encodeWithSignature("addStrategy(address)", aaveStrategy));
         }
 
         // UVC Operations
-        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy");
+        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy", "DeployStrategies.s.sol");
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
             manager.execute(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy));

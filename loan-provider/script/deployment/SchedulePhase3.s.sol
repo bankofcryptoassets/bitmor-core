@@ -74,7 +74,8 @@ contract SchedulePhase3 is Script, DeploymentHelper {
     /// @notice Schedules all timelocked operations for execution after delay
     /// @dev Adds SCHEDULE_BUFFER to account for block.timestamp drift between simulation and broadcast
     function _scheduleOperations() internal {
-        uint48 when = uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
+        uint48 when =
+            uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
 
         // LPM_SLOW Operations (Loan config) - use HelperConfig getters
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
@@ -86,9 +87,7 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
         manager.schedule(
-            btcVault,
-            abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP),
-            when
+            btcVault, abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP), when
         );
 
         // UVC Operations (USDCVault strategy)

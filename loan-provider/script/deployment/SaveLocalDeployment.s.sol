@@ -16,12 +16,13 @@ contract SaveLocalDeployment is DeploymentHelper {
         require(block.chainid == LOCAL_CHAIN_ID, "SaveLocalDeployment: only for local (chainId 31337)");
 
         // Read addresses from broadcast files using inherited DeploymentHelper utilities
-        address accessManager = getDeployedAddressOrZero("BitmorAccessManager");
-        address cbBTC = getDeployedAddressOrZero("MockCbBTC");
-        address usdc = getDeployedAddressOrZero("MockUSDC");
-        address btcVault = getDeployedAddressOrZero("BTCVault");
-        address usdcVault = getDeployedAddressOrZero("USDCVault");
-        address btcOracle = getDeployedAddressOrZero("MockChainlinkOracle");
+        // Each call specifies which script deployed the contract
+        address accessManager = getDeployedAddressOrZero("BitmorAccessManager", "DeployAccessManager.s.sol");
+        address cbBTC = getDeployedAddressOrZero("MockCbBTC", "DeployMockTokens.s.sol");
+        address usdc = getDeployedAddressOrZero("MockUSDC", "DeployMockTokens.s.sol");
+        address btcVault = getDeployedAddressOrZero("BTCVault", "DeployBTCVault.s.sol");
+        address usdcVault = getDeployedAddressOrZero("USDCVault", "DeployUSDCVault.s.sol");
+        address btcOracle = getDeployedAddressOrZero("MockChainlinkOracle", "DeployMockOracles.s.sol");
 
         console2.log("=== Phase 1 Deployment Addresses ===");
         console2.log("AccessManager:", accessManager);
@@ -66,7 +67,7 @@ contract SaveLocalDeployment is DeploymentHelper {
         address btcVault,
         address usdcVault,
         address btcOracle
-    ) internal pure returns (string memory) {
+    ) internal view returns (string memory) {
         // Build networkConfig object - lending-pool reads collateralAsset from here
         return string.concat(
             "{",
@@ -95,7 +96,7 @@ contract SaveLocalDeployment is DeploymentHelper {
         );
     }
 
-    function _mergeWithExisting(string memory, string memory networkConfig) internal pure returns (string memory) {
+    function _mergeWithExisting(string memory, string memory networkConfig) internal view returns (string memory) {
         // Simple merge: just replace local chain entry
         // In production, use proper JSON parsing
         string memory chainIdStr = vm.toString(LOCAL_CHAIN_ID);
