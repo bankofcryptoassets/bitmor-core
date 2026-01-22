@@ -65,12 +65,12 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         _logSummary(enableTimeWarp);
     }
 
-    /// @notice Loads deployed contract addresses using DevOpsTools
+    /// @notice Loads deployed contract addresses using HelperConfig
     function _loadDeployedAddresses() internal {
-        loan = requireDeployed("Loan");
-        btcVault = requireDeployed("BTCVault");
-        usdcVault = requireDeployed("USDCVault");
-        autoRepayment = getDeployedAddressOrZero("AutoRepayment", "DeployAutoRepayment.s.sol");
+        loan = config.getLoan();
+        btcVault = config.getBTCVault();
+        usdcVault = config.getUSDCVault();
+        autoRepayment = address(0); // AutoRepayment not deployed in current flow
     }
 
     /// @notice Loads configuration instances
@@ -165,7 +165,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         uint48 when = uint48(block.timestamp + 1 days);
 
         // LPM_SLOW Operations (Loan config)
-        address loanVaultFactory = requireDeployed("LoanVaultFactory");
+        address loanVaultFactory = config.getLoanVaultFactory();
 
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())), when);
@@ -174,13 +174,13 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
 
         // BVC Operations (BTCVault strategy) - if strategy deployed
-        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy", "DeployStrategies.s.sol");
+        address aaveStrategy = config.getAaveTokenizedStrategy();
         if (aaveStrategy != address(0)) {
             manager.schedule(btcVault, abi.encodeWithSignature("addStrategy(address)", aaveStrategy), when);
         }
 
         // UVC Operations (USDCVault strategy) - if strategy deployed
-        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy", "DeployStrategies.s.sol");
+        address usdcStrategy = config.getUSDCStrategy();
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
             manager.schedule(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy), when);
@@ -200,7 +200,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
     /// @dev Must be called after time warp or waiting for delay
     function _executeOperations() internal {
         // LPM_SLOW Operations
-        address loanVaultFactory = requireDeployed("LoanVaultFactory");
+        address loanVaultFactory = config.getLoanVaultFactory();
 
         manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())));
@@ -209,13 +209,13 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
 
         // BVC Operations
-        address aaveStrategy = getDeployedAddressOrZero("AaveTokenizedStrategy", "DeployStrategies.s.sol");
+        address aaveStrategy = config.getAaveTokenizedStrategy();
         if (aaveStrategy != address(0)) {
             manager.execute(btcVault, abi.encodeWithSignature("addStrategy(address)", aaveStrategy));
         }
 
         // UVC Operations
-        address usdcStrategy = getDeployedAddressOrZero("USDCStrategy", "DeployStrategies.s.sol");
+        address usdcStrategy = config.getUSDCStrategy();
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
             manager.execute(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy));
