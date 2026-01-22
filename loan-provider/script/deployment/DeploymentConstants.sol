@@ -29,6 +29,20 @@ library DeploymentConstants {
     /// @notice USDC/USD oracle description
     string public constant USDC_USD_DESCRIPTION = "USDC/USD";
 
+    // ============ Time Delays ============
+    /// @notice Execution delay for scheduled operations (1 day)
+    uint256 public constant EXECUTION_DELAY = 1 days;
+
+    /// @notice Buffer added to schedule `when` to account for block.timestamp drift
+    /// @dev Foundry computes `when` during simulation but block.timestamp advances during broadcast
+    uint256 public constant SCHEDULE_BUFFER = 10 minutes;
+
+    /// @notice Buffer added to execution delay for safety (1 second)
+    uint256 public constant EXECUTION_BUFFER = 1;
+
+    /// @notice Total time to advance for execute phase (delay + buffer + schedule buffer)
+    uint256 public constant TIME_ADVANCE_SECONDS = EXECUTION_DELAY + SCHEDULE_BUFFER + EXECUTION_BUFFER;
+
     // ============ Chain IDs ============
     /// @notice Local Anvil chain ID
     uint256 public constant LOCAL_CHAIN_ID = 31337;

@@ -114,18 +114,16 @@ contract DeployPhase3 is InitialSetup {
         console2.log("AaveStrategy:", aaveStrategy);
         console2.log("USDCStrategy:", usdcStrategy);
 
-        // 8. AccessManager setup (roles, grants)
+        // 8. AccessManager setup (roles, grants, schedule)
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 9. Warp time and execute scheduled operations
-        _warpAndExecute();
-
-        // 10. Save final addresses
+        // 9. Save addresses (execution happens in separate script after time advance)
         _saveDeployments();
 
-        console2.log("=== Phase 3 Complete ===");
+        console2.log("=== Phase 3a Deploy Complete ===");
+        console2.log("Run SchedulePhase3.s.sol next to schedule operations.");
     }
 
     /// @notice Loads Phase 1 addresses from deployments.json
@@ -155,15 +153,18 @@ contract DeployPhase3 is InitialSetup {
 
     /// @notice Sets up AccessManager roles using simplified local setup
     /// @dev Skips _initialSetup() which has wrong target addresses; does direct setup instead
+    /// @dev Scheduling moved to SchedulePhase3.s.sol to avoid Foundry simulation issues
     function _setupAccessManagerRoles() internal {
         // Initialize manager reference
         manager = BitmorAccessManager(accessManager);
 
         // For local deployment, we do a simplified setup:
         // 1. Set target function roles with actual deployed addresses
-        // 2. Grant roles to deployer with 0 execution delay
+        // 2. Grant roles to deployer with execution delay
         // 3. Setup guardians
-        // (Skip scheduling - call functions directly since we have immediate execution)
+        // Note: Scheduling is done in separate script (SchedulePhase3.s.sol)
+        // because Foundry simulates entire script before broadcasting,
+        // so schedule() wouldn't see the role grants from this script.
 
         // Grant operational roles and set target function roles for actual deployed contracts
         _grantLocalOperationalRoles();
@@ -171,7 +172,7 @@ contract DeployPhase3 is InitialSetup {
         // Setup simplified guardians for local
         _setupLocalGuardians();
 
-        _scheduleLocalOperations();
+        // NOTE: _scheduleLocalOperations() removed - now in SchedulePhase3.s.sol
     }
 
     /// @notice Grants operational roles to msg.sender for local deployment
@@ -199,14 +200,14 @@ contract DeployPhase3 is InitialSetup {
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), uvcId);
         console2.log("Set UVC selectors on USDCVault");
 
-        // Grant roles with production execution delays (1 day)
-        // This enables schedule() to work - it requires non-zero delay
-        manager.grantRole(lpmSlowId, admin, 1 days);
-        console2.log("Granted LPM_SLOW to admin with 1-day delay");
-        manager.grantRole(bvcId, admin, 1 days);
-        console2.log("Granted BVC to admin with 1-day delay");
-        manager.grantRole(uvcId, admin, 1 days);
-        console2.log("Granted UVC to admin with 1-day delay");
+        // Grant roles with execution delays (enables schedule() - requires non-zero delay)
+        uint32 delay = uint32(DeploymentConstants.EXECUTION_DELAY);
+        manager.grantRole(lpmSlowId, admin, delay);
+        console2.log("Granted LPM_SLOW to admin with delay:", delay);
+        manager.grantRole(bvcId, admin, delay);
+        console2.log("Granted BVC to admin with delay:", delay);
+        manager.grantRole(uvcId, admin, delay);
+        console2.log("Granted UVC to admin with delay:", delay);
 
         console2.log("Set target function roles and granted to deployer:", admin);
     }
@@ -252,7 +253,7 @@ contract DeployPhase3 is InitialSetup {
 
     /// @notice Schedules all delayed operations for execution after timelock
     function _scheduleLocalOperations() internal {
-        uint48 when = uint48(block.timestamp + 1 days);
+        uint48 when = uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY);
 
         // LPM_SLOW Operations (Loan config)
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
@@ -271,32 +272,6 @@ contract DeployPhase3 is InitialSetup {
         manager.schedule(usdcVault, abi.encodeWithSignature("setStrategy(address)", usdcStrategy), when);
 
         console2.log("Operations scheduled for:", when);
-    }
-
-    /// @notice Warps time and executes all scheduled operations
-    function _warpAndExecute() internal {
-        console2.log("Warping time by 1 day + 1 second...");
-        vm.warp(block.timestamp + 1 days + 1);
-
-        vm.startBroadcast();
-
-        // Execute LPM_SLOW operations
-        manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
-        manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (GRACE_PERIOD)));
-        manager.execute(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (LIQUIDATION_BUFFER)));
-        manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (msg.sender)));
-        manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (PRE_CLOSURE_FEE)));
-
-        // Execute BVC operations
-        manager.execute(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5));
-        manager.execute(btcVault, abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP));
-
-        // Execute UVC operations
-        manager.execute(usdcVault, abi.encodeWithSignature("setStrategy(address)", usdcStrategy));
-
-        vm.stopBroadcast();
-
-        console2.log("All operations executed.");
     }
 
     /// @notice Saves all deployed addresses to deployments.json

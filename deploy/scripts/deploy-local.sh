@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Bitmor Protocol - Local Deployment Orchestrator
+# Bitmor Protocol - Local Deployment Orchestrator (Optimized)
 # Deploys complete protocol to Anvil (chainId 31337)
+# Uses consolidated scripts for faster deployment
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 RPC="http://127.0.0.1:8545"
@@ -22,36 +23,15 @@ log "Anvil running (chainId: $CHAIN_ID)"
 
 [ "$CHAIN_ID" = "31337" ] || error "Expected chainId 31337, got $CHAIN_ID"
 
-# ============ Phase 1: loan-provider (vaults) ============
+# ============ Phase 1: loan-provider (consolidated) ============
 log ""
 log "=========================================="
-log "Phase 1: loan-provider (AccessManager, Vaults)"
+log "Phase 1: loan-provider (AccessManager, Tokens, Oracles, BTCVault)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-log "Deploying AccessManager..."
-forge script script/deployment/DeployAccessManager.s.sol:DeployAccessManager \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
-
-log "Deploying Mock Tokens (USDC, cbBTC)..."
-forge script script/deployment/DeployMockTokens.s.sol:DeployMockTokens \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
-
-log "Deploying Mock Oracles..."
-forge script script/deployment/DeployMockOracles.s.sol:DeployMockOracles \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
-
-log "Deploying BTCVault (produces bvBTC)..."
-forge script script/deployment/DeployBTCVault.s.sol:DeployBTCVault \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
-
-log "Deploying USDCVault..."
-forge script script/deployment/DeployUSDCVault.s.sol:DeployUSDCVault \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
-
-log "Saving Phase 1 addresses to deployments.json..."
-forge script script/deployment/SaveLocalDeployment.s.sol:SaveLocalDeployment \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+FOUNDRY_PROFILE=local forge script script/deployment/DeployPhase1.s.sol:DeployPhase1 \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
 
 log "Phase 1 complete."
 
@@ -62,46 +42,52 @@ log "Phase 2: lending-pool (LendingPool with bvBTC reserve)"
 log "=========================================="
 cd "$ROOT/lending-pool"
 
-log "Deploying Bitmor Lending Pool..."
 npm run bitmor:localhost:dev:migration
 
 log "Phase 2 complete."
 
-# ============ Phase 3: loan-provider (Loan contracts) ============
+# ============ Phase 3a: loan-provider (deploy + roles) ============
 log ""
 log "=========================================="
-log "Phase 3: loan-provider (Loan contracts + AccessManager setup)"
+log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-log "Deploying SwapAdapterWrapper..."
-forge script script/deployment/DeploySwapAdapterWrapper.s.sol:DeploySwapAdapterWrapper \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+FOUNDRY_PROFILE=local forge script script/deployment/DeployPhase3.s.sol:DeployPhase3 \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow -v
 
-log "Deploying LoanVault..."
-forge script script/deployment/DeployLoanVault.s.sol:DeployLoanVault \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+log "Phase 3a complete. Contracts deployed, roles granted."
 
-log "Deploying Loan..."
-forge script script/deployment/DeployLoan.s.sol:DeployLoan \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+# ============ Phase 3b: Schedule operations ============
+log ""
+log "=========================================="
+log "Phase 3b: Schedule timelocked operations"
+log "=========================================="
 
-log "Deploying LoanVaultFactory..."
-forge script script/deployment/DeployLoanVaultFactory.s.sol:DeployLoanVaultFactory \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+FOUNDRY_PROFILE=local forge script script/deployment/SchedulePhase3.s.sol:SchedulePhase3 \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
 
-log "Deploying Strategies..."
-forge script script/deployment/DeployStrategies.s.sol:DeployStrategies \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+log "Phase 3b complete. Operations scheduled."
 
-log "Running LocalFullSetup (roles, grants, schedule, warp, execute)..."
-forge script script/interaction/AccessManager/LocalFullSetup.s.sol:LocalFullSetup \
-    --sig "run(bool)" true \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+# ============ Phase 3c: Advance time and execute ============
+log ""
+log "=========================================="
+log "Phase 3c: Advance Anvil time and execute scheduled operations"
+log "=========================================="
 
-log "Saving final addresses..."
-forge script script/deployment/SaveDeployedAddresses.s.sol:SaveDeployedAddresses \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -vvv
+# Advance Anvil's time by 1 day + 10 minutes + 1 second (87001 seconds)
+# Matches DeploymentConstants.TIME_ADVANCE_SECONDS
+TIME_ADVANCE=87001
+log "Advancing Anvil time by $TIME_ADVANCE seconds (1 day + 10 min + 1 second)..."
+cast rpc evm_increaseTime $TIME_ADVANCE --rpc-url "$RPC" > /dev/null
+cast rpc evm_mine --rpc-url "$RPC" > /dev/null
+log "Time advanced and block mined."
+
+# Execute scheduled operations
+FOUNDRY_PROFILE=local forge script script/deployment/ExecutePhase3.s.sol:ExecutePhase3 \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
+
+log "Phase 3c complete. All operations executed."
 
 # ============ Summary ============
 log ""
