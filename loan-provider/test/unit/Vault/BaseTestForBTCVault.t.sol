@@ -111,41 +111,43 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
         bvmSlowSelectors[2] = BTCVault.setExitFee.selector;
         bvmSlowSelectors[3] = BTCVault.setMaxStrategies.selector;
         bvmSlowSelectors[4] = BTCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, bvmSlowSelectors, BVM_SLOW_ID);
+        manager.setTargetFunctionRole(target, bvmSlowSelectors, BVM_SLOW_ID());
 
         // BVM_FAST selectors
         bytes4[] memory bvmFastSelectors = new bytes4[](1);
         bvmFastSelectors[0] = BTCVault.pause.selector;
-        manager.setTargetFunctionRole(target, bvmFastSelectors, BVM_FAST_ID);
+        manager.setTargetFunctionRole(target, bvmFastSelectors, BVM_FAST_ID());
 
         // BVC selectors
         bytes4[] memory bvcSelectors = new bytes4[](2);
         bvcSelectors[0] = BTCVault.addStrategy.selector;
         bvcSelectors[1] = BTCVault.changeStrategyCap.selector;
-        manager.setTargetFunctionRole(target, bvcSelectors, BVC_ID);
+        manager.setTargetFunctionRole(target, bvcSelectors, BVC_ID());
 
         // BVA_SLOW selectors
         bytes4[] memory bvaSlowSelectors = new bytes4[](2);
         bvaSlowSelectors[0] = BTCVault.updateSupplyQueue.selector;
         bvaSlowSelectors[1] = BTCVault.updateWithdrawQueue.selector;
-        manager.setTargetFunctionRole(target, bvaSlowSelectors, BVA_SLOW_ID);
+        manager.setTargetFunctionRole(target, bvaSlowSelectors, BVA_SLOW_ID());
 
         // BVA_FAST selectors
         bytes4[] memory bvaFastSelectors = new bytes4[](1);
         bvaFastSelectors[0] = BTCVault.reallocateFunds.selector;
-        manager.setTargetFunctionRole(target, bvaFastSelectors, BVA_FAST_ID);
+        manager.setTargetFunctionRole(target, bvaFastSelectors, BVA_FAST_ID());
 
         // BVD selectors
         bytes4[] memory bvdSelectors = new bytes4[](1);
         bvdSelectors[0] = BTCVault.deposit.selector;
-        manager.setTargetFunctionRole(target, bvdSelectors, BVD_ID);
+        manager.setTargetFunctionRole(target, bvdSelectors, BVD_ID());
     }
 
     /// @notice Configure vault with fees using delayed operations
     function _setFeeConfig() internal {
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setEntryFee, (networkConfig.entryFee)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setExitFee, (networkConfig.exitFee)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
+        _scheduleAndExecuteLocal(
+            bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (networkConfig.entryFee))
+        );
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setExitFee, (networkConfig.exitFee)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
     }
 
     /// @notice Transfer USDC to test accounts using deal() cheatcode
@@ -157,7 +159,7 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
 
     /// @notice Set maximum strategies for the vault
     function _setMaxStrategies() internal {
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setMaxStrategies, (MAX_STRATEGIES)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setMaxStrategies, (MAX_STRATEGIES)));
     }
 
     /// @notice Schedule and execute a delayed operation (local helper targeting vault)
@@ -202,33 +204,33 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     // These provide the old interface expected by existing test files like AccessControl.t.sol
 
     /// @notice Get BVM_SLOW role ID for backward compatibility
-    function bvm_slow_id() internal pure returns (uint64) {
-        return BVM_SLOW_ID;
+    function bvm_slow_id() internal view returns (uint64) {
+        return BVM_SLOW_ID();
     }
 
     /// @notice Get BVM_FAST role ID for backward compatibility
-    function bvm_fast_id() internal pure returns (uint64) {
-        return BVM_FAST_ID;
+    function bvm_fast_id() internal view returns (uint64) {
+        return BVM_FAST_ID();
     }
 
     /// @notice Get BVC role ID for backward compatibility
-    function bvc_id() internal pure returns (uint64) {
-        return BVC_ID;
+    function bvc_id() internal view returns (uint64) {
+        return BVC_ID();
     }
 
     /// @notice Get BVA_SLOW role ID for backward compatibility
-    function bva_slow_id() internal pure returns (uint64) {
-        return BVA_SLOW_ID;
+    function bva_slow_id() internal view returns (uint64) {
+        return BVA_SLOW_ID();
     }
 
     /// @notice Get BVA_FAST role ID for backward compatibility
-    function bva_fast_id() internal pure returns (uint64) {
-        return BVA_FAST_ID;
+    function bva_fast_id() internal view returns (uint64) {
+        return BVA_FAST_ID();
     }
 
     /// @notice Get BVD role ID for backward compatibility
-    function bvd_id() internal pure returns (uint64) {
-        return BVD_ID;
+    function bvd_id() internal view returns (uint64) {
+        return BVD_ID();
     }
 
     // ============ Backward Compatible Schedule Helpers ============

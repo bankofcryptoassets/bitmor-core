@@ -93,7 +93,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.setStrategy(address(newStrategy));
 
         // Manager CAN set strategy (via schedule/execute)
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -131,7 +131,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.unpause();
 
         // Manager slow CAN unpause (via schedule/execute)
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.unpause, ()));
 
         assertFalse(vault.paused(), "Vault should be unpaused");
     }
@@ -162,7 +162,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.withdraw(1000e6, lender, lender);
 
         // Unpause
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.unpause, ()));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.unpause, ()));
 
         // Withdraw should work after unpause
         uint256 withdrawn = _withdraw(lender, 1000e6);
@@ -206,7 +206,9 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vault.updateMinimumDeltaRequired(newMinDelta);
 
         // Manager CAN update min delta
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta)));
+        _scheduleAndExecute(
+            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta))
+        );
 
         // Note: No getter for minimum delta, but the call should succeed without revert
     }

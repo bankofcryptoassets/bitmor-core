@@ -105,24 +105,24 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         uvmSlowSelectors[0] = USDCVault.setStrategy.selector;
         uvmSlowSelectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
         uvmSlowSelectors[2] = USDCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID);
+        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID());
 
         // UVM_FAST functions (no delay)
         bytes4[] memory uvmFastSelectors = new bytes4[](1);
         uvmFastSelectors[0] = USDCVault.pause.selector;
-        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID);
+        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID());
 
         // UVA functions - use function signature for overloaded function
         bytes4[] memory uvaSelectors = new bytes4[](1);
         uvaSelectors[0] = bytes4(keccak256("reallocateAssets()"));
-        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID);
+        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID());
 
         // reallocateAssets(uint256) is restricted to BLP via msg.sender check, not AccessManager
     }
 
     /// @notice Sets the strategy on the vault using UVM_SLOW role
     function _setStrategy() internal {
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
+        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
     }
 
     /// @notice Transfers USDC to test accounts using Foundry's deal() cheatcode

@@ -58,23 +58,23 @@ contract AccessControlsTest is BaseLoanTest {
     function test_lpmSlow_adminSetters_updateState() public {
         // Use _scheduleAndExecute with lpm_slow role for each setter
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
         );
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
-        );
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
         );
 
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
@@ -91,7 +91,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setLoanVaultFactory, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -99,7 +99,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setSwapAdapter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -107,7 +107,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setZQuoter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -115,7 +115,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setPremiumCollector, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );

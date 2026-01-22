@@ -216,7 +216,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
         USDCStrategy newStrategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
 
         // Set new strategy via manager
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -225,7 +225,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     /// @notice Test that setting strategy to address(0) reverts
     function test_setStrategy_zeroAddress_reverts() public {
         bytes memory data = abi.encodeCall(USDCVault.setStrategy, (address(0)));
-        _scheduleAndExpectRevert(uvm_slow, UVM_SLOW_ID, data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
+        _scheduleAndExpectRevert(uvm_slow, UVM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector));
     }
 
     // ============================================

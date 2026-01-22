@@ -203,8 +203,8 @@ contract InitializeLoanTest is BaseLoanTest {
         loan2.setLoanVaultFactory(loanVaultFactory);
 
         // Now set up roles and target selectors
-        manager2.grantRole(EXECUTOR_ID, user, NO_DELAY);
-        manager2.setTargetFunctionRole(address(loan2), rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID);
+        manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);
+        manager2.setTargetFunctionRole(address(loan2), rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID());
 
         vm.stopPrank();
 
