@@ -44,6 +44,11 @@ contract DeployPhase3 is InitialSetup {
     address public bitmorPool;
     address public aaveOracle;
 
+    // ===== Aave V3 Mock (from deployments.json Phase 1) =====
+
+    address public aaveV3Pool;
+    address public aaveAddressesProvider;
+
     // ===== Phase 3 Deployed Addresses =====
 
     address public usdcVault;
@@ -87,8 +92,8 @@ contract DeployPhase3 is InitialSetup {
         loan = address(
             new Loan(
                 accessManager,
-                bitmorPool, // aaveV3Pool placeholder (flash loans won't work locally)
-                bitmorPool, // aaveAddressesProvider placeholder
+                aaveV3Pool, // MockAaveV3Pool from Phase 1
+                aaveAddressesProvider, // MockAaveV3Pool (same address for local)
                 bitmorPool, // bitmorPool
                 aaveOracle,
                 btcVault, // collateralAsset (bvBTC)
@@ -136,8 +141,11 @@ contract DeployPhase3 is InitialSetup {
         mockCbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
         btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
         btcOracle = vm.parseJsonAddress(json, string.concat(base, "btcOracle"));
+        aaveV3Pool = vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool"));
+        aaveAddressesProvider = vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider"));
 
         console2.log("Loaded Phase 1: AccessManager:", accessManager);
+        console2.log("Loaded Phase 1: AaveV3Pool (mock):", aaveV3Pool);
     }
 
     /// @notice Loads lending pool addresses from deployed-contracts.json
@@ -296,6 +304,12 @@ contract DeployPhase3 is InitialSetup {
             '",',
             '"btcOracle":"',
             vm.toString(btcOracle),
+            '",',
+            '"aaveV3Pool":"',
+            vm.toString(aaveV3Pool),
+            '",',
+            '"aaveAddressesProvider":"',
+            vm.toString(aaveAddressesProvider),
             '",',
             '"usdcVault":"',
             vm.toString(usdcVault),
