@@ -28,66 +28,61 @@ contract InitialSetup is Script {
      */
 
     /// @notice Grants a role to an address with specified execution delay
-    /// @dev Uses vm.broadcast() to send transaction during script execution
+    /// @dev Caller must be within a broadcast context (startBroadcast/stopBroadcast)
     /// @param roleId The role identifier to grant
     /// @param grantee The address receiving the role
     /// @param executionDelay Time delay for operations using this role (0 = immediate)
     function _grantRole(uint64 roleId, address grantee, uint32 executionDelay) internal {
-        vm.broadcast();
         manager.grantRole(roleId, grantee, executionDelay);
     }
 
     /// @notice Sets which functions a role can call on a target contract
-    /// @dev Maps function selectors to role requirements for access control
+    /// @dev Caller must be within a broadcast context
     /// @param target The contract address these selectors apply to
     /// @param selectors Array of function selectors (bytes4)
     /// @param roleId The role required to call these functions
     function _setTargetSelectors(address target, bytes4[] memory selectors, uint64 roleId) internal {
-        vm.broadcast();
         manager.setTargetFunctionRole(target, selectors, roleId);
     }
 
     /// @notice Sets the grant delay for a role
-    /// @dev Grant delay is the time between granting a role and it becoming active
+    /// @dev Caller must be within a broadcast context
     /// @param roleId The role to configure
     /// @param grantDelay Time delay before granted role becomes effective
     function _setGrantDelay(uint64 roleId, uint32 grantDelay) internal {
-        vm.broadcast();
         manager.setGrantDelay(roleId, grantDelay);
     }
 
     /// @notice Sets up a guardian for a role with cancellation privileges
-    /// @dev Guardians can cancel scheduled operations for roles they guard
+    /// @dev Caller must be within a broadcast context
     /// @param roleId The role to assign a guardian to
     /// @param guardian Guardian configuration including address and guardian role ID
     /// @custom:security Guardian should be different address/entity than role holder
     function _setGuardian(uint64 roleId, RolesData.RoleGuardian memory guardian) internal {
-        if (guardian.isContract) {
+        // Skip contract validation on local chain (chainId 31337)
+        if (guardian.isContract && block.chainid != 31337) {
             _validateContract(guardian.grantee);
         }
 
         // Grant the guardian role with immediate execution (0 delay)
         _grantRole(guardian.id, guardian.grantee, 0);
-        vm.broadcast();
         // Assign this guardian to protect the specified role
         manager.setRoleGuardian(roleId, guardian.id);
     }
 
     /// @notice Sets the admin role for another role
-    /// @dev The admin role can grant and revoke the specified role
+    /// @dev Caller must be within a broadcast context
     /// @param roleId The role to assign an admin to
     /// @param adminId The role ID that will become the admin (typically 0 for ADMIN)
     function _setAdmin(uint64 roleId, uint64 adminId) internal {
-        vm.broadcast();
         manager.setRoleAdmin(roleId, adminId);
     }
 
     /// @notice Sets a human-readable label for a role
-    /// @dev Labels help with role identification and documentation
+    /// @dev Caller must be within a broadcast context
     /// @param roleId The role to label
     /// @param label Human-readable name for the role
     function _setRoleLabel(uint64 roleId, string memory label) internal {
-        vm.broadcast();
         manager.labelRole(roleId, label);
     }
 
@@ -107,6 +102,9 @@ contract InitialSetup is Script {
         uint256 i = 0;
         for (i; i < rolesLength; i++) {
             HelperConfig.RoleData memory role = roles[i];
+
+            // Skip ADMIN role (ID 0) - it's locked and cannot be modified
+            if (role.id == 0) continue;
 
             // Set human-readable label for the role
             _setRoleLabel(role.id, role.label);
@@ -131,8 +129,8 @@ contract InitialSetup is Script {
                 _setTargetSelectors(role.target, role.selectors, role.id);
             }
 
-            // Validate grantee is a contract if required
-            if (role.isContract) {
+            // Validate grantee is a contract if required (skip on local chain)
+            if (role.isContract && block.chainid != 31337) {
                 _validateContract(role.grantee);
             }
 
@@ -144,8 +142,10 @@ contract InitialSetup is Script {
     /// @notice Main entry point for the initial setup script
     /// @dev Called by `forge script` to execute the complete role setup
     /// @custom:deployment Use with --broadcast flag to actually execute setup transactions
-    function run() public {
+    function run() public virtual {
+        vm.startBroadcast();
         _initialSetup();
+        vm.stopBroadcast();
     }
 
     /// @notice Validates that an address is a contract (has code)

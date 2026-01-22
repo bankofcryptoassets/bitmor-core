@@ -4,12 +4,15 @@ pragma solidity 0.8.30;
 import {Script} from "forge-std/Script.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
+import {stdJson} from "forge-std/StdJson.sol";
 
 /// @title DeploymentHelper
 /// @author Bitmor Protocol
 /// @notice Common utilities for deployment scripts
 /// @dev Provides wrappers for DevOpsTools, lending-pool JSON reading, and time manipulation
 contract DeploymentHelper is Script {
+    using stdJson for string;
+
     // ===== DevOpsTools Wrappers =====
 
     /// @notice Gets the most recently deployed address for a contract
@@ -20,22 +23,43 @@ contract DeploymentHelper is Script {
     }
 
     /// @notice Gets the most recently deployed address or zero if not found
+    /// @dev Reads directly from run-latest.json to avoid DevOpsTools memory issues
     /// @param contractName The name of the contract
+    /// @param scriptName The script that deployed it (e.g., "DeployAccessManager.s.sol")
     /// @return The deployed address or address(0) if not deployed
-    function getDeployedAddressOrZero(string memory contractName) internal view returns (address) {
-        try this._getDeployedAddressExternal(contractName) returns (address addr) {
-            return addr;
+    function getDeployedAddressOrZero(string memory contractName, string memory scriptName)
+        internal
+        view
+        returns (address)
+    {
+        string memory broadcastPath = string.concat(
+            vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+        );
+
+        try vm.readFile(broadcastPath) returns (string memory json) {
+            // Read directly from the JSON instead of using DevOpsTools
+            return _findContractInBroadcast(json, contractName);
         } catch {
             return address(0);
         }
     }
 
-    /// @notice External wrapper for DevOpsTools call (needed for try/catch)
-    /// @dev This function is external to enable try/catch pattern
-    /// @param contractName The name of the contract
-    /// @return The deployed address
-    function _getDeployedAddressExternal(string memory contractName) external view returns (address) {
-        return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
+    /// @notice Finds contract address in a broadcast JSON file
+    /// @param json The JSON content of the broadcast file
+    /// @param contractName The contract name to find
+    /// @return The contract address or address(0) if not found
+    function _findContractInBroadcast(string memory json, string memory contractName) private view returns (address) {
+        // Iterate through transactions array to find the contract
+        for (uint256 i = 0; vm.keyExistsJson(json, string.concat("$.transactions[", vm.toString(i), "]")); i++) {
+            string memory namePath = string.concat("$.transactions[", vm.toString(i), "].contractName");
+            if (vm.keyExistsJson(json, namePath)) {
+                string memory deployedName = json.readString(namePath);
+                if (keccak256(bytes(deployedName)) == keccak256(bytes(contractName))) {
+                    return json.readAddress(string.concat("$.transactions[", vm.toString(i), "].contractAddress"));
+                }
+            }
+        }
+        return address(0);
     }
 
     /// @notice Gets deployed address and reverts if not found

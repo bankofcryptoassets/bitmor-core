@@ -3,6 +3,9 @@ pragma solidity 0.8.30;
 
 import {ILoan} from "../interfaces/ILoan.sol";
 import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
+import {BTCVault} from "../vaults/btc-vault/BTCVault.sol";
+import {USDCVault} from "../vaults/usdc-vault/USDCVault.sol";
+import {ISimpleStrategy} from "../interfaces/ISimpleStrategy.sol";
 
 /// @title RolesData
 /// @author Bitmor Protocol
@@ -387,10 +390,11 @@ contract RolesData {
     }
 
     /// @notice Returns function selectors for LPM_FAST role
-    /// @dev Selectors for pause function
+    /// @dev Selectors for pause function (uses Pausable interface via Loan contract)
     /// @return selectors Array of function selectors
     function getLPM_FAST_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](1);
+        // pause() selector is 0x8456cb59
         selectors[0] = bytes4(keccak256("pause()"));
     }
 
@@ -403,7 +407,7 @@ contract RolesData {
         selectors[1] = ILoan.setLiquidationBuffer.selector;
         selectors[2] = ILoan.setPremiumCollector.selector;
         selectors[3] = ILoan.setGracePeriod.selector;
-        selectors[4] = ILoan.setGracePeriod.selector;
+        selectors[4] = ILoan.setPreClosureFee.selector;
         selectors[5] = bytes4(keccak256("unpause()"));
     }
 
@@ -416,65 +420,65 @@ contract RolesData {
     }
 
     /// @notice Returns function selectors for BVM_FAST role
-    /// @dev Selectors for pause and emergencyWithdraw functions
+    /// @dev Selectors for pause and emergencyWithdrawFunds functions on BTCVault
     /// @return selectors Array of function selectors
     function getBVM_FAST_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](2);
         selectors[0] = bytes4(keccak256("pause()"));
-        selectors[1] = bytes4(keccak256("emergencyWithdraw()"));
+        selectors[1] = BTCVault.emergencyWithdrawFunds.selector;
     }
 
     /// @notice Returns function selectors for BVM_SLOW role
-    /// @dev Selectors for setFeeRecipient and unpause functions
+    /// @dev Selectors for setFeeRecipient and unpause functions on BTCVault
     /// @return selectors Array of function selectors
     function getBVM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](2);
-        selectors[0] = bytes4(keccak256("setFeeRecipient(address)"));
+        selectors[0] = BTCVault.setFeeRecipient.selector;
         selectors[1] = bytes4(keccak256("unpause()"));
     }
 
     /// @notice Returns function selectors for BVC role
-    /// @dev Selectors for strategy management functions
+    /// @dev Selectors for strategy management functions on BTCVault
     /// @return selectors Array of function selectors
     function getBVC_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](3);
-        selectors[0] = bytes4(keccak256("addStrategy(address)"));
-        selectors[1] = bytes4(keccak256("removeStrategy(address)"));
-        selectors[2] = bytes4(keccak256("changeStrategyCap(address,uint256)"));
+        selectors[0] = BTCVault.addStrategy.selector;
+        selectors[1] = BTCVault.changeStrategyCap.selector;
+        selectors[2] = BTCVault.setMaxStrategies.selector;
     }
 
     /// @notice Returns function selectors for BVA_FAST role
-    /// @dev Selectors for reallocateAssets function
+    /// @dev Selectors for reallocateFunds function on BTCVault
     /// @return selectors Array of function selectors
     function getBVA_FAST_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](1);
-        selectors[0] = bytes4(keccak256("reallocateAssets(bytes)"));
+        selectors[0] = BTCVault.reallocateFunds.selector;
     }
 
     /// @notice Returns function selectors for BVA_SLOW role
-    /// @dev Selectors for queue management functions
+    /// @dev Selectors for queue management functions on BTCVault
     /// @return selectors Array of function selectors
     function getBVA_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](2);
-        selectors[0] = bytes4(keccak256("setSupplyQueue(uint256[])"));
-        selectors[1] = bytes4(keccak256("setWithdrawQueue(uint256[])"));
+        selectors[0] = BTCVault.updateSupplyQueue.selector;
+        selectors[1] = BTCVault.updateWithdrawQueue.selector;
     }
 
     /// @notice Returns function selectors for BVD role
-    /// @dev Selectors for deposit function
+    /// @dev Selectors for deposit function on BTCVault (ERC4626 standard)
     /// @return selectors Array of function selectors
     function getBVD_SELECTORS() public pure returns (bytes4[] memory selectors) {
         selectors = new bytes4[](1);
-        selectors[0] = bytes4(keccak256("deposit(uint256)"));
+        selectors[0] = BTCVault.deposit.selector;
     }
 
     /// @notice Returns function selectors for UVM_FAST role
-    /// @dev Selectors for pause and withdrawAllFunds functions
+    /// @dev Selectors for pause function on USDCVault
     /// @return selectors Array of function selectors
     function getUVM_FAST_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](1);
         selectors[0] = bytes4(keccak256("pause()"));
-        selectors[1] = bytes4(keccak256("withdrawAllFunds()"));
+        // Note: withdrawAllFunds() is not implemented on USDCVault (only on ISimpleStrategy)
     }
 
     /// @notice Returns function selectors for UVM_SLOW role
@@ -486,20 +490,21 @@ contract RolesData {
     }
 
     /// @notice Returns function selectors for UVC role
-    /// @dev Selectors for strategy and yield source management functions
+    /// @dev Selectors for strategy management functions on USDCVault
     /// @return selectors Array of function selectors
     function getUVC_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](3);
-        selectors[0] = bytes4(keccak256("setNewStrategy(address)"));
-        selectors[1] = bytes4(keccak256("updateMinimumDeltaRequired(uint256)"));
-        selectors[2] = bytes4(keccak256("setYieldSourceAllocation(uint256)"));
+        selectors = new bytes4[](2);
+        selectors[0] = USDCVault.setStrategy.selector;
+        selectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
+        // Note: setYieldSourceAllocation(uint256) is not implemented on USDCVault
     }
 
     /// @notice Returns function selectors for UVA role
-    /// @dev Selectors for reallocateAssets function
+    /// @dev Selectors for reallocateAssets functions on USDCVault (both overloads)
     /// @return selectors Array of function selectors
     function getUVA_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
-        selectors[0] = bytes4(keccak256("reallocateAssets(bytes)"));
+        selectors = new bytes4[](2);
+        selectors[0] = bytes4(keccak256("reallocateAssets()"));
+        selectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
     }
 }
