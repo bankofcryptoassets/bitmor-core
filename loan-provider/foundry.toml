@@ -11,7 +11,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
 ffi = true
@@ -50,7 +51,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
 ffi = true
@@ -69,7 +71,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 
 # Fork test profile - Base Sepolia fork with fresh Bitmor
@@ -87,7 +90,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 
 # Integration test profile - reads from deployments.json
@@ -104,7 +108,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 
 # Fuzz test profile
@@ -121,7 +126,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 
 [profile.fuzz.fuzz]
@@ -142,7 +148,8 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 
 [profile.invariant.invariant]
