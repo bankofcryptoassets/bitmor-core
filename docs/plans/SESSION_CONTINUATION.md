@@ -1,18 +1,334 @@
 # Session Continuation - Deployment Infrastructure
 
-> **Last Updated:** 2026-01-22 (Session 8)
-> **Status:** Plan 6 (Deployment Optimization) - COMPLETE ✅
+> **Last Updated:** 2026-01-22 (Session 10)
+> **Status:** All 7 Plans COMPLETE ✅
 > **Branch:** `fix/deploymentSetup`
 
 ## Overview
 
-Six major plans - five complete, one in progress:
+Seven major plans - all complete:
 1. **Deployment Testing Infrastructure** - Basic deployment scripts and orchestration ✅
 2. **AccessManager Integration Design** - Production-like AccessManager setup with schedule/execute pattern ✅
 3. **HelperConfig Consolidation** - Single source of truth for deployment configuration ✅
 4. **Script Configuration Optimization** - Extended HelperConfig with centralized getters and path helpers ✅
-5. **Local Testing Infrastructure** - Unit tests on Anvil with mocks, integration tests on Base Mainnet fork 🔄
+5. **Local Testing Infrastructure** - Unit tests on Anvil with mocks, integration tests on Base Mainnet fork ✅
 6. **Deployment Optimization** - Consolidate 14 forge scripts into 2 for faster local deployments ✅
+7. **DevOpsTools Removal** - Replace DevOpsTools with direct JSON reading for reduced memory and faster deployments ✅
+
+## Session 10 Progress (2026-01-22)
+
+### COMPLETED: Plan 5 - Local Testing Infrastructure ✅
+
+**Problem:** Tests required Base Sepolia fork and couldn't run locally. MockAaveV3Pool lacked `FLASHLOAN_PREMIUM_TOTAL()` function. `getLocalNetworkConfig()` used `bitmorPool` as placeholder for `aaveV3Pool`. DeployPhase3 also used placeholders.
+
+**Solution:** Enable both unit testing (local Anvil with mocks) and integration testing (Base Mainnet fork) using chain ID detection in test setUp().
+
+### Implementation Summary
+
+**3 Commits on `fix/deploymentSetup` branch:**
+
+| Commit | Description |
+|--------|-------------|
+| `1010cfc` | feat(test): implement local testing infrastructure (Plan 5) |
+| `cc2d6fc` | fix(script): update DeployPhase3 to use MockAaveV3Pool from Phase 1 |
+
+### Key Changes
+
+**1. Enhanced MockAaveV3Pool (test/mock/MockAaveV3Pool.sol)**
+
+```solidity
+contract MockAaveV3Pool {
+    uint128 private _flashLoanPremium = 5; // 0.05%
+
+    /// @notice Returns flash loan premium (required by AavePoolLogic.sol)
+    function FLASHLOAN_PREMIUM_TOTAL() external view returns (uint128) {
+        return _flashLoanPremium;
+    }
+
+    function flashLoanSimple(...) external {
+        uint256 premium = (amount * _flashLoanPremium) / 10000;
+        // Check liquidity (funded via deal() in tests)
+        require(IERC20(asset).balanceOf(address(this)) >= amount, "insufficient liquidity");
+        // Transfer → callback → pull repayment with premium
+    }
+
+    function setPremium(uint128 newPremium) external { _flashLoanPremium = newPremium; }
+    function fund(address asset, uint256 amount) external { /* no-op, use deal() */ }
+    function getBalance(address asset) external view returns (uint256) { ... }
+}
+```
+
+**2. DeployPhase1.s.sol Updates**
+
+```solidity
+// Added MockAaveV3Pool deployment
+mockAaveV3Pool = address(new MockAaveV3Pool());
+
+// Added to _saveDeployments():
+'"aaveV3Pool":"', vm.toString(mockAaveV3Pool), '",',
+'"aaveAddressesProvider":"', vm.toString(mockAaveV3Pool), '"',
+```
+
+**3. HelperConfig.s.sol Updates**
+
+```solidity
+function getLocalNetworkConfig() public view returns (NetworkConfig memory config) {
+    config = NetworkConfig({
+        // ...
+        aaveV3Pool: _readDeployment("aaveV3Pool"),           // Was: bitmorPool placeholder
+        aaveAddressesProvider: _readDeployment("aaveAddressesProvider"), // Was: bitmorPool placeholder
+        // ...
+    });
+}
+```
+
+**4. DeployPhase3.s.sol Updates**
+
+```solidity
+// Added state variables
+address public aaveV3Pool;
+address public aaveAddressesProvider;
+
+// Updated _loadPhase1Addresses()
+aaveV3Pool = vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool"));
+aaveAddressesProvider = vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider"));
+
+// Updated Loan constructor (was using bitmorPool placeholders)
+loan = address(
+    new Loan(
+        accessManager,
+        aaveV3Pool,              // Was: bitmorPool placeholder
+        aaveAddressesProvider,   // Was: bitmorPool placeholder
+        bitmorPool,
+        // ...
+    )
+);
+
+// Updated _saveDeployments() to preserve aaveV3Pool addresses
+```
+
+**5. BaseLoan.t.sol Chain Detection**
+
+```solidity
+import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
+
+abstract contract BaseLoanTest is BitmorTestBase, Utilities {
+    MockAaveV3Pool internal mockAavePool;
+    uint256 internal constant CHAIN_ID_LOCAL = 31337;
+
+    function setUp() public virtual {
+        // Chain-specific Aave V3 Pool setup
+        if (block.chainid == CHAIN_ID_LOCAL) {
+            mockAavePool = new MockAaveV3Pool();
+            aavePool = address(mockAavePool);
+            _fundMockAavePool(debtAssetAddr);
+        } else {
+            aavePool = aaveV3Pool; // Real Aave from config
+        }
+
+        // Deploy Loan with aavePool (mock or real)
+        loan = new Loan(address(manager), aavePool, ...);
+    }
+
+    function _fundMockAavePool(address usdc) internal {
+        uint256 fundAmount = 10_000_000e6; // 10M USDC
+        deal(usdc, address(mockAavePool), fundAmount);
+    }
+}
+```
+
+**6. foundry.toml RPC Endpoints**
+
+```toml
+[rpc_endpoints]
+mainnet = "${MAINNET_RPC_URL}"
+base = "${BASE_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+base_mainnet = "${BASE_MAINNET_RPC_URL}"   # Added for integration tests
+```
+
+**7. Makefile Test Targets**
+
+```makefile
+LOCAL_NETWORK_ARGS := --rpc-url http://127.0.0.1:8545
+MAINNET_FORK_ARGS := --fork-url base_mainnet
+
+# Unit tests (local Anvil + MockAaveV3Pool)
+test-unit:
+	forge test $(LOCAL_NETWORK_ARGS)
+
+# Integration tests (Base Mainnet fork + real Aave V3)
+test-integration:
+	forge test $(MAINNET_FORK_ARGS)
+
+# Run both (unit first, then integration)
+test-all: test-unit test-integration
+```
+
+### Test Execution Flow
+
+```
+make test-unit (local Anvil)
+├── block.chainid == 31337
+├── BaseLoan.setUp() deploys fresh MockAaveV3Pool
+├── deal() funds mock with 10M USDC
+├── Tests run against mocks
+└── Fast, deterministic, no network needed
+
+make test-integration (Base Mainnet fork)
+├── block.chainid == 8453
+├── BaseLoan.setUp() uses real Aave V3
+├── Tests run against production contracts
+└── Validates real integration
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `test/mock/MockAaveV3Pool.sol` | Added `FLASHLOAN_PREMIUM_TOTAL()`, configurable premium, `fund()`, `getBalance()` |
+| `script/deployment/DeployPhase1.s.sol` | Added MockAaveV3Pool deployment + save to JSON |
+| `script/deployment/DeployPhase3.s.sol` | Load aaveV3Pool from JSON, use in Loan constructor, preserve in output |
+| `script/HelperConfig.s.sol` | Updated `getLocalNetworkConfig()` to read aaveV3Pool from JSON |
+| `test/unit/Loan/BaseLoan.t.sol` | Added chain detection, MockAaveV3Pool import, `_fundMockAavePool()` |
+| `foundry.toml` | Added `base_mainnet` RPC endpoint |
+| `Makefile` | Added `test-unit`, `test-integration`, `test-all` targets |
+
+### Usage
+
+```bash
+# Terminal 1: Start Anvil (for unit tests)
+make anvil
+
+# Terminal 2: Run tests
+make test-unit         # Fast, local with mocks
+make test-integration  # Fork mode with real Aave
+make test-all          # Both
+```
+
+### Design Documents
+
+- Design: `docs/plans/2026-01-22-local-testing-infrastructure-design.md`
+- Implementation: `docs/plans/2026-01-22-local-testing-infrastructure-impl.md`
+
+---
+
+## Session 9 Progress (2026-01-22)
+
+### COMPLETED: Plan 7 - DevOpsTools Removal ✅
+
+**Problem:** DevOpsTools caused high memory usage and slow deployments because it scans all broadcast files to find contract addresses. All addresses are already saved in `deployments.json`, making DevOpsTools redundant.
+
+**Solution:** Replace `DevOpsTools.get_most_recent_deployment()` with a unified `_readDeployment()` method that reads directly from `deployments.json`.
+
+### Implementation Summary
+
+**8 Commits on `fix/deploymentSetup` branch:**
+
+| Commit | Description |
+|--------|-------------|
+| `43f0f2a` | Add chain-aware `_readDeployment()` method to HelperConfig |
+| `c7b79ec` | Remove DevOpsTools import and `_getAddress` helper |
+| `6dbcbd7` | Convert Type A getters to use `_readDeployment()` |
+| `132bf03` | Add mainnet constants for Aave V3 |
+| `798f4ea` | Remove testnet constants, use JSON for all chains |
+| `04d1f73` | Remove DevOpsTools from DeploymentHelper |
+| `8c44429` | Simplify Phase3 scripts to use HelperConfig getters |
+| `c2fa6b2` | Update LocalFullSetup and SaveLocalDeployment |
+
+### Key Changes
+
+**1. New `_readDeployment()` Method (HelperConfig.s.sol)**
+
+```solidity
+/// @notice Reads address from deployments.json for any supported chain
+function _readDeployment(string memory key) internal view returns (address addr) {
+    string memory path = string.concat(vm.projectRoot(), "/deployments.json");
+    try vm.readFile(path) returns (string memory json) {
+        string memory jsonKey = string.concat(
+            ".deployments.",
+            vm.toString(block.chainid),  // Chain-aware!
+            ".networkConfig.",
+            key
+        );
+        try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
+            addr = parsed;
+        } catch { addr = address(0); }
+    } catch { addr = address(0); }
+}
+```
+
+**2. Chain Behavior**
+
+| Chain | Bitmor Contracts | External Protocols | Lending Pool |
+|-------|------------------|-------------------|--------------|
+| Local (31337) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
+| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
+| Mainnet (8453) | `deployments.json` | Constants | `deployed-contracts.json` |
+
+**3. Getter Classifications**
+
+- **Type A (Pure JSON):** `getAccessManager()`, `getLoan()`, `getBTCVault()`, `getUSDCVault()`, `getLoanVaultFactory()`, `getAaveTokenizedStrategy()`, `getUSDCStrategy()`, etc.
+- **Type B (Mainnet Constants):** `getAaveV3Pool()`, `getAaveAddressesProvider()` - return constants only for mainnet
+- **Type C (Lending Pool):** `getBitmorPool()`, `getOracle()` - still read from `deployed-contracts.json`
+
+**4. Constants Changes**
+
+Removed testnet constants (now read from JSON):
+- `AAVE_V3_POOL_BASE_SEPOLIA`
+- `AAVE_V3_ADDRESSES_PROVIDER`
+- `SWAP_ADAPTER_BASE_SEPOLIA`
+- `USDC_BASE_SEPOLIA`, `BTC_BASE_SEPOLIA`, etc.
+
+Added mainnet constants:
+```solidity
+address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
+address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
+```
+
+**5. Files Modified**
+
+| File | Changes |
+|------|---------|
+| `HelperConfig.s.sol` | Removed DevOpsTools, added `_readDeployment()`, refactored all getters |
+| `DeploymentHelper.s.sol` | Removed DevOpsTools, uses HelperConfig for address resolution |
+| `SchedulePhase3.s.sol` | Uses HelperConfig getters instead of direct JSON parsing |
+| `ExecutePhase3.s.sol` | Uses HelperConfig getters |
+| `LocalFullSetup.s.sol` | Uses `config.getX()` instead of `requireDeployed()` |
+| `SaveLocalDeployment.s.sol` | Added missing JSON keys for unified structure |
+
+**6. JSON Key Mapping**
+
+| HelperConfig Getter | JSON Key |
+|---------------------|----------|
+| `getAccessManager()` | `accessManager` |
+| `getLoan()` | `loan` |
+| `getLoanVaultFactory()` | `loanVaultFactory` |
+| `getLoanVaultImplementation()` | `loanVaultImpl` |
+| `getBTCVault()` | `collateralAsset` |
+| `getUSDCVault()` | `usdcVault` |
+| `getAaveTokenizedStrategy()` | `aaveStrategy` |
+| `getUSDCStrategy()` | `usdcStrategy` |
+| `getCbBTC()` | `cbBTC` |
+| `getUSDC()` | `debtAsset` |
+| `getBtcUsdOracle()` | `btcOracle` |
+| `getSwapAdapterWrapper()` | `swapAdapterWrapper` |
+| `getAaveV3Pool()` | `aaveV3Pool` |
+| `getAaveAddressesProvider()` | `aaveAddressesProvider` |
+
+### Benefits
+
+- **Memory:** Single JSON read vs scanning multiple broadcast files
+- **Speed:** Direct key lookup vs directory traversal
+- **Consistency:** One source of truth (`deployments.json`)
+- **Maintainability:** No DevOpsTools version/compatibility issues
+
+### Design Documents
+
+- Design: `docs/plans/2026-01-22-helperconfig-devops-removal-design.md`
+- Implementation: `docs/plans/2026-01-22-helperconfig-devops-removal-impl.md`
+
+---
 
 ## Session 8 Progress (2026-01-22)
 
@@ -484,39 +800,39 @@ ILoan(loan).setGracePeriod(GRACE_PERIOD);
 
 ### Plan 5: Local Testing Infrastructure (Ready for Implementation)
 
-**Problem:** Current Foundry tests require Base Sepolia fork and can't run locally. No mock for Aave V3 flash loans.
+> **Revised:** 2026-01-22 (v2 - Post DevOpsTools Removal)
+
+**Problem:** Current Foundry tests require Base Sepolia fork and can't run locally. MockAaveV3Pool exists but lacks `FLASHLOAN_PREMIUM_TOTAL()` function required by `AavePoolLogic.sol`. Additionally, `getLocalNetworkConfig()` uses `bitmorPool` as placeholder for `aaveV3Pool` instead of reading from JSON.
 
 **Solution:** Enable both unit testing (local Anvil with mocks) and integration testing (Base Mainnet fork) using chain ID detection in test setUp().
 
-**Design Decisions:**
+**Key Changes from Original Plan (v2 - Post Plan 7):**
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Mock Aave V3 location | Both deployment scripts AND tests | Local deployment for manual testing; tests deploy fresh for isolation |
-| Mode switching | Makefile targets + chain ID detection | `test-unit` vs `test-integration` |
-| Test organization | Same tests, conditional setup | No duplication; single test validates both modes |
-| Deploy vs read addresses | Always deploy fresh | Tests are isolated and deterministic |
-| Hardhat tests | No changes | Keep current `buildTestEnv()` behavior |
-| Fork target | Base Mainnet (8453) | Test against production contracts |
+| Previous Assumption | After Plan 7 | Updated Approach |
+|---------------------|--------------|------------------|
+| HelperConfig uses DevOpsTools | HelperConfig uses `_readDeployment()` | All getters read from `deployments.json` |
+| Create `DeployMockAaveV3Pool.s.sol` | Plan 6 consolidated into `DeployPhase1.s.sol` | Add MockAaveV3Pool deployment to `DeployPhase1.s.sol` |
+| Testnet constants hardcoded | Only mainnet constants remain | Testnet addresses from JSON |
+| `getLocalNetworkConfig()` uses bitmorPool placeholder | Still uses placeholder | Update to use `_readDeployment("aaveV3Pool")` |
+| MockAaveV3Pool uses `mint()` | Mock tokens don't have `mint()` | Use `deal()` cheatcode in tests |
 
-**Files to Create/Modify:**
+**Files to Modify:**
 
 | File | Action |
 |------|--------|
-| `test/mock/MockAaveV3Pool.sol` | Enhance with `FLASHLOAN_PREMIUM_TOTAL()`, `fund()`, configurable premium |
-| `script/deployment/DeployMockAaveV3Pool.s.sol` | Create with local chain guard |
-| `deploy/scripts/deploy-local.sh` | Add MockAaveV3Pool to Phase 1 |
-| `script/deployment/SaveLocalDeployment.s.sol` | Save aaveV3Pool address |
-| `script/HelperConfig.s.sol` | Add Base Mainnet config, update `getAaveV3Pool()` |
-| `test/unit/Loan/BaseLoan.t.sol` | Add chain ID detection for mock vs real Aave |
-| `Makefile` | Add `test-unit`, `test-integration`, `test-all` targets |
-| `foundry.toml` | Add `base_mainnet` RPC endpoint |
+| `test/mock/MockAaveV3Pool.sol` | Enhance: add `FLASHLOAN_PREMIUM_TOTAL()`, remove `mint()`, add `fund()` |
+| `script/deployment/DeployPhase1.s.sol` | Modify: add MockAaveV3Pool deployment + save to JSON |
+| `script/HelperConfig.s.sol` | Modify: update `getLocalNetworkConfig()` to read `aaveV3Pool` from JSON |
+| `test/unit/Loan/BaseLoan.t.sol` | Modify: add chain ID detection, deploy fresh mock, use `deal()` |
+| `Makefile` | Modify: add `test-unit`, `test-integration`, `test-all` targets |
+| `foundry.toml` | Modify: add `base_mainnet` RPC endpoint |
 
 **Test Execution Flow:**
 ```
 make test-unit (local Anvil)
 ├── block.chainid == 31337
 ├── BaseLoan.setUp() deploys fresh MockAaveV3Pool
+├── deal() funds mock with 10M USDC
 ├── Tests run against mocks
 └── Fast, deterministic, no network needed
 
@@ -538,7 +854,8 @@ make test-integration  # Fork mode
 make test-all          # Both
 ```
 
-**Implementation Plan:** See `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`
+**Design Document:** `docs/plans/2026-01-22-local-testing-infrastructure-design.md`
+**Implementation Plan:** `docs/plans/2026-01-22-local-testing-infrastructure-impl.md`
 
 ### Plan 6: Deployment Optimization (Ready for Implementation)
 
@@ -798,22 +1115,27 @@ cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
 
 ## Recommended Next Steps
 
-### 1. Implement Plan 5 (Local Testing Infrastructure)
+### 1. Merge fix/deploymentSetup Branch
 
-Execute the implementation plan at `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`:
+All 7 plans are complete and deployment infrastructure is fully working. The branch is ready to merge to main.
 
-1. **Task 1:** Enhance MockAaveV3Pool with `FLASHLOAN_PREMIUM_TOTAL()`, `fund()`, configurable premium
-2. **Task 2:** Create DeployMockAaveV3Pool.s.sol with local chain guard
-3. **Task 3:** Update deploy-local.sh to deploy MockAaveV3Pool in Phase 1
-4. **Task 4:** Update SaveLocalDeployment.s.sol to save aaveV3Pool address
-5. **Task 5:** Update HelperConfig.s.sol with Base Mainnet config
-6. **Task 6:** Update BaseLoan.t.sol with chain ID detection
-7. **Task 7:** Update Makefile with new test targets
-8. **Task 8:** Test full flow: `make anvil` → `make test-unit` → `make test-integration`
+### 2. Verify Full Flow (Optional)
 
-### 2. Merge fix/deploymentSetup Branch
+```bash
+# Terminal 1: Start Anvil
+make anvil
 
-All deployment infrastructure is working. Consider merging to main.
+# Terminal 2: Deploy and test
+make deploy-local      # Full local deployment
+make test-unit         # Unit tests on Anvil
+make test-integration  # Integration tests on Base Mainnet fork
+```
+
+### 3. Future Improvements (Optional)
+
+- Add more mock contracts for edge case testing
+- Implement gas optimization analysis in CI
+- Add security-focused test scenarios
 
 ## Key Files Reference
 
@@ -844,17 +1166,18 @@ All deployment infrastructure is working. Consider merging to main.
 
 All implementation plans are saved in `docs/plans/`:
 
-| Plan                              | File                                                              | Status      |
-| --------------------------------- | ----------------------------------------------------------------- | ----------- |
-| Deployment Testing Infrastructure | `docs/plans/2026-01-21-deployment-testing-infrastructure.md`      | Complete ✅ |
-| AccessManager Integration Design  | `docs/plans/2026-01-21-accessmanager-integration-design.md`       | Complete ✅ |
-| HelperConfig Consolidation        | `docs/plans/2026-01-21-helperconfig-consolidation.md`             | Complete ✅ |
-| Script Configuration Optimization | `docs/plans/2026-01-21-script-config-optimization.md`             | Complete ✅ |
-| Local Testing Infrastructure      | `docs/plans/2026-01-21-local-testing-infrastructure-design.md`    | Design Done |
-| Local Testing Implementation      | `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`      | Ready       |
-| Deployment Optimization           | `docs/plans/2026-01-21-deployment-optimization-design.md`         | Complete ✅ |
-| AccessManager Schedule/Execute Fix | `docs/plans/2026-01-22-fix-accessmanager-schedule-execute.md`    | Complete ✅ |
-| Foundry Simulation Timing Fix     | SESSION_CONTINUATION.md (Session 8)                               | Complete ✅ |
+| Plan                               | File                                                              | Status      |
+| ---------------------------------- | ----------------------------------------------------------------- | ----------- |
+| Deployment Testing Infrastructure  | `docs/plans/2026-01-21-deployment-testing-infrastructure.md`      | Complete ✅ |
+| AccessManager Integration Design   | `docs/plans/2026-01-21-accessmanager-integration-design.md`       | Complete ✅ |
+| HelperConfig Consolidation         | `docs/plans/2026-01-21-helperconfig-consolidation.md`             | Complete ✅ |
+| Script Configuration Optimization  | `docs/plans/2026-01-21-script-config-optimization.md`             | Complete ✅ |
+| Local Testing Infrastructure (OLD) | `docs/plans/2026-01-21-local-testing-infrastructure-design.md`    | Superseded  |
+| Local Testing Design (v2)          | `docs/plans/2026-01-22-local-testing-infrastructure-design.md`    | Complete ✅ |
+| Local Testing Implementation (v2)  | `docs/plans/2026-01-22-local-testing-infrastructure-impl.md`      | Complete ✅ |
+| Deployment Optimization            | `docs/plans/2026-01-21-deployment-optimization-design.md`         | Complete ✅ |
+| AccessManager Schedule/Execute Fix | `docs/plans/2026-01-22-fix-accessmanager-schedule-execute.md`     | Complete ✅ |
+| Foundry Simulation Timing Fix      | SESSION_CONTINUATION.md (Session 8)                               | Complete ✅ |
 
 ## Git Commits Summary (fix/deploymentSetup branch)
 
@@ -879,6 +1202,10 @@ All implementation plans are saved in `docs/plans/`:
 - `d16f551` fix(deploy): enable schedule/execute pattern with 1-day execution delays
 - `e2adf54` fix(deploy): split Phase 3 into schedule/execute scripts
 
+### Plan 5 Commits (Session 10):
+- `1010cfc` feat(test): implement local testing infrastructure (Plan 5)
+- `cc2d6fc` fix(script): update DeployPhase3 to use MockAaveV3Pool from Phase 1
+
 ## Quick Start for New Session
 
 ```bash
@@ -891,6 +1218,11 @@ make deploy-local
 
 # Verify deployment
 cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
+
+# Run tests
+cd loan-provider
+make test-unit         # Fast, local with mocks
+make test-integration  # Fork mode with real Aave
 ```
 
-**Current state:** Local deployment works end-to-end. Next task is implementing Plan 5 (Local Testing Infrastructure) to enable `forge test` without Base Sepolia fork.
+**Current state:** All 7 plans complete. Local deployment and testing infrastructure fully working. Branch `fix/deploymentSetup` is ready to merge to main.
