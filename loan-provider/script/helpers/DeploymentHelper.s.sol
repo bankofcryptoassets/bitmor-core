@@ -2,24 +2,45 @@
 pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
-import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 
 /// @title DeploymentHelper
 /// @author Bitmor Protocol
 /// @notice Common utilities for deployment scripts
-/// @dev Provides wrappers for DevOpsTools, lending-pool JSON reading, and time manipulation
+/// @dev Provides wrappers for HelperConfig getters, lending-pool JSON reading, and time manipulation
 contract DeploymentHelper is Script {
     using stdJson for string;
 
-    // ===== DevOpsTools Wrappers =====
+    // ===== Contract Address Getters =====
 
-    /// @notice Gets the most recently deployed address for a contract
-    /// @param contractName The name of the contract
+    /// @notice Gets the deployed address for a contract from deployments.json
+    /// @dev Maps contract names to HelperConfig getters for centralized address management
+    /// @param contractName The name of the contract (must match expected names)
     /// @return The deployed address
-    function getDeployedAddress(string memory contractName) internal view returns (address) {
-        return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
+    function getDeployedAddress(string memory contractName) internal returns (address) {
+        HelperConfig helperConfig = new HelperConfig();
+
+        // Map contract names to HelperConfig getters
+        if (keccak256(bytes(contractName)) == keccak256(bytes("BitmorAccessManager"))) {
+            return helperConfig.getAccessManager();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("Loan"))) {
+            return helperConfig.getLoan();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("BTCVault"))) {
+            return helperConfig.getBTCVault();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("USDCVault"))) {
+            return helperConfig.getUSDCVault();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("LoanVaultFactory"))) {
+            return helperConfig.getLoanVaultFactory();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("LoanVault"))) {
+            return helperConfig.getLoanVaultImplementation();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("AaveTokenizedStrategy"))) {
+            return helperConfig.getAaveTokenizedStrategy();
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("USDCStrategy"))) {
+            return helperConfig.getUSDCStrategy();
+        }
+
+        revert(string.concat("DeploymentHelper: unknown contract ", contractName));
     }
 
     /// @notice Gets the most recently deployed address or zero if not found
@@ -65,7 +86,7 @@ contract DeploymentHelper is Script {
     /// @notice Gets deployed address and reverts if not found
     /// @param contractName The name of the contract
     /// @return addr The deployed address (reverts if zero)
-    function requireDeployed(string memory contractName) internal view returns (address addr) {
+    function requireDeployed(string memory contractName) internal returns (address addr) {
         addr = getDeployedAddress(contractName);
         require(addr != address(0), string.concat(contractName, " not deployed"));
     }
