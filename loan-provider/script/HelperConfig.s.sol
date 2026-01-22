@@ -162,8 +162,7 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getAccessManager() public view returns (address) {
-        string memory contractName = "BitmorAccessManager";
-        return _getAddress(contractName);
+        return _readDeployment("accessManager");
     }
 
     function getGracePeriod() public pure returns (uint256) {
@@ -223,11 +222,11 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getLoanVaultImplementation() public view returns (address) {
-        return _getAddress("LoanVault");
+        return _readDeployment("loanVaultImpl");
     }
 
     function getLoanVaultFactory() public view returns (address) {
-        return _getAddress("LoanVaultFactory");
+        return _readDeployment("loanVaultFactory");
     }
 
     function getCollateralAsset() public view returns (address) {
@@ -242,37 +241,12 @@ contract HelperConfig is Script, RolesData {
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             swapAdapter = SWAP_ADAPTER_BASE_SEPOLIA;
         } else if (block.chainid == CHAIN_ID_LOCAL) {
-            // For local deployment, try to get the mock swap adapter
-            string memory broadcastPath = string.concat(
-                vm.projectRoot(),
-                "/broadcast/DeployMockSwapAdapter.s.sol/",
-                vm.toString(block.chainid),
-                "/run-latest.json"
-            );
-            try vm.readFile(broadcastPath) returns (string memory) {
-                swapAdapter = DevOpsTools.get_most_recent_deployment("MockUniswapV4SwapAdapter", block.chainid);
-            } catch {
-                swapAdapter = address(0); // Not deployed yet
-            }
+            swapAdapter = _readDeployment("swapAdapter");
         }
     }
 
     function getSwapAdapterWrapper() public view returns (address) {
-        try vm.readFile(
-            string.concat(
-                vm.projectRoot(),
-                "/broadcast/DeploySwapAdapterWrapper.s.sol/",
-                vm.toString(block.chainid),
-                "/run-latest.json"
-            )
-        ) returns (
-            string memory
-        ) {
-            // If file exists, try to get the deployment
-            return DevOpsTools.get_most_recent_deployment("UniswapV4SwapAdapterWrapper", block.chainid);
-        } catch {
-            return address(0); // Not deployed yet
-        }
+        return _readDeployment("swapAdapterWrapper");
     }
 
     function getZQuoter() public view returns (address zQuoter) {
@@ -282,31 +256,31 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getLoan() public view returns (address) {
-        return _getAddress("Loan");
+        return _readDeployment("loan");
     }
 
     /// @notice Returns the deployed BTCVault address
     /// @return The BTCVault proxy address from most recent deployment
     function getBTCVault() public view returns (address) {
-        return _getAddress("BTCVault");
+        return _readDeployment("collateralAsset");
     }
 
     /// @notice Returns the deployed USDCVault address
     /// @return The USDCVault proxy address from most recent deployment
     function getUSDCVault() public view returns (address) {
-        return _getAddress("USDCVault");
+        return _readDeployment("usdcVault");
     }
 
     /// @notice Returns the deployed AaveTokenizedStrategy address for BTCVault
     /// @return The AaveTokenizedStrategy address from most recent deployment
     function getAaveTokenizedStrategy() public view returns (address) {
-        return _getAddress("AaveTokenizedStrategy");
+        return _readDeployment("aaveStrategy");
     }
 
     /// @notice Returns the deployed USDCStrategy address
     /// @return The USDCStrategy address from most recent deployment
     function getUSDCStrategy() public view returns (address) {
-        return _getAddress("USDCStrategy");
+        return _readDeployment("usdcStrategy");
     }
 
     /// @notice Returns the cbBTC/BTC token address
@@ -333,7 +307,7 @@ contract HelperConfig is Script, RolesData {
     /// @return The MockCbBTC address from most recent deployment, or address(0) if not local
     function getMockCbBTC() public view returns (address) {
         if (block.chainid == CHAIN_ID_LOCAL) {
-            return _getAddress("MockCbBTC");
+            return _readDeployment("cbBTC");
         }
         return address(0);
     }
@@ -342,7 +316,7 @@ contract HelperConfig is Script, RolesData {
     /// @return The MockUSDC address from most recent deployment, or address(0) if not local
     function getMockUSDC() public view returns (address) {
         if (block.chainid == CHAIN_ID_LOCAL) {
-            return _getAddress("MockUSDC");
+            return _readDeployment("debtAsset");
         }
         return address(0);
     }
@@ -350,7 +324,7 @@ contract HelperConfig is Script, RolesData {
     /// @notice Returns the deployed BTC/USD Chainlink oracle address (local only)
     /// @return The BTC/USD mock oracle address from most recent deployment
     function getBtcUsdOracle() public view returns (address) {
-        return _getAddress("MockChainlinkOracle");
+        return _readDeployment("btcOracle");
     }
 
     /// @notice Returns the path to loan-provider's deployments.json
