@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 import {stdJson} from "forge-std/StdJson.sol";
 import {Script} from "forge-std/Script.sol";
-import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {RolesData} from "@bitmor/accessManager/RolesData.sol";
 
@@ -388,10 +387,6 @@ contract HelperConfig is Script, RolesData {
         )
     {
         return (DEPOSIT_AMT, PREMIUM_AMT, COLLATERL_AMT, DURATION_IN_MONTHS, DATA);
-    }
-
-    function _getAddress(string memory contractName) internal view returns (address) {
-        return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
     }
 
     function _readAddress(string memory contractName) internal view returns (address addr) {
