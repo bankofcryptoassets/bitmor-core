@@ -83,6 +83,8 @@ getContractFactory(name: 'IUniswapV2Router01', signerOrOptions?: ethers.Signer |
 getContractFactory(name: 'IUniswapV2Router02', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IUniswapV2Router02__factory>
 getContractFactory(name: 'IWETH', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IWETH__factory>
 getContractFactory(name: 'IWETHGateway', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IWETHGateway__factory>
+getContractFactory(name: 'MockLoanProvider', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockLoanProvider__factory>
+getContractFactory(name: 'MockUSDCVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockUSDCVault__factory>
 getContractFactory(name: 'SelfdestructTransfer', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.SelfdestructTransfer__factory>
 getContractFactory(name: 'WETH9', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.WETH9__factory>
 getContractFactory(name: 'MockFlashLoanReceiver', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockFlashLoanReceiver__factory>
@@ -196,6 +198,8 @@ getContractAt(name: 'IUniswapV2Router01', address: string | ethers.Addressable, 
 getContractAt(name: 'IUniswapV2Router02', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IUniswapV2Router02>
 getContractAt(name: 'IWETH', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IWETH>
 getContractAt(name: 'IWETHGateway', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IWETHGateway>
+getContractAt(name: 'MockLoanProvider', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockLoanProvider>
+getContractAt(name: 'MockUSDCVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockUSDCVault>
 getContractAt(name: 'SelfdestructTransfer', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.SelfdestructTransfer>
 getContractAt(name: 'WETH9', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.WETH9>
 getContractAt(name: 'MockFlashLoanReceiver', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockFlashLoanReceiver>
@@ -309,6 +313,8 @@ deployContract(name: 'IUniswapV2Router01', signerOrOptions?: ethers.Signer | Dep
 deployContract(name: 'IUniswapV2Router02', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapV2Router02>
 deployContract(name: 'IWETH', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IWETH>
 deployContract(name: 'IWETHGateway', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IWETHGateway>
+deployContract(name: 'MockLoanProvider', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockLoanProvider>
+deployContract(name: 'MockUSDCVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockUSDCVault>
 deployContract(name: 'SelfdestructTransfer', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.SelfdestructTransfer>
 deployContract(name: 'WETH9', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.WETH9>
 deployContract(name: 'MockFlashLoanReceiver', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockFlashLoanReceiver>
@@ -422,6 +428,8 @@ deployContract(name: 'IUniswapV2Router01', args: any[], signerOrOptions?: ethers
 deployContract(name: 'IUniswapV2Router02', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IUniswapV2Router02>
 deployContract(name: 'IWETH', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IWETH>
 deployContract(name: 'IWETHGateway', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IWETHGateway>
+deployContract(name: 'MockLoanProvider', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockLoanProvider>
+deployContract(name: 'MockUSDCVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockUSDCVault>
 deployContract(name: 'SelfdestructTransfer', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.SelfdestructTransfer>
 deployContract(name: 'WETH9', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.WETH9>
 deployContract(name: 'MockFlashLoanReceiver', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockFlashLoanReceiver>

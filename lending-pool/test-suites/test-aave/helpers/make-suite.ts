@@ -43,6 +43,9 @@ import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
 import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
+import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
+import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
+import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
@@ -70,6 +73,9 @@ export interface TestEnv {
   usdcVault: MockUSDCVault;
   actualUSDCVault: MockUSDCVault;
   wethVault: MockUSDCVault;
+  // Bitmor mock callers
+  mockLoanProvider: MockLoanProvider;
+  mockBitmorUSDCVault: MockBitmorUSDCVault;
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -97,6 +103,8 @@ const testEnv: TestEnv = {
   paraswapLiquiditySwapAdapter: {} as ParaSwapLiquiditySwapAdapter,
   registry: {} as LendingPoolAddressesProviderRegistry,
   wethGateway: {} as WETHGateway,
+  mockLoanProvider: {} as MockLoanProvider,
+  mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
 } as TestEnv;
 
 export async function initializeMakeSuite() {
@@ -167,6 +175,11 @@ export async function initializeMakeSuite() {
   testEnv.usdcVault = await getMockUSDCVault();
   testEnv.actualUSDCVault = await getMockActualUSDCVault();
   testEnv.wethVault = await getMockWETHVault();
+
+  // Deploy Bitmor mock callers
+  const bitmorMocks = await deployMockBitmorCallers();
+  testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
+  testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
 }
 
 const setSnapshot = async () => {
