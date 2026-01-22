@@ -64,23 +64,19 @@ contract ExecutePhase3 is Script, DeploymentHelper {
         console2.log("=== Phase 3c Complete - All operations executed ===");
     }
 
-    /// @notice Loads all required addresses from deployments.json
-    /// @dev Reads directly from JSON to avoid DevOpsTools memory issues with multiple broadcast files
+    /// @notice Loads all required addresses using HelperConfig getters
     function _loadAddresses() internal {
-        string memory json = vm.readFile("./deployments.json");
-        string memory base = ".deployments.31337.networkConfig.";
-
-        address accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
+        address accessManager = helperConfig.getAccessManager();
         manager = BitmorAccessManager(accessManager);
 
-        loan = vm.parseJsonAddress(json, string.concat(base, "loan"));
-        btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
-        usdcVault = vm.parseJsonAddress(json, string.concat(base, "usdcVault"));
-        loanVaultFactory = vm.parseJsonAddress(json, string.concat(base, "loanVaultFactory"));
-        aaveStrategy = vm.parseJsonAddress(json, string.concat(base, "aaveStrategy"));
-        usdcStrategy = vm.parseJsonAddress(json, string.concat(base, "usdcStrategy"));
+        loan = helperConfig.getLoan();
+        btcVault = helperConfig.getBTCVault();
+        usdcVault = helperConfig.getUSDCVault();
+        loanVaultFactory = helperConfig.getLoanVaultFactory();
+        aaveStrategy = helperConfig.getAaveTokenizedStrategy();
+        usdcStrategy = helperConfig.getUSDCStrategy();
 
-        console2.log("Loaded addresses:");
+        console2.log("Loaded addresses from HelperConfig:");
         console2.log("  AccessManager:", accessManager);
         console2.log("  Loan:", loan);
         console2.log("  BTCVault:", btcVault);
