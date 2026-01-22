@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Utilities} from "../Utilities.t.sol";
-import {BitmorTestBase} from "../BitmorTestBase.sol";
+import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";

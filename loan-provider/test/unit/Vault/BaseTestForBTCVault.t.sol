@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {BitmorTestBase} from "../BitmorTestBase.sol";
+import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {BTCVault, BTCVaultHarness} from "../../harness/BTCVaultHarness.sol";
 import {MockTokenizedStrategy} from "../../mock/MockTokenizedStrategy.sol";
