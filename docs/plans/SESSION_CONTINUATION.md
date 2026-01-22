@@ -1,16 +1,388 @@
 # Session Continuation - Deployment Infrastructure
 
-> **Last Updated:** 2026-01-21 (Session 2)
-> **Status:** All planned tasks complete, ready for testing
+> **Last Updated:** 2026-01-22 (Session 8)
+> **Status:** Plan 6 (Deployment Optimization) - COMPLETE ✅
 > **Branch:** `fix/deploymentSetup`
 
 ## Overview
 
-Four major plans have been implemented:
-1. **Deployment Testing Infrastructure** - Basic deployment scripts and orchestration
-2. **AccessManager Integration Design** - Production-like AccessManager setup with schedule/execute pattern
-3. **HelperConfig Consolidation** - Single source of truth for deployment configuration
-4. **Script Configuration Optimization** - Extended HelperConfig with centralized getters and path helpers
+Six major plans - five complete, one in progress:
+1. **Deployment Testing Infrastructure** - Basic deployment scripts and orchestration ✅
+2. **AccessManager Integration Design** - Production-like AccessManager setup with schedule/execute pattern ✅
+3. **HelperConfig Consolidation** - Single source of truth for deployment configuration ✅
+4. **Script Configuration Optimization** - Extended HelperConfig with centralized getters and path helpers ✅
+5. **Local Testing Infrastructure** - Unit tests on Anvil with mocks, integration tests on Base Mainnet fork 🔄
+6. **Deployment Optimization** - Consolidate 14 forge scripts into 2 for faster local deployments ✅
+
+## Session 8 Progress (2026-01-22)
+
+### ISSUE RESOLVED ✅
+
+**Problem:** `AccessManagerUnauthorizedCall` revert during `schedule()` calls even though roles were correctly granted with 1-day execution delays.
+
+**Root Cause:** Foundry simulates the **entire script** before broadcasting any transactions. When `grantRole()` is followed by `schedule()` in the same script:
+1. Simulation runs `grantRole()` - state change is **not committed** to chain
+2. Simulation runs `schedule()` - checks role on **actual chain state** (role not granted yet)
+3. `schedule()` fails because the role grant isn't visible during simulation
+
+**Secondary Issue:** After splitting scripts, `schedule()` transactions were being broadcast but **failing on-chain** with `AccessManagerUnauthorizedCall`. This was caused by **block.timestamp drift** between Foundry simulation and actual transaction broadcast:
+- Simulation computes `when = block.timestamp + 86400`
+- Actual tx broadcasts ~10 minutes later with higher `block.timestamp`
+- AccessManager check `when >= block.timestamp + delay` fails
+
+### Solution: Three-Script Split + SCHEDULE_BUFFER
+
+**Commit:** `e2adf54` - fix(deploy): split Phase 3 into schedule/execute scripts
+
+Split Phase 3 into three scripts that run sequentially:
+
+| Script | Purpose | Runs After |
+|--------|---------|------------|
+| `DeployPhase3.s.sol` | Deploy contracts + setup roles (no scheduling) | Phase 2 |
+| `SchedulePhase3.s.sol` | Schedule timelocked operations | DeployPhase3 (roles on-chain) |
+| `ExecutePhase3.s.sol` | Execute scheduled operations | Time advance |
+
+**Files Created/Modified:**
+
+| File | Changes |
+|------|---------|
+| `loan-provider/script/deployment/SchedulePhase3.s.sol` | **Created** - New script that schedules operations after roles are on-chain |
+| `loan-provider/script/deployment/ExecutePhase3.s.sol` | **Modified** - Refactored to use HelperConfig and read addresses from JSON |
+| `loan-provider/script/deployment/DeployPhase3.s.sol` | **Modified** - Removed `_scheduleLocalOperations()` call |
+| `loan-provider/script/deployment/DeploymentConstants.sol` | **Modified** - Added `SCHEDULE_BUFFER` (10 minutes) |
+| `deploy/scripts/deploy-local.sh` | **Modified** - Added Phase 3b, updated TIME_ADVANCE to 87001 seconds |
+
+**Key Code Changes:**
+
+```solidity
+// DeploymentConstants.sol - Added buffer for timestamp drift
+uint256 public constant SCHEDULE_BUFFER = 10 minutes;
+uint256 public constant TIME_ADVANCE_SECONDS = EXECUTION_DELAY + SCHEDULE_BUFFER + EXECUTION_BUFFER;
+
+// SchedulePhase3.sol - Include buffer in when calculation
+uint48 when = uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
+```
+
+**Updated Deployment Flow:**
+
+```
+make deploy-local
+    └── deploy-local.sh
+        ├── Phase 1: DeployPhase1.s.sol
+        ├── Phase 2: lending-pool (npm migration)
+        ├── Phase 3a: DeployPhase3.s.sol (deploy + roles)
+        ├── Phase 3b: SchedulePhase3.s.sol (schedule operations)
+        ├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
+        └── Phase 3c: ExecutePhase3.s.sol (execute scheduled ops)
+```
+
+**Why Direct JSON Reading Instead of HelperConfig:**
+
+`SchedulePhase3.s.sol` and `ExecutePhase3.s.sol` read addresses directly from `deployments.json` instead of using `helperConfig.getAccessManager()` because:
+- DevOpsTools (used by HelperConfig getters) iterates through all broadcast files
+- With multiple broadcast files, this causes `MemoryOOG` errors
+- Direct JSON reading is more efficient for addresses already saved in deployments.json
+
+### Deployment Verified
+
+Full local deployment completes successfully:
+```bash
+make deploy-local
+# All phases complete
+# Addresses saved to loan-provider/deployments.json
+```
+
+---
+
+## Session 7 Progress (2026-01-22)
+
+### ISSUE RESOLVED ✅
+
+**Problem:** OpenZeppelin's AccessManager `schedule()` function requires `setback > 0` (non-zero execution delay).
+
+**Analysis of AccessManager.sol (lines 441-456):**
+```solidity
+function schedule(...) public virtual returns (bytes32 operationId, uint32 nonce) {
+    address caller = _msgSender();
+    (, uint32 setback) = _canCallExtended(caller, target, data);
+
+    // If setback == 0, schedule() reverts!
+    if (setback == 0 || (when > 0 && when < minWhen)) {
+        revert AccessManagerUnauthorizedCall(caller, target, _checkSelector(data));
+    }
+    // ...
+}
+```
+
+**The Bug:** In `_grantLocalOperationalRoles()`, roles were granted with `executionDelay = 0`:
+```solidity
+manager.grantRole(lpmSlowId, admin, 0); // ← This causes setback == 0
+```
+
+When `canCall()` is called, it returns `delay = currentDelay` from the role grant. With `currentDelay = 0`, `setback = 0`, so `schedule()` reverts.
+
+**The Fix:** Grant roles with production execution delays (`1 days`):
+```solidity
+manager.grantRole(lpmSlowId, admin, 1 days); // ← Now setback > 0
+manager.grantRole(bvcId, admin, 1 days);
+manager.grantRole(uvcId, admin, 1 days);
+```
+
+### Implementation Complete ✅
+
+**Commit:** `d16f551` - fix(deploy): enable schedule/execute pattern with 1-day execution delays
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `loan-provider/script/deployment/DeployPhase3.s.sol` | Updated role grants from `executionDelay=0` to `1 days`; added `STRATEGY_CAP` constant; added `setMaxStrategies()` call before `addStrategy()`; removed non-existent `setYieldSourceAllocation` call |
+| `loan-provider/src/accessManager/RolesData.sol` | Fixed 4 selector bugs (see below) |
+| `loan-provider/src/mocks/MockUniswapV4SwapAdapter.sol` | **Created** - Mock swap adapter for local testing with configurable BTC/USDC prices |
+| `loan-provider/script/deployment/DeployMockSwapAdapter.s.sol` | **Created** - Deployment script for MockUniswapV4SwapAdapter |
+| `loan-provider/script/interaction/AccessManager/InitialSetup.s.sol` | Added `virtual` keyword to `run()` function for override support |
+| `loan-provider/script/helpers/DeploymentHelper.s.sol` | Formatting fixes |
+
+**RolesData.sol Selector Fixes:**
+
+| Function | Bug | Fix |
+|----------|-----|-----|
+| `getLPM_SLOW_SELECTORS()` | `selectors[4]` was duplicate `setGracePeriod` | Changed to `setPreClosureFee.selector` |
+| `getBVC_SELECTORS()` | `addStrategy(address)` wrong signature | Changed to `addStrategy(address,uint256)` |
+| `getBVC_SELECTORS()` | Missing `setMaxStrategies` | Added `setMaxStrategies(uint256)` as `selectors[3]` |
+| `getUVC_SELECTORS()` | `setNewStrategy(address)` doesn't exist | Changed to `setStrategy(address)` |
+
+**Key Code Changes in DeployPhase3.s.sol:**
+
+```solidity
+// Before (BROKEN):
+manager.grantRole(lpmSlowId, admin, 0);  // setback == 0, schedule() reverts
+manager.grantRole(bvcId, admin, 0);
+manager.grantRole(uvcId, admin, 0);
+
+// After (FIXED):
+manager.grantRole(lpmSlowId, admin, 1 days);  // setback > 0, schedule() works
+manager.grantRole(bvcId, admin, 1 days);
+manager.grantRole(uvcId, admin, 1 days);
+```
+
+```solidity
+// Added before addStrategy():
+manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
+
+// Fixed signature:
+manager.schedule(btcVault, abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP), when);
+```
+
+**Deployment Verified:**
+- Full local deployment completes successfully with `make deploy-local`
+- All contracts deployed to `loan-provider/deployments.json`:
+  - AccessManager, MockTokens (USDC, cbBTC), MockOracles (BTC/USD, USDC/USD)
+  - BTCVault, USDCVault, Loan, LoanVault, LoanVaultFactory
+  - SwapAdapterWrapper, AaveStrategy, USDCStrategy
+
+**Sample deployments.json output:**
+```json
+{
+  "deployments": {
+    "31337": {
+      "network": "localhost",
+      "networkConfig": {
+        "accessManager": "0x4CF4dd3f71B67a7622ac250f8b10d266Dc5aEbcE",
+        "collateralAsset": "0xE2b5bDE7e80f89975f7229d78aD9259b2723d11F",
+        "debtAsset": "0x2498e8059929e18e2a2cED4e32ef145fa2F4a744",
+        "btcVault": "...",
+        "usdcVault": "...",
+        "loan": "...",
+        "loanVaultFactory": "...",
+        "swapAdapterWrapper": "...",
+        "aaveStrategy": "...",
+        "usdcStrategy": "..."
+      }
+    }
+  }
+}
+```
+
+### Next Steps
+
+1. **Implement Plan 5 (Local Testing Infrastructure)** - Enable unit tests on local Anvil without Base Sepolia fork
+   - See `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`
+   - Key task: Create MockAaveV3Pool for flash loan testing
+
+2. **Optional: Merge fix/deploymentSetup branch** - All deployment infrastructure is now working
+
+---
+
+## Historical Reference (Sessions 5-6)
+
+<details>
+<summary>Click to expand previous session notes (superseded by Session 7 fix)</summary>
+
+### Session 6 - Attempted Fix: Direct Contract Calls (REJECTED)
+
+Attempted to bypass the schedule/execute pattern by calling restricted functions directly on the target contracts:
+```solidity
+// This approach was WRONG
+ILoan(loan).setLoanVaultFactory(loanVaultFactory);
+```
+
+**Why This Doesn't Work:**
+- Contracts use OpenZeppelin's `AccessManaged` pattern with `restricted` modifier
+- Restricted functions check authorization through the AccessManager
+- Direct calls still go through access control - they don't bypass it
+
+### Session 5 Progress (2026-01-22)
+
+### Plan 6 Implementation Status
+
+**Completed Tasks:**
+- ✅ Task 1: Added `[profile.local]` to `foundry.toml` with `via_ir=true`, `optimizer_runs=1`
+- ✅ Task 2: Created `DeployPhase1.s.sol` - consolidated Phase 1 deployment
+- ✅ Task 3: Created `DeployPhase3.s.sol` - consolidated Phase 3 deployment
+- ✅ Task 4: Updated `deploy-local.sh` to use consolidated scripts with `FOUNDRY_PROFILE=local`
+- 🚧 Task 5: Testing - BLOCKED on AccessManager `schedule()` authorization
+
+### Issues Encountered and Fixes
+
+#### Issue 1: Stack Too Deep with `via_ir=false`
+**Error:** `Compiler error: Stack too deep. Try compiling with --via-ir`
+**Investigation:**
+- forge-std 1.11.0 has 1,405 assembly blocks requiring via_ir
+- Solady library uses inline assembly with variables exceeding stack depth
+- This is a known Foundry ecosystem issue, not project-specific
+**Resolution:** Keep `via_ir=true` but use `optimizer_runs=1` for faster compilation
+
+#### Issue 2: Override Without Virtual
+**Error:** `Trying to override non-virtual function`
+**Fix:** Added `virtual` keyword to `InitialSetup.run()` function
+
+#### Issue 3: AccessManagerLockedRole(0)
+**Error:** `AccessManagerLockedRole(0)` when trying to `labelRole(0, "ADMIN")`
+**Cause:** ADMIN role (ID 0) is a locked role in OpenZeppelin's AccessManager
+**Fix:** Added `if (role.id == 0) continue;` in `_initialSetup()` to skip the ADMIN role
+
+#### Issue 4: NOT_CONTRACT Validation Error
+**Error:** `NOT_CONTRACT` when granting roles with `isContract: true`
+**Cause:** `RolesData.INITIAL_ADMIN` is hardcoded to a production address that doesn't exist on local Anvil
+**Fix:** Skip contract validation on local chain:
+```solidity
+// In InitialSetup.s.sol
+if (role.isContract && block.chainid != 31337) {
+    _validateContract(role.grantee);
+}
+```
+
+#### Issue 5: AccessManagerUnauthorizedCall (CURRENT BLOCKER)
+**Error:** `AccessManagerUnauthorizedCall(deployer, Loan, setLoanVaultFactory.selector)`
+**When:** Calling `manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, ...), when)`
+
+**What Works:**
+- All contract deployments succeed (Phase 1, 2, 3)
+- `setTargetFunctionRole(loan, selectors, lpmSlowId)` succeeds
+- `grantRole(lpmSlowId, deployer, 0)` succeeds (event emitted: `RoleGranted(roleId: 30, ...)`)
+- Guardian roles granted and set up correctly
+
+**What Fails:**
+- `manager.schedule(loan, ...)` reverts with `AccessManagerUnauthorizedCall`
+
+**Root Cause Analysis:**
+The OpenZeppelin AccessManager `schedule()` function requires:
+1. Caller has the role required to call the target function
+2. The function has a non-zero delay configured for that role
+
+Looking at `_canCallExtended()` in AccessManager:
+```solidity
+function schedule(...) public virtual returns (bytes32, uint32) {
+    address caller = _msgSender();
+    (, uint32 setback) = _canCallExtended(caller, target, data);
+
+    // If call with delay is not authorized, or if requested timing is too soon, revert
+    if (setback == 0 || (when > 0 && when < minWhen)) {
+        revert AccessManagerUnauthorizedCall(caller, target, _checkSelector(data));
+    }
+    ...
+}
+```
+
+The issue is that `_canCallExtended()` returns `setback == 0` even though:
+- Role 30 (LPM_SLOW) was granted to deployer
+- `setTargetFunctionRole(loan, selectors, 30)` was called
+
+**Suspected Issue:** The `schedule()` function checks authorization against the **target contract's authority**, not just the AccessManager's role configuration. The Loan contract's `authority()` may not be correctly set or recognized.
+
+### Files Modified in Session 5
+
+| File | Changes |
+|------|---------|
+| `loan-provider/foundry.toml` | Added `[profile.local]` with `via_ir=true`, `optimizer_runs=1`, `sizes=false` |
+| `loan-provider/script/deployment/DeployPhase1.s.sol` | **Created** - Consolidated Phase 1: AccessManager, MockTokens, MockOracles, BTCVault |
+| `loan-provider/script/deployment/DeployPhase3.s.sol` | **Created** - Consolidated Phase 3: USDCVault, SwapAdapter, Loan, Strategies, AccessManager setup |
+| `deploy/scripts/deploy-local.sh` | Updated to use `DeployPhase1.s.sol` and `DeployPhase3.s.sol` with `FOUNDRY_PROFILE=local` |
+| `loan-provider/script/interaction/AccessManager/InitialSetup.s.sol` | Added `virtual` to `run()`, skip ADMIN role (ID 0), skip contract validation on local chain |
+
+### DeployPhase3.s.sol Key Functions
+
+```solidity
+contract DeployPhase3 is InitialSetup {
+    function run() public override {
+        _loadPhase1Addresses();      // Read from deployments.json
+        _loadLendingPoolAddresses(); // Read from lending-pool/deployed-contracts.json
+
+        vm.startBroadcast();
+        // Deploy: USDCVault, MockSwapAdapter, SwapAdapterWrapper, LoanVault, Loan, LoanVaultFactory, Strategies
+        _setupAccessManagerRoles();
+        vm.stopBroadcast();
+
+        _warpAndExecute();           // Time warp + execute delayed operations
+        _saveDeployments();          // Save to deployments.json
+    }
+
+    function _setupAccessManagerRoles() internal {
+        manager = BitmorAccessManager(accessManager);
+        _grantLocalOperationalRoles();  // Set target function roles + grant roles
+        _setupLocalGuardians();         // Grant guardian roles + set relationships
+        _scheduleLocalOperations();     // FAILS HERE with AccessManagerUnauthorizedCall
+    }
+
+    function _grantLocalOperationalRoles() internal {
+        // Set target function roles for actual deployed contracts
+        manager.setTargetFunctionRole(loan, rolesData.getLPM_SLOW_SELECTORS(), lpmSlowId);
+        manager.setTargetFunctionRole(btcVault, rolesData.getBVC_SELECTORS(), bvcId);
+        manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), uvcId);
+
+        // Grant roles to deployer
+        manager.grantRole(lpmSlowId, admin, 0);  // LPM_SLOW (30)
+        manager.grantRole(bvcId, admin, 0);      // BVC (12)
+        manager.grantRole(uvcId, admin, 0);      // UVC (22)
+    }
+}
+```
+
+### Next Steps to Resolve Blocker
+
+**Option 1: Direct Execute Instead of Schedule**
+For local deployment, skip the schedule/execute pattern entirely and call the Loan contract directly. The deployer is the admin and can configure contracts immediately.
+
+**Option 2: Investigate AccessManager Authority Chain**
+1. Verify Loan contract's `authority()` returns the correct AccessManager address
+2. Check if there's a timing issue with role grants becoming effective
+3. Investigate if `_canCallExtended()` has additional requirements beyond role membership
+
+**Option 3: Simplify Local Setup**
+Create a separate `_setupLocalSimple()` that bypasses AccessManager scheduling:
+```solidity
+// Direct calls instead of schedule/execute
+ILoan(loan).setLoanVaultFactory(loanVaultFactory);
+ILoan(loan).setGracePeriod(GRACE_PERIOD);
+// etc.
+```
+
+**Recommended:** Option 3 - For local development, the schedule/execute pattern adds unnecessary complexity. Save that for production deployments.
+
+</details>
+
+---
 
 ## Completed Work
 
@@ -110,6 +482,129 @@ Four major plans have been implemented:
 - Uses HelperConfig's public chain ID constants instead of local copies
 - Internal methods changed from non-view to view (read cached config)
 
+### Plan 5: Local Testing Infrastructure (Ready for Implementation)
+
+**Problem:** Current Foundry tests require Base Sepolia fork and can't run locally. No mock for Aave V3 flash loans.
+
+**Solution:** Enable both unit testing (local Anvil with mocks) and integration testing (Base Mainnet fork) using chain ID detection in test setUp().
+
+**Design Decisions:**
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Mock Aave V3 location | Both deployment scripts AND tests | Local deployment for manual testing; tests deploy fresh for isolation |
+| Mode switching | Makefile targets + chain ID detection | `test-unit` vs `test-integration` |
+| Test organization | Same tests, conditional setup | No duplication; single test validates both modes |
+| Deploy vs read addresses | Always deploy fresh | Tests are isolated and deterministic |
+| Hardhat tests | No changes | Keep current `buildTestEnv()` behavior |
+| Fork target | Base Mainnet (8453) | Test against production contracts |
+
+**Files to Create/Modify:**
+
+| File | Action |
+|------|--------|
+| `test/mock/MockAaveV3Pool.sol` | Enhance with `FLASHLOAN_PREMIUM_TOTAL()`, `fund()`, configurable premium |
+| `script/deployment/DeployMockAaveV3Pool.s.sol` | Create with local chain guard |
+| `deploy/scripts/deploy-local.sh` | Add MockAaveV3Pool to Phase 1 |
+| `script/deployment/SaveLocalDeployment.s.sol` | Save aaveV3Pool address |
+| `script/HelperConfig.s.sol` | Add Base Mainnet config, update `getAaveV3Pool()` |
+| `test/unit/Loan/BaseLoan.t.sol` | Add chain ID detection for mock vs real Aave |
+| `Makefile` | Add `test-unit`, `test-integration`, `test-all` targets |
+| `foundry.toml` | Add `base_mainnet` RPC endpoint |
+
+**Test Execution Flow:**
+```
+make test-unit (local Anvil)
+├── block.chainid == 31337
+├── BaseLoan.setUp() deploys fresh MockAaveV3Pool
+├── Tests run against mocks
+└── Fast, deterministic, no network needed
+
+make test-integration (Base Mainnet fork)
+├── block.chainid == 8453
+├── BaseLoan.setUp() uses real Aave V3
+├── Tests run against production contracts
+└── Validates real integration
+```
+
+**Usage:**
+```bash
+# Terminal 1: Start Anvil (for unit tests)
+make anvil
+
+# Terminal 2: Run tests
+make test-unit         # Fast, local
+make test-integration  # Fork mode
+make test-all          # Both
+```
+
+**Implementation Plan:** See `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`
+
+### Plan 6: Deployment Optimization (Ready for Implementation)
+
+**Problem:** Current `deploy-local.sh` takes too long because:
+- 13 separate `forge script` calls - each has startup overhead + potential recompilation
+- `via_ir = true` in foundry.toml - IR pipeline is 5-10x slower than standard compilation
+- DevOpsTools broadcast file reads - requires sequential execution
+
+**Solution:** Consolidate Phase 1 into one script and Phase 3 into one script, plus add a fast local profile.
+
+**Expected Speedup:**
+- Compilation: ~5-10x faster (no IR pipeline)
+- Script execution: ~12 fewer process spawns (2 scripts vs 14)
+- Overall: From several minutes → under 30 seconds for loan-provider phases
+
+**Files to Create:**
+
+| File | Purpose |
+|------|---------|
+| `loan-provider/script/deployment/DeployPhase1.s.sol` | Consolidated Phase 1: AccessManager, MockTokens, MockOracles, BTCVault |
+| `loan-provider/script/deployment/DeployPhase3.s.sol` | Consolidated Phase 3: USDCVault, Loan system, Strategies, AccessManager setup |
+
+**Files to Modify:**
+
+| File | Change |
+|------|--------|
+| `loan-provider/foundry.toml` | Add `[profile.local]` with `via_ir = false` |
+| `deploy/scripts/deploy-local.sh` | Replace 14 script calls with 2 (using `FOUNDRY_PROFILE=local`) |
+
+**Key Design Decisions:**
+
+1. **USDCVault moved to Phase 3** - Requires LendingPool address which is deployed in Phase 2
+2. **In-memory address passing** - No DevOpsTools lookups between deployments within a phase
+3. **Inherits from InitialSetup** - DeployPhase3 reuses existing AccessManager setup logic
+4. **Individual scripts preserved** - Kept for production deployments on Base Sepolia
+5. **Local profile only** - Different bytecode than production (no IR) is acceptable for local dev
+
+**Consolidated Deployment Flow:**
+```
+make deploy-local
+    └── deploy-local.sh (FOUNDRY_PROFILE=local)
+        ├── Phase 1: DeployPhase1.s.sol (single script)
+        │   ├── AccessManager
+        │   ├── MockTokens (USDC, cbBTC)
+        │   ├── MockOracles (BTC/USD, USDC/USD)
+        │   ├── BTCVault
+        │   └── Save to deployments.json
+        │
+        ├── Phase 2: lending-pool (unchanged)
+        │   └── npm run bitmor:localhost:dev:migration
+        │
+        └── Phase 3: DeployPhase3.s.sol (single script)
+            ├── USDCVault
+            ├── MockSwapAdapter
+            ├── SwapAdapterWrapper
+            ├── LoanVault (implementation)
+            ├── Loan
+            ├── LoanVaultFactory
+            ├── Strategies (Aave, USDC)
+            ├── AccessManager setup (roles, grants, guardians, schedule)
+            ├── Time warp + execute delayed operations
+            └── Save final addresses to deployments.json
+```
+
+**Implementation Plan:** See `docs/plans/2026-01-21-deployment-optimization-design.md`
+
 ## Architecture
 
 ### Final Architecture After All Plans
@@ -160,10 +655,12 @@ Deployment Scripts (extend DeploymentHelper)
 ```
 
 ### Deployment Flow
+
+**Current (slow - 14 script calls):**
 ```
 make deploy-local
     └── deploy-local.sh (--private-key for Anvil)
-        ├── Phase 1: loan-provider
+        ├── Phase 1: loan-provider (6 scripts)
         │   ├── DeployAccessManager
         │   ├── DeployMockTokens
         │   ├── DeployMockOracles
@@ -174,19 +671,37 @@ make deploy-local
         ├── Phase 2: lending-pool
         │   └── npm run bitmor:localhost:dev:migration
         │
-        └── Phase 3: loan-provider
+        └── Phase 3: loan-provider (8 scripts)
+            ├── DeployMockSwapAdapter
             ├── DeploySwapAdapterWrapper
             ├── DeployLoanVault
             ├── DeployLoan
             ├── DeployLoanVaultFactory
             ├── DeployStrategies
             ├── LocalFullSetup --sig "run(bool)" true
-            │   ├── _initialSetup() (roles + grants)
-            │   ├── _setupGuardians() (chain-aware)
-            │   ├── _scheduleOperations() (delayed ops)
-            │   ├── warpTime(1 days + 1)
-            │   └── _executeOperations()
             └── SaveDeployedAddresses
+```
+
+**Optimized (Plan 6 - 4 script calls with schedule/execute split):**
+```
+make deploy-local
+    └── deploy-local.sh (FOUNDRY_PROFILE=local)
+        ├── Phase 1: DeployPhase1.s.sol
+        │   └── AccessManager → Tokens → Oracles → BTCVault → save JSON
+        │
+        ├── Phase 2: lending-pool (unchanged)
+        │   └── npm run bitmor:localhost:dev:migration
+        │
+        ├── Phase 3a: DeployPhase3.s.sol
+        │   └── USDCVault → SwapAdapter → Loan → Strategies → roles → save JSON
+        │
+        ├── Phase 3b: SchedulePhase3.s.sol
+        │   └── Schedule all timelocked operations (reads from JSON)
+        │
+        ├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
+        │
+        └── Phase 3c: ExecutePhase3.s.sol
+            └── Execute scheduled operations via AccessManager
 ```
 
 ### Key Design Decisions
@@ -267,7 +782,7 @@ USDCStrategy constructor is `(_vault, _aave, _blp)` - order matters.
 - Local chain: reads from `deployments.json`
 - Testnet/mainnet: returns hardcoded constants
 
-## How to Test
+## How to Test Local Deployment
 
 ```bash
 # Terminal 1: Start Anvil
@@ -278,16 +793,27 @@ make anvil
 make deploy-local
 
 # Verify
-cat loan-provider/deployments.json | jq '.deployments["31337"]'
+cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
 ```
 
-## Next Steps (if continuing work)
+## Recommended Next Steps
 
-1. **Test full deployment flow** - Run `make deploy-local` with Anvil
-2. **Verify AccessManager state** - Check roles are granted, operations executed
-3. **Run loan-provider tests** - `cd loan-provider && make test`
-4. **Fork testing** - Test with `--fork-url` for Base Sepolia integration
-5. **Update other scripts** - Migrate remaining scripts to use new HelperConfig getters
+### 1. Implement Plan 5 (Local Testing Infrastructure)
+
+Execute the implementation plan at `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`:
+
+1. **Task 1:** Enhance MockAaveV3Pool with `FLASHLOAN_PREMIUM_TOTAL()`, `fund()`, configurable premium
+2. **Task 2:** Create DeployMockAaveV3Pool.s.sol with local chain guard
+3. **Task 3:** Update deploy-local.sh to deploy MockAaveV3Pool in Phase 1
+4. **Task 4:** Update SaveLocalDeployment.s.sol to save aaveV3Pool address
+5. **Task 5:** Update HelperConfig.s.sol with Base Mainnet config
+6. **Task 6:** Update BaseLoan.t.sol with chain ID detection
+7. **Task 7:** Update Makefile with new test targets
+8. **Task 8:** Test full flow: `make anvil` → `make test-unit` → `make test-integration`
+
+### 2. Merge fix/deploymentSetup Branch
+
+All deployment infrastructure is working. Consider merging to main.
 
 ## Key Files Reference
 
@@ -301,17 +827,34 @@ cat loan-provider/deployments.json | jq '.deployments["31337"]'
 | Network config (SINGLE SOURCE) | `loan-provider/script/HelperConfig.s.sol`                             |
 | Orchestrator                   | `deploy/scripts/deploy-local.sh`                                      |
 | Root Makefile                  | `Makefile`                                                            |
+| **Optimization (Plan 6)**      |                                                                       |
+| Consolidated Phase 1           | `loan-provider/script/deployment/DeployPhase1.s.sol`                  |
+| Consolidated Phase 3a (deploy) | `loan-provider/script/deployment/DeployPhase3.s.sol`                  |
+| Phase 3b (schedule)            | `loan-provider/script/deployment/SchedulePhase3.s.sol`                |
+| Phase 3c (execute)             | `loan-provider/script/deployment/ExecutePhase3.s.sol`                 |
+| Deployment constants           | `loan-provider/script/deployment/DeploymentConstants.sol`             |
+| Foundry config                 | `loan-provider/foundry.toml` (add `[profile.local]`)                  |
+| **Testing (Plan 5)**           |                                                                       |
+| Mock Aave V3 Pool              | `loan-provider/test/mock/MockAaveV3Pool.sol`                          |
+| Mock deployment script         | `loan-provider/script/deployment/DeployMockAaveV3Pool.s.sol`          |
+| Test base (chain detection)    | `loan-provider/test/unit/Loan/BaseLoan.t.sol`                         |
+| loan-provider Makefile         | `loan-provider/Makefile`                                              |
 
 ## Plans Reference
 
-All implementation plans are saved in `docs/plans/` or `loan-provider/docs/plans/`:
+All implementation plans are saved in `docs/plans/`:
 
-| Plan                              | File                                                         | Status   |
-| --------------------------------- | ------------------------------------------------------------ | -------- |
-| Deployment Testing Infrastructure | `docs/plans/2026-01-21-deployment-testing-infrastructure.md` | Complete |
-| AccessManager Integration Design  | `docs/plans/2026-01-21-accessmanager-integration-design.md`  | Complete |
-| HelperConfig Consolidation        | `docs/plans/2026-01-21-helperconfig-consolidation.md`        | Complete |
-| Script Configuration Optimization | `docs/plans/2026-01-21-script-config-optimization.md`        | Complete |
+| Plan                              | File                                                              | Status      |
+| --------------------------------- | ----------------------------------------------------------------- | ----------- |
+| Deployment Testing Infrastructure | `docs/plans/2026-01-21-deployment-testing-infrastructure.md`      | Complete ✅ |
+| AccessManager Integration Design  | `docs/plans/2026-01-21-accessmanager-integration-design.md`       | Complete ✅ |
+| HelperConfig Consolidation        | `docs/plans/2026-01-21-helperconfig-consolidation.md`             | Complete ✅ |
+| Script Configuration Optimization | `docs/plans/2026-01-21-script-config-optimization.md`             | Complete ✅ |
+| Local Testing Infrastructure      | `docs/plans/2026-01-21-local-testing-infrastructure-design.md`    | Design Done |
+| Local Testing Implementation      | `docs/plans/2026-01-21-local-testing-infrastructure-impl.md`      | Ready       |
+| Deployment Optimization           | `docs/plans/2026-01-21-deployment-optimization-design.md`         | Complete ✅ |
+| AccessManager Schedule/Execute Fix | `docs/plans/2026-01-22-fix-accessmanager-schedule-execute.md`    | Complete ✅ |
+| Foundry Simulation Timing Fix     | SESSION_CONTINUATION.md (Session 8)                               | Complete ✅ |
 
 ## Git Commits Summary (fix/deploymentSetup branch)
 
@@ -326,3 +869,28 @@ All implementation plans are saved in `docs/plans/` or `loan-provider/docs/plans
 - `d0b431c` refactor(script): make chain ID constants public in HelperConfig
 - `cd190d1` refactor(script): simplify LocalFullSetup to use _initialSetup without role targets
 - `06ddd00` feat(script): add centralized getters and path helpers to HelperConfig
+
+### Plan 6 Commits:
+- `fa917cf` docs: add deployment documentation and build infrastructure
+- `bb58724` feat(test): add MockChainlinkOracle for local testing
+- `3bf61e1` feat(script): add deployment scripts and strategy configuration
+- `06ddd00` feat(script): add centralized getters and path helpers to HelperConfig
+- `cd190d1` refactor(script): simplify LocalFullSetup to use _initialSetup without role targets
+- `d16f551` fix(deploy): enable schedule/execute pattern with 1-day execution delays
+- `e2adf54` fix(deploy): split Phase 3 into schedule/execute scripts
+
+## Quick Start for New Session
+
+```bash
+# Terminal 1: Start Anvil
+cd bitmor-core
+make anvil
+
+# Terminal 2: Deploy full system
+make deploy-local
+
+# Verify deployment
+cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
+```
+
+**Current state:** Local deployment works end-to-end. Next task is implementing Plan 5 (Local Testing Infrastructure) to enable `forge test` without Base Sepolia fork.
