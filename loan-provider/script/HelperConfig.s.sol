@@ -50,6 +50,9 @@ contract HelperConfig is Script, RolesData {
     uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
     address constant AAVE_V3_POOL_BASE_SEPOLIA = 0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B;
     address constant AAVE_V3_ADDRESSES_PROVIDER = 0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a;
+    // Base Mainnet External Protocol Constants
+    address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
+    address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
     address constant SWAP_ADAPTER_BASE_SEPOLIA = 0x9d1b904192209b9Ab2aB8D79Bd8C46cF4dFA7785;
     address constant ZQUOTER_BASE_SEPOLIA = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
@@ -195,19 +198,24 @@ contract HelperConfig is Script, RolesData {
     }
 
     function getAaveV3Pool() public view returns (address aavePool) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
-            // For local: read from deployments.json or return address(0) if using mocks
-            aavePool = _readDeployment("aaveV3Pool");
+        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            aavePool = AAVE_V3_POOL_BASE_MAINNET;
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             aavePool = AAVE_V3_POOL_BASE_SEPOLIA;
+        } else {
+            // Local & testnet: read from deployments.json (mocks)
+            aavePool = _readDeployment("aaveV3Pool");
         }
     }
 
     function getAaveAddressesProvider() public view returns (address addressesProvider) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
-            addressesProvider = address(0); // Not needed for local mock setup
+        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            addressesProvider = AAVE_ADDRESSES_PROVIDER_BASE_MAINNET;
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             addressesProvider = AAVE_V3_ADDRESSES_PROVIDER;
+        } else {
+            // Local & testnet: read from deployments.json (mocks)
+            addressesProvider = _readDeployment("aaveAddressesProvider");
         }
     }
 
