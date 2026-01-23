@@ -3,6 +3,7 @@ import {
   getLendingPool,
   getLendingPoolAddressesProvider,
 } from '../../../helpers/contracts-getters.js';
+import { deployMockBTCVault, deployMockLoan } from '../../../helpers/contracts-deployments.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
 import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
 
@@ -39,4 +40,30 @@ export async function deployMockBitmorCallers(): Promise<BitmorMocks> {
   console.log(`MockUSDCVault deployed at: ${mockUSDCVault.address}`);
 
   return { mockLoanProvider, mockUSDCVault };
+}
+
+/**
+ * @notice Deploy MockBTCVault for testing
+ * @param addressesProvider The LendingPoolAddressesProvider address
+ * @param cbBTCAddress The cbBTC token address
+ */
+export async function deployBTCVault(
+  addressesProvider: string,
+  cbBTCAddress: string
+): Promise<string> {
+  const btcVault = await deployMockBTCVault([addressesProvider, cbBTCAddress], false);
+  return btcVault.address;
+}
+
+/**
+ * @notice Deploy MockLoan for testing liquidation logic
+ * @param collateralAsset The collateral asset address (bvBTC)
+ * @param debtAsset The debt asset address (USDC)
+ */
+export async function deployLoanContract(
+  collateralAsset: string,
+  debtAsset: string
+): Promise<string> {
+  const mockLoan = await deployMockLoan([collateralAsset, debtAsset], false);
+  return mockLoan.address;
 }
