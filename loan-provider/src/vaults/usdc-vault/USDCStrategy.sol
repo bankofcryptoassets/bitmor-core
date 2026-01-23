@@ -172,11 +172,13 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Withdraws the requested amount from AAVE and deposit in BLP.
-     * @param amount The amount of assets to make available for withdrawal in BLP.
+     * @notice Withdraws assets from pools and transfers to vault for LP withdrawal.
+     * @param amount The amount of assets to withdraw and send to vault.
      */
     function withdraw(uint256 amount) external onlyVault {
         _withdrawFunds(amount);
+        // Transfer withdrawn assets to vault (msg.sender)
+        i_asset.safeTransfer(msg.sender, amount);
     }
 
     function reallocateAssets() external onlyVault {

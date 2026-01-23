@@ -6,6 +6,13 @@ import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {MockERC20} from "../../mock/MockERC20.sol";
+import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
+import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";
+import {MockPriceOracle} from "../../mock/MockPriceOracle.sol";
+import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
+import {MockAToken} from "../../mock/MockAToken.sol";
+import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
 
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
@@ -22,7 +29,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     USDCStrategy internal strategy;
 
     /// @notice Network configuration containing protocol addresses
-    HelperConfig.NetworkConfig internal networkConfig;
+    MockNetworkConfig internal networkConfig;
 
     // ============ Test Addresses ============
 
@@ -34,6 +41,23 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     /// @notice Attacker address for security tests
     address internal attacker;
+
+    // ============ Mock Infrastructure ============
+    MockERC20 internal mockUSDC;
+    MockBitmorLendingPool internal mockBitmorPool;
+    MockAddressesProvider internal mockAddressesProvider;
+    MockPriceOracle internal mockOracle;
+    MockAaveV3Pool internal mockAavePool;
+    MockAToken internal mockAaveAToken;
+    MockAToken internal mockBitmorAToken;
+    MockVariableDebtToken internal mockBitmorDebtToken;
+
+    /// @notice Compatibility struct for tests that reference networkConfig
+    struct MockNetworkConfig {
+        address usdc;
+        address bitmorPool;
+        address aaveV3Pool;
+    }
 
     // ============ Test Amount Constants ============
 
@@ -59,40 +83,105 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     // ============ Setup ============
 
-    /// @notice Core test setup - deploys vault, strategy, and configures access roles
-    /// @dev Creates fresh contracts and configures them with network-specific addresses.
-    ///      Uses BitmorTestBase for AccessManager initialization and role management.
-    ///      Note: Role IDs now use correct USDC vault IDs (21, 210, 22, 23) from RolesData.
+    /// @notice Core test setup - deploys vault and strategy with mock infrastructure
     function setUp() public virtual override {
-        HelperConfig config = new HelperConfig();
-        networkConfig = config.getNetworkConfig();
-
         // Create test addresses
         lender = makeAddr("LENDER");
         lender2 = makeAddr("LENDER2");
         attacker = makeAddr("ATTACKER");
 
-        // Initialize AccessManager and RolesData through BitmorTestBase
-        // This deploys a fresh AccessManager and creates all role actor addresses
+        // Initialize AccessManager and RolesData
         _initializeAccessManager(address(this));
 
-        // Deploy vault with inherited manager
-        vault = new USDCVault(address(manager), networkConfig.usdc, networkConfig.bitmorPool);
+        // Deploy mock infrastructure
+        _deployMockInfrastructure();
 
-        // Deploy strategy
-        strategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
+        // Set up mock network config for compatibility
+        networkConfig = MockNetworkConfig({
+            usdc: address(mockUSDC),
+            bitmorPool: address(mockBitmorPool),
+            aaveV3Pool: address(mockAavePool)
+        });
 
-        // Set up USDC Vault roles using BitmorTestBase helper
+        // Deploy vault with mock dependencies
+        vault = new USDCVault(address(manager), address(mockUSDC), address(mockBitmorPool));
+
+        // Deploy strategy with mock Aave pool
+        strategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));
+
+        // Set up USDC Vault roles
         _setUSDCVaultRoles();
 
-        // Set function permissions (using local function for complete selector coverage)
+        // Set function permissions
         _setTargetSelectorsLocal();
 
         // Configure vault with strategy
         _setStrategy();
 
-        // Transfer USDC to test accounts
-        _transferUSDC();
+        // Mint mock USDC to test accounts
+        _mintUSDC();
+    }
+
+    /// @notice Deploys mock infrastructure for unit tests
+    function _deployMockInfrastructure() internal {
+        // Deploy mock USDC
+        mockUSDC = new MockERC20("USD Coin", "USDC", 6);
+
+        // Deploy mock oracle
+        mockOracle = new MockPriceOracle();
+        mockOracle.setAssetPrice(address(mockUSDC), 1e8);
+
+        // Deploy mock addresses provider
+        mockAddressesProvider = new MockAddressesProvider(
+            address(0),
+            address(mockOracle),
+            address(this)
+        );
+
+        // Deploy mock Bitmor lending pool
+        mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
+        mockAddressesProvider.setLendingPool(address(mockBitmorPool));
+
+        // Deploy mock aToken and debt token for Bitmor pool
+        mockBitmorAToken = new MockAToken(
+            "Bitmor Mock USDC",
+            "bmUSDC",
+            6,
+            address(mockUSDC),
+            address(mockBitmorPool)
+        );
+        mockBitmorDebtToken = new MockVariableDebtToken(
+            "Bitmor Mock USDC Debt",
+            "vdUSDC",
+            6,
+            address(mockUSDC),
+            address(mockBitmorPool)
+        );
+        mockBitmorPool.initReserve(address(mockUSDC), address(mockBitmorAToken), address(mockBitmorDebtToken));
+
+        // Deploy mock Aave V3 pool
+        mockAavePool = new MockAaveV3Pool();
+
+        // Deploy mock aToken for Aave and initialize reserve
+        mockAaveAToken = new MockAToken(
+            "Aave Mock USDC",
+            "amUSDC",
+            6,
+            address(mockUSDC),
+            address(mockAavePool)
+        );
+        mockAavePool.initReserve(address(mockUSDC), address(mockAaveAToken));
+
+        // Fund pools with liquidity
+        mockUSDC.mint(address(mockBitmorPool), 100_000_000e6);
+        mockUSDC.mint(address(mockAavePool), 100_000_000e6);
+    }
+
+    /// @notice Mint mock USDC to test accounts
+    function _mintUSDC() internal {
+        mockUSDC.mint(lender, USDC_TO_MINT);
+        mockUSDC.mint(lender2, USDC_TO_MINT);
+        mockUSDC.mint(address(this), USDC_TO_MINT);
     }
 
     /// @notice Sets function permissions for each role using correct USDC vault role IDs
@@ -123,14 +212,6 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     /// @notice Sets the strategy on the vault using UVM_SLOW role
     function _setStrategy() internal {
         _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
-    }
-
-    /// @notice Transfers USDC to test accounts using Foundry's deal() cheatcode
-    /// @dev Uses deal() instead of safeTransfer to avoid dependency on holder balances
-    function _transferUSDC() internal {
-        deal(networkConfig.usdc, lender, USDC_TO_MINT);
-        deal(networkConfig.usdc, lender2, USDC_TO_MINT);
-        deal(networkConfig.usdc, address(this), USDC_TO_MINT);
     }
 
     // ============ Helper Functions ============

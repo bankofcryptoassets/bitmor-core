@@ -114,7 +114,8 @@ contract MockBitmorLendingPool is ILendingPool {
         DataTypes.ReserveData storage reserve = _reserves[asset];
         require(reserve.aTokenAddress != address(0), "Reserve not initialized");
 
-        IERC20(asset).transferFrom(msg.sender, address(this), amount);
+        // Transfer to aToken address (strategy checks i_asset.balanceOf(aToken) for BLP balance)
+        IERC20(asset).transferFrom(msg.sender, reserve.aTokenAddress, amount);
         MockAToken(reserve.aTokenAddress).mint(onBehalfOf, amount);
 
         emit Deposit(asset, msg.sender, onBehalfOf, amount, 0);
@@ -133,7 +134,8 @@ contract MockBitmorLendingPool is ILendingPool {
         }
 
         aToken.burn(msg.sender, amountToWithdraw);
-        IERC20(asset).transfer(to, amountToWithdraw);
+        // Transfer from aToken address (where deposit() put the underlying)
+        IERC20(asset).transferFrom(reserve.aTokenAddress, to, amountToWithdraw);
 
         emit Withdraw(asset, msg.sender, to, amountToWithdraw);
         return amountToWithdraw;

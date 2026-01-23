@@ -64,7 +64,9 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
 
         // Donate directly to vault contract
         uint256 donationAmount = STANDARD_DEPOSIT;
-        vm.prank(networkConfig.usdc_holder);
+        address donor = makeAddr("DONOR");
+        mockUSDC.mint(donor, donationAmount);
+        vm.prank(donor);
         IERC20(networkConfig.usdc).transfer(address(vault), donationAmount);
 
         // Share price should not significantly decrease
