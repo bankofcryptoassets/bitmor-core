@@ -6,6 +6,7 @@ import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddr
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockAToken} from "./MockAToken.sol";
@@ -144,6 +145,12 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @inheritdoc ILendingPool
     function borrow(address asset, uint256 amount, uint256, uint16, address onBehalfOf) external override {
+        // Only the Loan contract can borrow (mimics real access control)
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        if (msg.sender != bitmorLoan) {
+            revert Errors.UnauthorizedCaller();
+        }
+
         DataTypes.ReserveData storage reserve = _reserves[asset];
         require(reserve.variableDebtTokenAddress != address(0), "Reserve not initialized");
 
@@ -445,6 +452,13 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @return Whether the loan is overdue
     function isUserOverdue(address user) external view returns (bool) {
         return _isOverdue[user];
+    }
+
+    /// @notice Set the variable borrow rate for a reserve (test helper)
+    /// @param asset The reserve asset address
+    /// @param rate The new variable borrow rate (in RAY, e.g., 0.12e27 for 12%)
+    function setVariableBorrowRate(address asset, uint256 rate) external {
+        _reserves[asset].currentVariableBorrowRate = uint128(rate);
     }
 
     /// @inheritdoc ILendingPool

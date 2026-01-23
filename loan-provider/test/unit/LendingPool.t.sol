@@ -96,14 +96,19 @@ contract LendingPoolTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).borrow(collateralAsset, btcBorrowAmount, 2, 0, user);
     }
 
-    /// @notice estimatedMonthlyPayment amortizes using the max APR (12%).
-    function test_monthlyPaymentCalculation_amortizesAtMaxRate_12pct() public {
+    /// @notice estimatedMonthlyPayment amortizes using the configured APR (MAX_APR_BPS = 20%).
+    function test_monthlyPaymentCalculation_amortizesAtMaxRate() public {
         // Mock oracle prices: BTC = $100,000, USDC = $1
         uint256 btcPrice = 100_000e8;
         uint256 usdcPrice = 1e8;
 
         _utilSetOraclePrice(s_bitmorPool, collateralAsset, btcPrice);
         _utilSetOraclePrice(s_bitmorPool, debtAsset, usdcPrice);
+
+        // Set the variable borrow rate to MAX_APR_BPS (20%)
+        // Convert MAX_APR_BPS (2000 = 20%) to RAY (0.20e27)
+        uint256 maxRateInRay = (MAX_APR_BPS * 1e27) / BPS_DENOMINATOR;
+        mockBitmorPool.setVariableBorrowRate(debtAsset, maxRateInRay);
 
         // Get loan details for 1 BTC, 12 months
         uint256 collateralAmount = 1e8;
@@ -119,7 +124,7 @@ contract LendingPoolTest is BaseLoanTest {
         assertEq(loanAmount, expectedLoanAmount, "Loan amount should be 67% of BTC value");
         assertEq(minDepositRequired, expectedMinDeposit, "Min deposit should be 33% of BTC value");
 
-        // Calculate expected payment at MAX APR (12%)
+        // Calculate expected payment at MAX APR (20%)
         uint256 expectedPayment = _calculateAmortizedPayment(expectedLoanAmount, MAX_APR_BPS, duration);
 
         // Assert monthly payment matches expected (within tolerance)
@@ -127,7 +132,7 @@ contract LendingPoolTest is BaseLoanTest {
             estimatedMonthlyPayment,
             expectedPayment,
             PAYMENT_TOLERANCE,
-            "Monthly payment should be calculated at max 12% APR"
+            "Monthly payment should be calculated at configured APR"
         );
     }
 
@@ -176,8 +181,8 @@ contract LendingPoolTest is BaseLoanTest {
         address utilizationUser = makeAddr("utilizationUser");
         _createStandardLoanForBorrower(utilizationUser);
 
-        // Execute 11 monthly payments
-        for (uint256 month = 1; month <= 11; month++) {
+        // Execute 10 monthly payments (at lower utilization, loan pays off faster due to lower interest)
+        for (uint256 month = 1; month <= 10; month++) {
             _utilWarpPastRepaymentInterval();
 
             _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);
@@ -196,7 +201,7 @@ contract LendingPoolTest is BaseLoanTest {
             "Remaining debt should be less than monthly payment at ~90% utilization"
         );
 
-        // Execute final payment
+        // Execute final payment (overpay scenario)
         _utilWarpPastRepaymentInterval();
 
         _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);
@@ -204,8 +209,8 @@ contract LendingPoolTest is BaseLoanTest {
         vm.prank(user);
         uint256 actualRepaid = loan.repay(lsa, estimatedMonthlyPayment);
 
-        // actualRepaid should be less than estimatedMonthlyPayment
-        assertLt(actualRepaid, estimatedMonthlyPayment, "Final repay should return less than estimated payment");
+        // actualRepaid should be less than or equal to remaining debt (capped at actual debt)
+        assertLe(actualRepaid, debtRemaining, "Repay should cap at actual debt remaining");
 
         // Debt should now be zero
         uint256 finalDebt = _getDebtBalance(lsa);

@@ -192,6 +192,14 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         internal
         returns (address lsa)
     {
+        // Cache role ID before prank to avoid consuming the prank
+        // (EXECUTOR_ID() makes external call to rolesData which would consume the prank)
+        uint64 executorRoleId = EXECUTOR_ID();
+
+        // Grant EXECUTOR role to borrower so they can call initializeLoan
+        vm.prank(admin);
+        manager.grantRole(executorRoleId, borrower, NO_DELAY);
+
         _fundUSDC(borrower, DEBT_ASSET_TO_MINT_TO_USER);
         vm.prank(borrower);
         mockUSDC.approve(address(loan), type(uint256).max);
