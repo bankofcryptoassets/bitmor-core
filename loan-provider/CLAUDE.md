@@ -274,23 +274,71 @@ From `LoanStorage.sol` and `LoanMath.sol`:
 
 ## Test Structure
 
-Tests are in `test/unit/` and require a Base Sepolia fork:
+Tests are in `test/unit/` and use mock-based infrastructure (no fork required):
 
+**Loan Tests:**
 - `Loan/BaseLoan.t.sol` - Shared test base with helpers, snapshots, and setup
-- `Loan/InitializeLoan.t.sol` - Loan creation tests
-- `Loan/RepayLoan.t.sol` - Repayment tests
-- `Loan/CloseLoan.t.sol` - Loan closure tests
-- `MicroLiquidation.t.sol`, `FullLiquidation.t.sol` - Liquidation scenarios
+- `Loan/InitializeLoan.t.sol` - Loan creation tests (12 tests)
+- `Loan/RepayLoan.t.sol` - Repayment tests (17 tests)
+- `Loan/CloseLoan.t.sol` - Loan closure tests (16 tests)
+- `Loan/LoanContract.t.sol` - Core loan functionality (10 tests)
+
+**Liquidation Tests:**
+- `MicroLiquidation.t.sol` - Micro liquidation scenarios (12 tests)
+- `FullLiquidation.t.sol` - Full liquidation scenarios (13 tests)
+
+**Other Tests:**
+- `LendingPool.t.sol` - Lending pool security and payment calculations (7 tests)
+- `Insurance.t.sol` - Insurance integration tests
 - `Vault/BTC/*.t.sol` - BTCVault tests
-- `Utilities.t.sol` - Shared test utilities
+
+### Mock Infrastructure (`test/mock/`)
+
+| Mock Contract | Purpose |
+|---------------|---------|
+| `MockBitmorLendingPool.sol` | Simulates Bitmor lending pool with deposit/borrow/liquidation |
+| `MockPriceOracle.sol` | Controllable price oracle for liquidation testing |
+| `MockAddressesProvider.sol` | Provides addresses for protocol contracts |
+| `MockAToken.sol` | Simulates aToken balance tracking |
+| `MockVariableDebtToken.sol` | Simulates debt token balance tracking |
+| `MockSwapAdapter.sol` | Simulates token swaps with oracle-based pricing |
+| `MockInterestRateStrategy.sol` | Configurable interest rate strategy |
+| `MockAaveV3Pool.sol` | Simulates Aave V3 flash loans |
 
 ### Test Helpers
 
+`MockBitmorLendingPool` provides test state control:
+- `setHealthFactor(lsa, value)` - Set health factor for full liquidation tests
+- `setUserOverdue(lsa, bool)` - Set overdue state for micro liquidation tests
+- `setLiquidationType(lsa, type)` - Direct liquidation type control (0=none, 1=full, 2=micro)
+- `setVariableBorrowRate(asset, rate)` - Set interest rate (in RAY)
+- `setInsuranceId(lsa, id)` - Set insurance ID for tests
+
 `BaseLoan.t.sol` provides:
 - `_createStandardLoan()` - Creates 1 BTC / 12 month loan
+- `_createLoanForBorrower(borrower, ...)` - Creates loan for specific borrower (handles role grants)
 - `_captureTestSnapshot(lsa)` - Snapshot loan state before/after
 - `_setupForMicroLiquidation(lsa)` - Setup overdue loan scenario
 - `_setupForFullLiquidation(lsa)` - Setup price-drop liquidation
+
+### Test Gotchas
+
+**vm.prank with external calls:** When using `vm.prank(admin)` before `manager.grantRole()`, cache external call results (like `EXECUTOR_ID()`) BEFORE the prank to avoid consuming it:
+```solidity
+// WRONG - prank consumed by EXECUTOR_ID()
+vm.prank(admin);
+manager.grantRole(EXECUTOR_ID(), borrower, NO_DELAY);
+
+// CORRECT - cache before prank
+uint64 executorRoleId = EXECUTOR_ID();
+vm.prank(admin);
+manager.grantRole(executorRoleId, borrower, NO_DELAY);
+```
+
+**Borrow access control:** `MockBitmorLendingPool.borrow()` only allows calls from the registered Loan contract. Tests creating separate Loan instances must register them:
+```solidity
+mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
+```
 
 ## Configuration
 
@@ -354,3 +402,10 @@ Tracked TODO items in the codebase:
 - **Strategy removal safety** - Requires cap=0 and balance=0 before removal (`BTCVault.sol`)
 - **Credit delegation scoping** - Delegation limited to Protocol only (`LoanVault.sol`)
 - **LoanVault execute protection** - `execute()` restricted to owner (`LoanVault.sol`)
+
+## Documentation
+
+| Document | Location | Description |
+|----------|----------|-------------|
+| Session Continuation | `docs/plans/SESSION_CONTINUATION.md` | Tracks implementation progress and provides context for session continuations |
+| Test Migration Plan | `docs/plans/2026-01-22-comprehensive-test-migration.md` | Original plan for migrating tests to mock infrastructure |
