@@ -56,6 +56,8 @@ import {
   UiPoolDataProviderV2V3__factory,
   UiIncentiveDataProviderV2__factory,
   MockUSDCVault__factory,
+  MockBTCVault__factory,
+  MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
 import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
@@ -732,6 +734,28 @@ export const deployMockWETHVault = async (
   withSaveAndVerify(
     await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
     eContractid.MockWETHVault,
+    args,
+    verify
+  );
+
+export const deployMockBTCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockBTCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockBTCVault,
+    args,
+    verify
+  );
+
+export const deployMockLoan = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockLoan__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockLoan,
     args,
     verify
   );
