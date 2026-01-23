@@ -24,6 +24,16 @@ contract AccessControlsTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();
         attacker = makeAddr("attacker");
+
+        // Add missing LPM_SLOW selectors that aren't in RolesData.getLPM_SLOW_SELECTORS()
+        // These selectors are tested but not included in the default RolesData config
+        bytes4[] memory additionalSelectors = new bytes4[](2);
+        additionalSelectors[0] = Loan.setSwapAdapter.selector;
+        additionalSelectors[1] = Loan.setZQuoter.selector;
+
+        vm.startPrank(admin);
+        manager.setTargetFunctionRole(address(loan), additionalSelectors, LPM_SLOW_ID());
+        vm.stopPrank();
     }
 
     /// @notice Unauthorized caller cannot call admin setter functions (expects AccessManagedUnauthorized)
@@ -126,7 +136,7 @@ contract AccessControlsTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
-        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 
@@ -135,7 +145,7 @@ contract AccessControlsTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
-        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 
