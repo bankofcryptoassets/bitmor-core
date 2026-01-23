@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
+import {console2} from "forge-std/console2.sol";
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -113,16 +114,13 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(state.loanState.debtAfter, 0, "LSA debt should be 0 after close");
         assertEq(state.loanState.collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
 
-        // User should receive collateral asset (cbBTC)
-        // Note: When withdrawInCollateralAsset=true, user receives BTC from:
-        // 1. BTC vault redeem() - sends directly to borrower
-        // 2. Any leftover from Loan contract after swap
-        uint256 collateralReceived = state.userBalances.userCollateralAfter - state.userBalances.userCollateralBefore;
-        assertGt(collateralReceived, 0, "User should receive collateral asset");
+        // User should receive BTC (underlying) when withdrawInCollateralAsset=true
+        uint256 btcReceived = IERC20(btc).balanceOf(user) - state.userBalances.userCollateralBefore;
+        assertGt(btcReceived, 0, "User should receive BTC collateral");
 
-        // Verify Loan transferred some leftover collateral (the direct vault redeem goes to borrower separately)
-        uint256 transferredFromLoan = _parseTransferLogs(logs, collateralAsset, address(loan), user);
-        assertGt(transferredFromLoan, 0, "Loan should transfer leftover collateral to user");
+        // Verify Loan transferred some BTC to user
+        uint256 transferredFromLoan = _parseTransferLogs(logs, btc, address(loan), user);
+        assertGt(transferredFromLoan, 0, "Loan should transfer BTC to user");
 
         // When withdrawing in collateral asset, USDC received should be minimal (dust)
         uint256 usdcReceived = state.userBalances.userDebtAssetAfter - state.userBalances.userDebtAssetBefore;
@@ -194,7 +192,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Get premium collector address for fee verification
         address premiumCollector = loan.getPremiumCollector();
-        uint256 collectorBalanceBefore = IERC20(collateralAsset).balanceOf(premiumCollector);
+        uint256 collectorBalanceBefore = IERC20(btc).balanceOf(premiumCollector);
 
         // Record logs
         vm.recordLogs();
@@ -203,9 +201,9 @@ contract CloseLoanTest is BaseLoanTest {
         loan.closeLoan(lsa, withdrawInCollateralAsset);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // Parse collateral transfers to premium collector (fee sink)
-        uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
-        uint256 userCollateralReceived = _parseTransferLogs(logs, collateralAsset, address(loan), user);
+        // Parse BTC transfers to premium collector (fee sink)
+        uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
+        uint256 userCollateralReceived = _parseTransferLogs(logs, btc, address(loan), user);
 
         // Verify fee calculation is correct
         assertEq(
@@ -215,7 +213,7 @@ contract CloseLoanTest is BaseLoanTest {
         );
 
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
-        uint256 collectorBalanceAfter = IERC20(collateralAsset).balanceOf(premiumCollector);
+        uint256 collectorBalanceAfter = IERC20(btc).balanceOf(premiumCollector);
         uint256 collectorReceived = collectorBalanceAfter - collectorBalanceBefore;
         assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
         assertApproxEqAbs(collectorReceived, expectedFee, 1, "Premium collector should receive expected fee");
@@ -251,8 +249,8 @@ contract CloseLoanTest is BaseLoanTest {
         loan.closeLoan(lsa, withdrawInCollateralAsset);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // Parse collateral transfers to premium collector (fee is in collateral asset)
-        uint256 feeTransferred = _parseTransferLogs(logs, collateralAsset, address(loan), premiumCollector);
+        // Parse BTC transfers to premium collector (fee is in BTC)
+        uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
 
         // Verify fee calculation is correct
         assertEq(
@@ -327,15 +325,17 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing a loan after full repayment reverts
     /// @dev Once debt is fully repaid via repay(), loan status is Completed
-    /// @dev Note: Protocol currently reverts with CollateralWithdrawFailed rather than LoanIsNotActive
-    ///      because CloseLoanLogic doesn't check loan status before attempting operations
     function test_closeLoan_afterFullRepayment_reverts() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
+        console2.log("bvbTC shares in LSA:", IERC20(collateralAsset).balanceOf(lsa));
+
         // Fully repay the loan
         vm.prank(user);
         loan.repay(lsa, totalDebt);
+
+        console2.log("reached here");
 
         // Verify loan is completed
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
@@ -344,16 +344,12 @@ contract CloseLoanTest is BaseLoanTest {
         );
         assertEq(_getDebtBalance(lsa), 0, "Debt should be 0");
 
-        // Attempting to close should revert - protocol reverts with CollateralWithdrawFailed
-        // because it attempts to withdraw collateral before checking loan status
         vm.prank(user);
-        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        vm.expectRevert(Errors.LoanIsNotActive.selector);
         loan.closeLoan(lsa, true);
     }
 
     /// @notice Test that double-closing a loan reverts
-    /// @dev Note: Protocol currently reverts with CollateralWithdrawFailed rather than LoanIsNotActive
-    ///      because CloseLoanLogic doesn't check loan status before attempting operations
     function test_closeLoan_doubleClose_reverts() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -365,10 +361,8 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(_getDebtBalance(lsa), 0, "Debt should be 0 after first close");
         assertEq(_getCollateralBalance(lsa), 0, "Collateral should be 0 after first close");
 
-        // Second close should revert - protocol reverts with CollateralWithdrawFailed
-        // because it attempts to withdraw collateral before checking loan status
         vm.prank(user);
-        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        vm.expectRevert(Errors.LoanIsNotActive.selector);
         loan.closeLoan(lsa, true);
     }
 
@@ -409,12 +403,10 @@ contract CloseLoanTest is BaseLoanTest {
         vm.prank(user);
         loan.closeLoan(lsa1, true);
 
-        uint256 userCollateralAfterFirst = IERC20(collateralAsset).balanceOf(user);
+        uint256 userCollateralAfterFirst = IERC20(btc).balanceOf(user);
 
-        // The user should have received collateral asset primarily
-        assertGt(
-            userCollateralAfterFirst - state.userBalances.userCollateralBefore, 0, "Should receive collateral in mode 1"
-        );
+        // The user should have received BTC primarily
+        assertGt(userCollateralAfterFirst - state.userBalances.userCollateralBefore, 0, "Should receive BTC in mode 1");
     }
 
     /// @notice Test close immediately after loan creation

@@ -287,7 +287,8 @@ contract MockBitmorLendingPool is ILendingPool {
         } else {
             // Transfer underlying to liquidator
             aToken.burn(user, actualCollateralSeized);
-            IERC20(collateralAsset).transfer(msg.sender, actualCollateralSeized);
+            // Underlying sits on the aToken contract (see deposit), so pull from there
+            IERC20(collateralAsset).transferFrom(collateralReserve.aTokenAddress, msg.sender, actualCollateralSeized);
         }
 
         // Update loan status in Loan contract (like real LendingPool does)
@@ -374,7 +375,8 @@ contract MockBitmorLendingPool is ILendingPool {
 
         // Transfer underlying to liquidator
         aToken.burn(user, actualCollateralSeized);
-        IERC20(collateralAsset).transfer(msg.sender, actualCollateralSeized);
+        // Underlying sits on the aToken contract (see deposit), so pull from there
+        IERC20(collateralAsset).transferFrom(collateralReserve.aTokenAddress, msg.sender, actualCollateralSeized);
 
         // Update loan status in Loan contract for micro liquidation
         address bitmorLoan = _addressesProvider.getBitmorLoan();

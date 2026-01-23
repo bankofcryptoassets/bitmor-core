@@ -450,6 +450,8 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         if (token == debtAsset) {
             _fundUSDC(_liquidator, amount);
         } else if (token == collateralAsset) {
+            mockBTCVault.mint(_liquidator, amount);
+        } else if (token == btc) {
             _fundCbBTC(_liquidator, amount);
         }
     }
@@ -459,6 +461,8 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         if (token == debtAsset) {
             _fundUSDC(to, amount);
         } else if (token == collateralAsset) {
+            mockBTCVault.mint(to, amount);
+        } else if (token == btc) {
             _fundCbBTC(to, amount);
         }
     }

@@ -181,8 +181,12 @@ contract LendingPoolTest is BaseLoanTest {
         address utilizationUser = makeAddr("utilizationUser");
         _createStandardLoanForBorrower(utilizationUser);
 
-        // Execute 10 monthly payments (at lower utilization, loan pays off faster due to lower interest)
-        for (uint256 month = 1; month <= 10; month++) {
+        // Execute payments while ensuring some debt remains
+        uint256 totalDebt = _getDebtBalance(lsa);
+        uint256 monthsToPay = (totalDebt - 1) / estimatedMonthlyPayment;
+        require(monthsToPay > 0, "Test setup: monthly payment exceeds total debt");
+
+        for (uint256 month = 1; month <= monthsToPay; month++) {
             _utilWarpPastRepaymentInterval();
 
             _utilMintTokenAndApprove(debtAsset, user, address(loan), estimatedMonthlyPayment);

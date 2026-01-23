@@ -142,7 +142,7 @@ contract RepayLoanTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         LsaPositionSnapshot memory lsaPosBefore = _snapshotLsaPositions(lsa);
-        uint256 userCollateralBefore = IERC20(collateralAsset).balanceOf(user);
+        uint256 userBtcBefore = IERC20(btc).balanceOf(user);
 
         assertGt(lsaPosBefore.debt, 0, "Should have debt before repayment");
         assertGt(lsaPosBefore.collateral, 0, "LSA should have collateral");
@@ -150,17 +150,17 @@ contract RepayLoanTest is BaseLoanTest {
         (TestSnapshot memory snapshot,) = _repayAndFetch(lsa, lsaPosBefore.debt);
 
         LsaPositionSnapshot memory lsaPosAfter = _snapshotLsaPositions(lsa);
-        uint256 userCollateralAfter = IERC20(collateralAsset).balanceOf(user);
+        uint256 userBtcAfter = IERC20(btc).balanceOf(user);
 
         _assertLoanCompleted(snapshot);
         assertEq(snapshot.durationAfter, 0, "Duration should be 0");
         assertEq(lsaPosAfter.debt, 0, "Debt should be 0");
         assertEq(lsaPosAfter.collateral, 0, "LSA collateral should be 0");
-        assertGt(userCollateralAfter, userCollateralBefore, "User should receive collateral");
+        assertGt(userBtcAfter, userBtcBefore, "User should receive BTC collateral");
         assertEq(
-            userCollateralAfter - userCollateralBefore,
+            userBtcAfter - userBtcBefore,
             lsaPosBefore.collateral,
-            "User should receive all LSA collateral"
+            "User should receive all LSA collateral in BTC"
         );
     }
 
@@ -214,9 +214,9 @@ contract RepayLoanTest is BaseLoanTest {
         uint256 estimatedMonthly = loanData.estimatedMonthlyPayment;
         uint256 totalDebt = _getDebtBalance(lsa);
 
-        // Calculate how many months we can pay while leaving debt remaining
-        // With mocks (no interest), 11 months > total debt, so pay 10 months instead
-        uint256 monthsToPay = 10;
+        // Pay the maximum full months while leaving some debt remaining
+        uint256 monthsToPay = (totalDebt - 1) / estimatedMonthly;
+        require(monthsToPay > 0, "Test setup: monthly payment exceeds total debt");
         uint256 repayAmount = estimatedMonthly * monthsToPay;
 
         // Ensure we're not paying more than total debt
@@ -228,8 +228,10 @@ contract RepayLoanTest is BaseLoanTest {
         uint256 remainingDebt = _getDebtBalance(lsa);
         DataTypes.LoanData memory loanDataMid = loan.getLoanByLSA(lsa);
 
-        // With 10 months paid, should have 2 months remaining
-        assertEq(loanDataMid.duration, 2, "Should have 2 months remaining");
+        // Duration should reduce by the number of full months paid
+        assertEq(
+            loanDataMid.duration, loanData.duration - monthsToPay, "Duration should reduce by months paid"
+        );
         assertEq(uint256(loanDataMid.status), uint256(DataTypes.LoanStatus.Active), "Should be active");
         assertGt(remainingDebt, 0, "Should have remaining debt");
 
