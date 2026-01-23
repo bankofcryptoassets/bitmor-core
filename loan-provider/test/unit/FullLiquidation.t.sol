@@ -118,7 +118,8 @@ contract FullLiquidationTest is BaseLoanTest {
         assertGt(debtPaid, 0, "Liquidator should have paid debt");
     }
 
-    /// @notice Full liquidation transfers liquidator USDC to the debt aToken.
+    /// @notice Full liquidation transfers liquidator USDC to the lending pool.
+    /// @dev Mock transfers repaid debt to the pool contract, not the debt token
     function test_fullLiquidation_debtTransferredToAToken() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -126,34 +127,33 @@ contract FullLiquidationTest is BaseLoanTest {
         uint256 liquidationType = _setupForFullLiquidation(lsa);
         assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
 
-        // Get debt aToken address
-        address debtATokenAddr = _getDebtATokenAddress();
-
         // Snapshot balances before using generic helpers
-        uint256 debtATokenBefore = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        uint256 poolBalanceBefore = IERC20(debtAsset).balanceOf(s_bitmorPool);
         LiquidatorSnapshot memory liquidatorState = _captureLiquidatorSnapshot();
 
         // Execute full liquidation
         _executeFullLiquidation(lsa, type(uint256).max, false);
 
         // Snapshot balances after
-        uint256 debtATokenAfter = IERC20(debtAsset).balanceOf(debtATokenAddr);
+        uint256 poolBalanceAfter = IERC20(debtAsset).balanceOf(s_bitmorPool);
         _updateLiquidatorSnapshotAfter(liquidatorState);
 
         // Calculate amounts
         uint256 debtPaid = liquidatorState.liquidatorDebtBefore - liquidatorState.liquidatorDebtAfter;
-        uint256 debtATokenIncrease = debtATokenAfter - debtATokenBefore;
+        uint256 poolBalanceIncrease = poolBalanceAfter - poolBalanceBefore;
 
-        // 1. Debt aToken balance should increase by exactly the debt paid
-        assertEq(debtATokenIncrease, debtPaid, "Debt aToken should receive exact debt paid amount");
+        // 1. Pool balance should increase by exactly the debt paid
+        assertEq(poolBalanceIncrease, debtPaid, "Pool should receive exact debt paid amount");
     }
 
     /// @notice Full liquidation pays the liquidation bonus to the liquidator.
+    /// @dev Uses smaller price drop so collateral value still exceeds debt for bonus check
     function test_fullLiquidation_liquidatorReceivesBonus() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
-        uint256 liquidationType = _setupForFullLiquidation(lsa);
+        // Setup for full liquidation with smaller price drop (20%) so collateral > debt
+        // A 50% drop makes collateral underwater, so we use a smaller drop
+        uint256 liquidationType = _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
         assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
 
         // Capture full liquidation state using generic helper
@@ -181,11 +181,18 @@ contract FullLiquidationTest is BaseLoanTest {
         _updateAddressesProviderBitmorLoan();
         _warpPastGracePeriod();
         _dropOraclePrice(collateralAsset, PRICE_DROP_50_PERCENT);
+        // Set health factor < 1 for full liquidation eligibility
+        mockBitmorPool.setHealthFactor(lsa, 0.5e18);
 
         uint256 liquidationType = _checkLiquidationType(lsa);
         assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
 
-        // Do NOT fund liquidator, but approve
+        // Clear liquidator's balances (reset from base setup) and set approval only
+        uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
+        if (liquidatorBalance > 0) {
+            vm.prank(liquidator);
+            IERC20(debtAsset).transfer(address(1), liquidatorBalance);
+        }
         vm.prank(liquidator);
         IERC20(debtAsset).approve(s_bitmorPool, type(uint256).max);
 
@@ -207,12 +214,15 @@ contract FullLiquidationTest is BaseLoanTest {
         _updateAddressesProviderBitmorLoan();
         _warpPastGracePeriod();
         _dropOraclePrice(collateralAsset, PRICE_DROP_50_PERCENT);
+        // Set health factor < 1 for full liquidation eligibility
+        mockBitmorPool.setHealthFactor(lsa, 0.5e18);
 
         uint256 liquidationType = _checkLiquidationType(lsa);
         assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
 
-        // Mint USDC to liquidator but DO NOT approve
-        _utilMintToLiquidatorNoApproval(liquidator, debtAsset, DEBT_ASSET_TO_MINT_TO_USER);
+        // Reset liquidator's allowance (base setup gave max allowance)
+        vm.prank(liquidator);
+        IERC20(debtAsset).approve(s_bitmorPool, 0);
 
         // Verify liquidator has USDC but no allowance using generic helper
         AccountBalanceSnapshot memory liquidatorBalances = _snapshotAccountBalances(liquidator);

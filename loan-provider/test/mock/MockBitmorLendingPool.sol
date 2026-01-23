@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
@@ -238,6 +239,11 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 debtToCover,
         bool receiveAToken
     ) external override {
+        // Validate liquidation type (like real lending pool)
+        uint256 liquidationType = this.checkTypeOfLiquidation(user);
+        require(liquidationType == 1, "LiquidationCall requires full liquidation type (1)");
+        require(debtToCover == type(uint256).max, "Full liquidation requires max debt coverage");
+
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
 
@@ -268,6 +274,12 @@ contract MockBitmorLendingPool is ILendingPool {
             IERC20(collateralAsset).transfer(msg.sender, actualCollateralSeized);
         }
 
+        // Update loan status in Loan contract (like real LendingPool does)
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        if (bitmorLoan != address(0)) {
+            try ILoan(bitmorLoan).updateLoanDataForFullLiquidation(user) {} catch {}
+        }
+
         emit LiquidationCall(
             collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, receiveAToken
         );
@@ -277,6 +289,10 @@ contract MockBitmorLendingPool is ILendingPool {
     function microLiquidationCall(bytes calldata data) external override {
         (address collateralAsset, address debtAsset, address user) = abi.decode(data, (address, address, address));
 
+        // Validate liquidation type (like real lending pool)
+        uint256 liquidationType = this.checkTypeOfLiquidation(user);
+        require(liquidationType == 2, "MicroLiquidationCall requires micro liquidation type (2)");
+
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
         MockVariableDebtToken debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
 
@@ -285,8 +301,50 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 debtToCover = userDebt / 12;
         if (debtToCover == 0) debtToCover = userDebt;
 
-        // Call internal liquidation
-        this.liquidationCall(collateralAsset, debtAsset, user, debtToCover, false);
+        // Perform liquidation (but don't call full liquidation callback)
+        _executeMicroLiquidation(collateralAsset, debtAsset, user, debtToCover);
+    }
+
+    /// @dev Internal micro liquidation - doesn't call full liquidation update
+    function _executeMicroLiquidation(
+        address collateralAsset,
+        address debtAsset,
+        address user,
+        uint256 debtToCover
+    ) internal {
+        DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+        DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+
+        MockVariableDebtToken debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
+        MockAToken aToken = MockAToken(collateralReserve.aTokenAddress);
+
+        uint256 userDebt = debtToken.balanceOf(user);
+        uint256 actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
+
+        // Calculate collateral to seize with liquidation bonus
+        uint256 collateralToSeize = (actualDebtToCover * LIQUIDATION_BONUS_BPS) / 10000;
+
+        // Transfer debt from liquidator
+        IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
+        debtToken.burn(user, actualDebtToCover);
+
+        // Seize collateral
+        uint256 userCollateral = aToken.balanceOf(user);
+        uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
+
+        // Transfer underlying to liquidator
+        aToken.burn(user, actualCollateralSeized);
+        IERC20(collateralAsset).transfer(msg.sender, actualCollateralSeized);
+
+        // Update loan status in Loan contract for micro liquidation
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        if (bitmorLoan != address(0)) {
+            try ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(user) {} catch {}
+        }
+
+        emit LiquidationCall(
+            collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, false
+        );
     }
 
     /// @inheritdoc ILendingPool
