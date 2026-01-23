@@ -459,4 +459,23 @@ abstract contract BitmorTestBase is Test {
 
         revert("BitmorTestBase: Unknown role");
     }
+
+    // ============ Loan Configuration Helpers ============
+
+    /// @notice Configure loan parameters using proper setters (replaces vm.store)
+    /// @param loanContract The Loan contract address
+    /// @param maxBTC Maximum BTC amount (in 8 decimals)
+    /// @param minBTC Minimum BTC amount (in 8 decimals)
+    /// @param slippage Slippage in basis points
+    function _configureLoanParameters(address loanContract, uint256 maxBTC, uint256 minBTC, uint256 slippage) internal {
+        _scheduleAndExecute(
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
+        );
+        _scheduleAndExecute(
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinBTCAmount(uint256)", minBTC)
+        );
+        _scheduleAndExecute(
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
+        );
+    }
 }
