@@ -19,6 +19,11 @@ import {MockAToken} from "../mock/MockAToken.sol";
 import {MockVariableDebtToken} from "../mock/MockVariableDebtToken.sol";
 import {MockSwapAdapter} from "../mock/MockSwapAdapter.sol";
 import {MockInterestRateStrategy} from "../mock/MockInterestRateStrategy.sol";
+import {MockBTCVault} from "../mock/MockBTCVault.sol";
+import {MockUSDCVault} from "../mock/MockUSDCVault.sol";
+import {MockLendingRateOracle} from "../mock/MockLendingRateOracle.sol";
+import {MockDefaultInterestRateStrategy} from "../mock/MockDefaultInterestRateStrategy.sol";
+import {MockUSDCInterestRateStrategy} from "../mock/MockUSDCInterestRateStrategy.sol";
 
 /// @title LoanUnitTestBase
 /// @notice Base for Loan contract unit tests with comprehensive mock dependencies
@@ -49,6 +54,18 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     MockVariableDebtToken public mockDebtTokenUSDC;
     MockInterestRateStrategy public mockInterestRateStrategy;
 
+    // New vault mocks for proper collateral handling
+    MockBTCVault public mockBTCVault;
+    MockUSDCVault public mockUSDCVault;
+
+    // New interest rate strategy mocks
+    MockDefaultInterestRateStrategy public mockBTCInterestRateStrategy;
+    MockUSDCInterestRateStrategy public mockUSDCInterestRateStrategy;
+    MockLendingRateOracle public mockLendingRateOracle;
+
+    // Renamed: aToken for bvBTC shares (was cbBTC)
+    MockAToken public mockATokenBvBTC;
+
     // ============ Price Constants ============
     uint256 public constant BTC_PRICE = 100_000e8; // $100,000 per BTC
     uint256 public constant USDC_PRICE = 1e8; // $1 per USDC
@@ -74,6 +91,9 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     /// @notice Deploys all mock contracts for the lending pool
     function _deployMockInfrastructure() internal virtual {
+        // Deploy lending rate oracle first (needed by interest rate strategies)
+        mockLendingRateOracle = new MockLendingRateOracle();
+
         // Deploy price oracle
         mockOracle = new MockPriceOracle();
         mockOracle.setAssetPrice(address(mockCbBTC), BTC_PRICE);
@@ -86,60 +106,92 @@ abstract contract LoanUnitTestBase is UnitTestBase {
             admin
         );
 
+        // Set lending rate oracle in addresses provider
+        mockAddressesProvider.setLendingRateOracle(address(mockLendingRateOracle));
+
+        // Deploy BTCVault that wraps cbBTC → bvBTC shares
+        mockBTCVault = new MockBTCVault(
+            address(mockCbBTC),
+            "Bitmor BTC Vault",
+            "bvBTC",
+            8 // Same decimals as cbBTC
+        );
+
+        // Set bvBTC price (same as cbBTC for 1:1 share ratio in testing)
+        mockOracle.setAssetPrice(address(mockBTCVault), BTC_PRICE);
+
+        // Deploy USDCVault for USDC interest rate strategy liquidity source
+        mockUSDCVault = new MockUSDCVault(
+            address(mockUSDC),
+            "Bitmor USDC Vault",
+            "bvUSDC",
+            6 // Same decimals as USDC
+        );
+        // Set initial liquidity for USDC vault
+        mockUSDCVault.setMockTotalAssets(TC.LENDING_POOL_USDC_BALANCE);
+
         // Deploy lending pool
         mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
 
         // Update addresses provider with lending pool
         mockAddressesProvider.setLendingPool(address(mockBitmorPool));
 
-        //! TODO: This is wrong. We need to deploy mockBTCVault with shares `bvBTC` which act as a reserve in BitmorLendingPool instead of `cbBTC` acting as reserve in BitmorLendingPool.
-        // Deploy aTokens and debt tokens for cbBTC
-        mockATokenCbBTC = new MockAToken(
-            "Bitmor aToken cbBTC",
-            "aBTC",
-            8, // Same decimals as cbBTC
-            address(mockCbBTC),
+        // Deploy interest rate strategies
+        mockBTCInterestRateStrategy = new MockDefaultInterestRateStrategy(address(mockAddressesProvider));
+        mockUSDCInterestRateStrategy =
+            new MockUSDCInterestRateStrategy(address(mockAddressesProvider), address(mockUSDCVault));
+
+        // Deploy aTokens for bvBTC (vault shares as collateral)
+        mockATokenBvBTC = new MockAToken(
+            "Bitmor aToken bvBTC",
+            "abvBTC",
+            8, // Same decimals as bvBTC
+            address(mockBTCVault), // Underlying is bvBTC (vault shares)
             address(mockBitmorPool)
         );
+
+        // Keep cbBTC aToken for backward compatibility during transition
+        mockATokenCbBTC = new MockAToken("Bitmor aToken cbBTC", "aBTC", 8, address(mockCbBTC), address(mockBitmorPool));
 
         mockDebtTokenCbBTC = new MockVariableDebtToken(
             "Bitmor Variable Debt cbBTC", "variableDebtBTC", 8, address(mockCbBTC), address(mockBitmorPool)
         );
 
         // Deploy aTokens and debt tokens for USDC
-        mockATokenUSDC = new MockAToken(
-            "Bitmor aToken USDC",
-            "aUSDC",
-            6, // Same decimals as USDC
-            address(mockUSDC),
-            address(mockBitmorPool)
-        );
+        mockATokenUSDC = new MockAToken("Bitmor aToken USDC", "aUSDC", 6, address(mockUSDC), address(mockBitmorPool));
 
         mockDebtTokenUSDC = new MockVariableDebtToken(
             "Bitmor Variable Debt USDC", "variableDebtUSDC", 6, address(mockUSDC), address(mockBitmorPool)
         );
 
-        // Deploy interest rate strategy
-        //! TODO: This is wrong. Interest rate strategy for `bvBTC` reserve and `USDC` reserve will be different as USDC reserve will consider the `availableLiquidity  = USDCVault.totalAssets()` as setup in `USDCReserveInterestRateStartegy` in `lending-pool`
-        mockInterestRateStrategy = new MockInterestRateStrategy();
-
-        // Initialize reserves in lending pool with interest rate strategy
-        //! TODO: need to use `bvBTC` vault shares as reserves instead of this.
+        // Initialize reserves in lending pool with proper interest rate strategies
+        // Use bvBTC (vault shares) as collateral reserve
         mockBitmorPool.initReserveWithStrategy(
-            address(mockCbBTC), address(mockATokenCbBTC), address(mockDebtTokenCbBTC), address(mockInterestRateStrategy)
+            address(mockBTCVault), // bvBTC as reserve
+            address(mockATokenBvBTC),
+            address(mockDebtTokenCbBTC), // Debt is still in cbBTC terms
+            address(mockBTCInterestRateStrategy)
         );
 
-        //! TODO: need to use USDCReserveInterestRateStrategy logic instead.
+        // USDC reserve uses USDC interest rate strategy
         mockBitmorPool.initReserveWithStrategy(
-            address(mockUSDC), address(mockATokenUSDC), address(mockDebtTokenUSDC), address(mockInterestRateStrategy)
+            address(mockUSDC),
+            address(mockATokenUSDC),
+            address(mockDebtTokenUSDC),
+            address(mockUSDCInterestRateStrategy)
         );
 
         // Deploy swap adapter with oracle
         mockSwapAdapter = new MockSwapAdapter(address(mockOracle));
 
         // Fund swap adapter with tokens for swaps
+        // Swap adapter needs cbBTC for USDC → cbBTC swaps
         mockCbBTC.mint(address(mockSwapAdapter), TC.SWAP_ADAPTER_CBBTC_BALANCE);
         mockUSDC.mint(address(mockSwapAdapter), TC.SWAP_ADAPTER_USDC_BALANCE);
+
+        // Note: BTCVault is NOT pre-funded with cbBTC
+        // cbBTC flows into the vault naturally through deposits during loan initialization
+        // This maintains proper share accounting (virtual shares protection)
 
         // Fund lending pool with tokens for borrows/withdraws
         mockCbBTC.mint(address(mockBitmorPool), TC.LENDING_POOL_CBBTC_BALANCE);
@@ -153,16 +205,16 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     function _deployLoanInfrastructure() internal virtual {
         loanVaultImplementation = address(new LoanVault());
 
-        // Deploy Loan with comprehensive mock infrastructure
+        // Deploy Loan with bvBTC (vault shares) as collateral
         loan = new Loan(
             address(manager), // AccessManager
             address(mockAavePool), // Mock Aave V3 for flash loans
             address(mockAddressesProvider), // Our mock addresses provider
             address(mockBitmorPool), // Our mock Bitmor lending pool
             address(mockOracle), // Our mock price oracle
-            address(mockCbBTC), // collateralAsset
+            address(mockBTCVault), // collateralAsset = bvBTC (vault shares)
             address(mockUSDC), // debtAsset
-            address(mockCbBTC), // btc token
+            address(mockCbBTC), // btc token (underlying)
             address(mockSwapAdapter), // Our mock swap adapter
             address(0), // zQuoter (allowed to be zero)
             premiumCollector, // premiumCollector
@@ -254,7 +306,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     /// @notice Gets user's collateral balance from the lending pool
     function _getCollateralBalance(address lsa) internal view returns (uint256) {
-        return mockATokenCbBTC.balanceOf(lsa);
+        return mockATokenBvBTC.balanceOf(lsa);
     }
 
     // ============ Oracle Helpers ============

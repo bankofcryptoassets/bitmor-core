@@ -40,6 +40,10 @@ library TestConstants {
     uint256 internal constant LENDING_POOL_CBBTC_BALANCE = 1000e8; // 1000 BTC for pool
     uint256 internal constant LENDING_POOL_USDC_BALANCE = 100_000_000e6; // 100M USDC for pool
 
+    // ============ Vault Configuration ============
+    uint256 internal constant BTC_VAULT_INITIAL_BALANCE = 1000e8; // 1000 cbBTC for vault
+    uint256 internal constant USDC_VAULT_INITIAL_LIQUIDITY = 100_000_000e6; // 100M USDC
+
     // ============ Debt Asset Amounts ============
     uint256 internal constant DEBT_ASSET_TO_MINT_TO_USER = 1_000_000e6;
 
