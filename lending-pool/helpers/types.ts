@@ -110,6 +110,8 @@ export enum eContractid {
   MockUSDCVault = 'MockUSDCVault',
   MockActualUSDCVault = 'MockActualUSDCVault',
   MockWETHVault = 'MockWETHVault',
+  MockBTCVault = 'MockBTCVault',
+  MockLoan = 'MockLoan',
   UniswapLiquiditySwapAdapter = 'UniswapLiquiditySwapAdapter',
   UniswapRepayAdapter = 'UniswapRepayAdapter',
   FlashLiquidationAdapter = 'FlashLiquidationAdapter',
@@ -396,7 +398,8 @@ export enum TokenContractId {
   xSUSHI = 'xSUSHI',
   WAVAX = 'WAVAX',
   bvBTC = 'bvBTC',
-  bUSDC = 'bUSDC'
+  bUSDC = 'bUSDC',
+  cbBTC = 'cbBTC',
 }
 
 export interface IReserveParams extends IReserveBorrowParams, IReserveCollateralParams {
