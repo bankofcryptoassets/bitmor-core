@@ -123,6 +123,7 @@ library CloseLoanLogic {
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.borrower != msg.sender) revert Errors.UnauthorizedCaller();
+        if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
         (vars.totalCollateralUSD, vars.totalDebtUSD) = ctx.bitmorPool.getUserPositions(params.lsa);
 

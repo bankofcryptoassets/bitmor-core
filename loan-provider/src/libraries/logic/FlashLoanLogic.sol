@@ -204,8 +204,7 @@ library FlashLoanLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
-            vars.collateralAmountWithdrawn =
-                vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, address(this));
+            vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, vars.lsa);
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
@@ -222,7 +221,7 @@ library FlashLoanLogic {
         vars.preClosureFeeAmt = vars.btcAmtReceived.mulDivUp(vars.preClosureFeeBps, BASIS_POINT_SCALE);
 
         // Sends the pre-closure fee to the fee collector
-        IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmt);
+        IERC20(ctx.btc).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmt);
 
         // =========== Swap the required amount to debt asset ==========
 
@@ -250,11 +249,11 @@ library FlashLoanLogic {
         );
 
         // Approve SwapAdaptor to spend tokens
-        IERC20(ctx.collateralAsset).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
+        IERC20(ctx.btc).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
 
         vars.debtAssetAmtReceived = SwapLogic.executeSwap(
             ctx.swapAdapter,
-            ctx.collateralAsset, //tokenIn
+            ctx.btc, //tokenIn
             ctx.debtAsset, // tokenOut
             vars.btcAmtToSwap, // amountIn
             vars.minimumAcceptable

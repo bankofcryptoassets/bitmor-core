@@ -148,6 +148,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
     }
 
     function deposit(uint256 assets, address to) public override whenNotPaused returns (uint256 shares) {
+        if (assets == 0) revert Errors.ZeroAmount();
         return super.deposit(assets, to);
     }
 
