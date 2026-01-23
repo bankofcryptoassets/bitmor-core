@@ -116,14 +116,13 @@ library FlashLoanLogic {
         IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
 
         /// @dev Swap USDC to BTC
-        uint256 amountReceived = SwapLogic.executeSwap(
-            ctx.swapAdapter, ctx.debtAsset, ctx.collateralAsset, totalSwapAmount, minimumAcceptable
-        );
+        uint256 amountReceived =
+            SwapLogic.executeSwap(ctx.swapAdapter, ctx.debtAsset, ctx.btc, totalSwapAmount, minimumAcceptable);
 
         if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
 
-        /// @dev Approve BTC Vault, `collateralAsset` to spend `btc`.
-        IERC20(ctx.collateralAsset).forceApprove(ctx.btc, amountReceived);
+        /// @dev Approve BTC Vault (`collateralAsset`) to spend `btc`.
+        IERC20(ctx.btc).forceApprove(ctx.collateralAsset, amountReceived);
 
         /// @dev Depositing BTC into BTC Vault and receiving its shares `bvBTC`.
         uint256 bvBTCSharesReceived = ctx.collateralAsset.deposit(amountReceived, address(this));
