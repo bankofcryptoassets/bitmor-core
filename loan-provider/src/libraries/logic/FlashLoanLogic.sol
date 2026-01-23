@@ -210,10 +210,12 @@ library FlashLoanLogic {
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
+            /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
+            /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
             vars.btcAmtReceived = vars.lsa
                 .redeemBTC(
-                    ctx.collateralAsset, vars.collateralAmountWithdrawn, loan.borrower, params.slippage_sharesToAsset
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
                 );
         }
         // ===============================================================
@@ -230,7 +232,9 @@ library FlashLoanLogic {
             uint256 debtAssetToRepayUSD = vars.totalFlashLoanBorrowedAmt * debtAssetPrice;
 
             uint256 btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
-            vars.btcAmtToSwap = debtAssetToRepayUSD.mulDiv(8, btcPrice);
+            // Note: 100 = 10^(btc_decimals - usdc_decimals) = 10^(8-6) for decimal adjustment
+            // Round up to ensure enough BTC is swapped to cover flash loan repayment
+            vars.btcAmtToSwap = debtAssetToRepayUSD.mulDivUp(100, btcPrice);
         } else {
             // When not withdrawing in collateral asset, swap all remaining after fee
             vars.btcAmtToSwap = vars.btcAmtReceived - vars.preClosureFeeAmt;

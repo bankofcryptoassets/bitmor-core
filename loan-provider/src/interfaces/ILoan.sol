@@ -47,6 +47,14 @@ interface ILoan {
 
     event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
 
+    event Loan__SlippageForSharesToAssetUpdated(uint256 indexed newSlippage);
+
+    event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
+
+    event Loan__MaxBTCAmountUpdated(uint256 newMaxBTCAmount);
+
+    event Loan__MinBTCAmountUpdated(uint256 newMinBTCAmount);
+
     // ============ Main Functions ============
 
     /**
@@ -249,4 +257,20 @@ interface ILoan {
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
+
+    function setSlippageForSharesToAsset(uint256 newSlippage) external;
+
+    function getSlippageForSharesToAsset() external view returns (uint256);
+
+    function setSlippageForSwap(uint256 newSlippage) external;
+
+    function getSlippageForSwap() external view returns (uint256);
+
+    function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
+
+    function getMaxBTCAmount() external view returns (uint256);
+
+    function setMinBTCAmount(uint256 newMinBTCAmt) external;
+
+    function getMinBTCAmount() external view returns (uint256);
 }

@@ -179,6 +179,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         // Set storage values for min/max BTC amounts (slots 9 and 10)
         // s_maxBTCAmt = 10e8 (10 BTC)
+        //! TODO: Instead of using vm.store update it with Loan.setMaxBTCAmount() and same for others.
         vm.store(address(loan), bytes32(uint256(9)), bytes32(uint256(10e8)));
         // s_minBTCAmt = 0.001e8 (0.001 BTC)
         vm.store(address(loan), bytes32(uint256(10)), bytes32(uint256(0.001e8)));

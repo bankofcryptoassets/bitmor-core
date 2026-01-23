@@ -398,6 +398,22 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_liquidationBuffer;
     }
 
+    function getSlippageForSharesToAsset() external view returns (uint256) {
+        return s_slippage_sharesToAsset;
+    }
+
+    function getSlippageForSwap() external view returns (uint256) {
+        return s_slippage_swap;
+    }
+
+    function getMaxBTCAmount() external view returns (uint256) {
+        return s_maxBTCAmt;
+    }
+
+    function getMinBTCAmount() external view returns (uint256) {
+        return s_minBTCAmt;
+    }
+
     // ============ Admin Functions ============
 
     /**
@@ -459,6 +475,26 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function setPreClosureFee(uint256 newFee) external whenNotPaused restricted {
         s_preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
+    }
+
+    function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
+        s_slippage_sharesToAsset = newSlippage;
+        emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
+    }
+
+    function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
+        s_slippage_swap = newSlippage;
+        emit Loan__SlippageForSwapUpdated(newSlippage);
+    }
+
+    function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
+        s_maxBTCAmt = newMaxBTCAmt;
+        emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
+    }
+
+    function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
+        s_minBTCAmt = newMinBTCAmt;
+        emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }
 
     /**

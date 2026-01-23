@@ -153,8 +153,9 @@ contract LoanContract is BaseLoanTest {
         }
     }
 
-    /// @notice BUG: Constructor accepts aaveAddressesProvider = address(0) (should revert with ZeroAddress).
-    function test_loan_constructor_zeroAaveAddressesProvider_BUG() public {
+    /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).
+    /// @dev This was previously a known bug (accepted zero address), now fixed.
+    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
         (
             address accessManager,
             address bitmorPool,
@@ -174,10 +175,12 @@ contract LoanContract is BaseLoanTest {
             // exitFee
         ) = config.networkConfig();
 
-        Loan buggyLoan = new Loan(
+        // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        new Loan(
             accessManager,
             aaveV3Pool,
-            address(0),
+            address(0), // aaveAddressesProvider = address(0)
             bitmorPool,
             oracle,
             collateralAssetAddr,
@@ -190,7 +193,5 @@ contract LoanContract is BaseLoanTest {
             gracePeriod,
             liquidationBuffer
         );
-
-        assertEq(address(buggyLoan.ADDRESSES_PROVIDER()), address(0), "BUG: aaveAddressesProvider accepted as zero");
     }
 }

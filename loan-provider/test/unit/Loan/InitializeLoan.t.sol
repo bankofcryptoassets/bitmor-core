@@ -209,6 +209,7 @@ contract InitializeLoanTest is BaseLoanTest {
         loan2.setLoanVaultFactory(loanVaultFactory);
 
         // Set storage values for min/max BTC amounts on loan2 (slots 8, 9, 10)
+        //! TODO: Instead of using vm.store update it with Loan.setMaxBTCAmount() and same for others.
         vm.store(address(loan2), bytes32(uint256(9)), bytes32(uint256(10e8))); // s_maxBTCAmt = 10 BTC
         vm.store(address(loan2), bytes32(uint256(10)), bytes32(uint256(0.001e8))); // s_minBTCAmt = 0.001 BTC
         vm.store(address(loan2), bytes32(uint256(8)), bytes32(uint256(50))); // s_slippage_swap = 0.5%

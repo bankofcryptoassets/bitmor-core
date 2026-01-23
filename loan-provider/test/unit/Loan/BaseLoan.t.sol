@@ -123,6 +123,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
         // Set up address aliases for backward compatibility
         debtAsset = address(mockUSDC);
+        //! FIX: Collateral is `bvBTC` shares of BTC Vault which have `mockCbBTC` as underlying asset
         collateralAsset = address(mockCbBTC);
         btc = address(mockCbBTC);
         s_bitmorPool = address(mockBitmorPool);
