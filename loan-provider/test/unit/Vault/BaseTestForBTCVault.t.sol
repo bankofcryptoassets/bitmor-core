@@ -90,11 +90,7 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
 
         // Set up mock network config for compatibility
-        networkConfig = MockNetworkConfig({
-            usdc: address(mockUSDC),
-            entryFee: 10,
-            exitFee: 10
-        });
+        networkConfig = MockNetworkConfig({usdc: address(mockUSDC), entryFee: 10, exitFee: 10});
 
         // Deploy vault with mock USDC
         vault = new BTCVaultHarness(address(mockUSDC), address(manager));

@@ -98,9 +98,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
         // Set up mock network config for compatibility
         networkConfig = MockNetworkConfig({
-            usdc: address(mockUSDC),
-            bitmorPool: address(mockBitmorPool),
-            aaveV3Pool: address(mockAavePool)
+            usdc: address(mockUSDC), bitmorPool: address(mockBitmorPool), aaveV3Pool: address(mockAavePool)
         });
 
         // Deploy vault with mock dependencies
@@ -132,44 +130,23 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         mockOracle.setAssetPrice(address(mockUSDC), 1e8);
 
         // Deploy mock addresses provider
-        mockAddressesProvider = new MockAddressesProvider(
-            address(0),
-            address(mockOracle),
-            address(this)
-        );
+        mockAddressesProvider = new MockAddressesProvider(address(0), address(mockOracle), address(this));
 
         // Deploy mock Bitmor lending pool
         mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
         mockAddressesProvider.setLendingPool(address(mockBitmorPool));
 
         // Deploy mock aToken and debt token for Bitmor pool
-        mockBitmorAToken = new MockAToken(
-            "Bitmor Mock USDC",
-            "bmUSDC",
-            6,
-            address(mockUSDC),
-            address(mockBitmorPool)
-        );
-        mockBitmorDebtToken = new MockVariableDebtToken(
-            "Bitmor Mock USDC Debt",
-            "vdUSDC",
-            6,
-            address(mockUSDC),
-            address(mockBitmorPool)
-        );
+        mockBitmorAToken = new MockAToken("Bitmor Mock USDC", "bmUSDC", 6, address(mockUSDC), address(mockBitmorPool));
+        mockBitmorDebtToken =
+            new MockVariableDebtToken("Bitmor Mock USDC Debt", "vdUSDC", 6, address(mockUSDC), address(mockBitmorPool));
         mockBitmorPool.initReserve(address(mockUSDC), address(mockBitmorAToken), address(mockBitmorDebtToken));
 
         // Deploy mock Aave V3 pool
         mockAavePool = new MockAaveV3Pool();
 
         // Deploy mock aToken for Aave and initialize reserve
-        mockAaveAToken = new MockAToken(
-            "Aave Mock USDC",
-            "amUSDC",
-            6,
-            address(mockUSDC),
-            address(mockAavePool)
-        );
+        mockAaveAToken = new MockAToken("Aave Mock USDC", "amUSDC", 6, address(mockUSDC), address(mockAavePool));
         mockAavePool.initReserve(address(mockUSDC), address(mockAaveAToken));
 
         // Fund pools with liquidity

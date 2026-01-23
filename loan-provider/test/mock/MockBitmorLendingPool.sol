@@ -268,8 +268,9 @@ contract MockBitmorLendingPool is ILendingPool {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
-            / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        uint256 collateralToSeize =
+            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
@@ -336,12 +337,9 @@ contract MockBitmorLendingPool is ILendingPool {
     }
 
     /// @dev Internal micro liquidation - doesn't call full liquidation update
-    function _executeMicroLiquidation(
-        address collateralAsset,
-        address debtAsset,
-        address user,
-        uint256 debtToCover
-    ) internal {
+    function _executeMicroLiquidation(address collateralAsset, address debtAsset, address user, uint256 debtToCover)
+        internal
+    {
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
 
@@ -362,8 +360,9 @@ contract MockBitmorLendingPool is ILendingPool {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
-            / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        uint256 collateralToSeize =
+            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
