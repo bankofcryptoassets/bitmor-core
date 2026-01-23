@@ -177,14 +177,8 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         // Register loan in addresses provider
         mockAddressesProvider.setBitmorLoan(address(loan));
 
-        // Set storage values for min/max BTC amounts (slots 9 and 10)
-        // s_maxBTCAmt = 10e8 (10 BTC)
-        //! TODO: Instead of using vm.store update it with Loan.setMaxBTCAmount() and same for others.
-        vm.store(address(loan), bytes32(uint256(9)), bytes32(uint256(10e8)));
-        // s_minBTCAmt = 0.001e8 (0.001 BTC)
-        vm.store(address(loan), bytes32(uint256(10)), bytes32(uint256(0.001e8)));
-        // s_slippage_swap = 50 (0.5% slippage)
-        vm.store(address(loan), bytes32(uint256(8)), bytes32(uint256(50)));
+        // Configure loan parameters using proper setters via AccessManager
+        // Note: Done in _configureLoanRoles() after roles are configured
     }
 
     /// @notice Configures roles for Loan contract
@@ -194,6 +188,9 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         // Grant LPCM role to mock pool so it can call updateLoanDataFor* functions
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);
+
+        // Configure loan parameters using proper setters (replaces vm.store)
+        _configureLoanParameters(address(loan), 10e8, 0.001e8, 50);
     }
 
     /// @notice Funds test accounts with tokens
