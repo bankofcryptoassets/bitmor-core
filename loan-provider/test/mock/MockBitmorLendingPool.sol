@@ -253,8 +253,16 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 userDebt = debtToken.balanceOf(user);
         uint256 actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
 
-        // Calculate collateral to seize with liquidation bonus
-        uint256 collateralToSeize = (actualDebtToCover * LIQUIDATION_BONUS_BPS) / 10000;
+        // Calculate collateral to seize with liquidation bonus using oracle prices
+        address oracle = _addressesProvider.getPriceOracle();
+        uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
+        uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+        uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
+        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+
+        // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
+        uint256 collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+            / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
@@ -297,8 +305,23 @@ contract MockBitmorLendingPool is ILendingPool {
         MockVariableDebtToken debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
 
         uint256 userDebt = debtToken.balanceOf(user);
-        // Micro liquidation covers 1/12 of debt (one month's payment)
-        uint256 debtToCover = userDebt / 12;
+
+        // Get monthly payment from Loan contract if available
+        uint256 monthlyPayment;
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        if (bitmorLoan != address(0)) {
+            try ILoan(bitmorLoan).getLoanByLSA(user) returns (DataTypes.LoanData memory loanData) {
+                monthlyPayment = loanData.estimatedMonthlyPayment;
+            } catch {
+                // Fallback: estimate as 1/12 of debt
+                monthlyPayment = userDebt / 12;
+            }
+        } else {
+            monthlyPayment = userDebt / 12;
+        }
+
+        // Micro liquidation covers one month's payment, capped at remaining debt
+        uint256 debtToCover = monthlyPayment > userDebt ? userDebt : monthlyPayment;
         if (debtToCover == 0) debtToCover = userDebt;
 
         // Perform liquidation (but don't call full liquidation callback)
@@ -321,8 +344,19 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 userDebt = debtToken.balanceOf(user);
         uint256 actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
 
-        // Calculate collateral to seize with liquidation bonus
-        uint256 collateralToSeize = (actualDebtToCover * LIQUIDATION_BONUS_BPS) / 10000;
+        // Calculate collateral to seize with liquidation bonus using oracle prices
+        // debtValueUSD = debtToCover * debtPriceUSD / debtDecimals
+        // collateralWithBonus = debtValueUSD * LIQUIDATION_BONUS_BPS / 10000
+        // collateralAmount = collateralWithBonus / collateralPriceUSD * collateralDecimals
+        address oracle = _addressesProvider.getPriceOracle();
+        uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
+        uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+        uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
+        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+
+        // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
+        uint256 collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+            / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
