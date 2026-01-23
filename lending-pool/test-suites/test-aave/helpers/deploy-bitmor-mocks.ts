@@ -1,3 +1,18 @@
+/**
+ * Bitmor mock deployment helpers for Hardhat 3 / ethers v6.
+ *
+ * Provides:
+ * - deployMockBitmorCallers(): Deploys MockLoanProvider and MockUSDCVault (from MockBitmorCaller.sol)
+ *   and registers them with AddressesProvider
+ * - deployBTCVault(): Deploys MockBTCVault for cbBTC collateral testing
+ * - deployLoanContract(): Deploys MockLoan for liquidation testing
+ *
+ * ethers v6 patterns used:
+ * - .getAddress() instead of .address
+ * - .waitForDeployment() instead of .deployed()
+ * - Fully qualified contract names for ambiguous artifacts
+ */
+
 import { DRE } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,

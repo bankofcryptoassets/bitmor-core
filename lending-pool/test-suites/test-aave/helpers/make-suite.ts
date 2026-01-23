@@ -1,3 +1,15 @@
+/**
+ * Test environment setup for Hardhat 3 / ethers v6.
+ *
+ * TestEnv additions for Bitmor testing:
+ * - cbBTC: Underlying BTC token (8 decimals)
+ * - btcVault: MockBTCVault for cbBTC → bvBTC vault shares
+ * - mockLoan: MockLoan for liquidation testing (configurable loan state)
+ * - mockLoanProvider, mockBitmorUSDCVault: Bitmor caller mocks
+ *
+ * cbBTC is retrieved from database (deployed in __setup.spec.ts, not as lending reserve).
+ */
+
 import { evmRevert, evmSnapshot, DRE, getDb } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,

@@ -2,6 +2,15 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
+/**
+ * @dev Added for Hardhat 3 / ethers v6 test infrastructure to support liquidation testing.
+ * Implements ILoan interface with configurable loan state for testing:
+ * - micro-liquidation (payment overdue, partial collateral sale)
+ * - full liquidation (health factor < 1, complete position closure)
+ * - checkTypeOfLiquidation logic validation
+ * Test helpers allow setting loan state without full initialization flow.
+ */
+
 import {ILoan} from "../interfaces/ILoan.sol";
 import {DataTypes} from "../protocol/libraries/types/DataTypes.sol";
 

@@ -357,6 +357,7 @@ export const getMockWETHVault = async (address?: tEthereumAddress) =>
     await getFirstSigner()
   );
 
+/** Get MockBTCVault instance for bvBTC collateral testing. Retrieves from database if address not provided. */
 export const getMockBTCVault = async (address?: tEthereumAddress) =>
   await MockBTCVault__factory.connect(
     address ||
@@ -366,6 +367,7 @@ export const getMockBTCVault = async (address?: tEthereumAddress) =>
     await getFirstSigner()
   );
 
+/** Get MockLoan instance for liquidation testing. Retrieves from database if address not provided. */
 export const getMockLoan = async (address?: tEthereumAddress) =>
   await MockLoan__factory.connect(
     address ||

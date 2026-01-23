@@ -1,3 +1,16 @@
+/**
+ * Vault deposit helpers for Hardhat 3 / ethers v6 test infrastructure.
+ *
+ * Key features:
+ * - cbBTC/btcVault support: cbBTC deposits go through btcVault (registered as BitmorLoan)
+ * - Auto-selects correct vault based on asset type (DAI→usdcVault, USDC→actualUSDCVault,
+ *   WETH→wethVault, cbBTC→btcVault)
+ * - Handles pool access control registration (setUSDCVault vs setBitmorLoan)
+ *
+ * Usage: Call depositViaVault() instead of pool.deposit() in tests - it handles
+ * the full flow: mint → approve → vault.deposit (vault receives aTokens, user gets shares)
+ */
+
 import type { MintableERC20, WETH9Mocked } from '../../../types/ethers-contracts/index.js';
 import type { SignerWithAddress } from '../../../helpers/types.js';
 import type { TestEnv } from './make-suite.js';

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
+/**
+ * @dev Added for Hardhat 3 / ethers v6 test infrastructure to support bvBTC collateral testing.
+ * Simulates production BTCVault (ERC-4626) behavior:
+ * - Users deposit cbBTC and receive bvBTC vault shares
+ * - Vault deposits to LendingPool and holds aTokens
+ * - Enables testing vault-based deposit flow (LP_CALLER_NOT_VAULT check)
+ */
+
 import {ERC20} from '../../dependencies/openzeppelin/contracts/ERC20.sol';
 import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';

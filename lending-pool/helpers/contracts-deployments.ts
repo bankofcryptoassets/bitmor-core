@@ -739,6 +739,11 @@ export const deployMockWETHVault = async (
     verify
   );
 
+/**
+ * Deploy MockBTCVault for bvBTC collateral testing.
+ * @param args [addressesProvider, cbBTCAddress] - AddressesProvider and underlying cbBTC token
+ * @param verify Whether to verify on Etherscan
+ */
 export const deployMockBTCVault = async (
   args: [tEthereumAddress, tEthereumAddress],
   verify?: boolean
@@ -750,6 +755,11 @@ export const deployMockBTCVault = async (
     verify
   );
 
+/**
+ * Deploy MockLoan for liquidation testing.
+ * @param args [collateralAsset, debtAsset] - bvBTC collateral and USDC debt addresses
+ * @param verify Whether to verify on Etherscan
+ */
 export const deployMockLoan = async (
   args: [tEthereumAddress, tEthereumAddress],
   verify?: boolean
