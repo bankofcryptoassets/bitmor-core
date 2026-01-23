@@ -17,6 +17,8 @@ import {
   getMockUSDCVault,
   getMockActualUSDCVault,
   getMockWETHVault,
+  getMockBTCVault,
+  getMockLoan,
 } from '../../../helpers/contracts-getters.js';
 import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
 import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
@@ -42,6 +44,8 @@ import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGatew
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
 import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
+import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
+import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
@@ -76,6 +80,11 @@ export interface TestEnv {
   // Bitmor mock callers
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
+  // BTC Vault infrastructure
+  cbBTC: MintableERC20;
+  btcVault: MockBTCVault;
+  // Loan infrastructure
+  mockLoan: MockLoan;
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -105,6 +114,9 @@ const testEnv: TestEnv = {
   wethGateway: {} as WETHGateway,
   mockLoanProvider: {} as MockLoanProvider,
   mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
+  cbBTC: {} as MintableERC20,
+  btcVault: {} as MockBTCVault,
+  mockLoan: {} as MockLoan,
 } as TestEnv;
 
 export async function initializeMakeSuite() {
@@ -180,6 +192,30 @@ export async function initializeMakeSuite() {
   const bitmorMocks = await deployMockBitmorCallers();
   testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
   testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
+
+  // Get cbBTC token
+  const allTokenAddresses = reservesTokens.reduce(
+    (acc, token) => ({ ...acc, [token.symbol]: token.tokenAddress }),
+    {} as { [key: string]: string }
+  );
+  const cbBTCAddress = allTokenAddresses['cbBTC'];
+  if (cbBTCAddress) {
+    testEnv.cbBTC = await getMintableERC20(cbBTCAddress);
+  }
+
+  // Get BTC vault
+  try {
+    testEnv.btcVault = await getMockBTCVault();
+  } catch (e) {
+    console.log('MockBTCVault not deployed');
+  }
+
+  // Get Mock Loan
+  try {
+    testEnv.mockLoan = await getMockLoan();
+  } catch (e) {
+    console.log('MockLoan not deployed');
+  }
 }
 
 const setSnapshot = async () => {
