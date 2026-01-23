@@ -19,3 +19,4 @@ import type * as upgradeability from './upgradeability/index.js';
 export type { upgradeability };
 import type * as vault from './vault/index.js';
 export type { vault };
+export type { MockLoan } from './MockLoan.js';

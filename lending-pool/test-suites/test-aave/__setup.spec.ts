@@ -35,6 +35,8 @@ import {
   deployMockUSDCVault,
   deployMockActualUSDCVault,
   deployMockWETHVault,
+  deployMockBTCVault,
+  deployMockLoan,
 } from '../../helpers/contracts-deployments.js';
 import type { Signer } from 'ethers';
 import { TokenContractId, eContractid, AavePools } from '../../helpers/types.js';
@@ -108,6 +110,12 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   } = {
     ...(await deployAllMockTokens(deployer)),
   };
+
+  // Deploy cbBTC mock token (8 decimals like real cbBTC)
+  console.log('Deploying cbBTC mock token...');
+  const cbBTC = await deployMintableERC20(['cbBTC', 'cbBTC', '8']);
+  await registerContractInJsonDb('cbBTC', cbBTC);
+
   const addressesProvider = await deployLendingPoolAddressesProvider(AaveConfig.MarketId);
   await waitForTx(await addressesProvider.setPoolAdmin(aaveAdmin));
 
@@ -206,6 +214,26 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     fallbackOracle
   );
 
+  // Set cbBTC price ($100,000 in ETH terms - similar to WBTC pricing)
+  // Using same format as other prices: oneEther.multipliedBy(price_in_ETH)
+  await waitForTx(
+    await fallbackOracle.setAssetPrice(getContractAddress(cbBTC), oneEther.multipliedBy('47.332685').toFixed())
+  );
+  console.log('cbBTC price set in fallback oracle');
+
+  // Deploy MockBTCVault (wraps cbBTC → bvBTC) - needs to be before AaveOracle
+  console.log('Deploying MockBTCVault...');
+  const mockBTCVault = await deployMockBTCVault(
+    [getContractAddress(addressesProvider), getContractAddress(cbBTC)],
+    false
+  );
+  console.log('MockBTCVault deployed');
+
+  // Set bvBTC price (same as cbBTC for 1:1 share ratio)
+  await waitForTx(
+    await fallbackOracle.setAssetPrice(getContractAddress(mockBTCVault), oneEther.multipliedBy('47.332685').toFixed())
+  );
+
   const mockAggregators = await deployAllMockAggregators(ALL_ASSETS_INITIAL_PRICES);
   const allTokenAddresses = Object.entries(mockTokens).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, tokenContract]) => ({
@@ -231,13 +259,17 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await deployAaveOracle([
     tokens,
     aggregators,
-    getContractAddress(mockTokens.WBTC), // btc - use WBTC as mock BTC
-    ZERO_ADDRESS, // bvBTC
+    getContractAddress(cbBTC), // btc - cbBTC token
+    getContractAddress(mockBTCVault), // bvBTC - vault shares
     getContractAddress(fallbackOracle),
     getContractAddress(mockTokens.WETH),
     oneEther.toString(),
   ]);
   await waitForTx(await addressesProvider.setPriceOracle(getContractAddress(fallbackOracle)));
+
+  // Register BTCVault in addresses provider
+  await waitForTx(await addressesProvider.setBTCVault(getContractAddress(mockBTCVault)));
+  console.log('MockBTCVault registered in addresses provider');
 
   const lendingRateOracle = await deployLendingRateOracle();
   await waitForTx(await addressesProvider.setLendingRateOracle(getContractAddress(lendingRateOracle)));
@@ -310,6 +342,17 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     getContractAddress(mockTokens.WETH),
   ]);
   console.log('MockWETHVault deployed');
+
+  // Deploy MockLoan for liquidation testing
+  console.log('Deploying MockLoan...');
+  const mockLoan = await deployMockLoan(
+    [getContractAddress(mockBTCVault), getContractAddress(mockTokens.USDC)], // collateral = bvBTC, debt = USDC
+    false
+  );
+
+  // Register MockLoan as BitmorLoan in addresses provider
+  await waitForTx(await addressesProvider.setBitmorLoan(getContractAddress(mockLoan)));
+  console.log('MockLoan deployed and registered as BitmorLoan');
 
   await deployMockFlashLoanReceiver(getContractAddress(addressesProvider));
 

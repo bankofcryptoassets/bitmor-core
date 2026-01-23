@@ -1,4 +1,4 @@
-import { ethers } from 'hardhat';
+import { DRE } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,
   getLendingPoolAddressesProvider,
@@ -20,24 +20,32 @@ export async function deployMockBitmorCallers(): Promise<BitmorMocks> {
   const pool = await getLendingPool();
   const addressesProvider = await getLendingPoolAddressesProvider();
 
-  // Deploy MockLoanProvider
-  const MockLoanProviderFactory = await ethers.getContractFactory('MockLoanProvider');
-  const mockLoanProvider = (await MockLoanProviderFactory.deploy(
-    pool.address
-  )) as MockLoanProvider;
-  await mockLoanProvider.deployed();
+  // In ethers v6, use .target for contract addresses
+  const poolAddress = await pool.getAddress();
+  const addressesProviderAddress = await addressesProvider.getAddress();
 
-  // Deploy MockUSDCVault
-  const MockUSDCVaultFactory = await ethers.getContractFactory('MockUSDCVault');
-  const mockUSDCVault = (await MockUSDCVaultFactory.deploy(pool.address)) as MockUSDCVault;
-  await mockUSDCVault.deployed();
+  // Deploy MockLoanProvider (uses DRE.ethers for Hardhat 3 compatibility)
+  const MockLoanProviderFactory = await DRE.ethers.getContractFactory('MockLoanProvider');
+  const mockLoanProvider = (await MockLoanProviderFactory.deploy(
+    poolAddress
+  )) as MockLoanProvider;
+  await mockLoanProvider.waitForDeployment();
+
+  // Deploy MockUSDCVault (from MockBitmorCaller.sol with single arg - use fully qualified name)
+  const MockUSDCVaultFactory = await DRE.ethers.getContractFactory('contracts/mocks/MockBitmorCaller.sol:MockUSDCVault');
+  const mockUSDCVault = (await MockUSDCVaultFactory.deploy(poolAddress)) as MockUSDCVault;
+  await mockUSDCVault.waitForDeployment();
+
+  // Get deployed addresses (ethers v6)
+  const mockLoanProviderAddress = await mockLoanProvider.getAddress();
+  const mockUSDCVaultAddress = await mockUSDCVault.getAddress();
 
   // Register with AddressesProvider
-  await addressesProvider.setBitmorLoan(mockLoanProvider.address);
-  await addressesProvider.setUSDCVault(mockUSDCVault.address);
+  await addressesProvider.setBitmorLoan(mockLoanProviderAddress);
+  await addressesProvider.setUSDCVault(mockUSDCVaultAddress);
 
-  console.log(`MockLoanProvider deployed at: ${mockLoanProvider.address}`);
-  console.log(`MockUSDCVault deployed at: ${mockUSDCVault.address}`);
+  console.log(`MockLoanProvider deployed at: ${mockLoanProviderAddress}`);
+  console.log(`MockUSDCVault deployed at: ${mockUSDCVaultAddress}`);
 
   return { mockLoanProvider, mockUSDCVault };
 }

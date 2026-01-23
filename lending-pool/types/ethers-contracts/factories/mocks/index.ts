@@ -10,3 +10,4 @@ export * as swap from './swap/index.js';
 export * as tokens from './tokens/index.js';
 export * as upgradeability from './upgradeability/index.js';
 export * as vault from './vault/index.js';
+export { MockLoan__factory } from './MockLoan__factory.js';

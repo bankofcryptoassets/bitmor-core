@@ -34,10 +34,11 @@ import {
   WETHGateway__factory,
   FlashLiquidationAdapter__factory,
   IERC20Detailed__factory,
-  MockUSDCVault__factory,
   MockBTCVault__factory,
   MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
+// Import MockUSDCVault from vault/ to get the correct 2-arg constructor version
+import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers.js';
 import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils.js';
 import { eContractid, TokenContractId } from './types.js';

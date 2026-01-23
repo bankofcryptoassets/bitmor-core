@@ -1,4 +1,4 @@
-import { evmRevert, evmSnapshot, DRE } from '../../../helpers/misc-utils.js';
+import { evmRevert, evmSnapshot, DRE, getDb } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,
   getLendingPoolAddressesProvider,
@@ -193,14 +193,16 @@ export async function initializeMakeSuite() {
   testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
   testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
 
-  // Get cbBTC token
-  const allTokenAddresses = reservesTokens.reduce(
-    (acc, token) => ({ ...acc, [token.symbol]: token.tokenAddress }),
-    {} as { [key: string]: string }
-  );
-  const cbBTCAddress = allTokenAddresses['cbBTC'];
-  if (cbBTCAddress) {
-    testEnv.cbBTC = await getMintableERC20(cbBTCAddress);
+  // Get cbBTC token (deployed separately, not as a reserve)
+  // NOTE: cbBTC is deployed in __setup.spec.ts but not initialized as a lending reserve.
+  // We get it directly from the database where it was registered during setup.
+  try {
+    const cbBTCEntry = await getDb().get(`cbBTC.${DRE.network.networkName}`).value();
+    if (cbBTCEntry && cbBTCEntry.address) {
+      testEnv.cbBTC = await getMintableERC20(cbBTCEntry.address);
+    }
+  } catch (e) {
+    console.log('cbBTC not found in database');
   }
 
   // Get BTC vault

@@ -55,10 +55,11 @@ import {
   UiPoolDataProviderV2__factory,
   UiPoolDataProviderV2V3__factory,
   UiIncentiveDataProviderV2__factory,
-  MockUSDCVault__factory,
   MockBTCVault__factory,
   MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
+// Import MockUSDCVault from vault/ to get the correct 2-arg constructor
+import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
   withSaveAndVerify,

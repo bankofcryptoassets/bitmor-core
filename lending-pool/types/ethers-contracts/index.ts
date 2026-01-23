@@ -166,6 +166,8 @@ export type { MockLoanProvider } from './mocks/MockBitmorCaller.sol/MockLoanProv
 export { MockLoanProvider__factory } from './factories/mocks/MockBitmorCaller.sol/MockLoanProvider__factory.js';
 export type { MockUSDCVault } from './mocks/MockBitmorCaller.sol/MockUSDCVault.js';
 export { MockUSDCVault__factory } from './factories/mocks/MockBitmorCaller.sol/MockUSDCVault__factory.js';
+export type { MockLoan } from './mocks/MockLoan.js';
+export { MockLoan__factory } from './factories/mocks/MockLoan__factory.js';
 export type { SelfdestructTransfer } from './mocks/attacks/SefldestructTransfer.sol/SelfdestructTransfer.js';
 export { SelfdestructTransfer__factory } from './factories/mocks/attacks/SefldestructTransfer.sol/SelfdestructTransfer__factory.js';
 export type { WETH9 } from './mocks/dependencies/weth/WETH9.js';
@@ -204,6 +206,8 @@ export type { MockStableDebtToken } from './mocks/upgradeability/MockStableDebtT
 export { MockStableDebtToken__factory } from './factories/mocks/upgradeability/MockStableDebtToken__factory.js';
 export type { MockVariableDebtToken } from './mocks/upgradeability/MockVariableDebtToken.js';
 export { MockVariableDebtToken__factory } from './factories/mocks/upgradeability/MockVariableDebtToken__factory.js';
+export type { MockBTCVault } from './mocks/vault/MockBTCVault.js';
+export { MockBTCVault__factory } from './factories/mocks/vault/MockBTCVault__factory.js';
 export type { LendingPoolAddressesProvider } from './protocol/configuration/LendingPoolAddressesProvider.js';
 export { LendingPoolAddressesProvider__factory } from './factories/protocol/configuration/LendingPoolAddressesProvider__factory.js';
 export type { LendingPoolAddressesProviderRegistry } from './protocol/configuration/LendingPoolAddressesProviderRegistry.js';
