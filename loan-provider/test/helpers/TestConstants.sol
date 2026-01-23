@@ -25,6 +25,32 @@ library TestConstants {
     uint256 internal constant PRICE_DROP_MICRO = 15;                // 15%
     uint256 internal constant PRICE_DROP_FULL = 50;                 // 50%
 
+    // ============ Liquidation Type Constants ============
+    uint256 internal constant LIQUIDATION_TYPE_NONE = 0;
+    uint256 internal constant LIQUIDATION_TYPE_FULL = 1;
+    uint256 internal constant LIQUIDATION_TYPE_MICRO = 2;
+
+    // ============ Insurance Constants ============
+    uint256 internal constant DEFAULT_INSURANCE_ID = 1;
+    uint256 internal constant INSURANCE_BONUS_BPS = 300;         // 3% bonus
+
+    // ============ Mock Infrastructure Balances ============
+    uint256 internal constant SWAP_ADAPTER_CBBTC_BALANCE = 1000e8;   // 1000 BTC for swaps
+    uint256 internal constant SWAP_ADAPTER_USDC_BALANCE = 100_000_000e6; // 100M USDC for swaps
+    uint256 internal constant LENDING_POOL_CBBTC_BALANCE = 1000e8;   // 1000 BTC for pool
+    uint256 internal constant LENDING_POOL_USDC_BALANCE = 100_000_000e6; // 100M USDC for pool
+
+    // ============ Debt Asset Amounts ============
+    uint256 internal constant DEBT_ASSET_TO_MINT_TO_USER = 1_000_000e6;
+
+    // ============ LendingPool Test Constants ============
+    uint256 internal constant BTC_SEED_AMOUNT = 10e8;                 // 10 BTC
+    uint256 internal constant POOL_DEPOSIT_AMOUNT = 100_000e6;        // 100k USDC
+    uint256 internal constant SMALL_BORROW_AMOUNT = 10_000e6;         // 10k USDC
+    uint256 internal constant MAX_APR_BPS = 2000;                     // 20% APR max
+    uint256 internal constant PAYMENT_TOLERANCE = 100e6;              // 100 USDC tolerance
+    uint256 internal constant DEBT_DUST_THRESHOLD = 1e6;              // 1 USDC dust
+
     // ============ Time Helpers ============
     uint256 internal constant ONE_DAY = 1 days;
     uint256 internal constant ONE_MONTH = 30 days;
