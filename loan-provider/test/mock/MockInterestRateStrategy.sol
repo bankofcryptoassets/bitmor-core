@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 import {IReserveInterestRateStrategy} from "@bitmor/interfaces/IReserveInterestRateStrategy.sol";
 
-///! TODO: This needs to be change for USDC as it uses `availableLiquidity = USDCVault.totalAssets()`
 /// @title MockInterestRateStrategy
 /// @author Bitmor Protocol
 /// @notice Mock interest rate strategy for unit testing
