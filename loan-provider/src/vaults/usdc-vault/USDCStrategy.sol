@@ -80,7 +80,7 @@ contract USDCStrategy is ISimpleStrategy {
      * @param _blp The address of the Bitmor Lending Pool
      */
     constructor(address _vault, address _aave, address _blp) {
-        if (_vault == address(0) || _aave == address(0) || _blp == address(0) || _aave == address(0)) {
+        if (_vault == address(0) || _aave == address(0) || _blp == address(0)) {
             revert Errors.ZeroAddress();
         }
 
