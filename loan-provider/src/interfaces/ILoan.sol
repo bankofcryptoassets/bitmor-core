@@ -12,11 +12,17 @@ interface ILoan {
     // ============ Events ============
 
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
+        address indexed borrower,
+        address indexed lsa,
+        uint256 loanAmount,
+        uint256 collateralAmount,
+        bytes data
     );
 
     event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
+        address indexed lsa,
+        DataTypes.LoanStatus indexed oldStatus,
+        DataTypes.LoanStatus indexed newStatus
     );
 
     event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
@@ -33,7 +39,10 @@ interface ILoan {
 
     event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
-    event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
+    event Loan__LoanDataForMicroLiquidationUpdated(
+        address indexed lsa,
+        uint256 indexed newDuration
+    );
 
     event Loan__LoanDataForFullLiquidationUpdated(address indexed lsa);
 
@@ -149,7 +158,10 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    ) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -166,9 +178,9 @@ interface ILoan {
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
      * @dev Withdraws from escrow where excess collateral is locked
      * @param lsa The Loan Specific Address
-     * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
-    function closeLoan(address lsa, bool withdrawInCollateralAsset) external;
+    function closeLoan(address lsa, bool withdrawInBTC) external;
 
     // ============ Admin Functions ============
 
@@ -253,7 +265,10 @@ interface ILoan {
      * @return monthlyPayment estimated monthly payment amount in debt asset
      * @return minDepositRequired Minimum deposit required in debt asset to initialize loan
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 collateralAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);

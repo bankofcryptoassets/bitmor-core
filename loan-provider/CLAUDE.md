@@ -54,6 +54,7 @@ make verifyAll                  # Verify contracts on Sourcify
 ### Wallet Setup
 
 Tests and deployments require two cast wallets:
+
 - `bitmor_owner`: Admin/deployer account
 - `bitmor_user`: Test user account
 
@@ -97,6 +98,7 @@ Tests and deployments require two cast wallets:
 ### Data Types (`src/libraries/types/`)
 
 `DataTypes.sol` contains shared structs:
+
 - `LoanData` - Loan state (borrower, amounts, duration, status)
 - `LoanStatus` - Enum: Active, Completed, Liquidated
 - `ReserveData` - Aave reserve configuration
@@ -105,12 +107,14 @@ Tests and deployments require two cast wallets:
 ### Vault System (`src/vaults/`)
 
 **BTC Vault** (`btc-vault/`):
+
 - `BTCVault.sol` - ERC-4626 vault with multi-strategy support
 - `TokenizedStrategy/` - Strategy implementations:
-  - `AaveTokenizedStrategy.sol` - Aave V2 integration
-  - `SimpleTokenizedStrategy.sol` - Basic strategy base
+    - `AaveTokenizedStrategy.sol` - Aave V2 integration
+    - `SimpleTokenizedStrategy.sol` - Basic strategy base
 
 **USDC Vault** (`usdc-vault/`):
+
 - `USDCVault.sol` - USDC vault implementation
 - `USDCStrategy.sol` - USDC strategy
 
@@ -172,7 +176,7 @@ Loan.repay(lsa, repaymentAmount)
 User
   │
   ▼
-Loan.closeLoan(lsa, withdrawInCollateralAsset)
+Loan.closeLoan(lsa, withdrawInBTC)
   │
   └─► CloseLoanLogic.executeCloseLoan()
         │
@@ -216,6 +220,7 @@ Uses OpenZeppelin `AccessManaged` pattern with role-based restrictions defined i
 ### Guardian Roles (6 total)
 
 Guardians can cancel delayed operations before execution:
+
 - `GUARDIAN_LPM_SLOW` (930) - Guards LPM_SLOW operations
 - `GUARDIAN_BVM_SLOW` (9110) - Guards BVM_SLOW operations
 - `GUARDIAN_BVC` (912) - Guards BVC operations
@@ -236,6 +241,7 @@ if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 ### Reentrancy Protection
 
 Critical functions use OpenZeppelin's `ReentrancyGuard`:
+
 - `Loan.initializeLoan()` - `nonReentrant`
 - `Loan.repay()` - `nonReentrant`
 - `Loan.closeLoan()` - `nonReentrant`
@@ -279,6 +285,7 @@ From `LoanStorage.sol` and `LoanMath.sol`:
 Tests are in `test/unit/` and use mock-based infrastructure (no fork required):
 
 **Loan Tests:**
+
 - `Loan/BaseLoan.t.sol` - Shared test base with helpers, snapshots, and setup
 - `Loan/InitializeLoan.t.sol` - Loan creation tests (12 tests)
 - `Loan/RepayLoan.t.sol` - Repayment tests (17 tests)
@@ -286,30 +293,33 @@ Tests are in `test/unit/` and use mock-based infrastructure (no fork required):
 - `Loan/LoanContract.t.sol` - Core loan functionality (10 tests)
 
 **Liquidation Tests:**
+
 - `MicroLiquidation.t.sol` - Micro liquidation scenarios (12 tests)
 - `FullLiquidation.t.sol` - Full liquidation scenarios (13 tests)
 
 **Other Tests:**
+
 - `LendingPool.t.sol` - Lending pool security and payment calculations (7 tests)
 - `Insurance.t.sol` - Insurance integration tests
 - `Vault/BTC/*.t.sol` - BTCVault tests
 
 ### Mock Infrastructure (`test/mock/`)
 
-| Mock Contract | Purpose |
-|---------------|---------|
-| `MockBitmorLendingPool.sol` | Simulates Bitmor lending pool with deposit/borrow/liquidation |
-| `MockPriceOracle.sol` | Controllable price oracle for liquidation testing |
-| `MockAddressesProvider.sol` | Provides addresses for protocol contracts |
-| `MockAToken.sol` | Simulates aToken balance tracking |
-| `MockVariableDebtToken.sol` | Simulates debt token balance tracking |
-| `MockSwapAdapter.sol` | Simulates token swaps with oracle-based pricing |
-| `MockInterestRateStrategy.sol` | Configurable interest rate strategy |
-| `MockAaveV3Pool.sol` | Simulates Aave V3 flash loans |
+| Mock Contract                  | Purpose                                                       |
+| ------------------------------ | ------------------------------------------------------------- |
+| `MockBitmorLendingPool.sol`    | Simulates Bitmor lending pool with deposit/borrow/liquidation |
+| `MockPriceOracle.sol`          | Controllable price oracle for liquidation testing             |
+| `MockAddressesProvider.sol`    | Provides addresses for protocol contracts                     |
+| `MockAToken.sol`               | Simulates aToken balance tracking                             |
+| `MockVariableDebtToken.sol`    | Simulates debt token balance tracking                         |
+| `MockSwapAdapter.sol`          | Simulates token swaps with oracle-based pricing               |
+| `MockInterestRateStrategy.sol` | Configurable interest rate strategy                           |
+| `MockAaveV3Pool.sol`           | Simulates Aave V3 flash loans                                 |
 
 ### Test Helpers
 
 `MockBitmorLendingPool` provides test state control:
+
 - `setHealthFactor(lsa, value)` - Set health factor for full liquidation tests
 - `setUserOverdue(lsa, bool)` - Set overdue state for micro liquidation tests
 - `setLiquidationType(lsa, type)` - Direct liquidation type control (0=none, 1=full, 2=micro)
@@ -317,6 +327,7 @@ Tests are in `test/unit/` and use mock-based infrastructure (no fork required):
 - `setInsuranceId(lsa, id)` - Set insurance ID for tests
 
 `BaseLoan.t.sol` provides:
+
 - `_createStandardLoan()` - Creates 1 BTC / 12 month loan
 - `_createLoanForBorrower(borrower, ...)` - Creates loan for specific borrower (handles role grants)
 - `_captureTestSnapshot(lsa)` - Snapshot loan state before/after
@@ -326,6 +337,7 @@ Tests are in `test/unit/` and use mock-based infrastructure (no fork required):
 ### Test Gotchas
 
 **vm.prank with external calls:** When using `vm.prank(admin)` before `manager.grantRole()`, cache external call results (like `EXECUTOR_ID()`) BEFORE the prank to avoid consuming it:
+
 ```solidity
 // WRONG - prank consumed by EXECUTOR_ID()
 vm.prank(admin);
@@ -338,6 +350,7 @@ manager.grantRole(executorRoleId, borrower, NO_DELAY);
 ```
 
 **Borrow access control:** `MockBitmorLendingPool.borrow()` only allows calls from the registered Loan contract. Tests creating separate Loan instances must register them:
+
 ```solidity
 mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
 ```
@@ -347,6 +360,7 @@ mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
 **Network**: Base Sepolia (Chain ID: 84532)
 
 **Key addresses** (from `script/HelperConfig.s.sol`):
+
 - Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 - Aave Addresses Provider: `0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a`
 
@@ -357,6 +371,7 @@ mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
 ## Import Aliases
 
 From `remappings.txt`:
+
 ```
 @bitmor/=src/
 @openzeppelin/=lib/openzeppelin-contracts/contracts/
@@ -385,20 +400,21 @@ Tracked TODO items in the codebase:
 ### Known Risks (from security review)
 
 **MEDIUM-HIGH Risk:**
-| Finding            | Location                                         | Description                                                                                 |
+| Finding | Location | Description |
 | ------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| Oracle staleness   | `SwapLogic.sol:119-120`, `LoanLogic.sol:207-208` | No freshness check on `getAssetPrice()` calls - stale prices could affect loan calculations |
-| EMI precision loss | `LoanMath.sol:163,165,171`                       | RAY division truncation in EMI calculations could accumulate errors                         |
-| Hardcoded slippage | `LoanStorage.sol:70`                             | 0.5% `s_slippage_swap` may fail in high volatility periods                                  |
+| Oracle staleness | `SwapLogic.sol:119-120`, `LoanLogic.sol:207-208` | No freshness check on `getAssetPrice()` calls - stale prices could affect loan calculations |
+| EMI precision loss | `LoanMath.sol:163,165,171` | RAY division truncation in EMI calculations could accumulate errors |
+| Hardcoded slippage | `LoanStorage.sol:70` | 0.5% `s_slippage_swap` may fail in high volatility periods |
 
 **LOW Risk:**
-| Finding                | Location        | Description                                                                 |
+| Finding | Location | Description |
 | ---------------------- | --------------- | --------------------------------------------------------------------------- |
-| Unbounded loans array  | `Loan.sol:287`  | `getUserAllLoans()` iterates all user loans - DoS potential for heavy users |
-| No max duration        | `LoanLogic.sol` | Missing upper bound validation on loan duration                             |
-| No pre-closure fee cap | `Loan.sol`      | `s_preClosureFeeBps` admin-controlled but unbounded                         |
+| Unbounded loans array | `Loan.sol:287` | `getUserAllLoans()` iterates all user loans - DoS potential for heavy users |
+| No max duration | `LoanLogic.sol` | Missing upper bound validation on loan duration |
+| No pre-closure fee cap | `Loan.sol` | `s_preClosureFeeBps` admin-controlled but unbounded |
 
 ### Secure Patterns Implemented
+
 - **Flash loan callback validation** - Verifies caller is Aave pool and initiator is contract (`FlashLoanLogic.sol`)
 - **ReentrancyGuard** - Applied to `initializeLoan()`, `repay()`, `closeLoan()` (`Loan.sol`)
 - **Strategy removal safety** - Requires cap=0 and balance=0 before removal (`BTCVault.sol`)
@@ -407,7 +423,7 @@ Tracked TODO items in the codebase:
 
 ## Documentation
 
-| Document | Location | Description |
-|----------|----------|-------------|
-| Session Continuation | `docs/plans/SESSION_CONTINUATION.md` | Tracks implementation progress and provides context for session continuations |
-| Test Migration Plan | `docs/plans/2026-01-22-comprehensive-test-migration.md` | Original plan for migrating tests to mock infrastructure |
+| Document             | Location                                                | Description                                                                   |
+| -------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Session Continuation | `docs/plans/SESSION_CONTINUATION.md`                    | Tracks implementation progress and provides context for session continuations |
+| Test Migration Plan  | `docs/plans/2026-01-22-comprehensive-test-migration.md` | Original plan for migrating tests to mock infrastructure                      |

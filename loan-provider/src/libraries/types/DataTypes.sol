@@ -256,7 +256,6 @@ library DataTypes {
          * @dev Encoded operation-specific parameters
          */
         bytes params;
-
         /// @dev Acceptable slippage while converting shares to asset.
         uint256 slippage_sharesToAsset;
     }
@@ -346,7 +345,6 @@ library DataTypes {
          * @dev Collateral asset address (cbBTC)
          */
         address collateralAsset;
-
         address btc;
         /**
          * @dev Pre-closure fee in basis points
@@ -367,9 +365,9 @@ library DataTypes {
          */
         address lsa;
         /**
-         * @dev If true, withdraw remaining as collateral; if false, as debt asset
+         * @dev If true, withdraw remaining, after debt+fee, as btc; if false, as debt asset
          */
-        bool withdrawInCollateralAsset;
+        bool withdrawInBTC;
     }
 
     /**
@@ -581,7 +579,6 @@ library DataTypes {
          * @notice Address that receives collected entry and exit fees
          */
         address feeRecipient;
-
         /**
          * @notice Maximum number of strategies that can be added to the vault
          */
