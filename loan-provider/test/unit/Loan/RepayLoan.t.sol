@@ -157,11 +157,7 @@ contract RepayLoanTest is BaseLoanTest {
         assertEq(lsaPosAfter.debt, 0, "Debt should be 0");
         assertEq(lsaPosAfter.collateral, 0, "LSA collateral should be 0");
         assertGt(userBtcAfter, userBtcBefore, "User should receive BTC collateral");
-        assertEq(
-            userBtcAfter - userBtcBefore,
-            lsaPosBefore.collateral,
-            "User should receive all LSA collateral in BTC"
-        );
+        assertEq(userBtcAfter - userBtcBefore, lsaPosBefore.collateral, "User should receive all LSA collateral in BTC");
     }
 
     /// @notice Test attempting to repay more than total debt
@@ -229,9 +225,7 @@ contract RepayLoanTest is BaseLoanTest {
         DataTypes.LoanData memory loanDataMid = loan.getLoanByLSA(lsa);
 
         // Duration should reduce by the number of full months paid
-        assertEq(
-            loanDataMid.duration, loanData.duration - monthsToPay, "Duration should reduce by months paid"
-        );
+        assertEq(loanDataMid.duration, loanData.duration - monthsToPay, "Duration should reduce by months paid");
         assertEq(uint256(loanDataMid.status), uint256(DataTypes.LoanStatus.Active), "Should be active");
         assertGt(remainingDebt, 0, "Should have remaining debt");
 

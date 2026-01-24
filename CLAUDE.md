@@ -41,9 +41,14 @@ cd loan-provider
 # Build
 forge build
 
-# Test (requires Base Sepolia fork)
-make test                                           # All tests
-forge test --mt test_functionName --fork-url base_sepolia -vvvv  # Single test
+# Test
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # Unit tests with mocks
+make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:single TEST=test_functionName  # Single test by name
 
 # Deploy full system to Base Sepolia
 make setup
@@ -227,11 +232,13 @@ Key test files in `test/unit/`:
 
 Helpful make targets:
 ```bash
-make testLoanInitialization
-make testRepay
-make testCloseLoan
-make test-unit-profile    # All unit tests with mock infrastructure
-make test-fork-profile    # Fork tests with real protocols
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # All unit tests with mock infrastructure
+make test:fork               # Fork tests with real protocols
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:single TEST=test_initializeLoan  # Single test by name
 ```
 
 ### Hardhat Tests (lending-pool/)

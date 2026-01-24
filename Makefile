@@ -1,102 +1,126 @@
 # Bitmor Protocol - Root Makefile
 
-.PHONY: help install build clean anvil anvil-stop deploy-local test test-unit test-lending-pool
+.PHONY: help install build clean anvil anvil-stop deploy-local test
 
 # Chain configuration
 LOCAL_CHAIN_ID := 31337
 ANVIL_PORT := 8545
 
-# Default target
+# ============ Help ============
+
 help:
 	@echo ""
 	@echo "Bitmor Protocol"
 	@echo "==============="
 	@echo ""
 	@echo "Setup:"
-	@echo "  make install       Install all dependencies"
-	@echo "  make build         Build all contracts"
-	@echo "  make clean         Clean build artifacts"
+	@echo "  make install             Install all dependencies"
+	@echo "  make build               Build all contracts"
+	@echo "  make clean               Clean build artifacts"
 	@echo ""
 	@echo "Local Development:"
-	@echo "  make anvil         Start Anvil (localhost:$(ANVIL_PORT), chainId $(LOCAL_CHAIN_ID))"
-	@echo "  make anvil-stop    Stop Anvil"
-	@echo "  make deploy-local  Deploy full protocol to Anvil"
+	@echo "  make anvil               Start Anvil (localhost:$(ANVIL_PORT), chainId $(LOCAL_CHAIN_ID))"
+	@echo "  make anvil-stop          Stop Anvil"
+	@echo "  make deploy-local        Deploy full protocol to Anvil"
 	@echo ""
-	@echo "Testing:"
-	@echo "  make test          Run all tests"
-	@echo "  make test-unit     Run loan-provider unit tests"
-	@echo "  make test-lending-pool  Run lending-pool tests"
+	@echo "Testing (loan-provider):"
+	@echo "  make test                Run unit tests (default, no RPC needed)"
+	@echo "  make test:unit           Run unit tests with mocks"
+	@echo "  make test:fork           Run fork tests (requires BASE_SEPOLIA_RPC_URL)"
+	@echo "  make test:loan:unit      Run Loan contract unit tests"
+	@echo "  make test:vault:unit     Run Vault unit tests"
+	@echo "  make test:liquidation:unit  Run liquidation unit tests"
 	@echo ""
-	@echo "Prerequisites for deploy-local:"
-	@echo "  cast wallet import dev --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	@echo "Testing (lending-pool):"
+	@echo "  make test:lp             Run lending-pool Bitmor tests"
+	@echo "  make test:lp:aave        Run lending-pool core Aave tests"
+	@echo "  make test:lp:scenarios   Run lending-pool scenario tests"
+	@echo ""
+	@echo "Testing (combined):"
+	@echo "  make test:all            Run all tests (unit + lending-pool)"
+	@echo ""
+	@echo "See TEST.md for complete testing documentation."
 	@echo ""
 
-# Setup
+# ============ Setup ============
+
 install:
 	@echo "Installing dependencies..."
-	cd lending-pool && npm install
-	cd loan-provider && forge install
+	@cd lending-pool && npm install
+	@cd loan-provider && forge install
 	@echo "Done."
 
 build:
 	@echo "Building contracts..."
-	cd lending-pool && npm run compile
-	cd loan-provider && forge build
+	@cd lending-pool && npm run compile
+	@cd loan-provider && forge build
 	@echo "Done."
 
 clean:
 	@echo "Cleaning..."
-	rm -rf deploy/artifacts/*.log
-	cd lending-pool && rm -rf artifacts cache
-	cd loan-provider && forge clean
+	@rm -rf deploy/artifacts/*.log
+	@cd lending-pool && rm -rf artifacts cache
+	@cd loan-provider && forge clean
 	@echo "Done."
 
-# Anvil
+# ============ Anvil ============
+
 anvil:
-	anvil --port $(ANVIL_PORT) --chain-id $(LOCAL_CHAIN_ID) --accounts 10 --balance 10000
+	@anvil --port $(ANVIL_PORT) --chain-id $(LOCAL_CHAIN_ID) --accounts 10 --balance 10000
 
 anvil-stop:
 	@pkill -f "anvil" 2>/dev/null || echo "Anvil not running"
 
-# Deployment
+# ============ Deployment ============
+
 deploy-local:
 	@./deploy/scripts/deploy-local.sh
 
-# Testing
-test: test-unit test-lending-pool
+# ============ Testing (loan-provider) ============
 
-test-unit:
-	@echo "Running loan-provider tests..."
-	cd loan-provider && make test
+# Default: run unit tests (no RPC needed)
+test:
+	@cd loan-provider && make test
 
-test-lending-pool:
-	@echo "Running lending-pool tests..."
-	cd lending-pool && npm run test-bitmor
+test\:unit:
+	@cd loan-provider && make test:unit
 
-# ============ Comprehensive Testing ============
+test\:fork:
+	@cd loan-provider && make test:fork
 
-test-unit-profile:
-	@echo "Running loan-provider unit tests with profile..."
-	cd loan-provider && FOUNDRY_PROFILE=unit forge test --match-path "test/unit/**/*.sol" -vvv
+test\:loan\:unit:
+	@cd loan-provider && make test:loan:unit
 
-test-fork:
-	@echo "Running loan-provider fork tests..."
-	cd loan-provider && FOUNDRY_PROFILE=fork forge test --match-path "test/fork/**/*.sol" -vvv
+test\:vault\:unit:
+	@cd loan-provider && make test:vault:unit
 
-test-integration:
-	@echo "Running loan-provider integration tests..."
-	cd loan-provider && FOUNDRY_PROFILE=integration forge test --match-path "test/integration/**/*.sol" -vvv
+test\:liquidation\:unit:
+	@cd loan-provider && make test:liquidation:unit
 
-test-fuzz:
-	@echo "Running loan-provider fuzz tests..."
-	cd loan-provider && FOUNDRY_PROFILE=fuzz forge test --match-path "test/fuzz/**/*.sol" -vvv
+test\:fuzz:
+	@cd loan-provider && make test:fuzz
 
-test-invariant:
-	@echo "Running loan-provider invariant tests..."
-	cd loan-provider && FOUNDRY_PROFILE=invariant forge test --match-path "test/invariant/**/*.sol" -vvv
+test\:invariant:
+	@cd loan-provider && make test:invariant
 
-test-lending-pool-bitmor:
+test\:integration:
+	@cd loan-provider && make test:integration
+
+# ============ Testing (lending-pool) ============
+
+test\:lp:
 	@echo "Running lending-pool Bitmor tests..."
-	cd lending-pool && npm run test-bitmor
+	@cd lending-pool && npm run test-bitmor
 
-test-all: test-unit test-fork test-fuzz test-invariant test-lending-pool test-lending-pool-bitmor
+test\:lp\:aave:
+	@echo "Running lending-pool Aave tests..."
+	@cd lending-pool && npm test
+
+test\:lp\:scenarios:
+	@echo "Running lending-pool scenario tests..."
+	@cd lending-pool && npm run test-scenarios
+
+# ============ Testing (combined) ============
+
+test\:all: test\:unit test\:lp
+	@echo "All tests complete."

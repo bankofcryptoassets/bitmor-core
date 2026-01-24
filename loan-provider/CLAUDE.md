@@ -12,13 +12,15 @@ This is the **loan-provider** module of the Bitmor Protocol - a Foundry-based So
 # Build
 forge build
 
-# Run all tests (requires Base Sepolia fork)
-make test
-# or directly:
-forge test --fork-url base_sepolia --fork-block-number <block>
-
-# Run specific test by name pattern
-forge test --mt test_functionName --fork-url base_sepolia -vvvv
+# Test
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # Unit tests with mocks
+make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:single TEST=test_functionName  # Single test by name
+make test:contract CONTRACT=ContractName # Tests for a contract
 
 # Format code
 forge fmt
@@ -27,7 +29,7 @@ forge fmt
 make coverage
 
 # Gas report
-make gasReport
+make gas-report
 ```
 
 ### Deployment (Base Sepolia)

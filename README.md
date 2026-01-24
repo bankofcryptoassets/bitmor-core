@@ -75,7 +75,7 @@ npm test
 cd loan-provider
 forge install
 forge build
-forge test --fork-url $BASE_SEPOLIA_RPC_URL
+make test        # Run unit tests (no RPC needed)
 ```
 
 ---
@@ -174,162 +174,15 @@ forge build
 
 ---
 
-## Test Commands
+## Testing
 
-### lending-pool Tests
-
-| Command                  | Description                                                |
-| ------------------------ | ---------------------------------------------------------- |
-| `npm test`               | Run core Aave tests                                        |
-| `npm run test-bitmor`    | Run Bitmor-specific tests (liquidation, vault integration) |
-| `npm run test-scenarios` | Run protocol scenario tests                                |
-| `npm run test-amm`       | Run AMM tests                                              |
-
-#### Running All Tests
-
+For quick testing:
 ```bash
-# With Docker
-docker-compose up
-docker-compose exec contracts-env bash
-npm test
-
-# Without Docker
-cd lending-pool
-npm run compile
-npm test
+make test        # Run unit tests (no RPC needed)
+make test:all    # Run all tests
 ```
 
-#### Running Specific Test Files
-
-```bash
-# Compile first (required)
-npm run compile
-
-# Run specific test file
-TS_NODE_TRANSPILE_ONLY=1 npx hardhat test ./test-suites/test-bitmor/__setup.spec.ts
-
-# Run Bitmor sample tests
-TS_NODE_TRANSPILE_ONLY=1 npx hardhat test ./test-suites/test-aave/bitmor-sample.spec.ts
-```
-
-#### Fork Testing
-
-```bash
-# Run tests against mainnet fork
-FORK=main npm test
-
-# Run scenario tests with fork
-FORK=main npm run test-scenarios
-```
-
-### loan-provider Tests
-
-| Command                  | Description                             |
-| ------------------------ | --------------------------------------- |
-| `forge test`             | Run all tests (requires fork)           |
-| `make test`              | Run all tests via Makefile              |
-| `make test-unit-profile` | Run unit tests with mock infrastructure |
-| `make test-fork-profile` | Run fork tests with real protocols      |
-
-#### Running All Tests
-
-```bash
-cd loan-provider
-
-# Using make (recommended)
-make test
-
-# Using forge directly
-forge test --fork-url $BASE_SEPOLIA_RPC_URL
-```
-
-#### Running Specific Tests
-
-```bash
-# Run by test name pattern
-forge test --mt test_initializeLoan --fork-url $BASE_SEPOLIA_RPC_URL -vvvv
-
-# Run by contract name
-forge test --mc InitializeLoan --fork-url $BASE_SEPOLIA_RPC_URL -vv
-
-# Run specific test file
-forge test --match-path test/unit/Loan/InitializeLoan.t.sol --fork-url $BASE_SEPOLIA_RPC_URL
-```
-
-#### Test Verbosity Levels
-
-```bash
--v     # Show test names
--vv    # Show logs
--vvv   # Show traces for failing tests
--vvvv  # Show traces for all tests
--vvvvv # Show full traces with setup
-```
-
-#### Coverage and Gas Reports
-
-```bash
-# Generate coverage report
-make coverage
-
-# Generate gas report
-make gasReport
-```
-
----
-
-## Test Suites Overview
-
-### lending-pool Test Structure
-
-```
-test-suites/
-├── test-aave/              # Core Aave V2 tests
-│   ├── __setup.spec.ts     # Test environment setup
-│   ├── scenario.spec.ts    # Protocol scenarios
-│   ├── bitmor-sample.spec.ts # Bitmor integration tests
-│   └── helpers/
-│       ├── make-suite.ts   # Test fixtures and setup
-│       ├── deploy-bitmor-mocks.ts # Mock deployments
-│       └── vault-helpers.ts # Vault deposit helpers
-│
-├── test-bitmor/            # Bitmor-specific tests
-│   ├── __setup.spec.ts     # Bitmor setup
-│   └── liquidation.spec.ts # Liquidation tests
-│
-└── test-amm/               # AMM tests
-```
-
-### loan-provider Test Structure
-
-```
-test/
-├── unit/
-│   ├── Loan/
-│   │   ├── BaseLoan.t.sol        # Shared test base
-│   │   ├── InitializeLoan.t.sol  # Loan creation (12 tests)
-│   │   ├── RepayLoan.t.sol       # Repayment (17 tests)
-│   │   ├── CloseLoan.t.sol       # Loan closure (16 tests)
-│   │   └── LoanContract.t.sol    # Core functionality (10 tests)
-│   │
-│   ├── MicroLiquidation.t.sol    # Micro liquidation (12 tests)
-│   ├── FullLiquidation.t.sol     # Full liquidation (13 tests)
-│   │
-│   └── Vault/
-│       ├── BTC/                   # BTCVault tests (45 tests)
-│       └── USDC/                  # USDCVault tests (21 tests)
-│
-├── mock/                          # Mock contracts
-│   ├── MockBitmorLendingPool.sol
-│   ├── MockPriceOracle.sol
-│   ├── MockAaveV3Pool.sol
-│   └── ...
-│
-└── base/                          # Test base classes
-    ├── BitmorTestBase.sol
-    ├── UnitTestBase.sol
-    └── ForkTestBase.sol
-```
+See [TEST.md](./TEST.md) for complete testing documentation.
 
 ---
 
@@ -523,7 +376,7 @@ await lendingPool.connect(signer).deposit(DAI.address, ethers.utils.parseUnits('
 
 | Issue                           | Solution                                                         |
 | ------------------------------- | ---------------------------------------------------------------- |
-| `forge test` fails without fork | Add `--fork-url $BASE_SEPOLIA_RPC_URL`                           |
+| `forge test` fails without fork | Use `make test` for unit tests or `make test:fork` for fork tests |
 | Missing submodules              | Run `forge install` or `git submodule update --init --recursive` |
 | `Stack too deep` errors         | Use `--via-ir` flag or refactor code                             |
 | Cast wallet not found           | Run `cast wallet new <wallet_name>`                              |
