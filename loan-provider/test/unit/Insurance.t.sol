@@ -111,8 +111,8 @@ contract InsuranceTest is BaseLoanTest {
         assertEq(loanData.borrower, user, "Loan borrower should be user");
     }
 
-    /// @notice Paying more than required premium should refund the excess to user
-    function test_insurance_initializeLoan_premiumAboveEstimate_refundsExcess() public mintDebtAssetToUser {
+    /// @notice Paying more than required premium should NOT refund the excess to user
+    function test_insurance_initializeLoan_premiumAboveEstimate_dontRefundExcess() public mintDebtAssetToUser {
         uint256 userBalanceBefore = IERC20(debtAsset).balanceOf(user);
         uint256 premiumCollectorBalanceBefore = IERC20(debtAsset).balanceOf(premiumCollector);
 

@@ -145,7 +145,24 @@ contract MockAaveV3Pool {
     /// @param referralCode Referral code (unused)
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external {
         referralCode; // Silence unused warning
+        _supplyInternal(asset, amount, onBehalfOf);
+    }
 
+    /// @notice Deposit assets to the pool (alias for supply, kept for interface compatibility)
+    /// @param asset The asset to deposit
+    /// @param amount The amount to deposit
+    /// @param onBehalfOf The address receiving the aTokens
+    /// @param referralCode Referral code (unused)
+    function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external {
+        referralCode; // Silence unused warning
+        _supplyInternal(asset, amount, onBehalfOf);
+    }
+
+    /// @notice Internal supply logic
+    /// @param asset The asset to supply
+    /// @param amount The amount to supply
+    /// @param onBehalfOf The address receiving the aTokens
+    function _supplyInternal(address asset, uint256 amount, address onBehalfOf) internal {
         address aToken = _reserveATokens[asset];
         require(aToken != address(0), "MockAaveV3Pool: reserve not initialized");
 

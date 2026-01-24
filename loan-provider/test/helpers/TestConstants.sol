@@ -51,7 +51,7 @@ library TestConstants {
     uint256 internal constant BTC_SEED_AMOUNT = 10e8; // 10 BTC
     uint256 internal constant POOL_DEPOSIT_AMOUNT = 100_000e6; // 100k USDC
     uint256 internal constant SMALL_BORROW_AMOUNT = 10_000e6; // 10k USDC
-    uint256 internal constant MAX_APR_BPS = 2000; // 20% APR max
+    uint256 internal constant MAX_APR_BPS = 1200; // 12% APR max
     uint256 internal constant PAYMENT_TOLERANCE = 100e6; // 100 USDC tolerance
     uint256 internal constant DEBT_DUST_THRESHOLD = 1e6; // 1 USDC dust
 

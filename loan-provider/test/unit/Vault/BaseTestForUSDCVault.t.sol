@@ -59,6 +59,22 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         address aaveV3Pool;
     }
 
+    /// @dev Snapshot of vault state at a point in time
+    struct VaultState {
+        uint256 totalAssets;
+        uint256 totalSupply;
+        uint256 sharePrice;
+        uint256 aaveBalance;
+        uint256 blpBalance;
+    }
+
+    /// @dev Snapshot of a user's vault position
+    struct UserState {
+        uint256 shareBalance;
+        uint256 usdcBalance;
+        uint256 assetValue;
+    }
+
     // ============ Test Amount Constants ============
 
     /// @notice Standard deposit amount (10,000 USDC with 6 decimals)
@@ -80,6 +96,15 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     /// @notice Default Aave allocation (80% = 8000 bps)
     uint256 internal constant DEFAULT_AAVE_ALLOCATION_BPS = 8000;
+
+    /// @notice Half allocation for custom allocation tests (50% = 5000 bps)
+    uint256 internal constant HALF_ALLOCATION_BPS = 5000;
+
+    /// @notice Default tolerance for allocation checks (1% = 100 bps)
+    uint256 internal constant DEFAULT_TOLERANCE_BPS = 100;
+
+    /// @notice Loose tolerance for allocation checks after withdrawals (5% = 500 bps)
+    uint256 internal constant LOOSE_TOLERANCE_BPS = 500;
 
     // ============ Setup ============
 
@@ -179,16 +204,23 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID());
 
         // UVA functions - use function signature for overloaded function
-        bytes4[] memory uvaSelectors = new bytes4[](1);
+        bytes4[] memory uvaSelectors = new bytes4[](2);
         uvaSelectors[0] = bytes4(keccak256("reallocateAssets()"));
+        uvaSelectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
         manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID());
 
-        // reallocateAssets(uint256) is restricted to BLP via msg.sender check, not AccessManager
+        // Grant UVA role to BLP for reallocateAssets(uint256) - the function also checks msg.sender == i_blp
+        manager.grantRole(UVA_ID(), address(mockBitmorPool), 0);
     }
 
     /// @notice Sets the strategy on the vault using UVM_SLOW role
+    /// @dev Also initializes the default Aave allocation (80%)
     function _setStrategy() internal {
         _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
+
+        // Initialize the default Aave allocation to 80%
+        vm.prank(address(vault));
+        strategy.setAaveAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
     }
 
     // ============ Helper Functions ============
@@ -266,6 +298,103 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         uint256 supply = vault.totalSupply();
         if (supply == 0) return 1e18;
         return (vault.totalAssets() * 1e18) / supply;
+    }
+
+    /// @notice Gets the current Aave balance from strategy
+    /// @return The USDC balance held in Aave via strategy
+    function _getAaveBalance() internal view returns (uint256) {
+        // Strategy deposits to MockAavePool which mints aTokens
+        // The aToken balance represents Aave position
+        return mockAaveAToken.balanceOf(address(strategy));
+    }
+
+    /// @notice Gets the current Bitmor Lending Pool balance from strategy
+    /// @return The USDC balance held in BLP via strategy
+    function _getBLPBalance() internal view returns (uint256) {
+        // Strategy deposits to MockBitmorPool which mints aTokens
+        return mockBitmorAToken.balanceOf(address(strategy));
+    }
+
+    /// @notice Gets total balance across all markets
+    /// @return The total USDC managed by strategy
+    function _getTotalBalance() internal view returns (uint256) {
+        return _getAaveBalance() + _getBLPBalance();
+    }
+
+    /// @notice Captures current vault state
+    /// @return state The vault state snapshot
+    function _captureVaultState() internal view returns (VaultState memory state) {
+        state.totalAssets = vault.totalAssets();
+        state.totalSupply = vault.totalSupply();
+        state.sharePrice = _getSharePrice();
+        state.aaveBalance = _getAaveBalance();
+        state.blpBalance = _getBLPBalance();
+    }
+
+    /// @notice Captures current user state
+    /// @param user The user address
+    /// @return state The user state snapshot
+    function _captureUserState(address user) internal view returns (UserState memory state) {
+        state.shareBalance = vault.balanceOf(user);
+        state.usdcBalance = IERC20(networkConfig.usdc).balanceOf(user);
+        state.assetValue = vault.convertToAssets(state.shareBalance);
+    }
+
+    // ============ Allocation and Rebalance Helpers ============
+
+    /// @notice Sets the Aave allocation on the strategy
+    /// @param allocationBps The new allocation in basis points (e.g., 8000 = 80%)
+    /// @dev Pranks as the vault since only the vault can call setAaveAllocation
+    function _setAllocation(uint256 allocationBps) internal {
+        vm.prank(address(vault));
+        strategy.setAaveAllocation(allocationBps);
+    }
+
+    /// @notice Triggers reallocation via the vault
+    function _rebalance() internal {
+        // reallocateAssets() requires UVA role, use schedule/execute
+        // Using encodeWithSignature to handle overloaded function
+        _scheduleAndExecuteLocal(uva, UVA_ID(), abi.encodeWithSignature("reallocateAssets()"));
+    }
+
+    /// @notice Triggers reallocation with specific amount (BLP priority)
+    /// @param amountToWithdraw Amount to reallocate from Aave to BLP
+    function _rebalanceWithAmount(uint256 amountToWithdraw) internal {
+        // reallocateAssets(uint256) is restricted to BLP via msg.sender check
+        vm.prank(networkConfig.bitmorPool);
+        vault.reallocateAssets(amountToWithdraw);
+    }
+
+    /// @notice Donates USDC directly to an address (for security tests)
+    /// @param target The address to donate to
+    /// @param amount The amount of USDC to donate
+    function _donate(address target, uint256 amount) internal {
+        address donor = makeAddr("DONOR");
+        mockUSDC.mint(donor, amount);
+        vm.prank(donor);
+        IERC20(networkConfig.usdc).transfer(target, amount);
+    }
+
+    /// @notice Asserts allocation is within tolerance of target
+    /// @param targetAaveAllocationBps Target Aave allocation in bps
+    /// @param toleranceBps Tolerance in basis points
+    function _assertAllocationCorrect(uint256 targetAaveAllocationBps, uint256 toleranceBps) internal view {
+        uint256 aaveBalance = _getAaveBalance();
+        uint256 totalBalance = _getTotalBalance();
+
+        if (totalBalance == 0) return;
+
+        uint256 actualAaveAllocationBps = (aaveBalance * BASIS_POINTS) / totalBalance;
+        uint256 delta = actualAaveAllocationBps > targetAaveAllocationBps
+            ? actualAaveAllocationBps - targetAaveAllocationBps
+            : targetAaveAllocationBps - actualAaveAllocationBps;
+
+        assertLe(delta, toleranceBps, "Allocation outside tolerance");
+    }
+
+    /// @notice Asserts default 80/20 allocation is correct
+    function _assertAllocationCorrect() internal view {
+        _assertAllocationCorrect(DEFAULT_AAVE_ALLOCATION_BPS, 100); // 1% tolerance
     }
 
     /// @notice Funds a lender with USDC and approves vault spending
