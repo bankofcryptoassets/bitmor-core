@@ -92,9 +92,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         // Set a very high minimum delta required (50% = 5000 bps)
         uint256 highMinDelta = 5000;
         _scheduleAndExecute(
-            uvm_slow,
-            UVM_SLOW_ID(),
-            abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta))
+            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta))
         );
 
         // Capture initial state

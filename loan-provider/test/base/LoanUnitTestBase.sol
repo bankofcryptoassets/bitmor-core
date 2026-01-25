@@ -95,7 +95,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockLendingRateOracle = new MockLendingRateOracle();
 
         // Deploy price oracle
-        mockOracle = new MockPriceOracle();
+        mockOracle = new MockPriceOracle(address(mockBTCVault), address(mockCbBTC));
         mockOracle.setAssetPrice(address(mockCbBTC), BTC_PRICE);
         mockOracle.setAssetPrice(address(mockUSDC), USDC_PRICE);
 

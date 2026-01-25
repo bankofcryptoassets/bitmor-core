@@ -38,11 +38,11 @@ library BitmorLendingPoolLogic {
      * @param lsa The Loan Specific Address to query
      * @return vdtTokenAmount The amount of variable debt tokens representing outstanding debt
      */
-    function getVDTTokenAmount(
-        address bitmorPool,
-        address debtAsset,
-        address lsa
-    ) internal view returns (uint256 vdtTokenAmount) {
+    function getVDTTokenAmount(address bitmorPool, address debtAsset, address lsa)
+        internal
+        view
+        returns (uint256 vdtTokenAmount)
+    {
         DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(debtAsset);
 
         vdtTokenAmount = IERC20(data.variableDebtTokenAddress).balanceOf(lsa);
@@ -56,14 +56,12 @@ library BitmorLendingPoolLogic {
      * @param lsa The Loan Specific Address to query
      * @return aTokenAmount The amount of aTokens representing deposited collateral
      */
-    function getATokenAmount(
-        address bitmorPool,
-        address collateralAsset,
-        address lsa
-    ) internal view returns (uint256 aTokenAmount) {
-        DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(
-            collateralAsset
-        );
+    function getATokenAmount(address bitmorPool, address collateralAsset, address lsa)
+        internal
+        view
+        returns (uint256 aTokenAmount)
+    {
+        DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(collateralAsset);
 
         aTokenAmount = IERC20(data.aTokenAddress).balanceOf(lsa);
     }
@@ -76,13 +74,12 @@ library BitmorLendingPoolLogic {
      * @return totalCollateralUSD Total collateral value in USD (8 decimals)
      * @return totalDebtUSD Total debt value in USD (8 decimals)
      */
-    function getUserPositions(
-        address bitmorPool,
-        address lsa
-    ) internal view returns (uint256 totalCollateralUSD, uint256 totalDebtUSD) {
-        (totalCollateralUSD, totalDebtUSD, , , , ) = ILendingPool(bitmorPool).getUserAccountData(
-            lsa
-        );
+    function getUserPositions(address bitmorPool, address lsa)
+        internal
+        view
+        returns (uint256 totalCollateralUSD, uint256 totalDebtUSD)
+    {
+        (totalCollateralUSD, totalDebtUSD,,,,) = ILendingPool(bitmorPool).getUserAccountData(lsa);
     }
 
     /**
@@ -93,12 +90,7 @@ library BitmorLendingPoolLogic {
      * @param amount Amount to deposit (8 decimals)
      * @param onBehalfOf LSA address that receives aTokens
      */
-    function depositCollateral(
-        address bitmorPool,
-        address asset,
-        uint256 amount,
-        address onBehalfOf
-    ) internal {
+    function depositCollateral(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
         ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
     }
 
@@ -110,12 +102,7 @@ library BitmorLendingPoolLogic {
      * @param amount Amount to borrow (6 decimals)
      * @param onBehalfOf LSA address that receives debt tokens
      */
-    function borrowDebt(
-        address bitmorPool,
-        address asset,
-        uint256 amount,
-        address onBehalfOf
-    ) internal {
+    function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
         // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
         ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
     }
@@ -129,12 +116,10 @@ library BitmorLendingPoolLogic {
      * @param amount Maximum amount to repay (actual repaid may be less if debt is smaller)
      * @return finalAmountRepaid Actual amount repaid to Aave
      */
-    function executeLoanRepayment(
-        address bitmorPool,
-        address debtAsset,
-        address lsa,
-        uint256 amount
-    ) internal returns (uint256 finalAmountRepaid) {
+    function executeLoanRepayment(address bitmorPool, address debtAsset, address lsa, uint256 amount)
+        internal
+        returns (uint256 finalAmountRepaid)
+    {
         // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
         // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
         finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, amount, RATE_MODE, lsa);

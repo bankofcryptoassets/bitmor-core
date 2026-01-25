@@ -11,25 +11,15 @@ library BTCVaultLogic {
      * @param to Address which will receive vault shares.
      * @return shares Amount of `bvBTC` shares received.
      */
-    function deposit(
-        address btcVault,
-        uint256 amount,
-        address to
-    ) internal returns (uint256 shares) {
+    function deposit(address btcVault, uint256 amount, address to) internal returns (uint256 shares) {
         shares = ERC4626(btcVault).deposit(amount, to);
     }
 
-    function convertToAssets(
-        address btcVault,
-        uint256 sharesAmount
-    ) internal view returns (uint256 assets) {
+    function convertToAssets(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
         assets = ERC4626(btcVault).convertToAssets(sharesAmount);
     }
 
-    function previewRedeem(
-        address btcVault,
-        uint256 sharesAmount
-    ) internal view returns (uint256 assets) {
+    function previewRedeem(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
         assets = ERC4626(btcVault).previewRedeem(sharesAmount);
     }
 }

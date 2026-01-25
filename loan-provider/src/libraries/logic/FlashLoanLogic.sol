@@ -99,7 +99,7 @@ library FlashLoanLogic {
         }
         if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
-        (address lsa, ) = abi.decode(params.params, (address, uint256));
+        (address lsa,) = abi.decode(params.params, (address, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[lsa];
@@ -119,13 +119,8 @@ library FlashLoanLogic {
         IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
 
         /// @dev Swap USDC to BTC
-        uint256 amountReceived = SwapLogic.executeSwap(
-            ctx.swapAdapter,
-            ctx.debtAsset,
-            ctx.btc,
-            totalSwapAmount,
-            minimumAcceptable
-        );
+        uint256 amountReceived =
+            SwapLogic.executeSwap(ctx.swapAdapter, ctx.debtAsset, ctx.btc, totalSwapAmount, minimumAcceptable);
 
         if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
 
@@ -190,8 +185,8 @@ library FlashLoanLogic {
         // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
         LocalVarsCloseLoan memory vars;
 
-        (vars.lsa, vars.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC) = abi
-            .decode(params.params, (address, bool, uint256, uint256));
+        (vars.lsa, vars.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC) =
+            abi.decode(params.params, (address, bool, uint256, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[vars.lsa];
@@ -202,11 +197,7 @@ library FlashLoanLogic {
         // =========== Close Loan ==========
         IERC20(ctx.debtAsset).forceApprove(ctx.bitmorPool, params.amount);
 
-        vars.finalAmountRepaid = ctx.bitmorPool.executeLoanRepayment(
-            ctx.debtAsset,
-            vars.lsa,
-            params.amount
-        );
+        vars.finalAmountRepaid = ctx.bitmorPool.executeLoanRepayment(ctx.debtAsset, vars.lsa, params.amount);
         // ===============================================================
 
         // =========== Withdraw collateral asset ==========
@@ -216,23 +207,17 @@ library FlashLoanLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
-            vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(
-                ctx.bitmorPool,
-                ctx.collateralAsset,
-                vars.lsa
-            );
+            vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, vars.lsa);
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa.redeemBTC(
-                ctx.collateralAsset,
-                vars.collateralAmountWithdrawn,
-                address(this),
-                params.slippage_sharesToAsset
-            );
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 
@@ -241,9 +226,7 @@ library FlashLoanLogic {
 
         // =========== Swap the required amount to debt asset ==========
 
-        vars.btcAmtToSwap = vars.totalBTCAmtToSwap.min(
-            (vars.btcAmtReceived - vars.preClosureFeeAmtInBTC)
-        );
+        vars.btcAmtToSwap = vars.totalBTCAmtToSwap.min((vars.btcAmtReceived - vars.preClosureFeeAmtInBTC));
 
         vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
             ctx.zQuoter,

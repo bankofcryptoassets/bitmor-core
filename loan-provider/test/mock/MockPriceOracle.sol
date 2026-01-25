@@ -1,13 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {ERC20} from "@solady/tokens/ERC20.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import {ERC4626} from "@solady/tokens/ERC4626.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /// @title MockPriceOracle
 /// @notice Mock price oracle for unit testing
 /// @dev Allows setting and getting asset prices with test helpers
+/// //! TODO: this needs to be changed to provide the similar setup as AaveOracle in lendingpool.
 contract MockPriceOracle is IPriceOracleGetter {
+    using FixedPointMathLib for uint256;
+
     mapping(address => uint256) private _prices;
+
+    address public btcVault;
+    address public btc;
+
+    constructor(address _btcVault, address _btc) {
+        btcVault = _btcVault;
+        btc = _btc;
+    }
 
     /// @notice Set the price for an asset
     /// @param asset The asset address
@@ -20,6 +34,21 @@ contract MockPriceOracle is IPriceOracleGetter {
     /// @param asset The asset address
     /// @return The price in 8 decimals
     function getAssetPrice(address asset) external view override returns (uint256) {
+        if (asset == btcVault) {
+            uint256 oneShare = 10 ** ERC4626(btcVault).decimals();
+            uint256 pricePerShare = ERC4626(btcVault).convertToAssets(oneShare);
+            uint256 btcPrice = _getAssetPrice(asset);
+
+            return btcPrice.mulDiv(pricePerShare, (10 ** ERC20(btc).decimals()));
+        }
+
+        return _getAssetPrice(asset);
+    }
+
+    /// @notice Get the price of an asset
+    /// @param asset The asset address
+    /// @return The price in 8 decimals
+    function _getAssetPrice(address asset) internal view returns (uint256) {
         return _prices[asset];
     }
 
