@@ -81,7 +81,7 @@ library LoanLogic {
             revert Errors.GreaterThanMaxCollateralAllowed();
         }
 
-        (uint256 loanAmount, uint256 monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
+        (uint256 loanAmount, uint256 monthlyPayment, ) = _calculateLoanAmountAndMonthlyPayment(
             DataTypes.CalculateLoanAmountAndMonthlyPayment(
                 ctx.bitmorPool,
                 ctx.oracle,
@@ -91,7 +91,8 @@ library LoanLogic {
                 IERC20Metadata(ctx.debtAsset).decimals(),
                 params.collateralAmount,
                 IERC20Metadata(ctx.collateralAsset).decimals(),
-                params.duration
+                params.duration,
+                ctx.minDepositBps
             )
         );
 
@@ -122,7 +123,11 @@ library LoanLogic {
 
         // Transfer premium amount to premium collector
         if (params.premiumAmount > 0) {
-            IERC20(ctx.debtAsset).safeTransferFrom(params.user, ctx.premiumCollector, params.premiumAmount);
+            IERC20(ctx.debtAsset).safeTransferFrom(
+                params.user,
+                ctx.premiumCollector,
+                params.premiumAmount
+            );
         }
 
         // Flash loan execution flow
@@ -130,10 +135,22 @@ library LoanLogic {
         bytes memory flData = abi.encode(lsa, params.collateralAmount);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
-        AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
+        AavePoolLogic.executeFlashLoan(
+            ctx.aavePool,
+            address(this),
+            ctx.debtAsset,
+            loanAmount,
+            paramsForFL
+        );
 
         // Emit loan creation event
-        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
+        emit ILoan.Loan__LoanCreated(
+            params.user,
+            lsa,
+            loanAmount,
+            params.collateralAmount,
+            params.data
+        );
         return lsa;
     }
 
@@ -161,10 +178,10 @@ library LoanLogic {
      * @param lsa The Loan Specific Address being liquidated
      * @return newDuration The remaining loan duration after deduction
      */
-    function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-        returns (uint256 newDuration)
-    {
+    function updateLoanDataForMicroLiquidation(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal returns (uint256 newDuration) {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         newDuration = loan.duration.zeroFloorSub(1);
@@ -180,9 +197,10 @@ library LoanLogic {
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being liquidated
      */
-    function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-    {
+    function updateLoanDataForFullLiquidation(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         loan.duration = 0;
@@ -198,7 +216,9 @@ library LoanLogic {
      * @return monthlyPayAmt Estimated monthly payment (6 decimals)
      * @return minDepositRequired Minimum deposit requried amount
      */
-    function _calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
+    function _calculateLoanAmountAndMonthlyPayment(
+        DataTypes.CalculateLoanAmountAndMonthlyPayment memory data
+    )
         internal
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -211,10 +231,13 @@ library LoanLogic {
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         // Fetch current variable borrow rate from Aave V2 USDC reserve
-        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
+        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(
+            data.debtAsset
+        );
 
-        uint256 maxInterestRate =
-            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+        uint256 maxInterestRate = IReserveInterestRateStrategy(
+            reserveData.interestRateStrategyAddress
+        ).getMaxVariableBorrowRate();
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
@@ -226,7 +249,8 @@ library LoanLogic {
                 collateralPriceUSD,
                 debtPriceUSD,
                 maxInterestRate,
-                data.duration
+                data.duration,
+                data.minDepositBps
             )
         );
     }
@@ -253,7 +277,11 @@ library LoanLogic {
         address debtAsset,
         uint256 collateralAmount,
         uint256 duration
-    ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+    )
+        internal
+        view
+        returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
         if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
         if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
 
@@ -265,7 +293,9 @@ library LoanLogic {
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         // Fetch current variable borrow rate from Aave V2 USDC reserve
-        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
+        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(
+            debtAsset
+        );
         uint256 interestRate = reserveData.currentVariableBorrowRate;
 
         // Calculate loan amount and monthly payment using fetched rate
@@ -276,7 +306,8 @@ library LoanLogic {
             debtPriceUSD,
             IERC20Metadata(debtAsset).decimals(),
             interestRate,
-            duration
+            duration,
+            ctx.minDepositBps
         );
     }
 }

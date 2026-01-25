@@ -229,6 +229,7 @@ library DataTypes {
          * @dev Repayment interval in seconds (30 days)
          */
         uint256 loanRepaymentInterval;
+        uint256 minDepositBps;
     }
 
     /**
@@ -373,6 +374,7 @@ library DataTypes {
     struct CalculateLoanDetailsContext {
         uint256 minBTCAmt;
         uint256 maxBTCAmt;
+        uint256 minDepositBps;
     }
 
     /**
@@ -416,6 +418,7 @@ library DataTypes {
          * @dev Loan duration in months
          */
         uint256 duration;
+        uint256 minDepositBps;
     }
 
     /**
@@ -455,6 +458,7 @@ library DataTypes {
          * @dev Loan duration in months
          */
         uint256 duration;
+        uint256 minDepositBps;
     }
 
     // ============ Loan Data Structure ============

@@ -51,9 +51,11 @@ interface ILoan {
 
     event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
 
-    event Loan__MaxBTCAmountUpdated(uint256 newMaxBTCAmount);
+    event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
 
-    event Loan__MinBTCAmountUpdated(uint256 newMinBTCAmount);
+    event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
+
+    event Loan__MinDepositUpdated(uint256 indexed newMinDepositBps);
 
     // ============ Main Functions ============
 
@@ -273,4 +275,8 @@ interface ILoan {
     function setMinBTCAmount(uint256 newMinBTCAmt) external;
 
     function getMinBTCAmount() external view returns (uint256);
+
+    function getMinDepositBps() external view returns (uint256);
+
+    function setMinDepositBps(uint256 newMinDepositBps) external ;
 }

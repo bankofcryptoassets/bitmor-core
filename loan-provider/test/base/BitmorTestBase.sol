@@ -100,186 +100,186 @@ abstract contract BitmorTestBase is Test {
 
     /// @notice Returns EXECUTOR role ID from RolesData
     function EXECUTOR_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.EXECUTOR();
+        (, , , , id, , , , , ) = rolesData.EXECUTOR();
     }
 
     /// @notice Returns LPCM role ID from RolesData
     function LPCM_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.LPCM();
+        (, , , , id, , , , , ) = rolesData.LPCM();
     }
 
     /// @notice Returns LPM_FAST role ID from RolesData
     function LPM_FAST_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.LPM_FAST();
+        (, , , , id, , , , , ) = rolesData.LPM_FAST();
     }
 
     /// @notice Returns LPM_SLOW role ID from RolesData
     function LPM_SLOW_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.LPM_SLOW();
+        (, , , , id, , , , , ) = rolesData.LPM_SLOW();
     }
 
     /// @notice Returns ARE role ID from RolesData
     function ARE_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.ARE();
+        (, , , , id, , , , , ) = rolesData.ARE();
     }
 
     /// @notice Returns BVM_FAST role ID from RolesData
     function BVM_FAST_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVM_FAST();
+        (, , , , id, , , , , ) = rolesData.BVM_FAST();
     }
 
     /// @notice Returns BVM_SLOW role ID from RolesData
     function BVM_SLOW_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVM_SLOW();
+        (, , , , id, , , , , ) = rolesData.BVM_SLOW();
     }
 
     /// @notice Returns BVC role ID from RolesData
     function BVC_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVC();
+        (, , , , id, , , , , ) = rolesData.BVC();
     }
 
     /// @notice Returns BVA_FAST role ID from RolesData
     function BVA_FAST_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVA_FAST();
+        (, , , , id, , , , , ) = rolesData.BVA_FAST();
     }
 
     /// @notice Returns BVA_SLOW role ID from RolesData
     function BVA_SLOW_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVA_SLOW();
+        (, , , , id, , , , , ) = rolesData.BVA_SLOW();
     }
 
     /// @notice Returns BVD role ID from RolesData
     function BVD_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.BVD();
+        (, , , , id, , , , , ) = rolesData.BVD();
     }
 
     /// @notice Returns UVM_FAST role ID from RolesData
     function UVM_FAST_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.UVM_FAST();
+        (, , , , id, , , , , ) = rolesData.UVM_FAST();
     }
 
     /// @notice Returns UVM_SLOW role ID from RolesData
     function UVM_SLOW_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.UVM_SLOW();
+        (, , , , id, , , , , ) = rolesData.UVM_SLOW();
     }
 
     /// @notice Returns UVC role ID from RolesData
     function UVC_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.UVC();
+        (, , , , id, , , , , ) = rolesData.UVC();
     }
 
     /// @notice Returns UVA role ID from RolesData
     function UVA_ID() internal view returns (uint64 id) {
-        (,,,, id,,,,,) = rolesData.UVA();
+        (, , , , id, , , , , ) = rolesData.UVA();
     }
 
     // ============ Dynamic Execution Delay Accessors ============
 
     /// @notice Returns LPM_SLOW execution delay from RolesData
     function _getDelay_LPM_SLOW() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.LPM_SLOW();
+        (, , delay, , , , , , , ) = rolesData.LPM_SLOW();
     }
 
     /// @notice Returns BVM_SLOW execution delay from RolesData
     function _getDelay_BVM_SLOW() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.BVM_SLOW();
+        (, , delay, , , , , , , ) = rolesData.BVM_SLOW();
     }
 
     /// @notice Returns BVC execution delay from RolesData
     function _getDelay_BVC() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.BVC();
+        (, , delay, , , , , , , ) = rolesData.BVC();
     }
 
     /// @notice Returns BVA_SLOW execution delay from RolesData
     function _getDelay_BVA_SLOW() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.BVA_SLOW();
+        (, , delay, , , , , , , ) = rolesData.BVA_SLOW();
     }
 
     /// @notice Returns UVM_SLOW execution delay from RolesData
     function _getDelay_UVM_SLOW() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.UVM_SLOW();
+        (, , delay, , , , , , , ) = rolesData.UVM_SLOW();
     }
 
     /// @notice Returns UVC execution delay from RolesData
     function _getDelay_UVC() internal view returns (uint32 delay) {
-        (,, delay,,,,,,,) = rolesData.UVC();
+        (, , delay, , , , , , , ) = rolesData.UVC();
     }
 
     // ============ Dynamic Label Accessors ============
 
     /// @notice Returns EXECUTOR label from RolesData
     function _getLabel_EXECUTOR() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.EXECUTOR();
+        (, , , , , label, , , , ) = rolesData.EXECUTOR();
     }
 
     /// @notice Returns LPCM label from RolesData
     function _getLabel_LPCM() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.LPCM();
+        (, , , , , label, , , , ) = rolesData.LPCM();
     }
 
     /// @notice Returns LPM_FAST label from RolesData
     function _getLabel_LPM_FAST() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.LPM_FAST();
+        (, , , , , label, , , , ) = rolesData.LPM_FAST();
     }
 
     /// @notice Returns LPM_SLOW label from RolesData
     function _getLabel_LPM_SLOW() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.LPM_SLOW();
+        (, , , , , label, , , , ) = rolesData.LPM_SLOW();
     }
 
     /// @notice Returns ARE label from RolesData
     function _getLabel_ARE() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.ARE();
+        (, , , , , label, , , , ) = rolesData.ARE();
     }
 
     /// @notice Returns BVM_FAST label from RolesData
     function _getLabel_BVM_FAST() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVM_FAST();
+        (, , , , , label, , , , ) = rolesData.BVM_FAST();
     }
 
     /// @notice Returns BVM_SLOW label from RolesData
     function _getLabel_BVM_SLOW() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVM_SLOW();
+        (, , , , , label, , , , ) = rolesData.BVM_SLOW();
     }
 
     /// @notice Returns BVC label from RolesData
     function _getLabel_BVC() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVC();
+        (, , , , , label, , , , ) = rolesData.BVC();
     }
 
     /// @notice Returns BVA_FAST label from RolesData
     function _getLabel_BVA_FAST() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVA_FAST();
+        (, , , , , label, , , , ) = rolesData.BVA_FAST();
     }
 
     /// @notice Returns BVA_SLOW label from RolesData
     function _getLabel_BVA_SLOW() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVA_SLOW();
+        (, , , , , label, , , , ) = rolesData.BVA_SLOW();
     }
 
     /// @notice Returns BVD label from RolesData
     function _getLabel_BVD() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.BVD();
+        (, , , , , label, , , , ) = rolesData.BVD();
     }
 
     /// @notice Returns UVM_FAST label from RolesData
     function _getLabel_UVM_FAST() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.UVM_FAST();
+        (, , , , , label, , , , ) = rolesData.UVM_FAST();
     }
 
     /// @notice Returns UVM_SLOW label from RolesData
     function _getLabel_UVM_SLOW() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.UVM_SLOW();
+        (, , , , , label, , , , ) = rolesData.UVM_SLOW();
     }
 
     /// @notice Returns UVC label from RolesData
     function _getLabel_UVC() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.UVC();
+        (, , , , , label, , , , ) = rolesData.UVC();
     }
 
     /// @notice Returns UVA label from RolesData
     function _getLabel_UVA() internal view returns (string memory label) {
-        (,,,,, label,,,,) = rolesData.UVA();
+        (, , , , , label, , , , ) = rolesData.UVA();
     }
 
     // ============ Loan Provider Role Configuration ============
@@ -298,10 +298,22 @@ abstract contract BitmorTestBase is Test {
     /// @param loanContract The Loan contract address
     function _setLoanTargetSelectors(address loanContract) internal {
         // Use selectors from RolesData for consistency with production
-        manager.setTargetFunctionRole(loanContract, rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID());
+        manager.setTargetFunctionRole(
+            loanContract,
+            rolesData.getEXECUTOR_SELECTORS(),
+            EXECUTOR_ID()
+        );
         manager.setTargetFunctionRole(loanContract, rolesData.getLPCM_SELECTORS(), LPCM_ID());
-        manager.setTargetFunctionRole(loanContract, rolesData.getLPM_FAST_SELECTORS(), LPM_FAST_ID());
-        manager.setTargetFunctionRole(loanContract, rolesData.getLPM_SLOW_SELECTORS(), LPM_SLOW_ID());
+        manager.setTargetFunctionRole(
+            loanContract,
+            rolesData.getLPM_FAST_SELECTORS(),
+            LPM_FAST_ID()
+        );
+        manager.setTargetFunctionRole(
+            loanContract,
+            rolesData.getLPM_SLOW_SELECTORS(),
+            LPM_SLOW_ID()
+        );
     }
 
     // ============ Auto Repayment Role Configuration ============
@@ -314,7 +326,11 @@ abstract contract BitmorTestBase is Test {
     /// @notice Set target function selectors for AutoRepayment contract roles
     /// @param autoRepaymentContract The AutoRepayment contract address
     function _setAutoRepaymentTargetSelectors(address autoRepaymentContract) internal {
-        manager.setTargetFunctionRole(autoRepaymentContract, rolesData.getARE_SELECTORS(), ARE_ID());
+        manager.setTargetFunctionRole(
+            autoRepaymentContract,
+            rolesData.getARE_SELECTORS(),
+            ARE_ID()
+        );
     }
 
     // ============ BTC Vault Role Configuration ============
@@ -334,11 +350,27 @@ abstract contract BitmorTestBase is Test {
     /// @notice Set target function selectors for BTCVault contract roles
     /// @param btcVaultContract The BTCVault contract address
     function _setBTCVaultTargetSelectors(address btcVaultContract) internal {
-        manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVM_FAST_SELECTORS(), BVM_FAST_ID());
-        manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVM_SLOW_SELECTORS(), BVM_SLOW_ID());
+        manager.setTargetFunctionRole(
+            btcVaultContract,
+            rolesData.getBVM_FAST_SELECTORS(),
+            BVM_FAST_ID()
+        );
+        manager.setTargetFunctionRole(
+            btcVaultContract,
+            rolesData.getBVM_SLOW_SELECTORS(),
+            BVM_SLOW_ID()
+        );
         manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVC_SELECTORS(), BVC_ID());
-        manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVA_FAST_SELECTORS(), BVA_FAST_ID());
-        manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVA_SLOW_SELECTORS(), BVA_SLOW_ID());
+        manager.setTargetFunctionRole(
+            btcVaultContract,
+            rolesData.getBVA_FAST_SELECTORS(),
+            BVA_FAST_ID()
+        );
+        manager.setTargetFunctionRole(
+            btcVaultContract,
+            rolesData.getBVA_SLOW_SELECTORS(),
+            BVA_SLOW_ID()
+        );
         manager.setTargetFunctionRole(btcVaultContract, rolesData.getBVD_SELECTORS(), BVD_ID());
     }
 
@@ -355,8 +387,16 @@ abstract contract BitmorTestBase is Test {
     /// @notice Set target function selectors for USDCVault contract roles
     /// @param usdcVaultContract The USDCVault contract address
     function _setUSDCVaultTargetSelectors(address usdcVaultContract) internal {
-        manager.setTargetFunctionRole(usdcVaultContract, rolesData.getUVM_FAST_SELECTORS(), UVM_FAST_ID());
-        manager.setTargetFunctionRole(usdcVaultContract, rolesData.getUVM_SLOW_SELECTORS(), UVM_SLOW_ID());
+        manager.setTargetFunctionRole(
+            usdcVaultContract,
+            rolesData.getUVM_FAST_SELECTORS(),
+            UVM_FAST_ID()
+        );
+        manager.setTargetFunctionRole(
+            usdcVaultContract,
+            rolesData.getUVM_SLOW_SELECTORS(),
+            UVM_SLOW_ID()
+        );
         manager.setTargetFunctionRole(usdcVaultContract, rolesData.getUVC_SELECTORS(), UVC_ID());
         manager.setTargetFunctionRole(usdcVaultContract, rolesData.getUVA_SELECTORS(), UVA_ID());
     }
@@ -368,8 +408,13 @@ abstract contract BitmorTestBase is Test {
     /// @param caller The address calling the operation
     /// @param roleId The role ID of the caller
     /// @param data The encoded function call data
-    function _scheduleAndExecute(address target, address caller, uint64 roleId, bytes memory data) internal {
-        (, uint32 delay,,) = manager.getAccess(roleId, caller);
+    function _scheduleAndExecute(
+        address target,
+        address caller,
+        uint64 roleId,
+        bytes memory data
+    ) internal {
+        (, uint32 delay, , ) = manager.getAccess(roleId, caller);
         uint48 when = uint48(block.timestamp + delay);
 
         vm.startPrank(caller);
@@ -394,7 +439,7 @@ abstract contract BitmorTestBase is Test {
         bytes memory data,
         bytes memory revertData
     ) internal {
-        (, uint32 delay,,) = manager.getAccess(roleId, caller);
+        (, uint32 delay, , ) = manager.getAccess(roleId, caller);
         uint48 when = uint48(block.timestamp + delay);
 
         vm.startPrank(caller);
@@ -467,15 +512,36 @@ abstract contract BitmorTestBase is Test {
     /// @param maxBTC Maximum BTC amount (in 8 decimals)
     /// @param minBTC Minimum BTC amount (in 8 decimals)
     /// @param slippage Slippage in basis points
-    function _configureLoanParameters(address loanContract, uint256 maxBTC, uint256 minBTC, uint256 slippage) internal {
+    function _configureLoanParameters(
+        address loanContract,
+        uint256 maxBTC,
+        uint256 minBTC,
+        uint256 slippage,
+        uint256 minDepositBps
+    ) internal {
         _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
         );
         _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinBTCAmount(uint256)", minBTC)
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setMinBTCAmount(uint256)", minBTC)
         );
         _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
+        );
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setMinDepositBps(uint256)", minDepositBps)
         );
     }
 }

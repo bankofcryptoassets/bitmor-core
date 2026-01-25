@@ -50,11 +50,6 @@ library LoanMath {
     uint256 private constant MONTHS_PER_YEAR = 12;
 
     /**
-     * @dev Minimum deposit percentage required (33% in basis points)
-     */
-    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 33_00;
-
-    /**
      * @dev Basis points denominator (100% = 10000)
      */
     uint256 private constant BASIS_POINTS = 100_00;
@@ -99,7 +94,7 @@ library LoanMath {
      * @notice Calculates the loan amount and monthly payment based on collateral and deposit
      * @dev Performs the following calculations:
      * 1. Converts collateral to USD value using oracle price
-     * 2. Validates deposit meets minimum 33% requirement
+     * 2. Validates deposit meets minimum deposit
      * 3. Calculates loan amount as: collateralValue - depositValue
      * 4. Computes EMI using standard amortization formula
      *
@@ -113,26 +108,39 @@ library LoanMath {
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
     //! TODO: Verify EMI calculation logic for edge cases
-    function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
+    function calculateLoanAmt(
+        DataTypes.CalculateLoanAmt memory data
+    )
         internal
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD =
-            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
+        uint256 collateralValueUSD = data.collateralAmount.fullMulDivUp(
+            data.collateralPriceUSD,
+            (10 ** data.collateralAssetDecimals)
+        );
 
         // Convert deposit amount to USD value
-        uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
+        uint256 depositValueUSD = data.depositAmount.fullMulDiv(
+            data.debtPriceUSD,
+            (10 ** data.debtAssetDecimals)
+        );
 
         // Ensure collateral value exceeds deposit
         if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(
+            data.minDepositBps,
+            BASIS_POINTS
+        );
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
+            (10 ** data.debtAssetDecimals),
+            data.debtPriceUSD
+        );
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
@@ -173,12 +181,12 @@ library LoanMath {
 
     /**
      * @notice Calculates loan details for a given collateral amount (used for previewing)
-     * @dev Similar to `calculateLoanAmt` but assumes minimum deposit (33% of collateral).
+     * @dev Similar to `calculateLoanAmt` but assumes minimum deposit as deposit amount.
      * Used by `Loan.getLoanDetails()` to preview loan terms before creation.
      *
      * ## Calculation Flow
      * 1. Convert collateral to USD value
-     * 2. Calculate minimum deposit as 33% of collateral
+     * 2. Calculate minimum deposit
      * 3. Loan amount = collateral value - minimum deposit value
      * 4. Calculate monthly payment using EMI formula
      *
@@ -201,16 +209,30 @@ library LoanMath {
         uint256 debtPriceUSD,
         uint256 debtAssetDecimals,
         uint256 interestRate,
-        uint256 duration
-    ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+        uint256 duration,
+        uint256 minDepositBps
+    )
+        internal
+        pure
+        returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
+        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(
+            collateralPriceUSD,
+            (10 ** collateralAssetDecimals)
+        );
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(
+            minDepositBps,
+            BASIS_POINTS
+        );
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
+            (10 ** debtAssetDecimals),
+            debtPriceUSD
+        );
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
@@ -273,11 +295,11 @@ library LoanMath {
      * @param deposit The deposit amount in debt asset (6 decimals for USDC)
      * @return strikePrice The calculated strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
-        internal
-        pure
-        returns (uint256 strikePrice)
-    {
+    function calculateStrikePrice(
+        uint256 btcPriceUSD,
+        uint256 loanAmount,
+        uint256 deposit
+    ) internal pure returns (uint256 strikePrice) {
         uint256 totalAmount = loanAmount + deposit;
 
         strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);

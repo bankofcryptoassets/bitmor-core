@@ -244,7 +244,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);
 
         // Configure loan parameters using proper setters (replaces vm.store)
-        _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP);
+        _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP, TC.MIN_DEPOSIT);
     }
 
     /// @notice Funds test accounts with tokens
