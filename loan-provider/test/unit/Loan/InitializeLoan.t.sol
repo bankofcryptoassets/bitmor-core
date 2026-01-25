@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
+import {console2} from "forge-std/console2.sol";
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
@@ -82,26 +83,13 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when loan size is below the protocol minimum.
-    /// @dev SKIPPED: Protocol currently allows small loan sizes.
-    ///      MinimumAssetRequired validation is not enforced in getLoanDetails.
-    ///      Protocol has min/max BTC amount checks but not dollar-value minimums.
-    function test_initializeLoan_withMinimumLoanSize() public mintDebtAssetToUser {
-        // Goal: ensure the protocol enforces a $1,000 minimum loan size
+    function test_initializeLoan_revertsWithLessThanMinimumLoanSize() public mintDebtAssetToUser {
         uint256 duration = STANDARD_DURATION;
 
-        // Get BTC price from oracle (8 decimals)
-        uint256 btcPriceUsd = IPriceOracleGetter(loan.i_ORACLE()).getAssetPrice(collateralAsset);
+        uint256 collateralAmount = loan.getMinBTCAmount() - 1;
 
-        // Target $500 total position value => loan amount must be < $1,000
-        uint256 targetUsd = 500e8;
-        uint256 collateralAmount = (targetUsd * 1e8) / btcPriceUsd;
-        if (collateralAmount == 0) collateralAmount = 1;
-
-        // CURRENT BEHAVIOR: Protocol doesn't enforce USD minimum, uses BTC amount bounds instead
-        // The protocol has s_minBTCAmt and s_maxBTCAmt checks, not dollar-value checks
-        // Calling getLoanDetails with small amounts succeeds if within BTC bounds
-        (uint256 loanAmount,,) = loan.getLoanDetails(collateralAmount, duration);
-        assertGt(loanAmount, 0, "Small loans are allowed in current implementation");
+        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        loan.getLoanDetails(collateralAmount, duration);
     }
 
     /// @notice Validates equity contribution bounds and rejects deposits below the minimum.

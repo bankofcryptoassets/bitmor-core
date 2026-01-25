@@ -215,7 +215,6 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
-        uint256 preClosureFeeBps = _getPreClosureFeeBps();
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");

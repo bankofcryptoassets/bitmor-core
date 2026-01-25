@@ -370,6 +370,11 @@ library DataTypes {
         bool withdrawInBTC;
     }
 
+    struct CalculateLoanDetailsContext {
+        uint256 minBTCAmt;
+        uint256 maxBTCAmt;
+    }
+
     /**
      * @notice Parameters for calculating loan amount with deposit
      * @dev Used internally by LoanLogic

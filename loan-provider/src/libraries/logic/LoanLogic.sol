@@ -246,6 +246,7 @@ library LoanLogic {
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
     function calculateLoanDetails(
+        DataTypes.CalculateLoanDetailsContext memory ctx,
         address bitmorPool,
         address _oracle,
         address collateralAsset,
@@ -253,6 +254,9 @@ library LoanLogic {
         uint256 collateralAmount,
         uint256 duration
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+        if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
+        if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
+
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
         uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
