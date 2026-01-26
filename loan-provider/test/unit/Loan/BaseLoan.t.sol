@@ -170,41 +170,29 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
     function _setUpLoanForUser() internal {
         _mintDebtAssetToUser();
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION
-        );
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         vm.prank(user);
-        loan.initializeLoan(
-            minDepositRequired,
-            PREMIUM_AMOUNT,
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION,
-            DATA
-        );
+        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
     }
 
     // ============ Loan Creation Helpers ============
 
     /// @dev Inherited _createStandardLoan from LoanUnitTestBase uses TC constants
 
-    function _createCustomLoan(
-        uint256 collateralAmount,
-        uint256 duration,
-        uint256 premiumAmount
-    ) internal returns (address lsa) {
+    function _createCustomLoan(uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+        internal
+        returns (address lsa)
+    {
         _mintDebtAssetToUser();
-        (, , uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
         vm.prank(user);
         lsa = loan.initializeLoan(minDeposit, premiumAmount, collateralAmount, duration, DATA);
     }
 
-    function _createLoanForBorrower(
-        address borrower,
-        uint256 collateralAmount,
-        uint256 duration,
-        uint256 premiumAmount
-    ) internal returns (address lsa) {
+    function _createLoanForBorrower(address borrower, uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+        internal
+        returns (address lsa)
+    {
         // Cache role ID before prank to avoid consuming the prank
         // (EXECUTOR_ID() makes external call to rolesData which would consume the prank)
         uint64 executorRoleId = EXECUTOR_ID();
@@ -217,37 +205,20 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         vm.prank(borrower);
         mockUSDC.approve(address(loan), type(uint256).max);
 
-        (, , uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
         vm.prank(borrower);
         lsa = loan.initializeLoan(minDeposit, premiumAmount, collateralAmount, duration, DATA);
     }
 
     function _createStandardLoanForBorrower(address borrower) internal returns (address lsa) {
-        lsa = _createLoanForBorrower(
-            borrower,
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION,
-            PREMIUM_AMOUNT
-        );
+        lsa = _createLoanForBorrower(borrower, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT);
     }
 
-    function _createStandardLoanWithData()
-        internal
-        returns (address lsa, DataTypes.LoanData memory loanData)
-    {
+    function _createStandardLoanWithData() internal returns (address lsa, DataTypes.LoanData memory loanData) {
         _mintDebtAssetToUser();
-        (, , uint256 minDeposit) = loan.getLoanDetails(
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION
-        );
+        (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         vm.prank(user);
-        lsa = loan.initializeLoan(
-            minDeposit,
-            PREMIUM_AMOUNT,
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION,
-            DATA
-        );
+        lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
         loanData = loan.getLoanByLSA(lsa);
     }
 
@@ -265,43 +236,29 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
     // ============ Balance Snapshot Helpers ============
 
-    function _snapshotAccountBalances(
-        address account
-    ) internal view returns (AccountBalanceSnapshot memory snapshot) {
+    function _snapshotAccountBalances(address account) internal view returns (AccountBalanceSnapshot memory snapshot) {
         snapshot.debtAssetBalance = IERC20(debtAsset).balanceOf(account);
         snapshot.collateralAssetBalance = IERC20(collateralAsset).balanceOf(account);
     }
 
-    function _snapshotLsaPositions(
-        address lsa
-    ) internal view returns (LsaPositionSnapshot memory snapshot) {
+    function _snapshotLsaPositions(address lsa) internal view returns (LsaPositionSnapshot memory snapshot) {
         snapshot.debt = _getDebtBalance(lsa);
         snapshot.collateral = _getCollateralBalance(lsa);
     }
 
-    function _snapshotLiquidatorBalances()
-        internal
-        view
-        returns (uint256 debtBalance, uint256 collateralBalance)
-    {
+    function _snapshotLiquidatorBalances() internal view returns (uint256 debtBalance, uint256 collateralBalance) {
         AccountBalanceSnapshot memory snapshot = _snapshotAccountBalances(liquidator);
         debtBalance = snapshot.debtAssetBalance;
         collateralBalance = snapshot.collateralAssetBalance;
     }
 
-    function _snapshotUserBalances()
-        internal
-        view
-        returns (uint256 debtBalance, uint256 collateralBalance)
-    {
+    function _snapshotUserBalances() internal view returns (uint256 debtBalance, uint256 collateralBalance) {
         AccountBalanceSnapshot memory snapshot = _snapshotAccountBalances(user);
         debtBalance = snapshot.debtAssetBalance;
         collateralBalance = snapshot.collateralAssetBalance;
     }
 
-    function _captureTestSnapshot(
-        address lsa
-    ) internal view returns (TestSnapshot memory snapshot) {
+    function _captureTestSnapshot(address lsa) internal view returns (TestSnapshot memory snapshot) {
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
 
         snapshot.lsa = lsa;
@@ -323,29 +280,15 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         snapshot.statusAfter = loanData.status;
     }
 
-    function _captureLiquidatorSnapshot()
-        internal
-        view
-        returns (LiquidatorSnapshot memory snapshot)
-    {
-        (
-            snapshot.liquidatorDebtBefore,
-            snapshot.liquidatorCollateralBefore
-        ) = _snapshotLiquidatorBalances();
+    function _captureLiquidatorSnapshot() internal view returns (LiquidatorSnapshot memory snapshot) {
+        (snapshot.liquidatorDebtBefore, snapshot.liquidatorCollateralBefore) = _snapshotLiquidatorBalances();
     }
 
     function _updateLiquidatorSnapshotAfter(LiquidatorSnapshot memory snapshot) internal view {
-        (
-            snapshot.liquidatorDebtAfter,
-            snapshot.liquidatorCollateralAfter
-        ) = _snapshotLiquidatorBalances();
+        (snapshot.liquidatorDebtAfter, snapshot.liquidatorCollateralAfter) = _snapshotLiquidatorBalances();
     }
 
-    function _captureUserBalanceSnapshot()
-        internal
-        view
-        returns (UserBalanceSnapshot memory snapshot)
-    {
+    function _captureUserBalanceSnapshot() internal view returns (UserBalanceSnapshot memory snapshot) {
         (snapshot.userDebtAssetBefore, snapshot.userCollateralBefore) = _snapshotUserBalances();
     }
 
@@ -361,11 +304,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         mockBitmorPool.microLiquidationCall(data);
     }
 
-    function _executeFullLiquidation(
-        address lsa,
-        uint256 debtToCover,
-        bool receiveAToken
-    ) internal {
+    function _executeFullLiquidation(address lsa, uint256 debtToCover, bool receiveAToken) internal {
         vm.prank(liquidator);
         mockBitmorPool.liquidationCall(collateralAsset, debtAsset, lsa, debtToCover, receiveAToken);
     }
@@ -383,37 +322,26 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @dev Drop oracle price for any asset (overload for compatibility)
-    function _dropOraclePrice(
-        address asset,
-        uint256 dropPercent
-    ) internal returns (uint256 newPrice) {
+    function _dropOraclePrice(address asset, uint256 dropPercent) internal returns (uint256 newPrice) {
         newPrice = mockOracle.dropPrice(asset, dropPercent);
     }
 
     // ============ Liquidation State Capture Helpers ============
 
-    function _captureLiquidationStateBefore(
-        address lsa
-    ) internal view returns (LiquidationTestState memory state) {
+    function _captureLiquidationStateBefore(address lsa) internal view returns (LiquidationTestState memory state) {
         state.loanState = _captureTestSnapshot(lsa);
         state.liquidatorState = _captureLiquidatorSnapshot();
         state.btcPriceUSD = _getBtcPrice();
         state.usdcPriceUSD = _getUsdcPrice();
     }
 
-    function _updateLiquidationStateAfter(
-        LiquidationTestState memory state,
-        address lsa
-    ) internal view {
+    function _updateLiquidationStateAfter(LiquidationTestState memory state, address lsa) internal view {
         _updateTestSnapshotAfter(state.loanState, lsa);
         _updateLiquidatorSnapshotAfter(state.liquidatorState);
 
-        state.debtPaid =
-            state.liquidatorState.liquidatorDebtBefore -
-            state.liquidatorState.liquidatorDebtAfter;
+        state.debtPaid = state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
         state.collateralReceived =
-            state.liquidatorState.liquidatorCollateralAfter -
-            state.liquidatorState.liquidatorCollateralBefore;
+            state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
     }
 
     // ============ Liquidation Setup Helpers ============
@@ -428,10 +356,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         liquidationType = _checkLiquidationType(lsa);
     }
 
-    function _setupForFullLiquidation(
-        address lsa,
-        uint256 priceDrop
-    ) internal returns (uint256 liquidationType) {
+    function _setupForFullLiquidation(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
         _updateAddressesProviderBitmorLoan();
         _warpPastGracePeriod();
         _fundLiquidator();
@@ -446,10 +371,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         liquidationType = _setupForFullLiquidation(lsa, PRICE_DROP_50_PERCENT);
     }
 
-    function _setupForFullLiquidationNoWarp(
-        address lsa,
-        uint256 priceDrop
-    ) internal returns (uint256 liquidationType) {
+    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
         _updateAddressesProviderBitmorLoan();
         _fundLiquidator();
         _dropOraclePrice(priceDrop);
@@ -462,12 +384,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     // ============ Utility Helpers for Test Compatibility ============
 
     /// @dev Seed user and approve (compatibility with old Utilities pattern)
-    function _utilSeedUserAndApprove(
-        address _user,
-        address token,
-        address spender,
-        uint256 amount
-    ) internal {
+    function _utilSeedUserAndApprove(address _user, address token, address spender, uint256 amount) internal {
         if (token == debtAsset) {
             _fundUSDC(_user, amount);
         } else if (token == collateralAsset) {
@@ -486,7 +403,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         uint256 premium,
         bytes memory data
     ) internal returns (address lsa, DataTypes.LoanData memory loanData) {
-        (, , uint256 minDeposit) = _loan.getLoanDetails(collateral, duration);
+        (,, uint256 minDeposit) = _loan.getLoanDetails(collateral, duration);
         vm.prank(_user);
         lsa = _loan.initializeLoan(minDeposit, premium, collateral, duration, data);
         loanData = _loan.getLoanByLSA(lsa);
@@ -496,11 +413,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     /// @param lsa The loan smart account address
     /// @param _expectedOwner Unused, kept for API compatibility
     /// @param expectedBorrower Expected borrower address
-    function _utilAssertLSAOwnership(
-        address lsa,
-        address _expectedOwner,
-        address expectedBorrower
-    ) internal view {
+    function _utilAssertLSAOwnership(address lsa, address _expectedOwner, address expectedBorrower) internal view {
         _expectedOwner; // Silence unused parameter warning
         // LSA should be owned by loan contract
         // Just check the loan data has correct borrower
@@ -533,11 +446,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @dev Mint tokens to liquidator without approval
-    function _utilMintToLiquidatorNoApproval(
-        address _liquidator,
-        address token,
-        uint256 amount
-    ) internal {
+    function _utilMintToLiquidatorNoApproval(address _liquidator, address token, uint256 amount) internal {
         if (token == debtAsset) {
             _fundUSDC(_liquidator, amount);
         } else if (token == collateralAsset) {
@@ -559,24 +468,14 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @dev Mint tokens and approve max to spender (compatibility helper)
-    function _utilMintTokenAndApproveMax(
-        address token,
-        address to,
-        address spender,
-        uint256 amount
-    ) internal {
+    function _utilMintTokenAndApproveMax(address token, address to, address spender, uint256 amount) internal {
         _utilMintTokenTo(token, to, amount);
         vm.prank(to);
         IERC20(token).approve(spender, type(uint256).max);
     }
 
     /// @dev Mint tokens and approve specific amount to spender
-    function _utilMintTokenAndApprove(
-        address token,
-        address to,
-        address spender,
-        uint256 amount
-    ) internal {
+    function _utilMintTokenAndApprove(address token, address to, address spender, uint256 amount) internal {
         _utilMintTokenTo(token, to, amount);
         vm.prank(to);
         IERC20(token).approve(spender, amount);
@@ -598,9 +497,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @dev Calculate expected collateral seized for a given debt amount
-    function _calculateExpectedCollateralSeized(
-        uint256 debtAmount
-    ) internal view returns (uint256) {
+    function _calculateExpectedCollateralSeized(uint256 debtAmount) internal view returns (uint256) {
         uint256 btcPrice = _getBtcPrice();
         uint256 usdcPrice = _getUsdcPrice();
         uint256 bonus = _getLiquidationBonus();
@@ -610,9 +507,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
     /// @dev Get liquidation bonus from lending pool (105% = 10500 bps)
     function _getLiquidationBonus() internal view returns (uint256) {
-        DataTypes.ReserveConfigurationMap memory config = mockBitmorPool.getConfiguration(
-            collateralAsset
-        );
+        DataTypes.ReserveConfigurationMap memory config = mockBitmorPool.getConfiguration(collateralAsset);
         // Liquidation bonus is at bits 32-47
         return (config.data >> 32) & 0xFFFF;
     }

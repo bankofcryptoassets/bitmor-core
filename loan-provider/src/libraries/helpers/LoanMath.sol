@@ -108,39 +108,26 @@ library LoanMath {
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
     //! TODO: Verify EMI calculation logic for edge cases
-    function calculateLoanAmt(
-        DataTypes.CalculateLoanAmt memory data
-    )
+    function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
         internal
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD = data.collateralAmount.fullMulDivUp(
-            data.collateralPriceUSD,
-            (10 ** data.collateralAssetDecimals)
-        );
+        uint256 collateralValueUSD =
+            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
 
         // Convert deposit amount to USD value
-        uint256 depositValueUSD = data.depositAmount.fullMulDiv(
-            data.debtPriceUSD,
-            (10 ** data.debtAssetDecimals)
-        );
+        uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
 
         // Ensure collateral value exceeds deposit
         if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(
-            data.minDepositBps,
-            BASIS_POINTS
-        );
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
-            (10 ** data.debtAssetDecimals),
-            data.debtPriceUSD
-        );
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
@@ -211,28 +198,15 @@ library LoanMath {
         uint256 interestRate,
         uint256 duration,
         uint256 minDepositBps
-    )
-        internal
-        pure
-        returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
-    {
+    ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(
-            collateralPriceUSD,
-            (10 ** collateralAssetDecimals)
-        );
+        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(
-            minDepositBps,
-            BASIS_POINTS
-        );
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
-            (10 ** debtAssetDecimals),
-            debtPriceUSD
-        );
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
@@ -295,11 +269,11 @@ library LoanMath {
      * @param deposit The deposit amount in debt asset (6 decimals for USDC)
      * @return strikePrice The calculated strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(
-        uint256 btcPriceUSD,
-        uint256 loanAmount,
-        uint256 deposit
-    ) internal pure returns (uint256 strikePrice) {
+    function calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
+        internal
+        pure
+        returns (uint256 strikePrice)
+    {
         uint256 totalAmount = loanAmount + deposit;
 
         strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);

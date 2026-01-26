@@ -50,322 +50,299 @@ contract RolesData {
 
     /// @notice Default guardian configuration for roles without guardian protection
     /// @dev Uses ID 900 as a placeholder for "no guardian"
-    RoleGuardian public NO_GUARDIAN =
-        RoleGuardian({grantee: address(0), isContract: false, id: 900});
+    RoleGuardian public NO_GUARDIAN = RoleGuardian({grantee: address(0), isContract: false, id: 900});
 
     // ===== GUARDIAN ROLE DEFINITIONS =====
 
     /// @notice Guardian for LPM_SLOW operations - can cancel delayed loan provider management operations
     /// @dev Protects against malicious or erroneous state changes in LoanProvider contract
-    RoleGuardian public GUARDIAN_LPM_SLOW =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 930});
+    RoleGuardian public GUARDIAN_LPM_SLOW = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 930});
 
     /// @notice Guardian for BVM_SLOW operations - can cancel delayed BTC vault management operations
     /// @dev Protects against malicious fee recipient changes and unpause operations
-    RoleGuardian public GUARDIAN_BVM_SLOW =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9110});
+    RoleGuardian public GUARDIAN_BVM_SLOW = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9110});
 
     /// @notice Guardian for BVC operations - can cancel delayed BTC vault curation operations
     /// @dev Protects against malicious strategy changes and cap modifications
-    RoleGuardian public GUARDIAN_BVC =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 912});
+    RoleGuardian public GUARDIAN_BVC = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 912});
 
     /// @notice Guardian for BVA_SLOW operations - can cancel delayed BTC vault allocation operations
     /// @dev Protects against malicious queue configuration changes
-    RoleGuardian public GUARDIAN_BVA_SLOW =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9130});
+    RoleGuardian public GUARDIAN_BVA_SLOW = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9130});
 
     /// @notice Guardian for UVM_SLOW operations - can cancel delayed USDC vault management operations
     /// @dev Protects against malicious unpause operations in USDC vault
-    RoleGuardian public GUARDIAN_UVM_SLOW =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9210});
+    RoleGuardian public GUARDIAN_UVM_SLOW = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 9210});
 
     /// @notice Guardian for UVC operations - can cancel delayed USDC vault curation operations
     /// @dev Protects against malicious strategy and yield source allocation changes
-    RoleGuardian public GUARDIAN_UVC =
-        RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 922});
+    RoleGuardian public GUARDIAN_UVC = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 922});
 
     // ===== ADMINISTRATIVE ROLE DEFINITIONS =====
 
     /// @notice Top-level administrative role controlling the AccessManager itself
     /// @dev Can grant/revoke all other roles and cancel operations. Should be a multisig for security
-    RoleData public ADMIN =
-        RoleData({
-            target: INITIAL_ADMIN,
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 0,
-            isGuarded: false,
-            label: "ADMIN",
-            guardian: NO_GUARDIAN,
-            selectors: EMPTY_SELECTORS,
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public ADMIN = RoleData({
+        target: INITIAL_ADMIN,
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 0,
+        isGuarded: false,
+        label: "ADMIN",
+        guardian: NO_GUARDIAN,
+        selectors: EMPTY_SELECTORS,
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     // ===== LOAN PROVIDER ROLE DEFINITIONS =====
 
     /// @notice Executor role for loan initialization and insurance updates
     /// @dev EOA role for immediate execution of loan operations
-    RoleData public EXECUTOR =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
-            isContract: false,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 1,
-            isGuarded: false,
-            label: "EXECUTOR",
-            guardian: NO_GUARDIAN,
-            selectors: getEXECUTOR_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public EXECUTOR = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
+        isContract: false,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 1,
+        isGuarded: false,
+        label: "EXECUTOR",
+        guardian: NO_GUARDIAN,
+        selectors: getEXECUTOR_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Lending Pool Collateral Manager role for loan data updates
     /// @dev Contract-based role for automated loan data management
-    RoleData public LPCM =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 2,
-            isGuarded: false,
-            label: "LPCM",
-            guardian: NO_GUARDIAN,
-            selectors: getLPCM_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public LPCM = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 2,
+        isGuarded: false,
+        label: "LPCM",
+        guardian: NO_GUARDIAN,
+        selectors: getLPCM_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Fast Loan Provider Manager role for immediate pause operations
     /// @dev Multisig role for emergency pause functionality
-    RoleData public LPM_FAST =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 3,
-            isGuarded: false,
-            label: "LPM_FAST",
-            guardian: NO_GUARDIAN,
-            selectors: getLPM_FAST_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public LPM_FAST = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 3,
+        isGuarded: false,
+        label: "LPM_FAST",
+        guardian: NO_GUARDIAN,
+        selectors: getLPM_FAST_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Slow Loan Provider Manager role for delayed state variable updates
     /// @dev Multisig role with 1-day delay for critical parameter changes
-    RoleData public LPM_SLOW =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
-            isContract: true,
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 30,
-            label: "LPM_SLOW",
-            guardian: GUARDIAN_LPM_SLOW,
-            isGuarded: true,
-            selectors: getLPM_SLOW_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public LPM_SLOW = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual LoanProvider address
+        isContract: true,
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 30,
+        label: "LPM_SLOW",
+        guardian: GUARDIAN_LPM_SLOW,
+        isGuarded: true,
+        selectors: getLPM_SLOW_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     // ===== AUTO REPAYMENT ROLE DEFINITIONS =====
 
     /// @notice Auto Repayment Executor role for executing automated repayments
     /// @dev EOA role for immediate execution of auto repayment operations
-    RoleData public ARE =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual AutoRepayment address
-            isContract: false,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 4,
-            isGuarded: false,
-            label: "ARE",
-            guardian: NO_GUARDIAN,
-            selectors: getARE_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public ARE = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual AutoRepayment address
+        isContract: false,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 4,
+        isGuarded: false,
+        label: "ARE",
+        guardian: NO_GUARDIAN,
+        selectors: getARE_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     // ===== BTC VAULT ROLE DEFINITIONS =====
 
     /// @notice Fast BTC Vault Manager role for immediate pause and emergency operations
     /// @dev Multisig role for emergency controls in BTC vault
-    RoleData public BVM_FAST =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 11,
-            isGuarded: false,
-            label: "BVM_FAST",
-            guardian: NO_GUARDIAN,
-            selectors: getBVM_FAST_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVM_FAST = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 11,
+        isGuarded: false,
+        label: "BVM_FAST",
+        guardian: NO_GUARDIAN,
+        selectors: getBVM_FAST_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Slow BTC Vault Manager role for delayed fee recipient and unpause operations
     /// @dev Multisig role with 1-day delay for critical parameter changes
-    RoleData public BVM_SLOW =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: true,
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 110,
-            isGuarded: true,
-            label: "BVM_SLOW",
-            guardian: GUARDIAN_BVM_SLOW,
-            selectors: getBVM_SLOW_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVM_SLOW = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: true,
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 110,
+        isGuarded: true,
+        label: "BVM_SLOW",
+        guardian: GUARDIAN_BVM_SLOW,
+        selectors: getBVM_SLOW_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice BTC Vault Curator role for strategy management with delays
     /// @dev Multisig role with 1-day delay for strategy additions, removals, and cap changes
-    RoleData public BVC =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: true,
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 12,
-            isGuarded: true,
-            label: "BVC",
-            guardian: GUARDIAN_BVC,
-            selectors: getBVC_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVC = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: true,
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 12,
+        isGuarded: true,
+        label: "BVC",
+        guardian: GUARDIAN_BVC,
+        selectors: getBVC_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Fast BTC Vault Allocator role for immediate asset reallocation
     /// @dev Role for immediate asset reallocation operations (TBD if EOA or contract)
-    RoleData public BVA_FAST =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: false, // TBD in README
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 13,
-            isGuarded: false,
-            label: "BVA_FAST",
-            guardian: NO_GUARDIAN,
-            selectors: getBVA_FAST_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVA_FAST = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: false, // TBD in README
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 13,
+        isGuarded: false,
+        label: "BVA_FAST",
+        guardian: NO_GUARDIAN,
+        selectors: getBVA_FAST_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Slow BTC Vault Allocator role for delayed queue configuration
     /// @dev Role with 1-day delay for supply/withdraw queue configuration (TBD if EOA or contract)
-    RoleData public BVA_SLOW =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: false, // TBD in README
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 130,
-            isGuarded: true,
-            label: "BVA_SLOW",
-            guardian: GUARDIAN_BVA_SLOW,
-            selectors: getBVA_SLOW_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVA_SLOW = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: false, // TBD in README
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 130,
+        isGuarded: true,
+        label: "BVA_SLOW",
+        guardian: GUARDIAN_BVA_SLOW,
+        selectors: getBVA_SLOW_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice BTC Vault Deposit role for BTC vault deposit operations
     /// @dev Contract-based role typically assigned to LoanProvider contract
-    RoleData public BVD =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 14,
-            isGuarded: false,
-            label: "BVD",
-            guardian: NO_GUARDIAN,
-            selectors: getBVD_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public BVD = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual BTC Vault address
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 14,
+        isGuarded: false,
+        label: "BVD",
+        guardian: NO_GUARDIAN,
+        selectors: getBVD_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     // ===== USDC VAULT ROLE DEFINITIONS =====
 
     /// @notice Fast USDC Vault Manager role for immediate pause and fund withdrawal
     /// @dev Multisig role for emergency controls in USDC vault
-    RoleData public UVM_FAST =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
-            isContract: true,
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 21,
-            isGuarded: false,
-            label: "UVM_FAST",
-            guardian: NO_GUARDIAN,
-            selectors: getUVM_FAST_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public UVM_FAST = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
+        isContract: true,
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 21,
+        isGuarded: false,
+        label: "UVM_FAST",
+        guardian: NO_GUARDIAN,
+        selectors: getUVM_FAST_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice Slow USDC Vault Manager role for delayed unpause operations
     /// @dev Multisig role with 1-day delay for unpause operations
-    RoleData public UVM_SLOW =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
-            isContract: true,
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 210,
-            isGuarded: true,
-            label: "UVM_SLOW",
-            guardian: GUARDIAN_UVM_SLOW,
-            selectors: getUVM_SLOW_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public UVM_SLOW = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
+        isContract: true,
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 210,
+        isGuarded: true,
+        label: "UVM_SLOW",
+        guardian: GUARDIAN_UVM_SLOW,
+        selectors: getUVM_SLOW_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice USDC Vault Curator role for strategy and yield source management
     /// @dev Multisig role with 1-day delay for strategy configuration changes
-    RoleData public UVC =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
-            isContract: true,
-            executionDelay: ONE_DAY,
-            grantDelay: 0,
-            id: 22,
-            isGuarded: true,
-            label: "UVC",
-            guardian: GUARDIAN_UVC,
-            selectors: getUVC_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public UVC = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
+        isContract: true,
+        executionDelay: ONE_DAY,
+        grantDelay: 0,
+        id: 22,
+        isGuarded: true,
+        label: "UVC",
+        guardian: GUARDIAN_UVC,
+        selectors: getUVC_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     /// @notice USDC Vault Allocator role for immediate asset reallocation
     /// @dev Role for immediate asset reallocation operations (TBD if EOA or contract)
-    RoleData public UVA =
-        RoleData({
-            target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
-            isContract: false, // TBD in README
-            executionDelay: 0,
-            grantDelay: 0,
-            id: 23,
-            isGuarded: false,
-            label: "UVA",
-            guardian: NO_GUARDIAN,
-            selectors: getUVA_SELECTORS(),
-            grantee: INITIAL_ADMIN,
-            adminRoleId: 0
-        });
+    RoleData public UVA = RoleData({
+        target: INITIAL_ADMIN, // Will be updated to actual USDC Vault address
+        isContract: false, // TBD in README
+        executionDelay: 0,
+        grantDelay: 0,
+        id: 23,
+        isGuarded: false,
+        label: "UVA",
+        guardian: NO_GUARDIAN,
+        selectors: getUVA_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
 
     // ===== ROLE ACCESSOR FUNCTIONS =====
 

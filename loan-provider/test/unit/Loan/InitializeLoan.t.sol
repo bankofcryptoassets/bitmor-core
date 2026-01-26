@@ -32,11 +32,7 @@ contract InitializeLoanTest is BaseLoanTest {
         assertEq(loanData.borrower, expectedBorrower, "Borrower mismatch");
         assertEq(loanData.duration, expectedDuration, "Duration mismatch");
         assertEq(loanData.collateralAmount, expectedCollateral, "Collateral mismatch");
-        assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Active),
-            "Status should be Active"
-        );
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Status should be Active");
     }
 
     /// @dev Assert loan data has expected basic properties
@@ -54,56 +50,35 @@ contract InitializeLoanTest is BaseLoanTest {
     // ============ Loan Initialization Tests ============
 
     /// @notice Initializes a loan when deposit equals the minimum required.
-    function test_initializeLoan_whenDepositAmountIsEqualToMinimumDepositRequired()
-        public
-        mintDebtAssetToUser
-    {
+    function test_initializeLoan_whenDepositAmountIsEqualToMinimumDepositRequired() public mintDebtAssetToUser {
         // Use _createStandardLoan() which handles exact minimum deposit
         address lsa = _createStandardLoan();
         _assertLoanCreated(lsa, user, STANDARD_DURATION, STANDARD_COLLATERAL_AMOUNT);
     }
 
     /// @notice Reverts when deposit is below the minimum required.
-    function test_initializeLoan_whenDepositAmountIsLessThanMinimumDepositRequired()
-        public
-        mintDebtAssetToUser
-    {
+    function test_initializeLoan_revertsWhenDepositAmountIsLessThanMinimumDepositRequired() public mintDebtAssetToUser {
         // This test specifically needs less-than-minimum deposit, so keep manual pattern
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.InsufficientDeposit.selector);
-        loan.initializeLoan(
-            minDepositRequired - 1,
-            PREMIUM_AMOUNT,
-            collateralAmount,
-            duration,
-            DATA
-        );
+        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
     /// @notice Initializes a loan when deposit is above the minimum required.
-    function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired()
-        public
-        mintDebtAssetToUser
-    {
+    function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired() public mintDebtAssetToUser {
         // This test specifically needs more-than-minimum deposit
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.prank(user);
-        address lsa = loan.initializeLoan(
-            minDepositRequired + 1,
-            PREMIUM_AMOUNT,
-            collateralAmount,
-            duration,
-            DATA
-        );
+        address lsa = loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
 
         _assertLoanCreated(lsa, user, duration, collateralAmount);
     }
@@ -123,23 +98,20 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(
-            collateralAmount,
-            duration
-        );
+        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         console2.log("minDepositRequired:", minDepositRequired);
 
         assertGt(monthlyPayment, 0, "Monthly payment must be non-zero");
 
         uint256 btcPrice = _getBtcPrice();
-        uint256 totalSizeUSD = (collateralAmount * btcPrice) /
-            (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
+        uint256 totalSizeUSD =
+            (collateralAmount * btcPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
         console2.log("totalSizeUSD: ", totalSizeUSD);
 
         uint256 usdPrice = _getUsdcPrice();
-        uint256 minDepositRequiredUSD = (minDepositRequired * usdPrice) /
-            (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockUSDC).decimals()));
+        uint256 minDepositRequiredUSD =
+            (minDepositRequired * usdPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockUSDC).decimals()));
 
         uint256 ownershipBps = (minDepositRequiredUSD * 10_000) / (totalSizeUSD);
 
@@ -148,38 +120,28 @@ contract InitializeLoanTest is BaseLoanTest {
         // Rejection below minimum deposit
         vm.prank(user);
         _expectRevertSelector(Errors.InsufficientDeposit.selector);
-        loan.initializeLoan(
-            minDepositRequired - 1,
-            PREMIUM_AMOUNT,
-            collateralAmount,
-            duration,
-            DATA
-        );
+        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
     /// @notice Tests duration validation behavior.
-    /// @dev KNOWN ISSUES:
-    ///      1. Duration 0 causes division by zero panic in getLoanDetails
-    ///         instead of proper InvalidInputs error.
-    ///      2. Protocol does NOT enforce a maximum duration limit -
+    /// @dev KNOWN: Protocol does NOT enforce a maximum duration limit -
     ///         duration 13+ is accepted by getLoanDetails.
     function test_initializeLoan_invalidDuration_revertsReject() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
 
-        // Duration 0: KNOWN BUG - causes division by zero panic instead of InvalidInputs
-        // The protocol should validate duration before computing EMI
-        // _expectRevertSelector(Errors.InvalidInputs.selector);
-        // loan.getLoanDetails(collateralAmount, 0); // PANICS with division by zero
+        _expectRevertSelector(Errors.ZeroAmount.selector);
+        loan.getLoanDetails(collateralAmount, 0); // PANICS with division by zero
 
         // CURRENT BEHAVIOR: Protocol does NOT enforce max duration
         // Duration 13 is accepted by getLoanDetails (no validation)
-        (uint256 loanAmount, , ) = loan.getLoanDetails(collateralAmount, 13);
+        (uint256 loanAmount,,) = loan.getLoanDetails(collateralAmount, 13);
         assertGt(loanAmount, 0, "Duration 13 is allowed by protocol (no max validation)");
 
         // Duration 0 in initializeLoan also causes issues - skip
-        // uint256 bigDeposit = 500_000e6;
-        // vm.prank(user);
-        // loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
+        uint256 bigDeposit = 500_000e6;
+        vm.prank(user);
+        _expectRevertSelector(Errors.ZeroAmount.selector);
+        loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
     }
 
     /// @notice Reverts when slippage protection bounds are violated.
@@ -188,7 +150,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         address oracle = loan.i_ORACLE();
         uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
@@ -234,24 +196,16 @@ contract InitializeLoanTest is BaseLoanTest {
 
         // Set up roles for loan2 before setting target selectors
         address loanVaultImplementation = address(new LoanVault());
-        address loanVaultFactory = address(
-            new LoanVaultFactory(loanVaultImplementation, address(loan2))
-        );
+        address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan2)));
         loan2.setLoanVaultFactory(loanVaultFactory);
-
-        // Set storage values for min/max BTC amounts on loan2 (slots 8, 9, 10)
-        //! TODO: Instead of using vm.store update it with Loan.setMaxBTCAmount() and same for others.
-        vm.store(address(loan2), bytes32(uint256(9)), bytes32(uint256(10e8))); // s_maxBTCAmt = 10 BTC
-        vm.store(address(loan2), bytes32(uint256(10)), bytes32(uint256(0.001e8))); // s_minBTCAmt = 0.001 BTC
-        vm.store(address(loan2), bytes32(uint256(8)), bytes32(uint256(50))); // s_slippage_swap = 0.5%
+        loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
+        loan2.setMaxBTCAmount(TC.MAX_COLLATERAL);
+        loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
+        loan2.setMinDepositBps(TC.MIN_DEPOSIT);
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);
-        manager2.setTargetFunctionRole(
-            address(loan2),
-            rolesData.getEXECUTOR_SELECTORS(),
-            EXECUTOR_ID()
-        );
+        manager2.setTargetFunctionRole(address(loan2), rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID());
 
         vm.stopPrank();
 
@@ -264,23 +218,13 @@ contract InitializeLoanTest is BaseLoanTest {
         _utilSeedUserAndApprove(user, debtAsset, address(loan2), DEBT_ASSET_TO_MINT_TO_USER);
 
         // Use _utilCreateLoan with loan2 for this specific test
-        (address lsa, ) = _utilCreateLoan(
-            loan2,
-            user,
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION,
-            PREMIUM_AMOUNT,
-            DATA
-        );
+        (address lsa,) =
+            _utilCreateLoan(loan2, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
 
         // Assert flash loan was executed successfully
         assertTrue(lsa != address(0), "LSA should be created");
         assertTrue(mockPool.lastAmount() > 0, "Flash loan amount should be > 0");
-        assertEq(
-            mockPool.lastInitiator(),
-            address(loan2),
-            "Flash loan initiator should be loan contract"
-        );
+        assertEq(mockPool.lastInitiator(), address(loan2), "Flash loan initiator should be loan contract");
     }
 
     /// @notice Sets correct LSA ownership and records loan data.
@@ -296,7 +240,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when deposit amount is zero.
-    function test_initializeLoan_zeroDeposit_reverts() public mintDebtAssetToUser {
+    function test_initializeLoan_revertsWithZeroDeposit() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -305,32 +249,12 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.initializeLoan(0, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
-    /// @notice Tests premium handling with insurance data.
-    /// @dev CURRENT BEHAVIOR: Protocol allows zero premium even with insurance data.
-    ///      The protocol doesn't enforce premium > 0 for insurance - it simply transfers
-    ///      whatever premium amount is provided (including 0) to the premium collector.
-    function test_initializeLoan_zeroPremium_withInsurance_reverts() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
-        uint256 duration = STANDARD_DURATION;
-
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
-
-        // CURRENT BEHAVIOR: Protocol allows 0 premium
-        // The insurance data (DATA) is passed through but protocol doesn't validate
-        // that premium > 0 when insurance is requested
-        vm.prank(user);
-        address lsa = loan.initializeLoan(minDepositRequired, 0, collateralAmount, duration, DATA);
-
-        // Verify loan was created successfully with 0 premium
-        assertNotEq(lsa, address(0), "Loan created with zero premium");
-    }
-
     /// @notice Reverts when collateral amount is zero.
     function test_initializeLoan_zeroCollateral_reverts() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, , uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.ZeroAmount.selector);

@@ -278,5 +278,5 @@ interface ILoan {
 
     function getMinDepositBps() external view returns (uint256);
 
-    function setMinDepositBps(uint256 newMinDepositBps) external ;
+    function setMinDepositBps(uint256 newMinDepositBps) external;
 }
