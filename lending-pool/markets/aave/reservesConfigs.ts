@@ -264,3 +264,15 @@ export const strategyXSUSHI: IReserveParams = {
   aTokenImpl: eContractid.AToken,
   reserveFactor: '3500',
 };
+
+export const strategyCbBtc: IReserveParams = {
+  strategy: rateStrategyStableTwo,
+  baseLTVAsCollateral: '7500',
+  liquidationThreshold: '8000',
+  liquidationBonus: '10500',
+  borrowingEnabled: true,
+  stableBorrowRateEnabled: true,
+  reserveDecimals: '18',
+  aTokenImpl: eContractid.AToken,
+  reserveFactor: '1000',
+};

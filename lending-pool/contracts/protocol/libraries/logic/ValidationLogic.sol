@@ -15,6 +15,7 @@ import {Errors} from '../helpers/Errors.sol';
 import {Helpers} from '../helpers/Helpers.sol';
 import {IReserveInterestRateStrategy} from '../../../interfaces/IReserveInterestRateStrategy.sol';
 import {DataTypes} from '../types/DataTypes.sol';
+import "hardhat/console.sol";
 
 /**
  * @title ReserveLogic library
@@ -40,6 +41,9 @@ library ValidationLogic {
    */
   function validateDeposit(DataTypes.ReserveData storage reserve, uint256 amount) external view {
     (bool isActive, bool isFrozen, , ) = reserve.configuration.getFlags();
+
+    console.log("isActive: ", isActive);
+    console.log("isFrozen: ", isFrozen);
 
     require(amount != 0, Errors.VL_INVALID_AMOUNT);
     require(isActive, Errors.VL_NO_ACTIVE_RESERVE);

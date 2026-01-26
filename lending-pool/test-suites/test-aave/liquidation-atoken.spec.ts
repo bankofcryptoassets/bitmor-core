@@ -21,22 +21,34 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LP_IS_PAUSED,
   } = ProtocolErrors;
 
-  it('Deposits WETH, borrows DAI/Check liquidation fails because health factor is above 1', async () => {
-    const { dai, weth, users, pool, oracle } = testEnv;
+  it.only('Deposits WETH, borrows DAI/Check liquidation fails because health factor is above 1', async () => {
+    const { dai, weth, users, pool, oracle, usdc, mockLoanProvider, cbBTC, addressesProvider } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
 
-    //user 1 deposits 1000 DAI via vault
-    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(dai), '1000');
-    await depositViaVault(dai, amountDAItoDeposit, depositor, testEnv);
+    //user 1 deposits 1000 usdc
+    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+    await usdc.connect(depositor.signer).mint(amountDAItoDeposit);
+    await usdc.connect(depositor.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
+      .connect(depositor.signer)
+      .deposit(getContractAddress(usdc), amountDAItoDeposit, depositor.address, '0');
 
-    //user 2 deposits 1 WETH via vault
-    const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(weth), '1');
-    await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
+    //user 2 deposits 1 cbBtc
+    const res = await pool.getReservesList();
+    console.log("Reserves:", res);
+    console.log("cbbtc address:", getContractAddress(cbBTC));
+    const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
+    // await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
+    await cbBTC.connect(borrower.signer).mint(amountETHtoDeposit);
+    await cbBTC.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
+      .connect(borrower.signer)
+      .deposit(getContractAddress(cbBTC), amountETHtoDeposit, borrower.address, '0');
 
     //user 2 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
-    const daiPrice = await oracle.getAssetPrice(getContractAddress(dai));
+    const daiPrice = await oracle.getAssetPrice(getContractAddress(usdc));
 
     console.log("Dai Price", daiPrice.toString());
 

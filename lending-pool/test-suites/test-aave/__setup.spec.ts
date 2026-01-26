@@ -116,6 +116,8 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const cbBTC = await deployMintableERC20(['cbBTC', 'cbBTC', '8']);
   await registerContractInJsonDb('cbBTC', cbBTC);
 
+  console.log('cbBTC mock token deployed:: ', cbBTC.target);
+
   const addressesProvider = await deployLendingPoolAddressesProvider(AaveConfig.MarketId);
   await waitForTx(await addressesProvider.setPoolAdmin(aaveAdmin));
 
@@ -210,6 +212,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
       STAKE: getContractAddress(mockTokens.STAKE),
       xSUSHI: getContractAddress(mockTokens.xSUSHI),
       WAVAX: getContractAddress(mockTokens.WAVAX),
+      cbBTC: getContractAddress(cbBTC),
     },
     fallbackOracle
   );
@@ -275,6 +278,9 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await waitForTx(await addressesProvider.setLendingRateOracle(getContractAddress(lendingRateOracle)));
 
   const { USD, ...tokensAddressesWithoutUsd } = allTokenAddresses;
+  console.log("\n\n\n");
+  console.log("tokensAddressesWithoutUsd:: ", tokensAddressesWithoutUsd);
+  console.log("\n\n\n");
   const allReservesAddresses = {
     ...tokensAddressesWithoutUsd,
   };

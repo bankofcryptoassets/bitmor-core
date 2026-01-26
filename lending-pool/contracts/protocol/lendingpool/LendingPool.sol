@@ -27,6 +27,8 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title LendingPool contract
  * @dev Main point of interaction with an Aave protocol's market
@@ -50,6 +52,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     using WadRayMath for uint256;
     using PercentageMath for uint256;
     using SafeERC20 for IERC20;
+    using ReserveLogic for DataTypes.ReserveData;
 
     uint256 public constant LENDINGPOOL_REVISION = 0x2;
 
@@ -111,6 +114,9 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
+        console.log("\n\n\nconfiguration.data");
+        console.log(reserve.aTokenAddress);
+        console.log("\n\n\n");
 
         /**
          * @dev This access control check provides security against external funds.

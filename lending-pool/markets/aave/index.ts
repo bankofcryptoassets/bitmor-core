@@ -24,6 +24,7 @@ import {
   strategyYFI,
   strategyXSUSHI,
   strategyENJ,
+  strategyCbBtc
 } from './reservesConfigs.js';
 
 // ----------------
@@ -56,6 +57,7 @@ export const AaveConfig: IAaveConfiguration = {
     YFI: strategyYFI,
     ZRX: strategyZRX,
     xSUSHI: strategyXSUSHI,
+    cbBTC: strategyCbBtc
   },
   ReserveAssets: {
     [eEthereumNetwork.goerli]: {},

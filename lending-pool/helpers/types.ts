@@ -278,6 +278,7 @@ export interface iAssetBase<T> {
   WAVAX: T;
   bvBTC: T;
   bUSDC: T;
+  cbBTC: T;
 }
 
 export type iAssetsWithoutETH<T> = Omit<iAssetBase<T>, 'ETH'>;
@@ -307,6 +308,7 @@ export type iAavePoolAssets<T> = Pick<
   | 'REN'
   | 'ENJ'
   | 'xSUSHI'
+  | 'cbBTC'
 >;
 
 export type iLpPoolAssets<T> = Pick<
@@ -349,7 +351,7 @@ export type iAvalanchePoolAssets<T> = Pick<
   'WETH' | 'DAI' | 'USDT' | 'AAVE' | 'WBTC' | 'WAVAX' | 'USDC'
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bvBTC'>;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bvBTC' | 'cbBTC'>;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 
