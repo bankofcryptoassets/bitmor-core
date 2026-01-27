@@ -44,40 +44,21 @@ contract DeployLoan is Script {
 
     function _deployLoan() internal {
         HelperConfig config = new HelperConfig();
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAsset,
-            address debtAsset,
-            address btc,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFee,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = config.networkConfig();
         _deployLoanUsingConfig(
-            accessManager,
-            bitmorPool,
-            aaveV3Pool,
-            aaveAddressesProvider,
-            oracle,
-            collateralAsset,
-            debtAsset,
-            btc,
-            swapAdapterWrapper,
-            zQuoter,
-            premiumCollector,
-            preClosureFee,
-            gracePeriod,
-            liquidationBuffer
+            config.getAccessManager(),
+            config.getBitmorPool(),
+            config.getAaveV3Pool(),
+            config.getAaveAddressesProvider(),
+            config.getOracle(),
+            config.getCollateralAsset(),
+            config.getDebtAsset(),
+            config.getCbBTC(),
+            config.getSwapAdapterWrapper(),
+            config.getZQuoter(),
+            config.getPremiumCollector(),
+            config.getPreClosureFee(),
+            config.getGracePeriod(),
+            config.getLiquidationBuffer()
         );
     }
 

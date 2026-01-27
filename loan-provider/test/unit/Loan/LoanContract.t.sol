@@ -98,25 +98,21 @@ contract LoanContract is BaseLoanTest {
 
     /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
     function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAssetAddr,
-            address debtAssetAddr,
-            address btc,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = config.networkConfig();
+        // Use individual getters to avoid stack depth issues with full struct destructuring
+        address accessManager = config.getAccessManager();
+        address bitmorPool = config.getBitmorPool();
+        address aaveV3Pool = config.getAaveV3Pool();
+        address aaveAddressesProvider = config.getAaveAddressesProvider();
+        address oracle = config.getOracle();
+        address collateralAssetAddr = config.getCollateralAsset();
+        address debtAssetAddr = config.getDebtAsset();
+        address btc = config.getCbBTC();
+        address swapAdapterWrapper = config.getSwapAdapterWrapper();
+        address zQuoter = config.getZQuoter();
+        address premiumCollector = config.getPremiumCollector();
+        uint256 preClosureFeeBps = config.getPreClosureFee();
+        uint256 gracePeriod = config.getGracePeriod();
+        uint256 liquidationBuffer = config.getLiquidationBuffer();
 
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
         for (uint256 i = 0; i < 7; i++) {
@@ -156,24 +152,20 @@ contract LoanContract is BaseLoanTest {
     /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).
     /// @dev This was previously a known bug (accepted zero address), now fixed.
     function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,,
-            address oracle,
-            address collateralAssetAddr,
-            address debtAssetAddr,
-            address btc,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = config.networkConfig();
+        // Use individual getters to avoid stack depth issues with full struct destructuring
+        address accessManager = config.getAccessManager();
+        address bitmorPool = config.getBitmorPool();
+        address aaveV3Pool = config.getAaveV3Pool();
+        address oracle = config.getOracle();
+        address collateralAssetAddr = config.getCollateralAsset();
+        address debtAssetAddr = config.getDebtAsset();
+        address btc = config.getCbBTC();
+        address swapAdapterWrapper = config.getSwapAdapterWrapper();
+        address zQuoter = config.getZQuoter();
+        address premiumCollector = config.getPremiumCollector();
+        uint256 preClosureFeeBps = config.getPreClosureFee();
+        uint256 gracePeriod = config.getGracePeriod();
+        uint256 liquidationBuffer = config.getLiquidationBuffer();
 
         // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
         vm.expectRevert(Errors.ZeroAddress.selector);
