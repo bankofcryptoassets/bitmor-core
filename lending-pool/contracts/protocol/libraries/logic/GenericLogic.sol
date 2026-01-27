@@ -11,6 +11,7 @@ import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
 import {DataTypes} from '../types/DataTypes.sol';
+import "hardhat/console.sol";
 
 /**
  * @title GenericLogic library
@@ -157,7 +158,8 @@ library GenericLogic {
     address oracle
   ) internal view returns (uint256, uint256, uint256, uint256, uint256) {
     CalculateUserAccountDataVars memory vars;
-
+    console.log("reservesCount");
+    console.log(reservesCount);
     if (userConfig.isEmpty()) {
       return (0, 0, 0, 0, uint256(-1));
     }
@@ -192,6 +194,11 @@ library GenericLogic {
         );
       }
 
+      console.log("userConfig");
+      console.log(userConfig.data);
+      console.log(userConfig.isBorrowing(vars.i));
+
+
       if (userConfig.isBorrowing(vars.i)) {
         vars.compoundedBorrowBalance = IERC20(currentReserve.stableDebtTokenAddress).balanceOf(
           user
@@ -211,6 +218,12 @@ library GenericLogic {
       ? vars.avgLiquidationThreshold.div(vars.totalCollateralInETH)
       : 0;
 
+    console.log("neww");
+    console.log(vars.totalCollateralInETH);
+    console.log(vars.totalDebtInETH);
+    console.log(vars.avgLiquidationThreshold);
+
+    
     vars.healthFactor = calculateHealthFactorFromBalances(
       vars.totalCollateralInETH,
       vars.totalDebtInETH,

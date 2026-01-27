@@ -122,6 +122,8 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         );
         console.log("&&&&");
 
+        console.log(vars.healthFactor);
+
 
         (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
         console.log("&&&&");

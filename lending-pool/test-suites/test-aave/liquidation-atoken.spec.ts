@@ -22,7 +22,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LPCM_CANNOT_FULL_LIQUIDATE
   } = ProtocolErrors;
 
-  it('Deposits WETH, borrows DAI/Check liquidation fails because health factor is above 1', async () => {
+  it('Deposits cbBTC, borrows USDC/Check liquidation fails because health factor is above 1', async () => {
     const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, mockLoan, addressesProvider } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
@@ -98,14 +98,14 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
   });
 
   it('Drop the health factor below 1', async () => {
-    const { dai, users, pool, oracle } = testEnv;
+    const { usdc, users, pool, oracle } = testEnv;
     const borrower = users[1];
 
-    const daiPrice = await oracle.getAssetPrice(getContractAddress(dai));
+    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
 
     await oracle.setAssetPrice(
-      getContractAddress(dai),
-      new BigNumber(daiPrice.toString()).multipliedBy(1.15).toFixed(0)
+      getContractAddress(usdc),
+      new BigNumber(usdcPrice.toString()).multipliedBy(1.15).toFixed(0)
     );
 
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -117,51 +117,76 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
   });
 
   it('Tries to liquidate a different currency than the loan principal', async () => {
-    const { pool, users, weth } = testEnv;
+    const { pool, users, cbBTC } = testEnv;
     const borrower = users[1];
     //user 2 tries to borrow
     await expect(
-      pool.liquidationCall(getContractAddress(weth), getContractAddress(weth), borrower.address, oneEther.toString(), true)
+      pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(cbBTC), borrower.address, oneEther.toString(), true)
     ).revertedWith(LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER);
   });
 
   it('Tries to liquidate a different collateral than the borrower collateral', async () => {
-    const { pool, dai, users } = testEnv;
+    const { pool, usdc, users } = testEnv;
     const borrower = users[1];
 
     await expect(
-      pool.liquidationCall(getContractAddress(dai), getContractAddress(dai), borrower.address, oneEther.toString(), true)
+      pool.liquidationCall(getContractAddress(usdc), getContractAddress(usdc), borrower.address, oneEther.toString(), true)
     ).revertedWith(LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED);
   });
 
-  it('Liquidates the borrow', async () => {
-    const { pool, dai, weth, aWETH, aDai, users, oracle, helpersContract, deployer } = testEnv;
+  it.only('Liquidates the borrow', async () => {
+    const {
+      pool,
+      dai,
+      weth,
+      users,
+      oracle,
+      helpersContract,
+      deployer,
+      usdc,
+      cbBTC,
+      addressesProvider,
+      mockLoan
+    } = testEnv;
     const borrower = users[1];
 
     //mints dai to the caller
-
-    await dai.mint(await convertToCurrencyDecimals(getContractAddress(dai), '1000'));
+    await usdc.mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000'));
 
     //approve protocol to access depositor wallet
-    await dai.approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+    await usdc.approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
-    const daiReserveDataBefore = await getReserveData(helpersContract, getContractAddress(dai));
-    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(weth));
+    const daiReserveDataBefore = await getReserveData(helpersContract, getContractAddress(usdc));
+    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(cbBTC));
 
     const userReserveDataBefore = await getUserData(
       pool,
       helpersContract,
-      getContractAddress(dai),
+      getContractAddress(usdc),
       borrower.address
     );
+
+    console.log("userReserveDataBefore:: ", userReserveDataBefore);
 
     const amountToLiquidate = new BigNumber(userReserveDataBefore.currentVariableDebt.toString())
       .div(2)
       .toFixed(0);
+    
+    console.log("amountToLiquidate: ", amountToLiquidate)
 
+    await addressesProvider.setBitmorLoan(mockLoan);
+    await mockLoan.createActiveLoan(
+      borrower.address,
+      borrower.address,
+      0,
+      0,
+      12,
+      5000
+    )
+    await mockLoan.makeLoanOverdue(borrower.address, 30)
     const tx = await pool.liquidationCall(
-      getContractAddress(weth),
-      getContractAddress(dai),
+      getContractAddress(cbBTC),
+      getContractAddress(usdc),
       borrower.address,
       amountToLiquidate,
       true
