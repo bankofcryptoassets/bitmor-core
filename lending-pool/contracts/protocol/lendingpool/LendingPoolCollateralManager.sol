@@ -208,8 +208,9 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         }
 
         debtReserve.updateInterestRates(debtAsset, debtReserve.aTokenAddress, vars.actualDebtToLiquidate, 0);
-
+        console.log("reached till here");
         if (receiveAToken) {
+            console.log("inside iff");
             vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
             vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
 
@@ -218,7 +219,10 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
                 liquidatorConfig.setUsingAsCollateral(collateralReserve.id, true);
                 emit ReserveUsedAsCollateralEnabled(collateralAsset, msg.sender);
             }
+            console.log("reached end of iffff");
         } else {
+            console.log("inside elseeee");
+
             collateralReserve.updateState();
             collateralReserve.updateInterestRates(
                 collateralAsset, address(vars.collateralAtoken), 0, vars.maxCollateralToLiquidate
@@ -235,11 +239,17 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             userConfig.setUsingAsCollateral(collateralReserve.id, false);
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
-
+        console.log("before full liquidation");
         _updateLoanForFullLiquidation(user);
+        console.log("after full liquidation");
+        console.log(debtAsset);
+        console.log(msg.sender);
+        console.log(debtReserve.aTokenAddress);
 
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
+
+        console.log("after full liquidation 2");
 
         emit LiquidationCall(
             collateralAsset,

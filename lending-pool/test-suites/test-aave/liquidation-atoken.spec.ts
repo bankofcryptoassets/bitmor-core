@@ -22,7 +22,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LPCM_CANNOT_FULL_LIQUIDATE
   } = ProtocolErrors;
 
-  it('Deposits cbBTC, borrows USDC/Check liquidation fails because health factor is above 1', async () => {
+  it.only('Deposits cbBTC, borrows USDC/Check liquidation fails because health factor is above 1', async () => {
     const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, mockLoan, addressesProvider } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
@@ -146,7 +146,8 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       usdc,
       cbBTC,
       addressesProvider,
-      mockLoan
+      mockLoan,
+      mockLoanProvider
     } = testEnv;
     const borrower = users[1];
 
@@ -172,18 +173,22 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       .div(2)
       .toFixed(0);
     
-    console.log("amountToLiquidate: ", amountToLiquidate)
+    console.log("amountToLiquidate: ", amountToLiquidate);
+    console.log(users[0].address);
+    console.log("pool:: ", pool.target);
 
     await addressesProvider.setBitmorLoan(mockLoan);
     await mockLoan.createActiveLoan(
       borrower.address,
       borrower.address,
-      0,
+      await convertToCurrencyDecimals(getContractAddress(cbBTC), '1'),
       0,
       12,
       5000
     )
-    await mockLoan.makeLoanOverdue(borrower.address, 30)
+    await mockLoan.makeLoanOverdue(borrower.address, 30);
+    const cbbtcPrice = await oracle.getAssetPrice(cbBTC.target);
+    await oracle.setAssetPrice(cbBTC.target, (cbbtcPrice * 80n)/100n);
     const tx = await pool.liquidationCall(
       getContractAddress(cbBTC),
       getContractAddress(usdc),
@@ -193,23 +198,23 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     );
 
     const userReserveDataAfter = await helpersContract.getUserReserveData(
-      getContractAddress(dai),
+      getContractAddress(usdc),
       borrower.address
     );
 
     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
 
-    const daiReserveDataAfter = await helpersContract.getReserveData(getContractAddress(dai));
-    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(weth));
+    const daiReserveDataAfter = await helpersContract.getReserveData(getContractAddress(usdc));
+    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(cbBTC));
 
-    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(weth))).toString();
-    const principalPrice = (await oracle.getAssetPrice(getContractAddress(dai))).toString();
+    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(cbBTC))).toString();
+    const principalPrice = (await oracle.getAssetPrice(getContractAddress(usdc))).toString();
 
     const collateralDecimals = (
-      await helpersContract.getReserveConfigurationData(getContractAddress(weth))
+      await helpersContract.getReserveConfigurationData(getContractAddress(cbBTC))
     ).decimals.toString();
     const principalDecimals = (
-      await helpersContract.getReserveConfigurationData(getContractAddress(dai))
+      await helpersContract.getReserveConfigurationData(getContractAddress(usdc))
     ).decimals.toString();
 
     const expectedCollateralLiquidated = new BigNumber(principalPrice)

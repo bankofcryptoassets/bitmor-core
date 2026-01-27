@@ -418,6 +418,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
             )
         );
 
+        console.logBytes(result);
+
         require(success, Errors.LP_LIQUIDATION_CALL_FAILED);
 
         (uint256 returnCode, string memory returnMessage) = abi.decode(result, (uint256, string));
