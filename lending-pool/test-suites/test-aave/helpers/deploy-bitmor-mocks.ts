@@ -20,7 +20,7 @@ import {
 } from '../../../helpers/contracts-getters.js';
 import { deployMockBTCVault, deployMockLoan } from '../../../helpers/contracts-deployments.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
-import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
+import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 
 export interface BitmorMocks {
   mockLoanProvider: MockLoanProvider;
@@ -31,13 +31,17 @@ export interface BitmorMocks {
  * Deploys mock Bitmor caller contracts and registers them with the AddressesProvider
  * @returns The deployed mock contracts
  */
-export async function deployMockBitmorCallers(): Promise<BitmorMocks> {
+export async function deployMockBitmorCallers(usdcAddress: string): Promise<BitmorMocks> {
   const pool = await getLendingPool();
+
+  console.log("pool addr used for bitmor mocks:: ", pool.target);
   const addressesProvider = await getLendingPoolAddressesProvider();
 
   // In ethers v6, use .target for contract addresses
   const poolAddress = await pool.getAddress();
   const addressesProviderAddress = await addressesProvider.getAddress();
+  console.log("addressesProviderAddress:: ", addressesProviderAddress);
+  
 
   // Deploy MockLoanProvider (uses DRE.ethers for Hardhat 3 compatibility)
   const MockLoanProviderFactory = await DRE.ethers.getContractFactory('MockLoanProvider');
@@ -47,8 +51,8 @@ export async function deployMockBitmorCallers(): Promise<BitmorMocks> {
   await mockLoanProvider.waitForDeployment();
 
   // Deploy MockUSDCVault (from MockBitmorCaller.sol with single arg - use fully qualified name)
-  const MockUSDCVaultFactory = await DRE.ethers.getContractFactory('contracts/mocks/MockBitmorCaller.sol:MockUSDCVault');
-  const mockUSDCVault = (await MockUSDCVaultFactory.deploy(poolAddress)) as MockUSDCVault;
+  const MockUSDCVaultFactory = await DRE.ethers.getContractFactory('contracts/mocks/vault/MockUSDCVault.sol:MockUSDCVault');
+  const mockUSDCVault = (await MockUSDCVaultFactory.deploy(addressesProviderAddress, usdcAddress)) as MockUSDCVault;
   await mockUSDCVault.waitForDeployment();
 
   // Get deployed addresses (ethers v6)

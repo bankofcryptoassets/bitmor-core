@@ -21,6 +21,7 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
+import "hardhat/console.sol";
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -97,23 +98,40 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         uint256 debtToCover,
         bool receiveAToken
     ) external override returns (uint256, string memory) {
+        console.log("&&&&");
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+        console.log("&&&&");
+
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+        console.log("&&&&");
+
         DataTypes.UserConfigurationMap storage userConfig = _usersConfig[user];
+        console.log("&&&&");
+
 
         LiquidationCallLocalVars memory vars;
+        console.log("&&&&");
+
 
         vars.oracle = _addressesProvider.getPriceOracle();
+        console.log("&&&&");
+
 
         (,,,, vars.healthFactor) = GenericLogic.calculateUserAccountData(
             user, _reserves, userConfig, _reservesList, _reservesCount, vars.oracle
         );
+        console.log("&&&&");
+
 
         (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
+        console.log("&&&&");
 
+        
         uint256 typeOfLiquidation = LoanLiquidationLogic.checkTypeOfLiquidation(
             user, _reserves, vars.healthFactor, vars.oracle, ILoan(_addressesProvider.getBitmorLoan())
         );
+        console.log("&&&&");
+
 
         (vars.errorCode, vars.errorMsg) = ValidationLogic.validateLiquidationCall(
             collateralReserve,
@@ -124,6 +142,9 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             vars.userStableDebt,
             vars.userVariableDebt
         );
+
+        console.log("vars.errorCode:: ", vars.errorCode);
+        console.log("vars.errorMsg:: ", vars.errorMsg);
 
         if (Errors.CollateralManagerErrors(vars.errorCode) != Errors.CollateralManagerErrors.NO_ERROR) {
             return (vars.errorCode, vars.errorMsg);

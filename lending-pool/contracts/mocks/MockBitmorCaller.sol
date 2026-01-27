@@ -4,6 +4,7 @@ pragma solidity 0.6.12;
 import {IERC20} from "../dependencies/openzeppelin/contracts/IERC20.sol";
 import {ILendingPool} from "../interfaces/ILendingPool.sol";
 import {SafeERC20} from "../dependencies/openzeppelin/contracts/SafeERC20.sol";
+import "hardhat/console.sol";
 
 /// @title MockLoanProvider
 /// @notice Mock contract simulating the Loan contract for lending-pool tests
@@ -46,6 +47,7 @@ contract MockLoanProvider {
         uint16 referralCode,
         address onBehalfOf
     ) external {
+        console.log("inside borrow");
         pool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
     }
 

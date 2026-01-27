@@ -105,18 +105,19 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const aaveAdmin = await deployer.getAddress();
   const config = loadPoolConfig(ConfigNames.Aave);
 
-  const mockTokens: {
-    [symbol: string]: MintableERC20 | WETH9Mocked;
-  } = {
-    ...(await deployAllMockTokens(deployer)),
-  };
-
   // Deploy cbBTC mock token (8 decimals like real cbBTC)
   console.log('Deploying cbBTC mock token...');
   const cbBTC = await deployMintableERC20(['cbBTC', 'cbBTC', '8']);
   await registerContractInJsonDb('cbBTC', cbBTC);
 
   console.log('cbBTC mock token deployed:: ', cbBTC.target);
+
+    const mockTokens: {
+    [symbol: string]: MintableERC20 | WETH9Mocked;
+  } = {
+    ...(await deployAllMockTokens(deployer)),
+    "cbBTC": cbBTC,
+  };
 
   const addressesProvider = await deployLendingPoolAddressesProvider(AaveConfig.MarketId);
   await waitForTx(await addressesProvider.setPoolAdmin(aaveAdmin));
@@ -136,7 +137,10 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await waitForTx(await addressesProvider.setLendingPoolImpl(getContractAddress(lendingPoolImpl)));
 
   const lendingPoolAddress = await addressesProvider.getLendingPool();
+  console.log('LendingPool address:: ', lendingPoolAddress);
   const lendingPoolProxy = await getLendingPool(lendingPoolAddress);
+
+  console.log('LendingPool proxy address:: ', getContractAddress(lendingPoolProxy));
 
   await insertContractAddressInDb(eContractid.LendingPool, getContractAddress(lendingPoolProxy));
 

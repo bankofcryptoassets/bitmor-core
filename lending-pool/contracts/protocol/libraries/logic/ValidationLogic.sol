@@ -419,6 +419,8 @@ library ValidationLogic {
       );
     }
 
+    console.log("typeOfLiquidation:: ", typeOfLiquidation);
+
     if (typeOfLiquidation != 1) {
       return (
         uint256(Errors.CollateralManagerErrors.CANNOT_FULL_LIQUIDATE),

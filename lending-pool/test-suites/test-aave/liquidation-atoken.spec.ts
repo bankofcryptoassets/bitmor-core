@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js";
 
 import { DRE } from '../../helpers/misc-utils.js';
-import { APPROVAL_AMOUNT_LENDING_POOL, oneEther } from '../../helpers/constants.js';
+import { APPROVAL_AMOUNT_LENDING_POOL, oneEther, ZERO_ADDRESS } from '../../helpers/constants.js';
 import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
 import { makeSuite } from './helpers/make-suite.js';
 import { ProtocolErrors, RateMode } from '../../helpers/types.js';
@@ -19,62 +19,82 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER,
     LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED,
     LP_IS_PAUSED,
+    LPCM_CANNOT_FULL_LIQUIDATE
   } = ProtocolErrors;
 
-  it.only('Deposits WETH, borrows DAI/Check liquidation fails because health factor is above 1', async () => {
-    const { dai, weth, users, pool, oracle, usdc, mockLoanProvider, cbBTC, addressesProvider } = testEnv;
+  it('Deposits WETH, borrows DAI/Check liquidation fails because health factor is above 1', async () => {
+    const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, mockLoan, addressesProvider } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
 
     //user 1 deposits 1000 usdc
-    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+    const amountDAItoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '100000000');
     await usdc.connect(depositor.signer).mint(amountDAItoDeposit);
     await usdc.connect(depositor.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(depositor.signer)
       .deposit(getContractAddress(usdc), amountDAItoDeposit, depositor.address, '0');
 
-    //user 2 deposits 1 cbBtc
-    const res = await pool.getReservesList();
-    console.log("Reserves:", res);
-    console.log("cbbtc address:", getContractAddress(cbBTC));
+    //user 2 deposits 1 cbBTC
     const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
-    // await depositViaVault(weth, amountETHtoDeposit, borrower, testEnv);
     await cbBTC.connect(borrower.signer).mint(amountETHtoDeposit);
     await cbBTC.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(borrower.signer)
       .deposit(getContractAddress(cbBTC), amountETHtoDeposit, borrower.address, '0');
-
     //user 2 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
-    const daiPrice = await oracle.getAssetPrice(getContractAddress(usdc));
+    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
 
-    console.log("Dai Price", daiPrice.toString());
+    console.log("Dai Price", usdcPrice.toString());
 
-    const amountDAIToBorrow = await convertToCurrencyDecimals(
-      getContractAddress(dai),
+    const amountUsdcToBorrow = await convertToCurrencyDecimals(
+      getContractAddress(usdc),
       new BigNumber(userGlobalData.availableBorrowsETH.toString())
-        .div(daiPrice.toString())
+        .div(usdcPrice.toString())
         .multipliedBy(0.95)
         .toFixed(0)
     );
 
-    await pool
+    await mockLoan.createActiveLoan(
+      borrower.address,
+      borrower.address,
+      amountETHtoDeposit,
+      amountUsdcToBorrow,
+      12,
+      5000
+    )
+
+    await addressesProvider.setUSDCVault(ZERO_ADDRESS)
+
+    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", "0x7f19f1cc91f205633e9937e6782adc445ac40e86");
+    await Vdt.connect(borrower.signer).approveDelegation(
+      mockLoanProvider.target,
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
+
+
+    await mockLoanProvider
       .connect(borrower.signer)
-      .borrow(getContractAddress(dai), amountDAIToBorrow, RateMode.Variable, '0', borrower.address);
+      .borrow(getContractAddress(usdc), amountUsdcToBorrow, RateMode.Variable, '0', borrower.address);
+    
+    console.log("borrow complete");
 
     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
 
     expect(userGlobalDataAfter.currentLiquidationThreshold.toString()).to.be.equal(
-      '8250',
+      '8000',
       'Invalid liquidation threshold'
     );
 
+    await addressesProvider.setBitmorLoan(mockLoan);
+
+    // await pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(usdc), borrower.address, 1, true);
+
     //someone tries to liquidate user 2
     await expect(
-      pool.liquidationCall(getContractAddress(weth), getContractAddress(dai), borrower.address, 1, true)
-    ).to.be.revertedWith(LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD);
+      pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(usdc), borrower.address, 1, true)
+    ).to.be.revertedWith(LPCM_CANNOT_FULL_LIQUIDATE);
   });
 
   it('Drop the health factor below 1', async () => {

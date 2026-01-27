@@ -147,6 +147,8 @@ contract MockBitmorLendingPool is ILendingPool {
     function borrow(address asset, uint256 amount, uint256, uint16, address onBehalfOf) external override {
         // Only the Loan contract can borrow (mimics real access control)
         address bitmorLoan = _addressesProvider.getBitmorLoan();
+        console.log("bitmorLoan");
+        console.log(bitmorLoan);
         if (msg.sender != bitmorLoan) {
             revert Errors.UnauthorizedCaller();
         }

@@ -272,7 +272,7 @@ export const strategyCbBtc: IReserveParams = {
   liquidationBonus: '10500',
   borrowingEnabled: true,
   stableBorrowRateEnabled: true,
-  reserveDecimals: '18',
+  reserveDecimals: '8',
   aTokenImpl: eContractid.AToken,
   reserveFactor: '1000',
 };

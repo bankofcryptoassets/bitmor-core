@@ -61,7 +61,7 @@ import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
-import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
+import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
@@ -203,7 +203,7 @@ export async function initializeMakeSuite() {
   testEnv.wethVault = await getMockWETHVault();
 
   // Deploy Bitmor mock callers
-  const bitmorMocks = await deployMockBitmorCallers();
+  const bitmorMocks = await deployMockBitmorCallers(usdcAddress);
   testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
   testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
 

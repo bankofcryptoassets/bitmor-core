@@ -2,7 +2,6 @@ import { eBaseNetwork, eEthereumNetwork, IBitmorConfiguration } from '../../help
 import { BitmorCommonsConfig } from './commons.js';
 import { strategyUSDC, strategyBVBTC, strategyCBBTC } from './reservesConfigs.js';
 import sepoliaBUSDC from '../../deployments/sepolia-busdc.json';
-
 export const BitmorConfig: IBitmorConfiguration = {
   ...BitmorCommonsConfig,
   MarketId: 'Bitmor Lending Market',
