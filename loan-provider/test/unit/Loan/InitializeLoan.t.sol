@@ -241,6 +241,18 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
     }
 
+    /// @notice Successfully calculates loan details with minimum duration (1 month)
+    function test_calculateLoanDetails_durationOne_success() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = 1;
+
+        (uint256 loanAmt, uint256 monthlyPayment, uint256 minDeposit) = loan.getLoanDetails(collateral, duration);
+
+        assertGt(loanAmt, 0, "Loan amount should be positive");
+        assertGt(monthlyPayment, 0, "Monthly payment should be positive");
+        assertGt(minDeposit, 0, "Min deposit should be positive");
+    }
+
     /// @notice Reverts when slippage protection bounds are violated.
     function test_initializeLoan_slippageProtection() public mintDebtAssetToUser {
         // Goal: force swap to exceed s_slippage_swap (0.5%) and ensure revert
