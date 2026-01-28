@@ -52,28 +52,34 @@ Before writing any test, read the target contract:
 For each function, identify test scenarios:
 
 ### Happy Path
+
 - Normal successful execution
 - Different valid input combinations
 - Boundary values that should succeed
 
 ### Revert Tests
+
 - Each custom error condition
 - Access control violations
 - Invalid parameters
 - Paused state behavior
 
 ### Edge Cases
+
 - Zero values (where valid)
 - Maximum values
 - Empty arrays/bytes
 
 ### Fuzz Candidates
+
 Functions with numeric inputs:
+
 - Amount parameters
 - Duration parameters
 - Price variations
 
 **Output:** Checklist of test names following conventions:
+
 ```
 test_FunctionName_Scenario
 test_RevertWhen_Condition
@@ -84,16 +90,17 @@ testFuzz_FunctionName_Property
 
 ### Choose Base Class
 
-| Test Type | Base Class |
-|-----------|------------|
-| Loan tests | `LoanUnitTestBase` or `BaseLoanTest` |
-| Vault tests | `UnitTestBase` |
-| Fork tests | `ForkTestBase` |
-| Integration | `IntegrationTestBase` |
+| Test Type   | Base Class                           |
+| ----------- | ------------------------------------ |
+| Loan tests  | `LoanUnitTestBase` or `BaseLoanTest` |
+| Vault tests | `UnitTestBase`                       |
+| Fork tests  | `ForkTestBase`                       |
+| Integration | `IntegrationTestBase`                |
 
 ### Identify Helpers Needed
 
 From `LoanUnitTestBase`:
+
 - `_createStandardLoan()`, `_createLoan()`
 - `_fundUSDC()`, `_fundCbBTC()`
 - `_dropOraclePrice()`, `_setLiquidationType()`
@@ -198,29 +205,29 @@ forge coverage --match-path test/unit/Loan/NewTest.t.sol
 
 ### Naming Conventions
 
-| Pattern | Example |
-|---------|---------|
-| Happy path | `test_InitializeLoan()` |
-| Scenario | `test_InitializeLoan_WithMinDeposit()` |
-| Revert | `test_RevertWhen_InsufficientDeposit()` |
-| Fuzz | `testFuzz_InitializeLoan()` |
-| Fork | `testFork_InitializeLoanWithRealAave()` |
+| Pattern    | Example                                 |
+| ---------- | --------------------------------------- |
+| Happy path | `test_InitializeLoan()`                 |
+| Scenario   | `test_InitializeLoan_WithMinDeposit()`  |
+| Revert     | `test_RevertWhen_InsufficientDeposit()` |
+| Fuzz       | `testFuzz_InitializeLoan()`             |
+| Fork       | `testFork_InitializeLoanWithRealAave()` |
 
 ### Common Helpers
 
-| Helper | Purpose |
-|--------|---------|
-| `_createStandardLoan()` | 1 BTC, 12 months |
-| `_fundUSDC(addr, amt)` | Mint USDC |
-| `_dropOraclePrice(pct)` | Trigger liquidation |
-| `_makeOverdue()` | Warp past grace |
+| Helper                           | Purpose             |
+| -------------------------------- | ------------------- |
+| `_createStandardLoan()`          | 1 BTC, 12 months    |
+| `_fundUSDC(addr, amt)`           | Mint USDC           |
+| `_dropOraclePrice(pct)`          | Trigger liquidation |
+| `_makeOverdue()`                 | Warp past grace     |
 | `_setLiquidationType(lsa, type)` | Control liquidation |
 
 ### Common Errors
 
-| Symptom | Fix |
-|---------|-----|
-| "prank consumed" | Cache role ID before `vm.prank()` |
-| Mock not returning | Check mock is initialized in setUp |
-| Wrong base class | Inherit from `LoanUnitTestBase` for Loan tests |
-| Missing approval | Call `_fundUSDC()` which includes approval |
+| Symptom            | Fix                                            |
+| ------------------ | ---------------------------------------------- |
+| "prank consumed"   | Cache role ID before `vm.prank()`              |
+| Mock not returning | Check mock is initialized in setUp             |
+| Wrong base class   | Inherit from `LoanUnitTestBase` for Loan tests |
+| Missing approval   | Call `_fundUSDC()` which includes approval     |
