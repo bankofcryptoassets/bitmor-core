@@ -98,42 +98,26 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         uint256 debtToCover,
         bool receiveAToken
     ) external override returns (uint256, string memory) {
-        console.log("&&&&");
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
-        console.log("&&&&");
 
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
-        console.log("&&&&");
 
         DataTypes.UserConfigurationMap storage userConfig = _usersConfig[user];
-        console.log("&&&&");
-
 
         LiquidationCallLocalVars memory vars;
-        console.log("&&&&");
 
 
         vars.oracle = _addressesProvider.getPriceOracle();
-        console.log("&&&&");
-
 
         (,,,, vars.healthFactor) = GenericLogic.calculateUserAccountData(
             user, _reserves, userConfig, _reservesList, _reservesCount, vars.oracle
         );
-        console.log("&&&&");
-
-        console.log(vars.healthFactor);
-
 
         (vars.userStableDebt, vars.userVariableDebt) = Helpers.getUserCurrentDebt(user, debtReserve);
-        console.log("&&&&");
-
         
         uint256 typeOfLiquidation = LoanLiquidationLogic.checkTypeOfLiquidation(
             user, _reserves, vars.healthFactor, vars.oracle, ILoan(_addressesProvider.getBitmorLoan())
         );
-        console.log("&&&&");
-
 
         (vars.errorCode, vars.errorMsg) = ValidationLogic.validateLiquidationCall(
             collateralReserve,
@@ -144,9 +128,6 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             vars.userStableDebt,
             vars.userVariableDebt
         );
-
-        console.log("vars.errorCode:: ", vars.errorCode);
-        console.log("vars.errorMsg:: ", vars.errorMsg);
 
         if (Errors.CollateralManagerErrors(vars.errorCode) != Errors.CollateralManagerErrors.NO_ERROR) {
             return (vars.errorCode, vars.errorMsg);
@@ -208,9 +189,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         }
 
         debtReserve.updateInterestRates(debtAsset, debtReserve.aTokenAddress, vars.actualDebtToLiquidate, 0);
-        console.log("reached till here");
         if (receiveAToken) {
-            console.log("inside iff");
             vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
             vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
 
@@ -219,10 +198,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
                 liquidatorConfig.setUsingAsCollateral(collateralReserve.id, true);
                 emit ReserveUsedAsCollateralEnabled(collateralAsset, msg.sender);
             }
-            console.log("reached end of iffff");
         } else {
-            console.log("inside elseeee");
-
             collateralReserve.updateState();
             collateralReserve.updateInterestRates(
                 collateralAsset, address(vars.collateralAtoken), 0, vars.maxCollateralToLiquidate
@@ -239,17 +215,9 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             userConfig.setUsingAsCollateral(collateralReserve.id, false);
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
-        console.log("before full liquidation");
         _updateLoanForFullLiquidation(user);
-        console.log("after full liquidation");
-        console.log(debtAsset);
-        console.log(msg.sender);
-        console.log(debtReserve.aTokenAddress);
-
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
-
-        console.log("after full liquidation 2");
 
         emit LiquidationCall(
             collateralAsset,

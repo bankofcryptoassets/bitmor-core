@@ -158,8 +158,6 @@ library GenericLogic {
     address oracle
   ) internal view returns (uint256, uint256, uint256, uint256, uint256) {
     CalculateUserAccountDataVars memory vars;
-    console.log("reservesCount");
-    console.log(reservesCount);
     if (userConfig.isEmpty()) {
       return (0, 0, 0, 0, uint256(-1));
     }
@@ -194,11 +192,6 @@ library GenericLogic {
         );
       }
 
-      console.log("userConfig");
-      console.log(userConfig.data);
-      console.log(userConfig.isBorrowing(vars.i));
-
-
       if (userConfig.isBorrowing(vars.i)) {
         vars.compoundedBorrowBalance = IERC20(currentReserve.stableDebtTokenAddress).balanceOf(
           user
@@ -217,12 +210,6 @@ library GenericLogic {
     vars.avgLiquidationThreshold = vars.totalCollateralInETH > 0
       ? vars.avgLiquidationThreshold.div(vars.totalCollateralInETH)
       : 0;
-
-    console.log("neww");
-    console.log(vars.totalCollateralInETH);
-    console.log(vars.totalDebtInETH);
-    console.log(vars.avgLiquidationThreshold);
-
     
     vars.healthFactor = calculateHealthFactorFromBalances(
       vars.totalCollateralInETH,

@@ -123,17 +123,10 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
         uint256 averageStableBorrowRate,
         uint256 reserveFactor
     ) external view override returns (uint256, uint256, uint256) {
-        // console.log("****");
         uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
-        console.log("availableLiquidity");
-        console.log(availableLiquidity);
-        console.log("liquidityTaken");
-        console.log(liquidityTaken);
-        // console.log("****");
 
         //avoid stack too deep
         availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
-        // console.log("****");
 
 
         return calculateInterestRates(
@@ -170,31 +163,18 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
         uint256 averageStableBorrowRate,
         uint256 reserveFactor
     ) public view override returns (uint256, uint256, uint256) {
-        console.log("****");
         CalcInterestRatesLocalVars memory vars;
-        console.log("****");
-
 
         vars.totalDebt = totalStableDebt.add(totalVariableDebt);
-        console.log("****");
-
         vars.currentVariableBorrowRate = 0;
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;
-        console.log("****");
-
-
         vars.utilizationRate = vars.totalDebt == 0 ? 0 : vars.totalDebt.rayDiv(availableLiquidity.add(vars.totalDebt));
-        console.log("****");
 
         vars.currentStableBorrowRate =
             ILendingRateOracle(addressesProvider.getLendingRateOracle()).getMarketBorrowRate(reserve);
 
-        console.log("****");
-
         if (vars.utilizationRate > OPTIMAL_UTILIZATION_RATE) {
-            console.log("****");
-
             uint256 excessUtilizationRateRatio =
                 vars.utilizationRate.sub(OPTIMAL_UTILIZATION_RATE).rayDiv(EXCESS_UTILIZATION_RATE);
 
@@ -204,8 +184,6 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
             vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(_variableRateSlope1)
                 .add(_variableRateSlope2.rayMul(excessUtilizationRateRatio));
         } else {
-            console.log("****");
-
             vars.currentStableBorrowRate = vars.currentStableBorrowRate
                 .add(_stableRateSlope1.rayMul(vars.utilizationRate.rayDiv(OPTIMAL_UTILIZATION_RATE)));
             vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(

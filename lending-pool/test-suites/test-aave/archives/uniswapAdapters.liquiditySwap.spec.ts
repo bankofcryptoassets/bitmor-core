@@ -1,5 +1,5 @@
-import { makeSuite } from './helpers/make-suite.js';
-import type { TestEnv } from './helpers/make-suite.js';
+import { makeSuite } from '../helpers/make-suite.js';
+import type { TestEnv } from '../helpers/make-suite.js';
 import {
   convertToCurrencyDecimals,
   getContract,
@@ -7,21 +7,21 @@ import {
   getSignatureFromTypedData,
   buildLiquiditySwapParams,
   getContractAddress
-} from '../../helpers/contracts-helpers.js';
-import { getMockUniswapRouter } from '../../helpers/contracts-getters.js';
-import { deployUniswapLiquiditySwapAdapter } from '../../helpers/contracts-deployments.js';
-import type { MockUniswapV2Router02 } from '../../types/ethers-contracts/index.js';
+} from '../../../helpers/contracts-helpers.js';
+import { getMockUniswapRouter } from '../../../helpers/contracts-getters.js';
+import { deployUniswapLiquiditySwapAdapter } from '../../../helpers/contracts-deployments.js';
+import type { MockUniswapV2Router02 } from '../../../types/ethers-contracts/index.js';
 import BigNumber from "bignumber.js";
 
-import { DRE, evmRevert, evmSnapshot } from '../../helpers/misc-utils.js';
+import { DRE, evmRevert, evmSnapshot } from '../../../helpers/misc-utils.js';
 import { ethers, parseEther } from 'ethers';
-import { eContractid } from '../../helpers/types.js';
-import type { AToken } from '../../types/ethers-contracts/index.js';
-import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants.js';
-import { MAX_UINT_AMOUNT } from '../../helpers/constants.js';
+import { eContractid } from '../../../helpers/types.js';
+import type { AToken } from '../../../types/ethers-contracts/index.js';
+import { BUIDLEREVM_CHAINID } from '../../../helpers/buidler-constants.js';
+import { MAX_UINT_AMOUNT } from '../../../helpers/constants.js';
 
 import chai from 'chai';
-import { accounts } from '../../test-wallets.js';
+import { accounts } from '../../../test-wallets.js';
 const { expect } = chai;
 
 makeSuite('Uniswap adapters', (testEnv: TestEnv) => {

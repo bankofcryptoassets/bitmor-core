@@ -6,6 +6,7 @@ import {ICreditDelegationToken} from '../../../interfaces/ICreditDelegationToken
 import {VersionedInitializable} from '../../libraries/aave-upgradeability/VersionedInitializable.sol';
 import {IncentivizedERC20} from '../IncentivizedERC20.sol';
 import {Errors} from '../../libraries/helpers/Errors.sol';
+import "hardhat/console.sol";
 
 /**
  * @title DebtTokenBase

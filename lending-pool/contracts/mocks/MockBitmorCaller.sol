@@ -47,7 +47,6 @@ contract MockLoanProvider {
         uint16 referralCode,
         address onBehalfOf
     ) external {
-        console.log("inside borrow");
         pool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
     }
 

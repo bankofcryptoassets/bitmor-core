@@ -174,11 +174,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
         vars.currentVariableBorrowRate = 0;
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;
-
-        console.log("****");
         vars.utilizationRate = vars.totalDebt == 0 ? 0 : vars.totalDebt.rayDiv(availableLiquidity.add(vars.totalDebt));
-        console.log("****");
-
 
         vars.currentStableBorrowRate =
             ILendingRateOracle(addressesProvider.getLendingRateOracle()).getMarketBorrowRate(reserve);

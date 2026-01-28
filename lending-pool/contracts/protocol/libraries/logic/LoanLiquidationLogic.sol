@@ -56,8 +56,6 @@ library LoanLiquidationLogic {
         ILoan bitmorLoan
     ) internal view returns (uint256) {
         DataTypes.LoanData memory loanData = bitmorLoan.getLoanByLSA(user);
-        console.log("borrower:: ");
-        console.log(loanData.borrower);
 
         if (loanData.status != DataTypes.LoanStatus.Active) {
             return 0;
@@ -65,7 +63,6 @@ library LoanLiquidationLogic {
 
         // If user is uninsured AND HF < threshold → full liquidation
         if ((loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
-            console.log("return from first if");
             return 1;
         }
 
@@ -112,7 +109,6 @@ library LoanLiquidationLogic {
 
         // If the collateral cannot even cover this micro-liq outflow → full liquidation
         if (v.collateralValueInUSD <= v.amountToBeDeductedInUSD) {
-            console.log("return from first ");
             return 1;
         }
 

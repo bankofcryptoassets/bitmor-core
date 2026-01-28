@@ -103,7 +103,6 @@ contract VariableDebtToken is DebtTokenBase, IVariableDebtToken {
     uint256 amount,
     uint256 index
   ) external override onlyLendingPool returns (bool) {
-    console.log("inside mint");
     if (user != onBehalfOf) {
       _decreaseBorrowAllowance(onBehalfOf, user, amount);
     }
