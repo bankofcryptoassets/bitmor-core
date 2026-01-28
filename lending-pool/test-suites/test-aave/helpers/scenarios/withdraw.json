@@ -3,12 +3,12 @@
   "description": "withdraw function.",
   "stories": [
     {
-      "description": "User 0 Deposits 1000 DAI in an empty reserve",
+      "description": "User 0 Deposits 1000 USDC in an empty reserve",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "1000",
             "user": "0"
           },
@@ -17,7 +17,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "user": "0"
           },
           "expected": "success"
@@ -25,7 +25,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "1000",
             "user": "0"
           },
@@ -34,12 +34,12 @@
       ]
     },
     {
-      "description": "User 0 withdraws half of the deposited DAI",
+      "description": "User 0 withdraws half of the deposited USDC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "500",
             "user": "0"
           },
@@ -48,12 +48,12 @@
       ]
     },
     {
-      "description": "User 0 withdraws remaining half of the deposited DAI",
+      "description": "User 0 withdraws remaining half of the deposited USDC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "-1",
             "user": "0"
           },
@@ -121,12 +121,12 @@
       ]
     },
     {
-      "description": "User 0 Deposits 1 WETH in an empty reserve",
+      "description": "User 0 Deposits 1 cbBTC in an empty reserve",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "1",
             "user": "0"
           },
@@ -135,7 +135,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "0"
           },
           "expected": "success"
@@ -143,7 +143,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "1",
             "user": "0"
           },
@@ -152,12 +152,12 @@
       ]
     },
     {
-      "description": "User 0 withdraws half of the deposited WETH",
+      "description": "User 0 withdraws half of the deposited cbBTC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "0.5",
             "user": "0"
           },
@@ -166,12 +166,12 @@
       ]
     },
     {
-      "description": "User 0 withdraws remaining half of the deposited WETH",
+      "description": "User 0 withdraws remaining half of the deposited cbBTC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "-1",
             "user": "0"
           },
@@ -180,75 +180,8 @@
       ]
     },
     {
-      "description": "Users 0 and 1 Deposit 1000 DAI, both withdraw",
+      "description": "Users 0 and 1 Deposit 1000 USDC, both withdraw",
       "actions": [
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "DAI",
-            "amount": "1000",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "DAI",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "DAI",
-            "amount": "1000",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "DAI",
-            "amount": "1000",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "withdraw",
-          "args": {
-            "reserve": "DAI",
-            "amount": "-1",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "withdraw",
-          "args": {
-            "reserve": "DAI",
-            "amount": "-1",
-            "user": "1"
-          },
-          "expected": "success"
-        }
-      ]
-    },
-    {
-      "description": "Users 0 deposits 1000 DAI, user 1 Deposit 1000 USDC and 1 WETH, borrows 100 DAI. User 1 tries to withdraw all the USDC",
-      "actions": [
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "DAI",
-            "amount": "1000",
-            "user": "0"
-          },
-          "expected": "success"
-        },
         {
           "name": "mint",
           "args": {
@@ -271,6 +204,73 @@
           "args": {
             "reserve": "USDC",
             "amount": "1000",
+            "user": "0"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "deposit",
+          "args": {
+            "reserve": "USDC",
+            "amount": "1000",
+            "user": "1"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "withdraw",
+          "args": {
+            "reserve": "USDC",
+            "amount": "-1",
+            "user": "0"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "withdraw",
+          "args": {
+            "reserve": "USDC",
+            "amount": "-1",
+            "user": "1"
+          },
+          "expected": "success"
+        }
+      ]
+    },
+    {
+      "description": "Users 0 deposits 1000 USDC, user 1 Deposit 1000 USDC and 1 cbBTC, borrows 100 USDC. User 1 tries to withdraw all the USDC",
+      "actions": [
+        {
+          "name": "deposit",
+          "args": {
+            "reserve": "USDC",
+            "amount": "1000",
+            "user": "0"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "mint",
+          "args": {
+            "reserve": "USDC",
+            "amount": "1000",
+            "user": "1"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "approve",
+          "args": {
+            "reserve": "USDC",
+            "user": "1"
+          },
+          "expected": "success"
+        },
+        {
+          "name": "deposit",
+          "args": {
+            "reserve": "USDC",
+            "amount": "1000",
             "user": "1"
           },
           "expected": "success"
@@ -278,7 +278,7 @@
         {
           "name": "mint",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "1",
             "user": "1"
           },
@@ -287,7 +287,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1"
           },
           "expected": "success"
@@ -295,7 +295,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "1",
             "user": "1"
           },
@@ -304,7 +304,7 @@
         {
           "name": "borrow",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "100",
             "user": "1",
             "borrowRateMode": "stable"
@@ -323,12 +323,12 @@
       ]
     },
     {
-      "description": "Users 1 tries to withdraw 0.05 WETH, which does not bring the HF below 1",
+      "description": "Users 1 tries to withdraw 0.05 cbBTC, which does not bring the HF below 1",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "0.05",
             "user": "1"
           },

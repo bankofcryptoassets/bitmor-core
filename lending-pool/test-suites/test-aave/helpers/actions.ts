@@ -29,7 +29,6 @@ import { advanceTimeAndBlock, DRE, timeLatest, waitForTx } from '../../../helper
 
 import chai from 'chai';
 import { ReserveData, UserReserveData } from './utils/interfaces/index.js';
-import type { TransactionReceipt } from "ethers";
 import { AToken } from '../../../types/ethers-contracts/index.js';
 import { RateMode, tEthereumAddress } from '../../../helpers/types.js';
 
@@ -122,13 +121,19 @@ export const mint = async (reserveSymbol: string, amount: string, user: SignerWi
 };
 
 export const approve = async (reserveSymbol: string, user: SignerWithAddress, testEnv: TestEnv) => {
-  const { pool } = testEnv;
+  const { mockBitmorUSDCVault, mockLoanProvider } = testEnv;
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const token = await getMintableERC20(reserve);
 
+  // BITMOR: Route to correct vault based on asset type
+  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
+  const isUSDC = reserveSymbol === 'USDC';
+  const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
+  const vaultAddress = await vault.getAddress();
+
   await waitForTx(
-    await token.connect(user.signer).approve(getContractAddress(pool), '100000000000000000000000000000')
+    await token.connect(user.signer).approve(vaultAddress, '100000000000000000000000000000')
   );
 };
 
@@ -152,15 +157,24 @@ export const deposit = async (
 
   // BITMOR ARCHITECTURE: Get vault data for aToken balance checks
   // In Bitmor, vault holds aTokens, users hold vault shares
-  const { usdcVault } = testEnv;
-  const vaultAddress = await usdcVault.getAddress();
+  // BITMOR: Route to correct vault based on asset type
+  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
+  const { mockBitmorUSDCVault, mockLoanProvider } = testEnv;
+  const isUSDC = reserveSymbol === 'USDC';
+  const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
+  const vaultAddress = await vault.getAddress();
 
-  // BITMOR: Get vault's aToken balance AND user's wallet balance
+  // BITMOR TEST SIMPLIFICATION: In production, LSAs (LoanVaults) receive aTokens for cbBTC deposits.
+  // However, in these simplified tests, we send aTokens directly to user.address to avoid creating LSAs.
+  // For USDC, vault receives aTokens as expected in production.
+  const aTokenHolder = isUSDC ? vaultAddress : sender.address;
+
+  // BITMOR: Get aToken holder's balance AND user's wallet balance
   const { reserveData: reserveDataBefore, userData: userDataBefore } = await getContractsData(
     reserve,
-    vaultAddress, // Check vault's aToken balance
+    aTokenHolder, // Check aToken holder's balance (vault for USDC, user for cbBTC in tests)
     testEnv,
-    sender.address // But check user's wallet balance for tokens
+    sender.address // Check user's wallet balance for tokens
   );
 
   if (sendValue) {
@@ -175,16 +189,23 @@ export const deposit = async (
     await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
 
     // BITMOR: Deposit via vault (sender receives vault shares, vault receives aTokens)
-    const txResult = await waitForTx(
-      await usdcVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
-    );
+    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
+    // @auditor For cbBTC, we use sender.address as onBehalfOf (test simplification).
+    // In production, this would be LSA address.
+    const txResult = isUSDC
+      ? await waitForTx(
+          await mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
+        )
+      : await waitForTx(
+          await mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
+        );
 
-    // BITMOR: Check vault's aToken balance AND user's wallet balance
+    // BITMOR: Check aToken holder's balance AND user's wallet balance
     const {
       reserveData: reserveDataAfter,
       userData: userDataAfter,
       timestamp,
-    } = await getContractsData(reserve, vaultAddress, testEnv, sender.address);
+    } = await getContractsData(reserve, aTokenHolder, testEnv, sender.address);
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
@@ -207,11 +228,13 @@ export const deposit = async (
     expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserReserveData);
 
-    // BITMOR: Verify user received vault shares (not aTokens)
-    // In Bitmor architecture, users hold vault shares while the vault holds aTokens.
-    // This is a key difference from standard Aave where users directly hold aTokens.
-    const userVaultShares = await usdcVault.balanceOf(sender.address);
-    expect(userVaultShares).to.be.gte(amountToDeposit, 'BITMOR: User should have vault shares');
+    // BITMOR: Verify user received vault shares for USDC (not aTokens)
+    // @auditor In Bitmor production: For USDC, users hold vault shares while vault holds aTokens.
+    // For cbBTC, LSAs (LoanVaults) hold aTokens. In these tests, we simplify by having users directly hold aTokens to avoid creating LSAs.
+    if (isUSDC) {
+      const userVaultShares = await mockBitmorUSDCVault.balanceOf(sender.address);
+      expect(userVaultShares).to.be.gte(amountToDeposit, 'BITMOR: User should have USDC vault shares');
+    }
 
     // truffleAssert.eventEmitted(txResult, "Deposit", (ev: any) => {
     //   const {_reserve, _user, _amount} = ev;
@@ -229,9 +252,16 @@ export const deposit = async (
     await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
 
     // BITMOR: Expect revert when depositing via vault
-    await expect(
-      usdcVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
-    ).to.be.reverted;
+    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
+    if (isUSDC) {
+      await expect(
+        mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
+      ).to.be.reverted;
+    } else {
+      await expect(
+        mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
+      ).to.be.reverted;
+    }
   }
 };
 
@@ -360,7 +390,7 @@ export const borrow = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool } = testEnv;
+  const { mockLoanProvider } = testEnv;
 
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -374,8 +404,24 @@ export const borrow = async (
   const amountToBorrow = await convertToCurrencyDecimals(reserve, amount);
 
   if (expectedResult === 'success') {
+    // BITMOR: Set up credit delegation before borrowing
+    // @auditor In production, LSA delegates credit to Loan contract.
+    // In tests, user delegates credit to mockLoanProvider.
+    const { pool } = testEnv;
+    const reserveData = await pool.getReserveData(reserve);
+    const debtToken =
+      interestRateMode === '1'
+        ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
+        : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
+
+    const mockLoanProviderAddress = await mockLoanProvider.getAddress();
+    await waitForTx(
+      await debtToken.connect(user.signer).approveDelegation(mockLoanProviderAddress, amountToBorrow)
+    );
+
+    // BITMOR: Route borrow through mockLoanProvider
     const txResult = await waitForTx(
-      await pool
+      await mockLoanProvider
         .connect(user.signer)
         .borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf)
     );
@@ -437,8 +483,23 @@ export const borrow = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
+    // BITMOR: Set up credit delegation for revert cases too
+    // (otherwise it fails at delegation before reaching the actual error being tested)
+    const { pool } = testEnv;
+    const reserveData = await pool.getReserveData(reserve);
+    const debtToken =
+      interestRateMode === '1'
+        ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
+        : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
+
+    const mockLoanProviderAddress = await mockLoanProvider.getAddress();
+    await waitForTx(
+      await debtToken.connect(user.signer).approveDelegation(mockLoanProviderAddress, amountToBorrow)
+    );
+
+    // BITMOR: Route borrow through mockLoanProvider for revert cases
     await expect(
-      pool.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
+      mockLoanProvider.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
       revertMessage
     ).to.be.revert(DRE.ethers);
   }

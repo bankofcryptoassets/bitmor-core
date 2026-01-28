@@ -3,12 +3,12 @@
   "description": "Test cases for the setUserUseReserveAsCollateral() function.",
   "stories": [
     {
-      "description": "User 0 Deposits 1000 DAI, disables DAI as collateral",
+      "description": "User 0 Deposits 1000 USDC, disables USDC as collateral",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "1000",
             "user": "0"
           },
@@ -17,7 +17,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "user": "0"
           },
           "expected": "success"
@@ -25,7 +25,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "1000",
             "user": "0"
           },
@@ -34,7 +34,7 @@
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "user": "0",
             "useAsCollateral": "false"
           },
@@ -43,12 +43,12 @@
       ]
     },
     {
-      "description": "User 1 Deposits 2 WETH, disables WETH as collateral, borrows 400 DAI (revert expected)",
+      "description": "User 1 Deposits 2 cbBTC, disables cbBTC as collateral, borrows 400 USDC (revert expected)",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "2",
             "user": "1"
           },
@@ -57,7 +57,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1"
           },
           "expected": "success"
@@ -65,7 +65,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "amount": "2",
             "user": "1"
           },
@@ -74,7 +74,7 @@
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "false"
           },
@@ -83,7 +83,7 @@
         {
           "name": "borrow",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "400",
             "borrowRateMode": "variable",
             "user": "1"
@@ -94,12 +94,12 @@
       ]
     },
     {
-      "description": "User 1 enables WETH as collateral, borrows 400 DAI",
+      "description": "User 1 enables cbBTC as collateral, borrows 400 USDC",
       "actions": [
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "true"
           },
@@ -108,7 +108,7 @@
         {
           "name": "borrow",
           "args": {
-            "reserve": "DAI",
+            "reserve": "USDC",
             "amount": "400",
             "borrowRateMode": "variable",
             "user": "1"
@@ -118,12 +118,12 @@
       ]
     },
     {
-      "description": "User 1 disables WETH as collateral (revert expected)",
+      "description": "User 1 disables cbBTC as collateral (revert expected)",
       "actions": [
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "false"
           },
@@ -133,7 +133,7 @@
       ]
     },
     {
-      "description": "User 1 Deposits 10 AAVE, disables WETH as collateral. Should revert as 10 AAVE are not enough to cover the debt (revert expected)",
+      "description": "User 1 Deposits 10 AAVE, disables cbBTC as collateral. Should revert as 10 AAVE are not enough to cover the debt (revert expected)",
       "actions": [
         {
           "name": "mint",
@@ -164,7 +164,7 @@
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "false"
           },
@@ -173,7 +173,7 @@
       ]
     },
     {
-      "description": "User 1 Deposits 640 more AAVE (enough to cover the DAI debt), disables WETH as collateral",
+      "description": "User 1 Deposits 640 more AAVE (enough to cover the USDC debt), disables cbBTC as collateral",
       "actions": [
         {
           "name": "mint",
@@ -196,7 +196,7 @@
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "false"
           },
@@ -219,12 +219,12 @@
       ]
     },
     {
-      "description": "User 1 reenables WETH as collateral",
+      "description": "User 1 reenables cbBTC as collateral",
       "actions": [
         {
           "name": "setUseAsCollateral",
           "args": {
-            "reserve": "WETH",
+            "reserve": "cbBTC",
             "user": "1",
             "useAsCollateral": "true"
           },

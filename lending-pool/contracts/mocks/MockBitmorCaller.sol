@@ -40,6 +40,7 @@ contract MockLoanProvider {
     /// @param interestRateMode The interest rate mode (1 = stable, 2 = variable)
     /// @param referralCode Referral code (unused)
     /// @param onBehalfOf The user receiving the debt
+    /// @dev Pool sends borrowed tokens to this contract, we immediately forward to caller
     function borrow(
         address asset,
         uint256 amount,
@@ -49,6 +50,8 @@ contract MockLoanProvider {
     ) external {
         console.log("inside borrow");
         pool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
+        // Forward borrowed tokens to the caller so they can repay
+        IERC20(asset).safeTransfer(msg.sender, amount);
     }
 
     /// @notice Repays debt to the lending pool
