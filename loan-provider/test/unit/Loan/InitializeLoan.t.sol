@@ -15,6 +15,7 @@ import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
+import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title InitializeLoanTest
 /// @notice Tests for loan initialization functionality
@@ -410,5 +411,23 @@ contract InitializeLoanTest is BaseLoanTest {
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
         loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+    }
+
+    // ============ Access Control Tests ============
+
+    /// @notice Reverts when caller does not have EXECUTOR role
+    function test_initializeLoan_withoutExecutorRole_reverts() public {
+        address noRoleUser = makeAddr("noRoleUser");
+
+        _fundUSDC(noRoleUser, DEBT_ASSET_TO_MINT_TO_USER);
+
+        vm.startPrank(noRoleUser);
+        mockUSDC.approve(address(loan), type(uint256).max);
+
+        (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
+        loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
+        vm.stopPrank();
     }
 }
