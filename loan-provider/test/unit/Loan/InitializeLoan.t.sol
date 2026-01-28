@@ -369,4 +369,27 @@ contract InitializeLoanTest is BaseLoanTest {
         _expectRevertSelector(Errors.ZeroAmount.selector);
         loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, 0, duration, DATA);
     }
+
+    // ============ Zero Input Validation (executeInitializeLoan path) ============
+
+    /// @notice Reverts when collateral amount is zero (executeInitializeLoan path)
+    function test_initializeLoan_zeroCollateral_executeInitializeLoan_reverts() public mintDebtAssetToUser {
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, 0, STANDARD_DURATION, "");
+    }
+
+    /// @notice Reverts when deposit amount is zero (executeInitializeLoan path)
+    function test_initializeLoan_zeroDeposit_executeInitializeLoan_reverts() public mintDebtAssetToUser {
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        loan.initializeLoan(0, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
+    }
+
+    /// @notice Reverts when duration is zero (executeInitializeLoan path)
+    function test_initializeLoan_zeroDuration_executeInitializeLoan_reverts() public mintDebtAssetToUser {
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, 0, "");
+    }
 }
