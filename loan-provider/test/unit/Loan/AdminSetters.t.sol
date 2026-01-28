@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title AdminSettersTest
 /// @notice Tests for Loan contract admin setter functions
@@ -16,15 +17,24 @@ contract AdminSettersTest is BaseLoanTest {
 
     // ============ Address Setters Success ============
 
-    function test_addressSetters_success_tableDriven() public {
-        // Only test setters that are assigned to LPM_SLOW role
-        // setSwapAdapter and setZQuoter are NOT in LPM_SLOW_SELECTORS
-        bytes4[2] memory selectors = [Loan.setLoanVaultFactory.selector, Loan.setPremiumCollector.selector];
+    function test_setLoanVaultFactory_success() public {
+        address originalFactory = loan.s_loanVaultFactory();
 
-        for (uint256 i = 0; i < selectors.length; i++) {
-            bytes memory data = abi.encodeWithSelector(selectors[i], newAddress);
-            _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
-        }
+        bytes memory data = abi.encodeWithSelector(Loan.setLoanVaultFactory.selector, newAddress);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.s_loanVaultFactory(), newAddress, "LoanVaultFactory should be updated");
+        assertTrue(loan.s_loanVaultFactory() != originalFactory, "Should differ from original");
+    }
+
+    function test_setPremiumCollector_success() public {
+        address originalCollector = loan.getPremiumCollector();
+
+        bytes memory data = abi.encodeWithSelector(Loan.setPremiumCollector.selector, newAddress);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getPremiumCollector(), newAddress, "PremiumCollector should be updated");
+        assertTrue(loan.getPremiumCollector() != originalCollector, "Should differ from original");
     }
 
     // ============ Address Setters Zero Address Reverts ============
@@ -47,24 +57,68 @@ contract AdminSettersTest is BaseLoanTest {
 
     // ============ Uint256 Setters Success ============
 
-    function test_uint256Setters_success_tableDriven() public {
-        bytes4[8] memory selectors = [
-            Loan.setLiquidationBuffer.selector,
-            Loan.setGracePeriod.selector,
-            Loan.setPreClosureFee.selector,
-            Loan.setSlippageForSharesToAsset.selector,
-            Loan.setSlippageForSwap.selector,
-            Loan.setMaxBTCAmount.selector,
-            Loan.setMinBTCAmount.selector,
-            Loan.setMinDepositBps.selector
-        ];
+    function test_setLiquidationBuffer_success() public {
+        uint256 newValue = 200;
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationBuffer.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
-        uint256 newValue = 100;
+        assertEq(loan.getLiquidationBuffer(), newValue, "LiquidationBuffer should be updated");
+    }
 
-        for (uint256 i = 0; i < selectors.length; i++) {
-            bytes memory data = abi.encodeWithSelector(selectors[i], newValue);
-            _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
-        }
+    function test_setGracePeriod_success() public {
+        uint256 newValue = 7 days;
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getGracePeriod(), newValue, "GracePeriod should be updated");
+    }
+
+    function test_setPreClosureFee_success() public {
+        uint256 newValue = 500; // 5% in bps
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getPreClosureFee(), newValue, "PreClosureFee should be updated");
+    }
+
+    function test_setSlippageForSharesToAsset_success() public {
+        uint256 newValue = 100; // 1%
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSharesToAsset(), newValue, "SlippageForSharesToAsset should be updated");
+    }
+
+    function test_setSlippageForSwap_success() public {
+        uint256 newValue = 75;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSwap(), newValue, "SlippageForSwap should be updated");
+    }
+
+    function test_setMaxBTCAmount_success() public {
+        uint256 newValue = 5e8; // 5 BTC
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxBTCAmount.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getMaxBTCAmount(), newValue, "MaxBTCAmount should be updated");
+    }
+
+    function test_setMinBTCAmount_success() public {
+        uint256 newValue = 0.005e8; // 0.005 BTC
+        bytes memory data = abi.encodeWithSelector(Loan.setMinBTCAmount.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getMinBTCAmount(), newValue, "MinBTCAmount should be updated");
+    }
+
+    function test_setMinDepositBps_success() public {
+        uint256 newValue = 5000; // 50%
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getMinDepositBps(), newValue, "MinDepositBps should be updated");
     }
 
     // ============ Setters Without Role Revert ============
@@ -72,10 +126,10 @@ contract AdminSettersTest is BaseLoanTest {
     function test_setters_withoutRole_reverts_tableDriven() public {
         vm.startPrank(user);
 
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setLoanVaultFactory(newAddress);
 
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setMinBTCAmount(100);
 
         vm.stopPrank();

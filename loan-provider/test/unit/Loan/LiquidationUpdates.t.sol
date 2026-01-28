@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
+import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title LiquidationUpdatesTest
 /// @notice Tests for Loan contract liquidation update functions
@@ -74,6 +75,26 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(data.duration, 0, "Duration should be 0 after micro liquidation");
     }
 
+    function test_updateLoanDataForMicroLiquidation_durationZero_staysZero() public {
+        // Create a loan with duration 1
+        address borrower2 = makeAddr("borrower2");
+        address lsaDuration1 = _createLoanForBorrower(borrower2, STANDARD_COLLATERAL_AMOUNT, 1, PREMIUM_AMOUNT);
+
+        // First micro liquidation brings duration to 0
+        vm.prank(address(mockBitmorPool));
+        loan.updateLoanDataForMicroLiquidation(lsaDuration1);
+
+        DataTypes.LoanData memory data = loan.getLoanByLSA(lsaDuration1);
+        assertEq(data.duration, 0, "Duration should be 0");
+
+        // Second micro liquidation on duration=0 - uses zeroFloorSub so stays at 0
+        vm.prank(address(mockBitmorPool));
+        loan.updateLoanDataForMicroLiquidation(lsaDuration1);
+
+        data = loan.getLoanByLSA(lsaDuration1);
+        assertEq(data.duration, 0, "Duration should stay at 0 (zeroFloorSub)");
+    }
+
     // ============ updateLoanDataForFullLiquidation Tests ============
 
     function test_updateLoanDataForFullLiquidation_success() public {
@@ -86,6 +107,22 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Liquidated), "Status should be Liquidated");
     }
 
+    function test_updateLoanDataForFullLiquidation_updatesTimestamp() public {
+        DataTypes.LoanData memory beforeData = loan.getLoanByLSA(lsa);
+        uint256 timestampBefore = beforeData.lastPaymentTimestamp;
+
+        // Warp time forward
+        vm.warp(block.timestamp + 30 days);
+
+        // Call from the pool which has LPCM role
+        vm.prank(address(mockBitmorPool));
+        loan.updateLoanDataForFullLiquidation(lsa);
+
+        DataTypes.LoanData memory afterData = loan.getLoanByLSA(lsa);
+        assertGt(afterData.lastPaymentTimestamp, timestampBefore, "Timestamp should be updated");
+        assertEq(afterData.lastPaymentTimestamp, block.timestamp, "Timestamp should be current block");
+    }
+
     // ============ Access Control Tests ============
 
     function test_liquidationUpdates_withoutRole_reverts_tableDriven() public {
@@ -93,17 +130,17 @@ contract LiquidationUpdatesTest is BaseLoanTest {
 
         // updateInsuranceId without EXECUTOR role
         vm.prank(noRoleUser);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
         loan.updateInsuranceId(lsa, 123);
 
         // updateLoanDataForMicroLiquidation without LPCM role
         vm.prank(noRoleUser);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
         loan.updateLoanDataForMicroLiquidation(lsa);
 
         // updateLoanDataForFullLiquidation without LPCM role
         vm.prank(noRoleUser);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 

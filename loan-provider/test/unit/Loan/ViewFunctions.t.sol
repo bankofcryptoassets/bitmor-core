@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
+import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title ViewFunctionsTest
 /// @notice Tests for Loan contract view/getter functions
@@ -14,20 +15,26 @@ contract ViewFunctionsTest is BaseLoanTest {
 
     // ============ Getter Verification ============
 
-    function test_getters_returnConstructorValues() public view {
-        assertEq(loan.getCollateralAsset(), address(mockBTCVault));
-        assertEq(loan.getDebtAsset(), address(mockUSDC));
-        assertGt(loan.getGracePeriod(), 0);
-        assertEq(loan.getPremiumCollector(), premiumCollector);
-        assertEq(loan.getRepaymentInterval(), 30 days);
-        assertGt(loan.getPreClosureFee(), 0);
-        assertGt(loan.getLiquidationBuffer(), 0);
-        assertGt(loan.getSlippageForSwap(), 0);
-        assertGt(loan.getMaxBTCAmount(), 0);
-        assertGt(loan.getMinBTCAmount(), 0);
-        assertGt(loan.getMinDepositBps(), 0);
-        // This getter was missing coverage - ensure it's callable
-        loan.getSlippageForSharesToAsset();
+    function test_getters_returnExpectedConfigValues() public view {
+        // Verify addresses against known mock addresses
+        assertEq(loan.getCollateralAsset(), address(mockBTCVault), "Collateral asset mismatch");
+        assertEq(loan.getDebtAsset(), address(mockUSDC), "Debt asset mismatch");
+        assertEq(loan.getPremiumCollector(), premiumCollector, "Premium collector mismatch");
+
+        // Verify against exact config values from HelperConfig
+        assertEq(loan.getGracePeriod(), config.getGracePeriod(), "Grace period should match config");
+        assertEq(loan.getLiquidationBuffer(), config.getLiquidationBuffer(), "Liquidation buffer should match config");
+        assertEq(loan.getPreClosureFee(), config.getPreClosureFee(), "Pre-closure fee should match config");
+
+        // Verify against TestConstants configuration
+        assertEq(loan.getSlippageForSwap(), TC.SLIPPAGE_SWAP, "Slippage should match test config");
+        assertEq(loan.getMaxBTCAmount(), TC.MAX_COLLATERAL, "Max BTC should match test config");
+        assertEq(loan.getMinBTCAmount(), TC.MIN_COLLATERAL, "Min BTC should match test config");
+        assertEq(loan.getMinDepositBps(), TC.MIN_DEPOSIT, "Min deposit BPS should match test config");
+        assertEq(loan.getSlippageForSharesToAsset(), TC.SLIPPAGE_SHARES_TO_ASSET, "Slippage for shares should match test config");
+
+        // Verify constant values
+        assertEq(loan.getRepaymentInterval(), 30 days, "Repayment interval should be exactly 30 days");
     }
 
     // ============ User Loan Functions ============
@@ -57,16 +64,60 @@ contract ViewFunctionsTest is BaseLoanTest {
 
     // ============ Loan Data Verification ============
 
-    function test_getLoanByLSA_returnsCompleteData() public {
-        address lsa = _createStandardLoan();
+    function test_getLoanByLSA_returnsExactInputValues() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Pre-calculate expected loan amount for verification
+        (uint256 expectedLoanAmt,, uint256 minDeposit) = loan.getLoanDetails(collateral, duration);
+
+        _mintDebtAssetToUser();
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, collateral, duration, "");
 
         DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
 
+        // Verify exact values for inputs
         assertEq(data.borrower, user, "Borrower should match");
-        assertGt(data.collateralAmount, 0, "Collateral should be set");
-        assertGt(data.loanAmount, 0, "Loan amount should be set");
-        assertGt(data.duration, 0, "Duration should be set");
-        assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be set");
+        assertEq(data.collateralAmount, collateral, "Collateral should match exact input");
+        assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
+        assertEq(data.duration, duration, "Duration should match exact input");
+        // Monthly payment is recalculated based on actual borrowed amount, so just verify it's positive
+        assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be positive");
+        assertEq(data.insuranceID, 0, "Insurance ID should be 0 initially");
         assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Active), "Status should be Active");
+    }
+
+    function test_getUserLoanCount_afterCreatingLoans() public {
+        // Create first loan for user
+        _createStandardLoan();
+        assertEq(loan.getUserLoanCount(user), 1, "Should have 1 loan");
+
+        // Create second loan for different borrower to avoid CREATE2 collision
+        address borrower2 = makeAddr("borrower2");
+        _createLoanForBorrower(borrower2, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT);
+        assertEq(loan.getUserLoanCount(borrower2), 1, "Borrower2 should have 1 loan");
+        assertEq(loan.getUserLoanCount(user), 1, "User should still have 1 loan");
+    }
+
+    function test_getUserAllLoans_returnsCorrectData() public {
+        // Create loan for user
+        _createStandardLoan();
+
+        // Create loan for different borrower
+        address borrower2 = makeAddr("borrower2");
+        _createLoanForBorrower(borrower2, STANDARD_COLLATERAL_AMOUNT / 2, STANDARD_DURATION, PREMIUM_AMOUNT);
+
+        // Verify user's loans
+        DataTypes.LoanData[] memory userLoans = loan.getUserAllLoans(user);
+        assertEq(userLoans.length, 1, "User should have 1 loan");
+        assertEq(userLoans[0].borrower, user, "Loan borrower should match user");
+        assertEq(userLoans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+
+        // Verify borrower2's loans
+        DataTypes.LoanData[] memory borrower2Loans = loan.getUserAllLoans(borrower2);
+        assertEq(borrower2Loans.length, 1, "Borrower2 should have 1 loan");
+        assertEq(borrower2Loans[0].borrower, borrower2, "Loan borrower should match borrower2");
+        assertEq(borrower2Loans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
     }
 }

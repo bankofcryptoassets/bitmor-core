@@ -3,6 +3,8 @@ pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title LoanLogicEdgeCasesTest
 /// @notice Tests for LoanLogic edge cases and boundary conditions
@@ -14,7 +16,7 @@ contract LoanLogicEdgeCasesTest is BaseLoanTest {
     // ============ Zero Premium Tests ============
 
     function test_initializeLoan_zeroPremium_success() public {
-        (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        (uint256 expectedLoanAmt,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         uint256 zeroPremium = 0;
 
         _mintDebtAssetToUser();
@@ -22,22 +24,38 @@ contract LoanLogicEdgeCasesTest is BaseLoanTest {
         vm.prank(user);
         address lsa = loan.initializeLoan(minDeposit, zeroPremium, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
 
-        assertTrue(lsa != address(0), "LSA should be created with zero premium");
+        // Use assertNotEq for idiomatic Foundry style and better error messages
+        assertNotEq(lsa, address(0), "LSA should be created");
+
+        // Verify loan data is correct with zero premium
+        DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
+        assertEq(data.borrower, user, "Borrower should match");
+        assertEq(data.collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+        assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match");
+        assertEq(data.duration, STANDARD_DURATION, "Duration should match");
+        assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Active), "Status should be Active");
     }
 
     // ============ Max Collateral Boundary Tests ============
 
     function test_initializeLoan_exactMaxCollateral_success() public {
         uint256 maxBTC = loan.getMaxBTCAmount();
-        (uint256 loanAmt,, uint256 minDeposit) = loan.getLoanDetails(maxBTC, STANDARD_DURATION);
+        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) = loan.getLoanDetails(maxBTC, STANDARD_DURATION);
 
         _mintDebtAssetToUser();
 
         vm.prank(user);
         address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, maxBTC, STANDARD_DURATION, "");
 
-        assertTrue(lsa != address(0), "Max collateral should succeed");
-        assertGt(loanAmt, 0, "Loan amount should be positive");
+        // Use assertNotEq for idiomatic Foundry style
+        assertNotEq(lsa, address(0), "LSA should be created");
+
+        // Verify exact values
+        DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
+        assertEq(data.collateralAmount, maxBTC, "Collateral should be exact max");
+        assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
+        assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be positive");
+        assertEq(data.duration, STANDARD_DURATION, "Duration should match");
     }
 
     function test_initializeLoan_aboveMaxCollateral_reverts() public {
@@ -112,7 +130,7 @@ contract LoanLogicEdgeCasesTest is BaseLoanTest {
 
         (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
 
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
         loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
         vm.stopPrank();
     }
