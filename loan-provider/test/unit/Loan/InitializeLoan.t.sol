@@ -113,6 +113,83 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.getLoanDetails(collateralAmount, duration);
     }
 
+    // ============ Max Collateral Boundary Tests ============
+
+    /// @notice Initializes a loan with exact maximum collateral amount
+    function test_initializeLoan_exactMaxCollateral_success() public {
+        uint256 maxBTC = loan.getMaxBTCAmount();
+        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) = loan.getLoanDetails(maxBTC, STANDARD_DURATION);
+
+        _mintDebtAssetToUser();
+
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, maxBTC, STANDARD_DURATION, "");
+
+        assertNotEq(lsa, address(0), "LSA should be created");
+
+        DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
+        assertEq(data.collateralAmount, maxBTC, "Collateral should be exact max");
+        assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
+        assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be positive");
+        assertEq(data.duration, STANDARD_DURATION, "Duration should match");
+    }
+
+    /// @notice Reverts when collateral exceeds maximum (getLoanDetails path)
+    function test_initializeLoan_aboveMaxCollateral_reverts() public {
+        uint256 maxBTC = loan.getMaxBTCAmount();
+        uint256 aboveMax = maxBTC + 1;
+
+        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        loan.getLoanDetails(aboveMax, STANDARD_DURATION);
+    }
+
+    /// @notice Reverts when collateral exceeds maximum (executeInitializeLoan path)
+    function test_initializeLoan_aboveMaxCollateral_executeInitializeLoan_reverts() public {
+        uint256 maxBTC = loan.getMaxBTCAmount();
+        uint256 aboveMax = maxBTC + 1;
+
+        _mintDebtAssetToUser();
+
+        vm.prank(user);
+        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, aboveMax, STANDARD_DURATION, "");
+    }
+
+    /// @notice Reverts when collateral is below minimum (executeInitializeLoan path)
+    function test_initializeLoan_belowMinCollateral_executeInitializeLoan_reverts() public {
+        uint256 minBTC = loan.getMinBTCAmount();
+        uint256 belowMin = minBTC - 1;
+
+        _mintDebtAssetToUser();
+
+        vm.prank(user);
+        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, belowMin, STANDARD_DURATION, "");
+    }
+
+    /// @notice Table-driven test for collateral boundaries
+    function test_calculateLoanDetails_collateralBoundaries_tableDriven() public {
+        uint256 minBTC = loan.getMinBTCAmount();
+        uint256 maxBTC = loan.getMaxBTCAmount();
+        uint256 duration = 12;
+
+        // Below min - should revert
+        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        loan.getLoanDetails(minBTC - 1, duration);
+
+        // Exactly min - should succeed
+        (uint256 loanAmt,,) = loan.getLoanDetails(minBTC, duration);
+        assertGt(loanAmt, 0, "Min boundary should return valid loan");
+
+        // Exactly max - should succeed
+        (loanAmt,,) = loan.getLoanDetails(maxBTC, duration);
+        assertGt(loanAmt, 0, "Max boundary should return valid loan");
+
+        // Above max - should revert
+        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        loan.getLoanDetails(maxBTC + 1, duration);
+    }
+
     /// @notice Validates
     function test_initializeLoan_revertWhenThanMinimumDownpayment() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
