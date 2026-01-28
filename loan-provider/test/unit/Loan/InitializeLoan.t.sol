@@ -392,4 +392,23 @@ contract InitializeLoanTest is BaseLoanTest {
         vm.expectRevert(Errors.ZeroAmount.selector);
         loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, 0, "");
     }
+
+    // ============ Oracle Price Edge Cases ============
+
+    /// @notice Reverts when collateral asset price is zero
+    function test_calculateLoanDetails_collateralPriceZero_reverts() public {
+        // The collateral asset in Loan is mockBTCVault, not mockCbBTC
+        mockOracle.setAssetPrice(address(mockBTCVault), 0);
+
+        vm.expectRevert(Errors.InvalidAssetPrice.selector);
+        loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+    }
+
+    /// @notice Reverts when debt asset price is zero
+    function test_calculateLoanDetails_debtPriceZero_reverts() public {
+        mockOracle.setAssetPrice(address(mockUSDC), 0);
+
+        vm.expectRevert(Errors.InvalidAssetPrice.selector);
+        loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+    }
 }
