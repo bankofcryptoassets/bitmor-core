@@ -56,6 +56,26 @@ contract InitializeLoanTest is BaseLoanTest {
         _assertLoanCreated(lsa, user, STANDARD_DURATION, STANDARD_COLLATERAL_AMOUNT);
     }
 
+    /// @notice Initializes a loan with zero premium amount
+    function test_initializeLoan_zeroPremium_success() public {
+        (uint256 expectedLoanAmt,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        uint256 zeroPremium = 0;
+
+        _mintDebtAssetToUser();
+
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, zeroPremium, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
+
+        assertNotEq(lsa, address(0), "LSA should be created");
+
+        DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
+        assertEq(data.borrower, user, "Borrower should match");
+        assertEq(data.collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+        assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match");
+        assertEq(data.duration, STANDARD_DURATION, "Duration should match");
+        assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Active), "Status should be Active");
+    }
+
     /// @notice Reverts when deposit is below the minimum required.
     function test_initializeLoan_revertsWhenDepositAmountIsLessThanMinimumDepositRequired() public mintDebtAssetToUser {
         // This test specifically needs less-than-minimum deposit, so keep manual pattern
