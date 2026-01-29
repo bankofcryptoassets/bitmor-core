@@ -252,7 +252,6 @@ export const deployAaveLibraries = async (
 
 export const deployLendingPool = async (verify?: boolean) => {
   const libraries = await deployAaveLibraries(verify);
-  console.log('Libraries:', libraries);
   const lendingPoolImpl = await new LendingPool__factory(libraries, await getFirstSigner()).deploy();
   await insertContractAddressInDb(eContractid.LendingPoolImpl, getContractAddress(lendingPoolImpl));
   return withSaveAndVerify(lendingPoolImpl, eContractid.LendingPool, [], verify);
@@ -838,7 +837,6 @@ export const deployATokenImplementations = async (
     );
     if (!notFalsyOrZeroAddress(aTokenAddress)) {
       const deployImplementationMethod = chooseATokenDeployment(aTokenImplementations[x]);
-      console.log(`Deploying implementation`, aTokenImplementations[x]);
       await deployImplementationMethod(verify);
     }
   }

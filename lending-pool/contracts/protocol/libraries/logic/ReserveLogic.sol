@@ -216,9 +216,6 @@ library ReserveLogic {
     vars.totalVariableDebt = IVariableDebtToken(reserve.variableDebtTokenAddress)
       .scaledTotalSupply()
       .rayMul(reserve.variableBorrowIndex);
-    
-    console.log("reserve.interestRateStrategyAddress");
-    console.log(reserve.interestRateStrategyAddress);
 
     (
       vars.newLiquidityRate,

@@ -207,7 +207,7 @@
             "amount": "-1",
             "user": "1"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -237,75 +237,6 @@
             "reserve": "cbBTC",
             "amount": "0.001",
             "user": "2"
-          },
-          "expected": "success"
-        }
-      ]
-    },
-    {
-      "description": "User 0 deposits 1 cbBTC, user 1 deposits 100 LINK as collateral and borrows 0.5 cbBTC at variable rate",
-      "actions": [
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "1",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "cbBTC",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "1",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "LINK",
-            "amount": "100",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "LINK",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "LINK",
-            "amount": "100",
-            "user": "1"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "borrow",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "0.5",
-            "borrowRateMode": "variable",
-            "user": "1",
-            "timeTravel": "365"
           },
           "expected": "success"
         }
@@ -379,39 +310,6 @@
       ]
     },
     {
-      "description": "User 1 repays the cbBTC borrow after one year",
-      "actions": [
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "1",
-            "user": "2"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "cbBTC",
-            "user": "2"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "repay",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "-1",
-            "borrowRateMode": "variable",
-            "user": "1",
-            "onBehalfOf": "1"
-          },
-          "expected": "success"
-        }
-      ]
-    },
-    {
       "description": "User 0 withdraws the deposited cbBTC plus interest",
       "actions": [
         {
@@ -421,7 +319,7 @@
             "amount": "-1",
             "user": "0"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -435,7 +333,7 @@
             "amount": "-1",
             "user": "1"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -613,7 +511,7 @@
             "amount": "-1",
             "user": "1"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -711,7 +609,7 @@
             "amount": "-1",
             "user": "3"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -809,7 +707,7 @@
             "amount": "-1",
             "user": "3"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },

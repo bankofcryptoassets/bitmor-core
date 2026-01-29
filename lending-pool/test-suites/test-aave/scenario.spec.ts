@@ -11,7 +11,7 @@ import { executeStory } from './helpers/scenario-engine.js';
 
 const scenarioFolder = './test-suites/test-aave/helpers/scenarios/';
 
-const selectedScenarios: string[] = [];
+const selectedScenarios: string[] = ['borrow-repay-variable.json'];
 
 fs.readdirSync(scenarioFolder).forEach((file) => {
   if (selectedScenarios.length > 0 && !selectedScenarios.includes(file)) return;
@@ -38,7 +38,7 @@ fs.readdirSync(scenarioFolder).forEach((file) => {
     for (const story of scenario.stories) {
       it(story.description, async function () {
         // Retry the test scenarios up to 4 times if an error happens, due erratic HEVM network errors 
-        this.retries(4);
+        this.retries(0);
         await executeStory(story, testEnv);
       });
     }

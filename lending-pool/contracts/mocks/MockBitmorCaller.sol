@@ -48,7 +48,6 @@ contract MockLoanProvider {
         uint16 referralCode,
         address onBehalfOf
     ) external {
-        console.log("inside borrow");
         pool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
         // Forward borrowed tokens to the caller so they can repay
         IERC20(asset).safeTransfer(msg.sender, amount);
@@ -66,7 +65,10 @@ contract MockLoanProvider {
         uint256 rateMode,
         address onBehalfOf
     ) external returns (uint256) {
+        console.log("Contract Asset: ", asset);
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        // Reset approval to 0 first to handle existing allowances
+        IERC20(asset).safeApprove(address(pool), 0);
         IERC20(asset).safeApprove(address(pool), amount);
         return pool.repay(asset, amount, rateMode, onBehalfOf);
     }
