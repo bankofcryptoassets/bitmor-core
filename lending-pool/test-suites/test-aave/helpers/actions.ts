@@ -273,33 +273,48 @@ export const withdraw = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool } = testEnv;
+  const { pool, mockBitmorUSDCVault } = testEnv;
 
+  const isUsdc = reserveSymbol === 'USDC';
   const {
     aTokenInstance,
     reserve,
     userData: userDataBefore,
     reserveData: reserveDataBefore,
-  } = await getDataBeforeAction(reserveSymbol, user.address, testEnv);
+  } = await getDataBeforeAction(
+    reserveSymbol,
+    isUsdc ? getContractAddress(mockBitmorUSDCVault) : user.address,
+    testEnv
+  );
 
   let amountToWithdraw = '0';
 
   if (amount !== '-1') {
     amountToWithdraw = (await convertToCurrencyDecimals(reserve, amount)).toString();
   } else {
-    amountToWithdraw = MAX_UINT_AMOUNT;
+    if(isUsdc) {
+      amountToWithdraw = (await mockBitmorUSDCVault.balanceOf(user.address)).toString();
+    } else {
+      amountToWithdraw = MAX_UINT_AMOUNT;
+    }
   }
 
   if (expectedResult === 'success') {
     const txResult = await waitForTx(
-      await pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address)
-    );
+        isUsdc ?
+        await mockBitmorUSDCVault.connect(user.signer).withdraw(amountToWithdraw, user.address, user.address) :
+        await pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address)
+      )
 
     const {
       reserveData: reserveDataAfter,
       userData: userDataAfter,
       timestamp,
-    } = await getContractsData(reserve, user.address, testEnv);
+    } = await getContractsData(
+      reserve,
+      isUsdc ? getContractAddress(mockBitmorUSDCVault) : user.address,
+      testEnv
+    );
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
@@ -321,8 +336,11 @@ export const withdraw = async (
     );
 
     expectEqual(reserveDataAfter, expectedReserveData);
-    expectEqual(userDataAfter, expectedUserData);
-
+    if(isUsdc) {
+      expectEqualForWithdraw(userDataAfter, expectedUserData, amountToWithdraw);
+    } else {
+      expectEqual(userDataAfter, expectedUserData);
+    }
     // truffleAssert.eventEmitted(txResult, "Redeem", (ev: any) => {
     //   const {_from, _value} = ev;
     //   return (
@@ -793,6 +811,15 @@ const expectEqual = (
     expect(actual).to.be.almostEqualOrEqual(expected);
   }
 };
+
+const expectEqualForWithdraw = (
+  actual: UserReserveData,
+  expected: UserReserveData,
+  amount: BigNumber
+) => {
+  expected.walletBalance = new BigNumber(expected.walletBalance - amount);
+  expectEqual(actual, expected)
+}
 
 interface ActionData {
   reserve: string;
