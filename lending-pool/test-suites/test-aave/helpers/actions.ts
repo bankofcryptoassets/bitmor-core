@@ -255,12 +255,14 @@ export const deposit = async (
     // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
     if (isUSDC) {
       await expect(
-        mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
-      ).to.be.reverted;
+        mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address),
+        revertMessage
+      ).to.be.revert(DRE.ethers);
     } else {
       await expect(
-        mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
-      ).to.be.reverted;
+        mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0),
+        revertMessage
+      ).to.be.revert(DRE.ethers);
     }
   }
 };
