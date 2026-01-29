@@ -58,7 +58,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Initializes a loan with zero premium amount
-    function test_initializeLoan_zeroPremium_success() public {
+    function test_initializeLoan_ZeroPremium() public {
         (uint256 expectedLoanAmt,, uint256 minDeposit) =
             loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         uint256 zeroPremium = 0;
@@ -79,7 +79,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when deposit is below the minimum required.
-    function test_initializeLoan_revertsWhenDepositAmountIsLessThanMinimumDepositRequired() public mintDebtAssetToUser {
+    function test_initializeLoan_RevertWhen_DepositBelowMinimum() public mintDebtAssetToUser {
         // This test specifically needs less-than-minimum deposit, so keep manual pattern
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
@@ -106,7 +106,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when loan size is below the protocol minimum.
-    function test_initializeLoan_revertsWhenLessThanMinimumLoanSize() public mintDebtAssetToUser {
+    function test_initializeLoan_RevertWhen_LoanSizeBelowMinimum() public mintDebtAssetToUser {
         uint256 duration = STANDARD_DURATION;
 
         uint256 collateralAmount = loan.getMinBTCAmount() - 1;
@@ -118,7 +118,7 @@ contract InitializeLoanTest is BaseLoanTest {
     // ============ Max Collateral Boundary Tests ============
 
     /// @notice Initializes a loan with exact maximum collateral amount
-    function test_initializeLoan_exactMaxCollateral_success() public {
+    function test_initializeLoan_ExactMaxCollateral() public {
         uint256 maxBTC = loan.getMaxBTCAmount();
         (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) =
             loan.getLoanDetails(maxBTC, STANDARD_DURATION);
@@ -138,7 +138,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when collateral exceeds maximum (executeInitializeLoan path)
-    function test_initializeLoan_aboveMaxCollateral_executeInitializeLoan_reverts() public {
+    function test_initializeLoan_RevertWhen_CollateralAboveMax() public {
         uint256 maxBTC = loan.getMaxBTCAmount();
         uint256 aboveMax = maxBTC + 1;
 
@@ -150,7 +150,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when collateral is below minimum (executeInitializeLoan path)
-    function test_initializeLoan_belowMinCollateral_executeInitializeLoan_reverts() public {
+    function test_initializeLoan_RevertWhen_CollateralBelowMin() public {
         uint256 minBTC = loan.getMinBTCAmount();
         uint256 belowMin = minBTC - 1;
 
@@ -217,7 +217,7 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Tests duration validation behavior.
     /// @dev KNOWN: Protocol does NOT enforce a maximum duration limit -
     ///         duration 13+ is accepted by getLoanDetails.
-    function test_initializeLoan_invalidDuration_revertsReject() public mintDebtAssetToUser {
+    function test_initializeLoan_RevertWhen_DurationInvalid() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
 
         _expectRevertSelector(Errors.ZeroAmount.selector);
@@ -236,7 +236,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Successfully calculates loan details with minimum duration (1 month)
-    function test_calculateLoanDetails_durationOne_success() public {
+    function test_calculateLoanDetails_DurationOne() public {
         uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = 1;
 
@@ -273,7 +273,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Test flash loan integration works correctly through MockAaveV3Pool
-    function test_initializeLoan_flashLoanIntegration_success() public {
+    function test_initializeLoan_FlashLoanIntegration() public {
         MockAaveV3Pool mockPool = new MockAaveV3Pool();
 
         // Create a new AccessManager for loan2
@@ -343,7 +343,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when deposit amount is zero.
-    function test_initializeLoan_revertsWithZeroDeposit() public mintDebtAssetToUser {
+    function test_initializeLoan_RevertWhen_DepositIsZero() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -353,7 +353,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when collateral amount is zero.
-    function test_initializeLoan_zeroCollateral_reverts() public mintDebtAssetToUser {
+    function test_initializeLoan_RevertWhen_CollateralIsZero() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -367,7 +367,7 @@ contract InitializeLoanTest is BaseLoanTest {
     // ============ Oracle Price Edge Cases ============
 
     /// @notice Reverts when collateral asset price is zero
-    function test_calculateLoanDetails_collateralPriceZero_reverts() public {
+    function test_calculateLoanDetails_RevertWhen_CollateralPriceIsZero() public {
         // The collateral asset in Loan is mockBTCVault, not mockCbBTC
         mockOracle.setAssetPrice(address(mockBTCVault), 0);
 
@@ -376,7 +376,7 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Reverts when debt asset price is zero
-    function test_calculateLoanDetails_debtPriceZero_reverts() public {
+    function test_calculateLoanDetails_RevertWhen_DebtPriceIsZero() public {
         mockOracle.setAssetPrice(address(mockUSDC), 0);
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
@@ -386,7 +386,7 @@ contract InitializeLoanTest is BaseLoanTest {
     // ============ Access Control Tests ============
 
     /// @notice Reverts when caller does not have EXECUTOR role
-    function test_initializeLoan_withoutExecutorRole_reverts() public {
+    function test_initializeLoan_RevertWhen_CallerLacksExecutorRole() public {
         address noRoleUser = makeAddr("noRoleUser");
 
         _fundUSDC(noRoleUser, DEBT_ASSET_TO_MINT_TO_USER);

@@ -15,7 +15,8 @@ contract ViewFunctionsTest is BaseLoanTest {
 
     // ============ Getter Verification ============
 
-    function test_getters_returnExpectedConfigValues() public view {
+    /// @notice Test that all getters return expected configuration values
+    function test_getters_ReturnExpectedConfigValues() public view {
         // Verify addresses against known mock addresses
         assertEq(loan.getCollateralAsset(), address(mockBTCVault), "Collateral asset mismatch");
         assertEq(loan.getDebtAsset(), address(mockUSDC), "Debt asset mismatch");
@@ -31,7 +32,11 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(loan.getMaxBTCAmount(), TC.MAX_COLLATERAL, "Max BTC should match test config");
         assertEq(loan.getMinBTCAmount(), TC.MIN_COLLATERAL, "Min BTC should match test config");
         assertEq(loan.getMinDepositBps(), TC.MIN_DEPOSIT, "Min deposit BPS should match test config");
-        assertEq(loan.getSlippageForSharesToAsset(), TC.SLIPPAGE_SHARES_TO_ASSET, "Slippage for shares should match test config");
+        assertEq(
+            loan.getSlippageForSharesToAsset(),
+            TC.SLIPPAGE_SHARES_TO_ASSET,
+            "Slippage for shares should match test config"
+        );
 
         // Verify constant values
         assertEq(loan.getRepaymentInterval(), 30 days, "Repayment interval should be exactly 30 days");
@@ -39,7 +44,8 @@ contract ViewFunctionsTest is BaseLoanTest {
 
     // ============ User Loan Functions ============
 
-    function test_getUserLoanAtIndex_outOfBounds_reverts() public {
+    /// @notice Test that getUserLoanAtIndex reverts with out of bounds index
+    function test_getUserLoanAtIndex_RevertWhen_OutOfBounds() public {
         // User has no loans
         vm.expectRevert(Errors.IndexOutOfBounds.selector);
         loan.getUserLoanAtIndex(user, 0);
@@ -52,19 +58,22 @@ contract ViewFunctionsTest is BaseLoanTest {
         loan.getUserLoanAtIndex(user, 1);
     }
 
-    function test_getUserLoanCount_noLoans_returnsZero() public view {
+    /// @notice Test that getUserLoanCount returns zero for user with no loans
+    function test_getUserLoanCount_ReturnsZeroWhenNoLoans() public view {
         uint256 count = loan.getUserLoanCount(address(0xdead));
         assertEq(count, 0, "User with no loans should return 0");
     }
 
-    function test_getUserAllLoans_noLoans_returnsEmptyArray() public view {
+    /// @notice Test that getUserAllLoans returns empty array for user with no loans
+    function test_getUserAllLoans_ReturnsEmptyArrayWhenNoLoans() public view {
         DataTypes.LoanData[] memory loans = loan.getUserAllLoans(address(0xdead));
         assertEq(loans.length, 0, "Should return empty array");
     }
 
     // ============ Loan Data Verification ============
 
-    function test_getLoanByLSA_returnsExactInputValues() public {
+    /// @notice Test that getLoanByLSA returns exact input values used during creation
+    function test_getLoanByLSA_ReturnsExactInputValues() public {
         uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
@@ -88,7 +97,8 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Active), "Status should be Active");
     }
 
-    function test_getUserLoanCount_afterCreatingLoans() public {
+    /// @notice Test that getUserLoanCount returns correct count after creating loans
+    function test_getUserLoanCount_AfterCreatingLoans() public {
         // Create first loan for user
         _createStandardLoan();
         assertEq(loan.getUserLoanCount(user), 1, "Should have 1 loan");
@@ -100,7 +110,8 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(loan.getUserLoanCount(user), 1, "User should still have 1 loan");
     }
 
-    function test_getUserAllLoans_returnsCorrectData() public {
+    /// @notice Test that getUserAllLoans returns correct loan data for each user
+    function test_getUserAllLoans_ReturnsCorrectData() public {
         // Create loan for user
         _createStandardLoan();
 

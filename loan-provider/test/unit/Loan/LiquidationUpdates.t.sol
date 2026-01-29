@@ -20,7 +20,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
 
     // ============ updateInsuranceId Tests ============
 
-    function test_updateInsuranceId_success() public {
+    /// @notice Test successfully updating the insurance ID for a loan
+    function test_updateInsuranceId() public {
         uint256 insuranceId = 12345;
 
         // Grant EXECUTOR role and call
@@ -35,7 +36,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(data.insuranceID, insuranceId, "Insurance ID should be updated");
     }
 
-    function test_updateInsuranceId_loanDoesNotExist_reverts() public {
+    /// @notice Test that updating insurance ID reverts for non-existent loan
+    function test_updateInsuranceId_RevertWhen_LoanDoesNotExist() public {
         address fakeLsa = makeAddr("fakeLsa");
 
         uint64 executorRole = EXECUTOR_ID();
@@ -49,7 +51,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
 
     // ============ updateLoanDataForMicroLiquidation Tests ============
 
-    function test_updateLoanDataForMicroLiquidation_success() public {
+    /// @notice Test successfully updating loan data for micro liquidation
+    function test_updateLoanDataForMicroLiquidation() public {
         DataTypes.LoanData memory beforeData = loan.getLoanByLSA(lsa);
         uint256 durationBefore = beforeData.duration;
 
@@ -62,6 +65,7 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(afterData.duration, durationBefore - 1, "Duration should decrement by 1");
     }
 
+    /// @notice Test micro liquidation when duration is 1 becomes 0
     function test_updateLoanDataForMicroLiquidation_durationOne_becomesZero() public {
         // Create a loan with duration 1 for a different borrower to avoid CREATE2 collision
         address borrower2 = makeAddr("borrower2");
@@ -75,6 +79,7 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(data.duration, 0, "Duration should be 0 after micro liquidation");
     }
 
+    /// @notice Test micro liquidation when duration is already 0 stays at 0
     function test_updateLoanDataForMicroLiquidation_durationZero_staysZero() public {
         // Create a loan with duration 1
         address borrower2 = makeAddr("borrower2");
@@ -97,7 +102,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
 
     // ============ updateLoanDataForFullLiquidation Tests ============
 
-    function test_updateLoanDataForFullLiquidation_success() public {
+    /// @notice Test successfully updating loan data for full liquidation
+    function test_updateLoanDataForFullLiquidation() public {
         // Call from the pool which has LPCM role
         vm.prank(address(mockBitmorPool));
         loan.updateLoanDataForFullLiquidation(lsa);
@@ -107,7 +113,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Liquidated), "Status should be Liquidated");
     }
 
-    function test_updateLoanDataForFullLiquidation_updatesTimestamp() public {
+    /// @notice Test that full liquidation updates the last payment timestamp
+    function test_updateLoanDataForFullLiquidation_UpdatesTimestamp() public {
         DataTypes.LoanData memory beforeData = loan.getLoanByLSA(lsa);
         uint256 timestampBefore = beforeData.lastPaymentTimestamp;
 
@@ -125,7 +132,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
 
     // ============ Access Control Tests ============
 
-    function test_liquidationUpdates_withoutRole_reverts_tableDriven() public {
+    /// @notice Test that liquidation update functions revert without required role
+    function test_liquidationUpdates_RevertWhen_CalledWithoutRole() public {
         // Use noRoleUser which has no roles assigned
 
         // updateInsuranceId without EXECUTOR role
@@ -144,7 +152,8 @@ contract LiquidationUpdatesTest is BaseLoanTest {
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 
-    function test_liquidationUpdates_zeroAddress_reverts_tableDriven() public {
+    /// @notice Test that liquidation update functions revert with zero address
+    function test_liquidationUpdates_RevertWhen_ZeroAddress() public {
         // Call from the pool which has LPCM role
         vm.startPrank(address(mockBitmorPool));
 

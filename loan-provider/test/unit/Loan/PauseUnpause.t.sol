@@ -16,7 +16,8 @@ contract PauseUnpauseTest is BaseLoanTest {
 
     // ============ Pause Tests ============
 
-    function test_pause_success() public {
+    /// @notice Test successfully pausing the contract
+    function test_pause() public {
         // Arrange
         uint64 lpmFastRole = LPM_FAST_ID();
         vm.prank(admin);
@@ -31,13 +32,15 @@ contract PauseUnpauseTest is BaseLoanTest {
         assertTrue(loan.paused(), "Should be paused");
     }
 
-    function test_pause_withoutRole_reverts() public {
+    /// @notice Test that pause reverts when caller lacks required role
+    function test_pause_RevertWhen_CalledWithoutRole() public {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.pause();
     }
 
-    function test_pause_whenAlreadyPaused_reverts() public {
+    /// @notice Test that pause reverts when contract is already paused
+    function test_pause_RevertWhen_AlreadyPaused() public {
         _pauseContract();
 
         vm.prank(admin);
@@ -45,7 +48,8 @@ contract PauseUnpauseTest is BaseLoanTest {
         loan.pause();
     }
 
-    function test_pause_emitsPausedEvent() public {
+    /// @notice Test that pause emits the Paused event
+    function test_pause_EmitsPausedEvent() public {
         uint64 lpmFastRole = LPM_FAST_ID();
         vm.prank(admin);
         manager.grantRole(lpmFastRole, admin, 0);
@@ -57,7 +61,8 @@ contract PauseUnpauseTest is BaseLoanTest {
         loan.pause();
     }
 
-    function test_pause_withWrongRole_reverts() public {
+    /// @notice Test that pause reverts when caller has wrong role (LPM_SLOW instead of LPM_FAST)
+    function test_pause_RevertWhen_CalledWithWrongRole() public {
         // Grant LPM_SLOW (delayed role) instead of LPM_FAST (immediate pause role)
         // lpm_slow already has LPM_SLOW role from setup, but not LPM_FAST
         // LPM_SLOW holder cannot call pause directly (pause requires LPM_FAST)
@@ -68,7 +73,8 @@ contract PauseUnpauseTest is BaseLoanTest {
 
     // ============ Unpause Tests ============
 
-    function test_unpause_success() public {
+    /// @notice Test successfully unpausing the contract
+    function test_unpause() public {
         _pauseContract();
         assertTrue(loan.paused(), "Should be paused");
 
@@ -77,7 +83,8 @@ contract PauseUnpauseTest is BaseLoanTest {
         assertFalse(loan.paused(), "Should be unpaused");
     }
 
-    function test_unpause_withoutRole_reverts() public {
+    /// @notice Test that unpause reverts when caller lacks required role
+    function test_unpause_RevertWhen_CalledWithoutRole() public {
         _pauseContract();
 
         vm.prank(user);
@@ -85,7 +92,8 @@ contract PauseUnpauseTest is BaseLoanTest {
         loan.unpause();
     }
 
-    function test_unpause_whenNotPaused_reverts() public {
+    /// @notice Test that unpause reverts when contract is not paused
+    function test_unpause_RevertWhen_NotPaused() public {
         // Try to unpause without being paused - expect revert in schedule
         bytes memory data = abi.encodeCall(loan.unpause, ());
 
@@ -103,7 +111,8 @@ contract PauseUnpauseTest is BaseLoanTest {
         vm.stopPrank();
     }
 
-    function test_unpause_emitsUnpausedEvent() public {
+    /// @notice Test that unpause emits the Unpaused event
+    function test_unpause_EmitsUnpausedEvent() public {
         _pauseContract();
 
         bytes memory data = abi.encodeCall(loan.unpause, ());
@@ -127,6 +136,7 @@ contract PauseUnpauseTest is BaseLoanTest {
 
     // ============ Paused State Blocks User Functions ============
 
+    /// @notice Test that user functions revert when contract is paused
     function test_userFunctions_revertWhenPaused_tableDriven() public {
         // Setup: create a loan first, then pause
         address lsa = _createStandardLoan();
@@ -139,13 +149,7 @@ contract PauseUnpauseTest is BaseLoanTest {
         (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loan.initializeLoan(
-            minDeposit,
-            PREMIUM_AMOUNT,
-            STANDARD_COLLATERAL_AMOUNT,
-            STANDARD_DURATION,
-            ""
-        );
+        loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
 
         // Test repay reverts
         vm.expectRevert(Pausable.EnforcedPause.selector);
@@ -160,7 +164,8 @@ contract PauseUnpauseTest is BaseLoanTest {
 
     // ============ Lifecycle Tests ============
 
-    function test_pauseUnpause_operationsBlockedThenRestored() public {
+    /// @notice Test that operations are blocked when paused and restored when unpaused
+    function test_pauseUnpause_OperationsBlockedThenRestored() public {
         // 1. Create a loan while unpaused
         address lsa = _createStandardLoan();
         assertFalse(loan.paused(), "Should start unpaused");
