@@ -59,7 +59,8 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Initializes a loan with zero premium amount
     function test_initializeLoan_zeroPremium_success() public {
-        (uint256 expectedLoanAmt,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        (uint256 expectedLoanAmt,, uint256 minDeposit) =
+            loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         uint256 zeroPremium = 0;
 
         _mintDebtAssetToUser();
@@ -119,7 +120,8 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Initializes a loan with exact maximum collateral amount
     function test_initializeLoan_exactMaxCollateral_success() public {
         uint256 maxBTC = loan.getMaxBTCAmount();
-        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) = loan.getLoanDetails(maxBTC, STANDARD_DURATION);
+        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) =
+            loan.getLoanDetails(maxBTC, STANDARD_DURATION);
 
         _mintDebtAssetToUser();
 
@@ -133,15 +135,6 @@ contract InitializeLoanTest is BaseLoanTest {
         assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
         assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be positive");
         assertEq(data.duration, STANDARD_DURATION, "Duration should match");
-    }
-
-    /// @notice Reverts when collateral exceeds maximum (getLoanDetails path)
-    function test_initializeLoan_aboveMaxCollateral_reverts() public {
-        uint256 maxBTC = loan.getMaxBTCAmount();
-        uint256 aboveMax = maxBTC + 1;
-
-        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
-        loan.getLoanDetails(aboveMax, STANDARD_DURATION);
     }
 
     /// @notice Reverts when collateral exceeds maximum (executeInitializeLoan path)
@@ -191,7 +184,7 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.getLoanDetails(maxBTC + 1, duration);
     }
 
-    /// @notice Validates
+    /// @notice Validates minimum deposit percentage calculation
     function test_initializeLoan_revertWhenThanMinimumDownpayment() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
@@ -369,29 +362,6 @@ contract InitializeLoanTest is BaseLoanTest {
         vm.prank(user);
         _expectRevertSelector(Errors.ZeroAmount.selector);
         loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, 0, duration, DATA);
-    }
-
-    // ============ Zero Input Validation (executeInitializeLoan path) ============
-
-    /// @notice Reverts when collateral amount is zero (executeInitializeLoan path)
-    function test_initializeLoan_zeroCollateral_executeInitializeLoan_reverts() public mintDebtAssetToUser {
-        vm.prank(user);
-        vm.expectRevert(Errors.ZeroAmount.selector);
-        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, 0, STANDARD_DURATION, "");
-    }
-
-    /// @notice Reverts when deposit amount is zero (executeInitializeLoan path)
-    function test_initializeLoan_zeroDeposit_executeInitializeLoan_reverts() public mintDebtAssetToUser {
-        vm.prank(user);
-        vm.expectRevert(Errors.ZeroAmount.selector);
-        loan.initializeLoan(0, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
-    }
-
-    /// @notice Reverts when duration is zero (executeInitializeLoan path)
-    function test_initializeLoan_zeroDuration_executeInitializeLoan_reverts() public mintDebtAssetToUser {
-        vm.prank(user);
-        vm.expectRevert(Errors.ZeroAmount.selector);
-        loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, 0, "");
     }
 
     // ============ Oracle Price Edge Cases ============
