@@ -57,6 +57,10 @@ interface ILoan {
 
     event Loan__MinDepositUpdated(uint256 indexed newMinDepositBps);
 
+    event Loan__LiquidationFeeUpdated(uint256 indexed newLiquidationFee);
+
+    event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
+
     // ============ Main Functions ============
 
     /**
@@ -279,4 +283,12 @@ interface ILoan {
     function getMinDepositBps() external view returns (uint256);
 
     function setMinDepositBps(uint256 newMinDepositBps) external;
+
+    function setLiquidationFeeBps(uint256 newLiquidationFee) external;
+
+    function getLiquidationFeeBps() external view returns (uint256);
+
+    function getLiquidationFeeCollector() external view returns (address);
+
+    function setLiquidationFeeCollector(address newFeeCollector) external;
 }

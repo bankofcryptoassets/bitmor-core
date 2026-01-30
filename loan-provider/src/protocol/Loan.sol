@@ -424,6 +424,14 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_minDeposit;
     }
 
+    function getLiquidationFeeBps() external view returns (uint256) {
+        return s_liquidationFee;
+    }
+
+    function getLiquidationFeeCollector() external view returns (address) {
+        return s_liquidationFeeCollector;
+    }
+
     // ============ Admin Functions ============
 
     /**
@@ -510,6 +518,21 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
         s_minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
+    }
+
+    function setLiquidationFeeBps(uint256 newLiquidationFeeBps) external whenNotPaused restricted {
+        s_liquidationFee = newLiquidationFeeBps;
+        emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);
+    }
+
+    function setLiquidationFeeCollector(address newLiquidationFeeCollector)
+        external
+        whenNotPaused
+        restricted
+        checkZeroAddress(newLiquidationFeeCollector)
+    {
+        s_liquidationFeeCollector = newLiquidationFeeCollector;
+        emit Loan__LiquidationFeeCollectorUpdated(newLiquidationFeeCollector);
     }
 
     /**

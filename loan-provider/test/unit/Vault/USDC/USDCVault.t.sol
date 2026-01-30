@@ -144,10 +144,10 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     /// @notice Test that vault metadata returns expected values
     function test_metadata_correct() public view {
         // Check name
-        assertEq(vault.name(), "Simple Vault", "Vault name should be 'Simple Vault'");
+        assertEq(vault.name(), "Bitmor USDC Vault", "Vault name should be 'Bitmor USDC Vault'");
 
         // Check symbol
-        assertEq(vault.symbol(), "SV", "Vault symbol should be 'SV'");
+        assertEq(vault.symbol(), "bvUSDC", "Vault symbol should be 'bvUSDC'");
 
         // Check asset
         assertEq(vault.asset(), networkConfig.usdc, "Vault asset should be USDC");

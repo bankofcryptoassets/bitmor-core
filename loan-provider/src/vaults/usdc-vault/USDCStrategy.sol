@@ -253,10 +253,7 @@ contract USDCStrategy is ISimpleStrategy {
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
 
-        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(
-            s_aaveAllocation,
-            BASIS_POINT_SCALE
-        );
+        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
 
         if (targetBalanceInAave == 0) return;
 
@@ -294,14 +291,11 @@ contract USDCStrategy is ISimpleStrategy {
     function _withdrawFundsToBLP(uint256 amountToTransfer) internal {
         uint256 totalBalance = _getTotalBalanceInMarkets();
         uint256 totalBalanceAfter = totalBalance.zeroFloorSub(amountToTransfer);
-        uint256 targetBLPAssetsAfter = totalBalanceAfter.mulDiv(
-            BASIS_POINT_SCALE.rawSub(s_aaveAllocation),
-            BASIS_POINT_SCALE
-        );
+        uint256 targetBLPAssetsAfter =
+            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(s_aaveAllocation), BASIS_POINT_SCALE);
 
-        uint256 amountToWithdrawFromAave = targetBLPAssetsAfter
-            .rawAdd(amountToTransfer)
-            .zeroFloorSub(_getBalanceInBLP());
+        uint256 amountToWithdrawFromAave =
+            targetBLPAssetsAfter.rawAdd(amountToTransfer).zeroFloorSub(_getBalanceInBLP());
 
         if (amountToWithdrawFromAave == 0) return;
 
@@ -328,11 +322,7 @@ contract USDCStrategy is ISimpleStrategy {
         if (currentAaveBalance > targetAaveBalance) {
             uint256 amountToWithdrawFromAave = currentAaveBalance.rawSub(targetAaveBalance);
 
-            uint256 finalAmountWithdrawn = i_aave.withdraw(
-                i_asset,
-                amountToWithdrawFromAave,
-                address(this)
-            );
+            uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
             //!  TODO: Implement slippage check in case when AAVE don't have enough funds to provide to the user while withdrawing.
 
             if (finalAmountWithdrawn > amountToTransfer) {
@@ -349,11 +339,7 @@ contract USDCStrategy is ISimpleStrategy {
         if (currentBLPBalance > targetBLPBalance) {
             uint256 amountToWithdrawFromBLP = currentBLPBalance.rawSub(targetBLPBalance);
 
-            uint256 finalAmountWithdrawn = i_blp.withdraw(
-                i_asset,
-                amountToWithdrawFromBLP,
-                address(this)
-            );
+            uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
 
             if (finalAmountWithdrawn > remaining) {
                 uint256 excess = finalAmountWithdrawn.rawSub(remaining);
@@ -374,11 +360,7 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromAave Amount of assets to withdraw from Aave
      */
     function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
-        uint256 finalAmountWithdrawn = i_aave.withdraw(
-            i_asset,
-            amountToWithdrawFromAave,
-            address(this)
-        );
+        uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
 
         i_blp.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }
@@ -388,11 +370,7 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromBLP Amount of assets to withdraw from BLP
      */
     function _withdrawFomBLPAndDepositInAAVE(uint256 amountToWithdrawFromBLP) internal {
-        uint256 finalAmountWithdrawn = i_blp.withdraw(
-            i_asset,
-            amountToWithdrawFromBLP,
-            address(this)
-        );
+        uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
 
         i_aave.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }

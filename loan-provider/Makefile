@@ -124,6 +124,9 @@ coverage:
 coverage-lcov:
 	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report lcov
 
+coverage-html:
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report lcov && genhtml lcov.info -o coverage-html && open coverage-html/index.html
+
 gas-report:
 	@forge test $(FORK_NETWORK_ARGS) --gas-report
 

@@ -20,4 +20,6 @@ broadcast
 
 loan-provider/lcov.info
 loan-provider/lcov.filtered.info
+loan-provider/coverage-html
 docs
+lending-pool/types
