@@ -21,6 +21,7 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
+import {IERC4626} from "../../interfaces/IERC4626.sol";
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -253,22 +254,46 @@ contract LendingPoolCollateralManager is
                 vars.maxCollateralToLiquidate
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+            // Burn aTokens, receive bvBTC to LendingPool
             vars.collateralAtoken.burn(
                 user,
-                msg.sender,
-                vars.liquidatorCollateral,
+                address(this),
+                vars.maxCollateralToLiquidate,
                 collateralReserve.liquidityIndex
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the Fee Recipient.
-            if (vars.protocolFee > 0) {
-                vars.collateralAtoken.burn(
-                    user,
-                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
-                    vars.protocolFee,
-                    collateralReserve.liquidityIndex
+            // Get slippage tolerance from Loan contract
+            uint256 slippageBps = ILoan(_addressesProvider.getBitmorLoan())
+                .getSlippageForSharesToAsset();
+
+            // Redeem bvBTC → cbBTC for liquidator
+            uint256 assetsSent = _redeemCollateralWithSlippage(
+                collateralAsset,
+                vars.liquidatorCollateral,
+                msg.sender,
+                slippageBps
+            );
+
+            if (assetsSent == 0)
+                return (
+                    uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED),
+                    Errors.LPCM_SLIPPAGE_EXCEEDED
                 );
+
+            // Redeem bvBTC → cbBTC for protocol fee collector
+            if (vars.protocolFee > 0) {
+                assetsSent = _redeemCollateralWithSlippage(
+                    collateralAsset,
+                    vars.protocolFee,
+                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
+                    slippageBps
+                );
+
+                if (assetsSent == 0)
+                    return (
+                        uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED),
+                        Errors.LPCM_SLIPPAGE_EXCEEDED
+                    );
             }
         }
 
@@ -462,22 +487,46 @@ contract LendingPoolCollateralManager is
                 vars.maxCollateralToLiquidate
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+            // Burn aTokens, receive bvBTC to LendingPool
             vars.collateralAtoken.burn(
                 user,
-                msg.sender,
-                vars.liquidatorCollateral,
+                address(this),
+                vars.maxCollateralToLiquidate,
                 collateralReserve.liquidityIndex
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the Fee Recipient.
-            if (vars.protocolFee > 0) {
-                vars.collateralAtoken.burn(
-                    user,
-                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
-                    vars.protocolFee,
-                    collateralReserve.liquidityIndex
+            // Get slippage tolerance from Loan contract
+            uint256 slippageBps = ILoan(_addressesProvider.getBitmorLoan())
+                .getSlippageForSharesToAsset();
+
+            // Redeem bvBTC → cbBTC for liquidator
+            uint256 assetsSent = _redeemCollateralWithSlippage(
+                collateralAsset,
+                vars.liquidatorCollateral,
+                msg.sender,
+                slippageBps
+            );
+
+            if (assetsSent == 0)
+                return (
+                    uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED),
+                    Errors.LPCM_SLIPPAGE_EXCEEDED
                 );
+
+            // Redeem bvBTC → cbBTC for protocol fee collector
+            if (vars.protocolFee > 0) {
+                assetsSent = _redeemCollateralWithSlippage(
+                    collateralAsset,
+                    vars.protocolFee,
+                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
+                    slippageBps
+                );
+
+                if (assetsSent == 0)
+                    return (
+                        uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED),
+                        Errors.LPCM_SLIPPAGE_EXCEEDED
+                    );
             }
         }
 
@@ -640,5 +689,36 @@ contract LendingPoolCollateralManager is
 
         // Liquidator gets total minus protocol fee
         liquidatorCollateral = maxCollateralToLiquidate.sub(protocolFee);
+    }
+
+    /**
+     * @notice Redeems vault shares (bvBTC) for underlying asset (cbBTC) with slippage protection
+     * @param vault The ERC4626 vault address (collateralAsset / bvBTC)
+     * @param shares Amount of vault shares to redeem
+     * @param receiver Address to receive the underlying cbBTC
+     * @param slippageBps Maximum acceptable slippage in basis points
+     * @return assets Amount of underlying assets (cbBTC) received
+     */
+    function _redeemCollateralWithSlippage(
+        address vault,
+        uint256 shares,
+        address receiver,
+        uint256 slippageBps
+    ) internal returns (uint256 assets) {
+        // Calculate expected assets from shares
+        uint256 expectedAssets = IERC4626(vault).previewRedeem(shares);
+
+        // Calculate minimum acceptable assets (accounting for slippage)
+        uint256 minAssets = expectedAssets
+            .mul(PercentageMath.PERCENTAGE_FACTOR.sub(slippageBps))
+            .div(PercentageMath.PERCENTAGE_FACTOR);
+
+        // Execute redemption
+        assets = IERC4626(vault).redeem(shares, receiver, address(this));
+
+        // Verify slippage protection
+        if (assets < minAssets) return 0;
+
+        return assets;
     }
 }

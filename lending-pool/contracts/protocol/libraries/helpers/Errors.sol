@@ -110,6 +110,7 @@ library Errors {
     string public constant LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER = "85"; // 'Only vault can deposit this asset'
     string public constant LP_FLASHLOAN_DISABLED = "86"; // Flash loans are disabled
     string public constant LPCM_CANNOT_RECEIVE_ATOKEN = "87"; // Receiving aToken is not allowed
+    string public constant LPCM_SLIPPAGE_EXCEEDED = "87";
 
     enum CollateralManagerErrors {
         NO_ERROR,
@@ -124,6 +125,7 @@ library Errors {
         FROZEN_RESERVE,
         CANNOT_MICRO_LIQUIDATE,
         CANNOT_FULL_LIQUIDATE,
-        CANNOT_RECEIVE_ATOKEN
+        CANNOT_RECEIVE_ATOKEN,
+        SLIPPAGE_EXCEEDED
     }
 }
