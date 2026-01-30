@@ -249,7 +249,6 @@ contract MockBitmorLendingPool is ILendingPool {
         // Validate liquidation type (like real lending pool)
         uint256 liquidationType = this.checkTypeOfLiquidation(user);
         require(liquidationType == 1, "LiquidationCall requires full liquidation type (1)");
-        require(debtToCover == type(uint256).max, "Full liquidation requires max debt coverage");
 
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];

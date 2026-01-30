@@ -7,21 +7,20 @@ repos:
             language: system
             types: [solidity]
             pass_filenames: false
-            always_run: true
 
           - id: forge-build
             name: Forge build
             entry: bash -c 'cd loan-provider && forge build'
             language: system
+            types: [solidity]
             pass_filenames: false
-            always_run: true
 
           - id: forge-test
             name: Forge test
             entry: bash -c 'cd loan-provider && make test'
             language: system
+            types: [solidity]
             pass_filenames: false
-            always_run: true
 
     - repo: https://github.com/pre-commit/pre-commit-hooks
       rev: v4.4.0

@@ -467,7 +467,13 @@ abstract contract BitmorTestBase is Test {
     /// @param maxBTC Maximum BTC amount (in 8 decimals)
     /// @param minBTC Minimum BTC amount (in 8 decimals)
     /// @param slippage Slippage in basis points
-    function _configureLoanParameters(address loanContract, uint256 maxBTC, uint256 minBTC, uint256 slippage) internal {
+    function _configureLoanParameters(
+        address loanContract,
+        uint256 maxBTC,
+        uint256 minBTC,
+        uint256 slippage,
+        uint256 minDepositBps
+    ) internal {
         _scheduleAndExecute(
             loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
         );
@@ -476,6 +482,9 @@ abstract contract BitmorTestBase is Test {
         );
         _scheduleAndExecute(
             loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
+        );
+        _scheduleAndExecute(
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinDepositBps(uint256)", minDepositBps)
         );
     }
 }

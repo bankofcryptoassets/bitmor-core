@@ -64,4 +64,10 @@ library TestConstants {
     uint256 internal constant RAY = 1e27;
     uint256 internal constant BPS_DENOMINATOR = 10_000;
     uint256 internal constant PRECISION = 1e18;
+
+    uint256 internal constant SLIPPAGE_SWAP = 50; // 50bps
+    uint256 internal constant SLIPPAGE_SHARES_TO_ASSET = 100; // 100bps
+    uint256 internal constant MIN_DEPOSIT = 30_00; // 30%
+
+    uint256 internal constant PRICE_PRECISION = 1e8;
 }

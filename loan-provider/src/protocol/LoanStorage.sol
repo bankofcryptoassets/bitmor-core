@@ -100,6 +100,9 @@ contract LoanStorage {
     /// @notice Min. amount of BTC require to use as collateral.
     uint256 internal s_minBTCAmt;
 
+    /// @notice Min % of deposit user need to make of the BTC amount.
+    uint256 internal s_minDeposit;
+
     // ============ Storage Mappings ============
 
     /**

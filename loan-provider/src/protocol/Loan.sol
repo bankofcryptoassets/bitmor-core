@@ -140,7 +140,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             premiumCollector: s_premiumCollector,
             minCollateralAmt: s_minBTCAmt,
             maxCollateralAmt: s_maxBTCAmt,
-            loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL
+            loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
+            minDepositBps: s_minDeposit
         });
 
         lsa = s_loansByLSA.executeInitializeLoan(
@@ -176,7 +177,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function closeLoan(address lsa, bool withdrawInCollateralAsset) external whenNotPaused nonReentrant {
+    function closeLoan(address lsa, bool withdrawInBTC) external whenNotPaused nonReentrant {
         DataTypes.ExecuteCloseLoanContext memory ctx = DataTypes.ExecuteCloseLoanContext(
             i_BITMOR_POOL,
             i_AAVE_V3_POOL,
@@ -187,8 +188,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_preClosureFeeBps,
             s_slippage_swap
         );
-        DataTypes.ExecuteCloseLoanParams memory params =
-            DataTypes.ExecuteCloseLoanParams(lsa, withdrawInCollateralAsset);
+        DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
         CloseLoanLogic.executeCloseLoan(ctx, params, s_loansByLSA);
     }
 
@@ -345,7 +345,13 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
         (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
-            i_BITMOR_POOL, i_ORACLE, i_COLLATERAL_ASSET, i_DEBT_ASSET, collateralAmount, duration
+            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit),
+            i_BITMOR_POOL,
+            i_ORACLE,
+            i_COLLATERAL_ASSET,
+            i_DEBT_ASSET,
+            collateralAmount,
+            duration
         );
     }
 
@@ -412,6 +418,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     function getMinBTCAmount() external view returns (uint256) {
         return s_minBTCAmt;
+    }
+
+    function getMinDepositBps() external view returns (uint256) {
+        return s_minDeposit;
     }
 
     // ============ Admin Functions ============
@@ -495,6 +505,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
         s_minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
+    }
+
+    function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
+        s_minDeposit = newMinDepositBps;
+        emit Loan__MinDepositUpdated(newMinDepositBps);
     }
 
     /**

@@ -18,4 +18,8 @@ library BTCVaultLogic {
     function convertToAssets(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
         assets = ERC4626(btcVault).convertToAssets(sharesAmount);
     }
+
+    function previewRedeem(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
+        assets = ERC4626(btcVault).previewRedeem(sharesAmount);
+    }
 }

@@ -95,7 +95,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockLendingRateOracle = new MockLendingRateOracle();
 
         // Deploy price oracle
-        mockOracle = new MockPriceOracle();
+        mockOracle = new MockPriceOracle(address(mockBTCVault), address(mockCbBTC));
         mockOracle.setAssetPrice(address(mockCbBTC), BTC_PRICE);
         mockOracle.setAssetPrice(address(mockUSDC), USDC_PRICE);
 
@@ -226,6 +226,8 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
         loan.setLoanVaultFactory(address(loanVaultFactory));
 
+        loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
+
         // Register loan in addresses provider
         mockAddressesProvider.setBitmorLoan(address(loan));
 
@@ -242,7 +244,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);
 
         // Configure loan parameters using proper setters (replaces vm.store)
-        _configureLoanParameters(address(loan), 10e8, 0.001e8, 50);
+        _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP, TC.MIN_DEPOSIT);
     }
 
     /// @notice Funds test accounts with tokens

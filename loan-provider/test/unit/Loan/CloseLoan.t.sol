@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title CloseLoanTest
 /// @notice Tests for loan closure functionality
@@ -82,7 +83,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @dev Calculate expected pre-closure fee
     function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
-        return (collateralAmount * _getPreClosureFeeBps()) / 10_000;
+        return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
     }
 
     // ============ Close Loan Tests ============
@@ -90,7 +91,7 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test closing loan and withdrawing in collateral asset (BTC)
     function test_closeLoan_withWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
@@ -103,7 +104,7 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         _updateCloseLoanStateAfter(state, lsa);
 
@@ -114,7 +115,7 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(state.loanState.debtAfter, 0, "LSA debt should be 0 after close");
         assertEq(state.loanState.collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
 
-        // User should receive BTC (underlying) when withdrawInCollateralAsset=true
+        // User should receive BTC (underlying) when withdrawInBTC=true
         uint256 btcReceived = IERC20(btc).balanceOf(user) - state.userBalances.userCollateralBefore;
         assertGt(btcReceived, 0, "User should receive BTC collateral");
 
@@ -133,12 +134,9 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test closing loan and withdrawing in debt asset (USDC)
-    /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
-    ///      the token flow assertions are relaxed. In production, collateral = bvBTC vault shares,
-    ///      btc = cbBTC underlying, so redeems work correctly.
     function test_closeLoan_withoutWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = false;
+        bool withdrawInBTC = false;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
@@ -150,7 +148,7 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         _updateCloseLoanStateAfter(state, lsa);
 
@@ -168,24 +166,19 @@ contract CloseLoanTest is BaseLoanTest {
         // Parse transfer logs to get exact amount transferred from Loan to user
         uint256 transferredUsdc = _parseTransferLogs(logs, debtAsset, address(loan), user);
         assertEq(usdcReceived, transferredUsdc, "USDC received should match transfer log");
-
-        // Note: Mock limitation - collateralAsset == btc (same token), so cbBTC received
-        // doesn't behave as expected. In production with separate vault shares, this would be dust.
-        // Skipping strict assertion due to mock setup.
     }
 
     // ============ Pre-Closure Fee Tests ============
 
-    /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = true)
+    /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = true)
     /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
     ///      token flow accounting is not 1:1 with production. Fee transfer to collector is verified.
     function test_closeLoan_preClosureFee_deducted_withdrawCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
-        uint256 preClosureFeeBps = _getPreClosureFeeBps();
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
@@ -198,43 +191,30 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Parse BTC transfers to premium collector (fee sink)
         uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
         uint256 userCollateralReceived = _parseTransferLogs(logs, btc, address(loan), user);
 
-        // Verify fee calculation is correct
-        assertEq(
-            expectedFee,
-            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
-            "Fee calculation should be correct"
-        );
-
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         uint256 collectorBalanceAfter = IERC20(btc).balanceOf(premiumCollector);
         uint256 collectorReceived = collectorBalanceAfter - collectorBalanceBefore;
-        assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
-        assertApproxEqAbs(collectorReceived, expectedFee, 1, "Premium collector should receive expected fee");
+        assertEq(feeTransferred, expectedFee, "Fee transferred should match expected fee");
+        assertEq(collectorReceived, expectedFee, "Premium collector should receive expected fee");
 
         // Verify user received collateral
         assertGt(userCollateralReceived, 0, "User should receive collateral");
-
-        // Note: Mock limitation - collateralAsset == btc (same token), so the total accounting
-        // doesn't match production where collateral = bvBTC vault shares.
-        // The swap mock returns different amounts affecting the token flow.
-        // Fee deduction and transfer to collector is verified above.
     }
 
-    /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = false)
+    /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = false)
     function test_closeLoan_preClosureFee_deducted_withdrawDebt() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = false;
+        bool withdrawInBTC = false;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
-        uint256 preClosureFeeBps = _getPreClosureFeeBps();
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
@@ -246,18 +226,11 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Parse BTC transfers to premium collector (fee is in BTC)
         uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
-
-        // Verify fee calculation is correct
-        assertEq(
-            expectedFee,
-            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
-            "Fee calculation should be correct"
-        );
 
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
@@ -266,7 +239,7 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test that flash loan is called with the correct debt amount
     function test_closeLoan_flashLoanCalledWithDebtAmount() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Get debt amount before close
         uint256 debtAmt = _getDebtBalance(lsa);
@@ -286,7 +259,7 @@ contract CloseLoanTest is BaseLoanTest {
         );
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
 
         // Verify loan closed successfully
         uint256 debtAfter = _getDebtBalance(lsa);

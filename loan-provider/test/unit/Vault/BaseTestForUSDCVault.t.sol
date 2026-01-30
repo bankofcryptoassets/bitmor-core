@@ -151,7 +151,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
 
         // Deploy mock oracle
-        mockOracle = new MockPriceOracle();
+        mockOracle = new MockPriceOracle(address(0), address(0));
         mockOracle.setAssetPrice(address(mockUSDC), 1e8);
 
         // Deploy mock addresses provider

@@ -314,7 +314,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     function _getBtcPrice() internal view returns (uint256) {
-        return mockOracle.getAssetPrice(collateralAsset);
+        return mockOracle.getAssetPrice(address(mockCbBTC));
     }
 
     function _getUsdcPrice() internal view returns (uint256) {

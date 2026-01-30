@@ -119,10 +119,10 @@ test\:contract:
 # ============ Reports ============
 
 coverage:
-	@forge coverage $(FORK_NETWORK_ARGS)
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
 
 coverage-lcov:
-	@forge coverage $(FORK_NETWORK_ARGS) --report lcov
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report lcov
 
 gas-report:
 	@forge test $(FORK_NETWORK_ARGS) --gas-report
