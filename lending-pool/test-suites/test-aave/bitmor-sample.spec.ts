@@ -36,7 +36,7 @@ makeSuite('Bitmor Sample Tests', (testEnv: TestEnv) => {
 
     it('MockUSDCVault should reference the correct pool', async () => {
       const { mockBitmorUSDCVault, pool } = testEnv;
-      const poolAddress = await mockBitmorUSDCVault.pool();
+      const poolAddress = await mockBitmorUSDCVault.getLendingPool();
       // ethers v6: use getAddress() instead of .address
       const expectedPoolAddress = await pool.getAddress();
       expect(poolAddress).to.equal(expectedPoolAddress);
