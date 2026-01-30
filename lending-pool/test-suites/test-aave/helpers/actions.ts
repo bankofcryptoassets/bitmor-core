@@ -547,15 +547,22 @@ export const repay = async (
 
   let amountToRepay = '0';
   const token = await getMintableERC20(reserve);
-  const isUsdc = token.target===usdc.target;
 
   if (amount !== '-1') {
     amountToRepay = (await convertToCurrencyDecimals(reserve, amount)).toString();
   } else {
-    if(isUsdc) {
-      amountToRepay = (await token.balanceOf(user.address)).toString();
+    // For "repay all" (-1), query the actual debt amount based on rate mode
+    const { pool } = testEnv;
+    const reserveData = await pool.getReserveData(reserve);
+
+    if (rateMode === '1') {
+      // Stable rate debt
+      const stableDebtToken = await getStableDebtToken(reserveData.stableDebtTokenAddress);
+      amountToRepay = (await stableDebtToken.balanceOf(onBehalfOf.address)).toString();
     } else {
-      amountToRepay = MAX_UINT_AMOUNT;
+      // Variable rate debt
+      const variableDebtToken = await getVariableDebtToken(reserveData.variableDebtTokenAddress);
+      amountToRepay = (await variableDebtToken.balanceOf(onBehalfOf.address)).toString();
     }
   }
   amountToRepay = '0x' + new BigNumber(amountToRepay).toString(16);

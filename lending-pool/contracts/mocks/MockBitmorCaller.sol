@@ -65,7 +65,6 @@ contract MockLoanProvider {
         uint256 rateMode,
         address onBehalfOf
     ) external returns (uint256) {
-        console.log("Contract Asset: ", asset);
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
         // Reset approval to 0 first to handle existing allowances
         IERC20(asset).safeApprove(address(pool), 0);

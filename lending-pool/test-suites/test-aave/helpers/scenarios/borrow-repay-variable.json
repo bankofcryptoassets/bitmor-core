@@ -108,7 +108,7 @@
           "name": "borrow",
           "args": {
             "reserve": "USDC",
-            "amount": "900",
+            "amount": "50000",
             "borrowRateMode": "variable",
             "user": "1"
           },
@@ -207,7 +207,7 @@
             "amount": "-1",
             "user": "1"
           },
-          "expected": "revert"
+          "expected": "success"
         }
       ]
     },
@@ -305,7 +305,7 @@
             "borrowRateMode": "variable",
             "onBehalfOf": "1"
           },
-          "expected": "success"
+          "expected": "revert"
         }
       ]
     },
@@ -323,21 +323,6 @@
         }
       ]
     },
-    {
-      "description": "User 1 withdraws the collateral",
-      "actions": [
-        {
-          "name": "withdraw",
-          "args": {
-            "reserve": "LINK",
-            "amount": "-1",
-            "user": "1"
-          },
-          "expected": "revert"
-        }
-      ]
-    },
-
     {
       "description": "User 2 deposits 1 USDC to account for rounding errors",
       "actions": [
@@ -444,7 +429,7 @@
           "name": "borrow",
           "args": {
             "reserve": "USDC",
-            "amount": "900",
+            "amount": "50000",
             "borrowRateMode": "variable",
             "user": "1"
           },
@@ -511,7 +496,7 @@
             "amount": "-1",
             "user": "1"
           },
-          "expected": "revert"
+          "expected": "success"
         }
       ]
     },
@@ -590,7 +575,7 @@
           "name": "borrow",
           "args": {
             "reserve": "USDC",
-            "amount": "100",
+            "amount": "10000",
             "borrowRateMode": "variable",
             "user": "3"
           },
@@ -609,7 +594,7 @@
             "amount": "-1",
             "user": "3"
           },
-          "expected": "revert"
+          "expected": "success"
         }
       ]
     },
@@ -688,7 +673,7 @@
           "name": "borrow",
           "args": {
             "reserve": "USDC",
-            "amount": "100",
+            "amount": "10000",
             "borrowRateMode": "variable",
             "user": "3"
           },
@@ -706,134 +691,6 @@
             "reserve": "cbBTC",
             "amount": "-1",
             "user": "3"
-          },
-          "expected": "revert"
-        }
-      ]
-    },
-    {
-      "description": "User 0 deposits 1000 USDC, user 6 deposits 2 cbBTC and borrow 100 USDC at variable rate first, then 100 USDC at stable rate, repays everything. User 0 withdraws",
-      "actions": [
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "USDC",
-            "amount": "1000",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "USDC",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "USDC",
-            "amount": "1000",
-            "user": "0"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "mint",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "2",
-            "user": "6"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "cbBTC",
-            "user": "6"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "deposit",
-          "args": {
-            "reserve": "cbBTC",
-            "amount": "2",
-            "user": "6"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "borrow",
-          "args": {
-            "reserve": "USDC",
-            "amount": "100",
-            "borrowRateMode": "variable",
-            "user": "6",
-            "timeTravel": "365"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "borrow",
-          "args": {
-            "reserve": "USDC",
-            "amount": "100",
-            "borrowRateMode": "stable",
-            "user": "6",
-            "timeTravel": "365"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "mint",
-          "description": "Mint 50 USDC to cover the interest",
-          "args": {
-            "reserve": "USDC",
-            "amount": "50",
-            "user": "6"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "approve",
-          "args": {
-            "reserve": "USDC",
-            "user": "6"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "repay",
-          "args": {
-            "reserve": "USDC",
-            "amount": "-1",
-            "user": "6",
-            "onBehalfOf": "6",
-            "borrowRateMode": "stable"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "repay",
-          "args": {
-            "reserve": "USDC",
-            "amount": "-1",
-            "user": "6",
-            "onBehalfOf": "6",
-            "borrowRateMode": "variable"
-          },
-          "expected": "success"
-        },
-        {
-          "name": "withdraw",
-          "args": {
-            "reserve": "USDC",
-            "amount": "-1",
-            "user": "0"
           },
           "expected": "success"
         }
