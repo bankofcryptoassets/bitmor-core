@@ -1,4 +1,5 @@
-import {network, artifacts} from 'hardhat';
+import hre from 'hardhat';
+const { network, artifacts } = hre;
 import {
   insertContractAddressInDb,
   getEthersSigners,
@@ -372,14 +373,14 @@ before(async () => {
   const connectedNetwork = await network.connect();
   const { ethers } = connectedNetwork;
 
-  // Create hre object with ethers, network, and artifacts attached
-  const hre = {
-    ethers,
+  // Build the merged DRE object
+  const dreObject = {
+    ...hre,
     network: connectedNetwork,
-    artifacts,
+    ethers,
   };
 
-  setDRE(hre);
+  setDRE(dreObject);
   console.log('  - Network:', connectedNetwork.networkName);
 
   const [deployer, secondaryWallet] = await getEthersSigners();
