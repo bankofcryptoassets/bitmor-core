@@ -86,7 +86,9 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         s_strategy.reallocateAssets(amountToWithdraw);
     }
 
-    function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external restricted whenNotPaused {
+    function updateMinimumDeltaRequired(
+        uint256 newMinimumDeltaRequired
+    ) external restricted whenNotPaused {
         s_strategy.updateMinimumDeltaRequired(newMinimumDeltaRequired);
     }
 
@@ -116,7 +118,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return The vault token name
      */
     function name() public pure override returns (string memory) {
-        return "Simple Vault";
+        return "Bitmor USDC Vault";
     }
 
     /**
@@ -125,7 +127,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return The vault token symbol
      */
     function symbol() public pure override returns (string memory) {
-        return "SV";
+        return "bvUSDC";
     }
 
     /**
@@ -144,27 +146,37 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
-        assets = s_strategy.totalAssets();
+        assets = s_strategy.totalAssets() + ERC20(i_asset).balanceOf(address(this));
     }
 
-    function deposit(uint256 assets, address to) public override whenNotPaused returns (uint256 shares) {
+    function deposit(
+        uint256 assets,
+        address to
+    ) public override whenNotPaused returns (uint256 shares) {
+        if (assets == 0) revert Errors.ZeroAmount();
         return super.deposit(assets, to);
     }
 
-    function mint(uint256 shares, address to) public override whenNotPaused returns (uint256 assets) {
+    function mint(
+        uint256 shares,
+        address to
+    ) public override whenNotPaused returns (uint256 assets) {
         return super.mint(shares, to);
     }
 
-    function withdraw(uint256 assets, address to, address owner)
-        public
-        override
-        whenNotPaused
-        returns (uint256 shares)
-    {
+    function withdraw(
+        uint256 assets,
+        address to,
+        address owner
+    ) public override whenNotPaused returns (uint256 shares) {
         return super.withdraw(assets, to, owner);
     }
 
-    function redeem(uint256 shares, address to, address owner) public override whenNotPaused returns (uint256 assets) {
+    function redeem(
+        uint256 shares,
+        address to,
+        address owner
+    ) public override whenNotPaused returns (uint256 assets) {
         return super.redeem(shares, to, owner);
     }
 

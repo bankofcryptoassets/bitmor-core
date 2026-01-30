@@ -402,13 +402,19 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](6);
+        selectors = new bytes4[](11);
         selectors[0] = ILoan.setLoanVaultFactory.selector;
         selectors[1] = ILoan.setLiquidationBuffer.selector;
         selectors[2] = ILoan.setPremiumCollector.selector;
         selectors[3] = ILoan.setGracePeriod.selector;
         selectors[4] = ILoan.setPreClosureFee.selector;
         selectors[5] = bytes4(keccak256("unpause()"));
+        // New selectors for test configuration (replaces vm.store)
+        selectors[6] = ILoan.setMaxBTCAmount.selector;
+        selectors[7] = ILoan.setMinBTCAmount.selector;
+        selectors[8] = ILoan.setSlippageForSwap.selector;
+        selectors[9] = ILoan.setSlippageForSharesToAsset.selector;
+        selectors[10] = ILoan.setMinDepositBps.selector;
     }
 
     /// @notice Returns function selectors for ARE role

@@ -1,3 +1,16 @@
+/**
+ * Vault deposit helpers for Hardhat 3 / ethers v6 test infrastructure.
+ *
+ * Key features:
+ * - cbBTC/btcVault support: cbBTC deposits go through btcVault (registered as BitmorLoan)
+ * - Auto-selects correct vault based on asset type (DAI→usdcVault, USDC→actualUSDCVault,
+ *   WETH→wethVault, cbBTC→btcVault)
+ * - Handles pool access control registration (setUSDCVault vs setBitmorLoan)
+ *
+ * Usage: Call depositViaVault() instead of pool.deposit() in tests - it handles
+ * the full flow: mint → approve → vault.deposit (vault receives aTokens, user gets shares)
+ */
+
 import type { MintableERC20, WETH9Mocked } from '../../../types/ethers-contracts/index.js';
 import type { SignerWithAddress } from '../../../helpers/types.js';
 import type { TestEnv } from './make-suite.js';
@@ -14,8 +27,10 @@ import { parseEther } from 'ethers';
  * 4. User receives vault shares
  *
  * BITMOR: Automatically selects the correct vault based on the asset being deposited.
- * - For DAI/USDC/stablecoins: uses usdcVault (DAI vault)
+ * - For DAI/stablecoins: uses usdcVault (DAI vault)
+ * - For USDC: uses actualUSDCVault
  * - For WETH: uses wethVault
+ * - For cbBTC: uses btcVault (registered as BitmorLoan for pool access)
  *
  * @param asset The ERC20 token to deposit
  * @param amount The amount to deposit
@@ -29,15 +44,21 @@ export async function depositViaVault(
   user: SignerWithAddress,
   testEnv: TestEnv
 ): Promise<bigint> {
-  const { usdcVault, actualUSDCVault, wethVault, weth, usdc, addressesProvider, deployer } = testEnv;
+  const { usdcVault, actualUSDCVault, wethVault, btcVault, weth, usdc, cbBTC, addressesProvider, deployer } = testEnv;
 
   const assetAddress = await asset.getAddress();
   const wethAddress = await weth.getAddress();
   const usdcAddress = await usdc.getAddress();
+  const cbBTCAddress = cbBTC ? await cbBTC.getAddress() : null;
 
-  // Select correct vault based on asset
+  // Select correct vault and registration method based on asset
   let vault;
-  if (assetAddress.toLowerCase() === wethAddress.toLowerCase()) {
+  let usesBitmorLoanPath = false;
+
+  if (cbBTCAddress && assetAddress.toLowerCase() === cbBTCAddress.toLowerCase()) {
+    vault = btcVault;
+    usesBitmorLoanPath = true; // BTC uses loanProvider path for pool access
+  } else if (assetAddress.toLowerCase() === wethAddress.toLowerCase()) {
     vault = wethVault;
   } else if (assetAddress.toLowerCase() === usdcAddress.toLowerCase()) {
     vault = actualUSDCVault;
@@ -47,11 +68,20 @@ export async function depositViaVault(
 
   const vaultAddress = await vault.getAddress();
 
-  // Switch to correct vault in addresses provider
-  // Only the registered vault can call pool.deposit() (Error 85 check)
-  const currentVault = await addressesProvider.getUSDCVault();
-  if (currentVault.toLowerCase() !== vaultAddress.toLowerCase()) {
-    await addressesProvider.connect(deployer.signer).setUSDCVault(vaultAddress);
+  // Register vault in appropriate slot for pool access control
+  // LendingPool.deposit() checks: msg.sender == usdcVault OR msg.sender == bitmorLoan
+  if (usesBitmorLoanPath) {
+    // For BTC deposits, register vault as BitmorLoan
+    const currentLoan = await addressesProvider.getBitmorLoan();
+    if (currentLoan.toLowerCase() !== vaultAddress.toLowerCase()) {
+      await addressesProvider.connect(deployer.signer).setBitmorLoan(vaultAddress);
+    }
+  } else {
+    // For USDC/WETH/DAI, register as USDCVault
+    const currentVault = await addressesProvider.getUSDCVault();
+    if (currentVault.toLowerCase() !== vaultAddress.toLowerCase()) {
+      await addressesProvider.connect(deployer.signer).setUSDCVault(vaultAddress);
+    }
   }
 
   // 1. Mint tokens to user
@@ -62,10 +92,34 @@ export async function depositViaVault(
 
   // 3. Deposit via vault (returns shares)
   const tx = await vault.connect(user.signer).deposit(amount, user.address);
-  const receipt = await tx.wait();
+  await tx.wait();
 
   // For 1:1 mock vault, shares = amount
   return amount;
+}
+
+/**
+ * @notice Helper for BTC collateral tests: deposit bvBTC + borrow USDC
+ *
+ * @param btcAmount The amount of cbBTC to deposit as collateral
+ * @param borrowAmount The amount of USDC to borrow
+ * @param user The user performing the operations
+ * @param testEnv The test environment
+ */
+export async function setupBTCCollateralAndBorrow(
+  btcAmount: bigint,
+  borrowAmount: bigint,
+  user: SignerWithAddress,
+  testEnv: TestEnv
+): Promise<void> {
+  const { pool, cbBTC, usdc } = testEnv;
+
+  // 1. Deposit cbBTC via vault (user gets bvBTC shares, vault gets aTokens)
+  await depositViaVault(cbBTC, btcAmount, user, testEnv);
+
+  // 2. Borrow USDC
+  const usdcAddress = await usdc.getAddress();
+  await pool.connect(user.signer).borrow(usdcAddress, borrowAmount, 2, 0, user.address);
 }
 
 /**

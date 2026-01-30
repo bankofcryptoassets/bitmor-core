@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {BitmorTestBase} from "../BitmorTestBase.sol";
+import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {BTCVault, BTCVaultHarness} from "../../harness/BTCVaultHarness.sol";
 import {MockTokenizedStrategy} from "../../mock/MockTokenizedStrategy.sol";
 import {MockYieldSource} from "../../mock/MockYieldSource.sol";
+import {MockERC20} from "../../mock/MockERC20.sol";
 
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
@@ -24,8 +25,18 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @notice MockYieldSource for strategy
     MockYieldSource yieldSource;
 
+    /// @notice Mock USDC token for unit tests
+    MockERC20 internal mockUSDC;
+
+    /// @notice Compatibility struct for tests that reference networkConfig
+    struct MockNetworkConfig {
+        address usdc;
+        uint256 entryFee;
+        uint256 exitFee;
+    }
+
     /// @notice Network configuration containing protocol addresses
-    HelperConfig.NetworkConfig networkConfig;
+    MockNetworkConfig networkConfig;
 
     /// @notice Address that receives vault fees
     address feeRecipient;
@@ -66,31 +77,31 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     uint256 public constant MAX_STRATEGIES = 10;
 
     /// @notice Sets up test environment with vault, strategy, and test accounts
-    /// @dev Creates fresh contracts and configures them with network-specific addresses.
-    ///      Uses BitmorTestBase for AccessManager initialization and role management.
-    function setUp() public virtual {
-        HelperConfig config = new HelperConfig();
-        networkConfig = config.getNetworkConfig();
-
-        // Create test user first (before _initializeAccessManager creates role actors)
+    /// @dev Creates fresh contracts with mock tokens for unit testing.
+    function setUp() public virtual override {
+        // Create test user first
         user = makeAddr("user");
         feeRecipient = makeAddr("FEE_RECIPIENT");
 
         // Initialize AccessManager and RolesData through BitmorTestBase
-        // This deploys a fresh AccessManager and creates all role actor addresses
         _initializeAccessManager(address(this));
 
-        // Deploy vault and strategy contracts with inherited manager
-        vault = new BTCVaultHarness(networkConfig.usdc, address(manager));
+        // Deploy mock USDC for unit tests
+        mockUSDC = new MockERC20("USD Coin", "USDC", 6);
+
+        // Set up mock network config for compatibility
+        networkConfig = MockNetworkConfig({usdc: address(mockUSDC), entryFee: 10, exitFee: 10});
+
+        // Deploy vault with mock USDC
+        vault = new BTCVaultHarness(address(mockUSDC), address(manager));
 
         yieldSource = new MockYieldSource();
-
         strategy = new MockTokenizedStrategy(address(yieldSource), address(vault));
 
-        // Set up BTC Vault roles using BitmorTestBase helper
+        // Set up BTC Vault roles
         _setBTCVaultRoles(user);
 
-        // Set up target selectors (using local function for complete selector coverage)
+        // Set up target selectors
         _setTargetSelectorsLocal();
 
         // Configure vault
@@ -111,53 +122,54 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
         bvmSlowSelectors[2] = BTCVault.setExitFee.selector;
         bvmSlowSelectors[3] = BTCVault.setMaxStrategies.selector;
         bvmSlowSelectors[4] = BTCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, bvmSlowSelectors, BVM_SLOW_ID);
+        manager.setTargetFunctionRole(target, bvmSlowSelectors, BVM_SLOW_ID());
 
         // BVM_FAST selectors
         bytes4[] memory bvmFastSelectors = new bytes4[](1);
         bvmFastSelectors[0] = BTCVault.pause.selector;
-        manager.setTargetFunctionRole(target, bvmFastSelectors, BVM_FAST_ID);
+        manager.setTargetFunctionRole(target, bvmFastSelectors, BVM_FAST_ID());
 
         // BVC selectors
         bytes4[] memory bvcSelectors = new bytes4[](2);
         bvcSelectors[0] = BTCVault.addStrategy.selector;
         bvcSelectors[1] = BTCVault.changeStrategyCap.selector;
-        manager.setTargetFunctionRole(target, bvcSelectors, BVC_ID);
+        manager.setTargetFunctionRole(target, bvcSelectors, BVC_ID());
 
         // BVA_SLOW selectors
         bytes4[] memory bvaSlowSelectors = new bytes4[](2);
         bvaSlowSelectors[0] = BTCVault.updateSupplyQueue.selector;
         bvaSlowSelectors[1] = BTCVault.updateWithdrawQueue.selector;
-        manager.setTargetFunctionRole(target, bvaSlowSelectors, BVA_SLOW_ID);
+        manager.setTargetFunctionRole(target, bvaSlowSelectors, BVA_SLOW_ID());
 
         // BVA_FAST selectors
         bytes4[] memory bvaFastSelectors = new bytes4[](1);
         bvaFastSelectors[0] = BTCVault.reallocateFunds.selector;
-        manager.setTargetFunctionRole(target, bvaFastSelectors, BVA_FAST_ID);
+        manager.setTargetFunctionRole(target, bvaFastSelectors, BVA_FAST_ID());
 
         // BVD selectors
         bytes4[] memory bvdSelectors = new bytes4[](1);
         bvdSelectors[0] = BTCVault.deposit.selector;
-        manager.setTargetFunctionRole(target, bvdSelectors, BVD_ID);
+        manager.setTargetFunctionRole(target, bvdSelectors, BVD_ID());
     }
 
     /// @notice Configure vault with fees using delayed operations
     function _setFeeConfig() internal {
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setEntryFee, (networkConfig.entryFee)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setExitFee, (networkConfig.exitFee)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
+        _scheduleAndExecuteLocal(
+            bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (networkConfig.entryFee))
+        );
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setExitFee, (networkConfig.exitFee)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
     }
 
-    /// @notice Transfer USDC to test accounts using deal() cheatcode
-    /// @dev Uses deal() instead of safeTransfer to avoid dependency on holder balances
+    /// @notice Mint mock USDC to test accounts
     function _transferUSDC() internal {
-        deal(networkConfig.usdc, user, USDC_TO_MINT);
-        deal(networkConfig.usdc, address(this), USDC_TO_MINT);
+        mockUSDC.mint(user, USDC_TO_MINT);
+        mockUSDC.mint(address(this), USDC_TO_MINT);
     }
 
     /// @notice Set maximum strategies for the vault
     function _setMaxStrategies() internal {
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID, abi.encodeCall(BTCVault.setMaxStrategies, (MAX_STRATEGIES)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setMaxStrategies, (MAX_STRATEGIES)));
     }
 
     /// @notice Schedule and execute a delayed operation (local helper targeting vault)
@@ -202,33 +214,33 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     // These provide the old interface expected by existing test files like AccessControl.t.sol
 
     /// @notice Get BVM_SLOW role ID for backward compatibility
-    function bvm_slow_id() internal pure returns (uint64) {
-        return BVM_SLOW_ID;
+    function bvm_slow_id() internal view returns (uint64) {
+        return BVM_SLOW_ID();
     }
 
     /// @notice Get BVM_FAST role ID for backward compatibility
-    function bvm_fast_id() internal pure returns (uint64) {
-        return BVM_FAST_ID;
+    function bvm_fast_id() internal view returns (uint64) {
+        return BVM_FAST_ID();
     }
 
     /// @notice Get BVC role ID for backward compatibility
-    function bvc_id() internal pure returns (uint64) {
-        return BVC_ID;
+    function bvc_id() internal view returns (uint64) {
+        return BVC_ID();
     }
 
     /// @notice Get BVA_SLOW role ID for backward compatibility
-    function bva_slow_id() internal pure returns (uint64) {
-        return BVA_SLOW_ID;
+    function bva_slow_id() internal view returns (uint64) {
+        return BVA_SLOW_ID();
     }
 
     /// @notice Get BVA_FAST role ID for backward compatibility
-    function bva_fast_id() internal pure returns (uint64) {
-        return BVA_FAST_ID;
+    function bva_fast_id() internal view returns (uint64) {
+        return BVA_FAST_ID();
     }
 
     /// @notice Get BVD role ID for backward compatibility
-    function bvd_id() internal pure returns (uint64) {
-        return BVD_ID;
+    function bvd_id() internal view returns (uint64) {
+        return BVD_ID();
     }
 
     // ============ Backward Compatible Schedule Helpers ============

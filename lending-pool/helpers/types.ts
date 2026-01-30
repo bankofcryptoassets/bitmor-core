@@ -110,6 +110,10 @@ export enum eContractid {
   MockUSDCVault = 'MockUSDCVault',
   MockActualUSDCVault = 'MockActualUSDCVault',
   MockWETHVault = 'MockWETHVault',
+  /** ERC-4626-like vault for cbBTC → bvBTC. Enables testing vault-based deposits. */
+  MockBTCVault = 'MockBTCVault',
+  /** Mock ILoan implementation for liquidation tests (micro/full liquidation scenarios). */
+  MockLoan = 'MockLoan',
   UniswapLiquiditySwapAdapter = 'UniswapLiquiditySwapAdapter',
   UniswapRepayAdapter = 'UniswapRepayAdapter',
   FlashLiquidationAdapter = 'FlashLiquidationAdapter',
@@ -396,7 +400,9 @@ export enum TokenContractId {
   xSUSHI = 'xSUSHI',
   WAVAX = 'WAVAX',
   bvBTC = 'bvBTC',
-  bUSDC = 'bUSDC'
+  bUSDC = 'bUSDC',
+  /** cbBTC token - underlying asset for MockBTCVault (cbBTC → bvBTC shares). */
+  cbBTC = 'cbBTC',
 }
 
 export interface IReserveParams extends IReserveBorrowParams, IReserveCollateralParams {

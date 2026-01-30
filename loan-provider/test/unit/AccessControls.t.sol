@@ -24,6 +24,16 @@ contract AccessControlsTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();
         attacker = makeAddr("attacker");
+
+        // Add missing LPM_SLOW selectors that aren't in RolesData.getLPM_SLOW_SELECTORS()
+        // These selectors are tested but not included in the default RolesData config
+        bytes4[] memory additionalSelectors = new bytes4[](2);
+        additionalSelectors[0] = Loan.setSwapAdapter.selector;
+        additionalSelectors[1] = Loan.setZQuoter.selector;
+
+        vm.startPrank(admin);
+        manager.setTargetFunctionRole(address(loan), additionalSelectors, LPM_SLOW_ID());
+        vm.stopPrank();
     }
 
     /// @notice Unauthorized caller cannot call admin setter functions (expects AccessManagedUnauthorized)
@@ -58,23 +68,23 @@ contract AccessControlsTest is BaseLoanTest {
     function test_lpmSlow_adminSetters_updateState() public {
         // Use _scheduleAndExecute with lpm_slow role for each setter
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
         );
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
-        );
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
         );
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID, abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
+        );
+        _scheduleAndExecute(
+            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
         );
 
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
@@ -91,7 +101,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setLoanVaultFactory, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -99,7 +109,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setSwapAdapter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -107,7 +117,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setZQuoter, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -115,7 +125,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,
-            LPM_SLOW_ID,
+            LPM_SLOW_ID(),
             abi.encodeCall(Loan.setPremiumCollector, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
@@ -126,7 +136,7 @@ contract AccessControlsTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
-        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 
@@ -135,7 +145,7 @@ contract AccessControlsTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
-        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.updateLoanDataForFullLiquidation(lsa);
     }
 

@@ -41,9 +41,14 @@ cd loan-provider
 # Build
 forge build
 
-# Test (requires Base Sepolia fork)
-make test                                           # All tests
-forge test --mt test_functionName --fork-url base_sepolia -vvvv  # Single test
+# Test
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # Unit tests with mocks
+make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:single TEST=test_functionName  # Single test by name
 
 # Deploy full system to Base Sepolia
 make setup
@@ -194,17 +199,46 @@ Standard Aave V2 structure:
 
 ### Foundry Tests (loan-provider/)
 
-Tests require Base Sepolia fork. Key test files in `test/unit/`:
+**Test Modes:**
+- **Unit tests**: Run locally with mock infrastructure (no fork required)
+- **Fork tests**: Run against Base Sepolia fork for integration testing
+
+Key test files in `test/unit/`:
 - `Loan/BaseLoan.t.sol` - Shared test base with helpers and setup
 - `Loan/InitializeLoan.t.sol`, `RepayLoan.t.sol`, `CloseLoan.t.sol`
 - `MicroLiquidation.t.sol`, `FullLiquidation.t.sol`
-- `Vault/BTC/*.t.sol` - BTCVault tests
+- `Vault/BTC/*.t.sol` - BTCVault tests (45 tests, mock-based)
+- `Vault/USDC/*.t.sol` - USDCVault tests (21 tests, mock-based)
+
+**Test Base Classes** (`test/base/`):
+- `BitmorTestBase.sol` - Core: AccessManager, roles, actors, `_scheduleAndExecute()`
+- `UnitTestBase.sol` - Unit tests with mocks, `_fundUSDC()`, `_fundCbBTC()`
+- `ForkTestBase.sol` - Fork tests with real Aave V3, `_dealToken()`
+- `LoanUnitTestBase.sol` - Loan-specific unit test base with mock infrastructure
+
+**Mock Contracts** (`test/mock/`):
+| Mock | Description |
+|------|-------------|
+| `MockERC20.sol` | Configurable ERC20 with unrestricted mint/burn |
+| `MockAToken.sol` | Pool-restricted aToken with underlying asset approval |
+| `MockVariableDebtToken.sol` | Pool-restricted variable debt token |
+| `MockAaveV3Pool.sol` | Flash loans + lending functions (supply, withdraw, getReserveAToken) |
+| `MockBitmorLendingPool.sol` | Full lending pool mock with liquidation logic |
+| `MockAddressesProvider.sol` | Addresses provider for oracle and pool |
+| `MockPriceOracle.sol` | Configurable price oracle |
+| `MockSwapAdapter.sol` | Mock swap adapter with configurable rates |
+| `MockInterestRateStrategy.sol` | Fixed interest rate strategy |
+| `MockChainlinkOracle.sol` | Chainlink AggregatorV3Interface mock |
 
 Helpful make targets:
 ```bash
-make testLoanInitialization
-make testRepay
-make testCloseLoan
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # All unit tests with mock infrastructure
+make test:fork               # Fork tests with real protocols
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:single TEST=test_initializeLoan  # Single test by name
 ```
 
 ### Hardhat Tests (lending-pool/)
@@ -322,3 +356,22 @@ Guardian roles can cancel delayed operations for their protected roles:
 - **Deployment guide**: `DEPLOYMENT_SETUP.md` - Comprehensive deployment instructions
 - **Session plans**: `docs/plans/SESSION_CONTINUATION.md` - Tracks implementation progress and completed work
 - **Implementation plans**: `docs/plans/` - Detailed architecture and design decisions
+- **Test setup plan**: `docs/plans/2026-01-23-test-setup-fixes.md` - Current test infrastructure migration
+
+## Recent Production Fixes
+
+### USDCStrategy.withdraw() Bug (2026-01-23)
+
+**Location:** `loan-provider/src/vaults/usdc-vault/USDCStrategy.sol:178-182`
+
+**Issue:** The `withdraw()` function called `_withdrawFunds(amount)` which withdrew assets to the strategy contract, but never transferred them to the vault. This caused vault's `maxWithdraw()` to return 0.
+
+**Fix:** Added `i_asset.safeTransfer(msg.sender, amount)` after `_withdrawFunds()` to transfer assets to the vault.
+
+```solidity
+function withdraw(uint256 amount) external onlyVault {
+    _withdrawFunds(amount);
+    // Transfer withdrawn assets to vault (msg.sender)
+    i_asset.safeTransfer(msg.sender, amount);
+}
+```

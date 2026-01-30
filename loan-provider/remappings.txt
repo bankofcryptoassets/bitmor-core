@@ -5,3 +5,5 @@ forge-std/=lib/forge-std/src/
 @solady/=lib/solady/src/
 @btcVault/=src/vaults/btc-vault/
 @usdcVault/=src/vaults/usdc-vault/
+@lending-pool/=../lending-pool/contracts/
+@oz-v3/=../lending-pool/node_modules/@openzeppelin/contracts/

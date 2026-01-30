@@ -22,8 +22,14 @@ contract AutoRepaymentTest is BaseLoanTest {
 
         autoRepaymentExecutor = makeAddr("autoRepaymentExecutor");
 
-        vm.prank(owner);
-        autoRepay = new AutoRepayment(address(loan), debtAsset, autoRepaymentExecutor);
+        vm.startPrank(admin);
+        // Constructor: AutoRepayment(address _manager, address _loan, address _debtAsset)
+        autoRepay = new AutoRepayment(address(manager), address(loan), debtAsset);
+
+        // Configure AutoRepayment roles - grant ARE role and set target selectors
+        manager.grantRole(ARE_ID(), autoRepaymentExecutor, 0);
+        _setAutoRepaymentTargetSelectors(address(autoRepay));
+        vm.stopPrank();
     }
 
     // ============ Modifiers ============

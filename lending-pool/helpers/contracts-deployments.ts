@@ -55,8 +55,11 @@ import {
   UiPoolDataProviderV2__factory,
   UiPoolDataProviderV2V3__factory,
   UiIncentiveDataProviderV2__factory,
-  MockUSDCVault__factory,
+  MockBTCVault__factory,
+  MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
+// Import MockUSDCVault from vault/ to get the correct 2-arg constructor
+import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
   withSaveAndVerify,
@@ -732,6 +735,38 @@ export const deployMockWETHVault = async (
   withSaveAndVerify(
     await new MockUSDCVault__factory(await getFirstSigner()).deploy(...args),
     eContractid.MockWETHVault,
+    args,
+    verify
+  );
+
+/**
+ * Deploy MockBTCVault for bvBTC collateral testing.
+ * @param args [addressesProvider, cbBTCAddress] - AddressesProvider and underlying cbBTC token
+ * @param verify Whether to verify on Etherscan
+ */
+export const deployMockBTCVault = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockBTCVault__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockBTCVault,
+    args,
+    verify
+  );
+
+/**
+ * Deploy MockLoan for liquidation testing.
+ * @param args [collateralAsset, debtAsset] - bvBTC collateral and USDC debt addresses
+ * @param verify Whether to verify on Etherscan
+ */
+export const deployMockLoan = async (
+  args: [tEthereumAddress, tEthereumAddress],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new MockLoan__factory(await getFirstSigner()).deploy(...args),
+    eContractid.MockLoan,
     args,
     verify
   );

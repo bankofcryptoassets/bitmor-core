@@ -91,7 +91,8 @@ library LoanLogic {
                 IERC20Metadata(ctx.debtAsset).decimals(),
                 params.collateralAmount,
                 IERC20Metadata(ctx.collateralAsset).decimals(),
-                params.duration
+                params.duration,
+                ctx.minDepositBps
             )
         );
 
@@ -226,7 +227,8 @@ library LoanLogic {
                 collateralPriceUSD,
                 debtPriceUSD,
                 maxInterestRate,
-                data.duration
+                data.duration,
+                data.minDepositBps
             )
         );
     }
@@ -246,6 +248,7 @@ library LoanLogic {
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
     function calculateLoanDetails(
+        DataTypes.CalculateLoanDetailsContext memory ctx,
         address bitmorPool,
         address _oracle,
         address collateralAsset,
@@ -253,6 +256,10 @@ library LoanLogic {
         uint256 collateralAmount,
         uint256 duration
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+        if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
+        if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
+        if (duration == 0) revert Errors.ZeroAmount();
+
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
         uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
@@ -272,7 +279,8 @@ library LoanLogic {
             debtPriceUSD,
             IERC20Metadata(debtAsset).decimals(),
             interestRate,
-            duration
+            duration,
+            ctx.minDepositBps
         );
     }
 }

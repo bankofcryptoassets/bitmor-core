@@ -34,8 +34,11 @@ import {
   WETHGateway__factory,
   FlashLiquidationAdapter__factory,
   IERC20Detailed__factory,
-  MockUSDCVault__factory,
+  MockBTCVault__factory,
+  MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
+// Import MockUSDCVault from vault/ to get the correct 2-arg constructor version
+import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers.js';
 import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils.js';
 import { eContractid, TokenContractId } from './types.js';
@@ -350,6 +353,26 @@ export const getMockWETHVault = async (address?: tEthereumAddress) =>
     address ||
       (
         await getDb().get(`${eContractid.MockWETHVault}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+/** Get MockBTCVault instance for bvBTC collateral testing. Retrieves from database if address not provided. */
+export const getMockBTCVault = async (address?: tEthereumAddress) =>
+  await MockBTCVault__factory.connect(
+    address ||
+      (
+        await getDb().get(`${eContractid.MockBTCVault}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+/** Get MockLoan instance for liquidation testing. Retrieves from database if address not provided. */
+export const getMockLoan = async (address?: tEthereumAddress) =>
+  await MockLoan__factory.connect(
+    address ||
+      (
+        await getDb().get(`${eContractid.MockLoan}.${DRE.network.networkName}`).value()
       ).address,
     await getFirstSigner()
   );

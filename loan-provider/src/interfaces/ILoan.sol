@@ -47,6 +47,16 @@ interface ILoan {
 
     event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
 
+    event Loan__SlippageForSharesToAssetUpdated(uint256 indexed newSlippage);
+
+    event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
+
+    event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
+
+    event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
+
+    event Loan__MinDepositUpdated(uint256 indexed newMinDepositBps);
+
     // ============ Main Functions ============
 
     /**
@@ -158,9 +168,9 @@ interface ILoan {
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
      * @dev Withdraws from escrow where excess collateral is locked
      * @param lsa The Loan Specific Address
-     * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
-    function closeLoan(address lsa, bool withdrawInCollateralAsset) external;
+    function closeLoan(address lsa, bool withdrawInBTC) external;
 
     // ============ Admin Functions ============
 
@@ -249,4 +259,24 @@ interface ILoan {
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
+
+    function setSlippageForSharesToAsset(uint256 newSlippage) external;
+
+    function getSlippageForSharesToAsset() external view returns (uint256);
+
+    function setSlippageForSwap(uint256 newSlippage) external;
+
+    function getSlippageForSwap() external view returns (uint256);
+
+    function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
+
+    function getMaxBTCAmount() external view returns (uint256);
+
+    function setMinBTCAmount(uint256 newMinBTCAmt) external;
+
+    function getMinBTCAmount() external view returns (uint256);
+
+    function getMinDepositBps() external view returns (uint256);
+
+    function setMinDepositBps(uint256 newMinDepositBps) external;
 }

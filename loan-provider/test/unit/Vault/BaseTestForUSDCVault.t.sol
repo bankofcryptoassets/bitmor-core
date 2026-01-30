@@ -1,11 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {BitmorTestBase} from "../BitmorTestBase.sol";
+import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {MockERC20} from "../../mock/MockERC20.sol";
+import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
+import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";
+import {MockPriceOracle} from "../../mock/MockPriceOracle.sol";
+import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
+import {MockAToken} from "../../mock/MockAToken.sol";
+import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
 
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
@@ -22,7 +29,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     USDCStrategy internal strategy;
 
     /// @notice Network configuration containing protocol addresses
-    HelperConfig.NetworkConfig internal networkConfig;
+    MockNetworkConfig internal networkConfig;
 
     // ============ Test Addresses ============
 
@@ -34,6 +41,39 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     /// @notice Attacker address for security tests
     address internal attacker;
+
+    // ============ Mock Infrastructure ============
+    MockERC20 internal mockUSDC;
+    MockBitmorLendingPool internal mockBitmorPool;
+    MockAddressesProvider internal mockAddressesProvider;
+    MockPriceOracle internal mockOracle;
+    MockAaveV3Pool internal mockAavePool;
+    MockAToken internal mockAaveAToken;
+    MockAToken internal mockBitmorAToken;
+    MockVariableDebtToken internal mockBitmorDebtToken;
+
+    /// @notice Compatibility struct for tests that reference networkConfig
+    struct MockNetworkConfig {
+        address usdc;
+        address bitmorPool;
+        address aaveV3Pool;
+    }
+
+    /// @dev Snapshot of vault state at a point in time
+    struct VaultState {
+        uint256 totalAssets;
+        uint256 totalSupply;
+        uint256 sharePrice;
+        uint256 aaveBalance;
+        uint256 blpBalance;
+    }
+
+    /// @dev Snapshot of a user's vault position
+    struct UserState {
+        uint256 shareBalance;
+        uint256 usdcBalance;
+        uint256 assetValue;
+    }
 
     // ============ Test Amount Constants ============
 
@@ -57,42 +97,93 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     /// @notice Default Aave allocation (80% = 8000 bps)
     uint256 internal constant DEFAULT_AAVE_ALLOCATION_BPS = 8000;
 
+    /// @notice Half allocation for custom allocation tests (50% = 5000 bps)
+    uint256 internal constant HALF_ALLOCATION_BPS = 5000;
+
+    /// @notice Default tolerance for allocation checks (1% = 100 bps)
+    uint256 internal constant DEFAULT_TOLERANCE_BPS = 100;
+
+    /// @notice Loose tolerance for allocation checks after withdrawals (5% = 500 bps)
+    uint256 internal constant LOOSE_TOLERANCE_BPS = 500;
+
     // ============ Setup ============
 
-    /// @notice Core test setup - deploys vault, strategy, and configures access roles
-    /// @dev Creates fresh contracts and configures them with network-specific addresses.
-    ///      Uses BitmorTestBase for AccessManager initialization and role management.
-    ///      Note: Role IDs now use correct USDC vault IDs (21, 210, 22, 23) from RolesData.
-    function setUp() public virtual {
-        HelperConfig config = new HelperConfig();
-        networkConfig = config.getNetworkConfig();
-
+    /// @notice Core test setup - deploys vault and strategy with mock infrastructure
+    function setUp() public virtual override {
         // Create test addresses
         lender = makeAddr("LENDER");
         lender2 = makeAddr("LENDER2");
         attacker = makeAddr("ATTACKER");
 
-        // Initialize AccessManager and RolesData through BitmorTestBase
-        // This deploys a fresh AccessManager and creates all role actor addresses
+        // Initialize AccessManager and RolesData
         _initializeAccessManager(address(this));
 
-        // Deploy vault with inherited manager
-        vault = new USDCVault(address(manager), networkConfig.usdc, networkConfig.bitmorPool);
+        // Deploy mock infrastructure
+        _deployMockInfrastructure();
 
-        // Deploy strategy
-        strategy = new USDCStrategy(address(vault), networkConfig.aaveV3Pool, networkConfig.bitmorPool);
+        // Set up mock network config for compatibility
+        networkConfig = MockNetworkConfig({
+            usdc: address(mockUSDC), bitmorPool: address(mockBitmorPool), aaveV3Pool: address(mockAavePool)
+        });
 
-        // Set up USDC Vault roles using BitmorTestBase helper
+        // Deploy vault with mock dependencies
+        vault = new USDCVault(address(manager), address(mockUSDC), address(mockBitmorPool));
+
+        // Deploy strategy with mock Aave pool
+        strategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));
+
+        // Set up USDC Vault roles
         _setUSDCVaultRoles();
 
-        // Set function permissions (using local function for complete selector coverage)
+        // Set function permissions
         _setTargetSelectorsLocal();
 
         // Configure vault with strategy
         _setStrategy();
 
-        // Transfer USDC to test accounts
-        _transferUSDC();
+        // Mint mock USDC to test accounts
+        _mintUSDC();
+    }
+
+    /// @notice Deploys mock infrastructure for unit tests
+    function _deployMockInfrastructure() internal {
+        // Deploy mock USDC
+        mockUSDC = new MockERC20("USD Coin", "USDC", 6);
+
+        // Deploy mock oracle
+        mockOracle = new MockPriceOracle(address(0), address(0));
+        mockOracle.setAssetPrice(address(mockUSDC), 1e8);
+
+        // Deploy mock addresses provider
+        mockAddressesProvider = new MockAddressesProvider(address(0), address(mockOracle), address(this));
+
+        // Deploy mock Bitmor lending pool
+        mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
+        mockAddressesProvider.setLendingPool(address(mockBitmorPool));
+
+        // Deploy mock aToken and debt token for Bitmor pool
+        mockBitmorAToken = new MockAToken("Bitmor Mock USDC", "bmUSDC", 6, address(mockUSDC), address(mockBitmorPool));
+        mockBitmorDebtToken =
+            new MockVariableDebtToken("Bitmor Mock USDC Debt", "vdUSDC", 6, address(mockUSDC), address(mockBitmorPool));
+        mockBitmorPool.initReserve(address(mockUSDC), address(mockBitmorAToken), address(mockBitmorDebtToken));
+
+        // Deploy mock Aave V3 pool
+        mockAavePool = new MockAaveV3Pool();
+
+        // Deploy mock aToken for Aave and initialize reserve
+        mockAaveAToken = new MockAToken("Aave Mock USDC", "amUSDC", 6, address(mockUSDC), address(mockAavePool));
+        mockAavePool.initReserve(address(mockUSDC), address(mockAaveAToken));
+
+        // Fund pools with liquidity
+        mockUSDC.mint(address(mockBitmorPool), 100_000_000e6);
+        mockUSDC.mint(address(mockAavePool), 100_000_000e6);
+    }
+
+    /// @notice Mint mock USDC to test accounts
+    function _mintUSDC() internal {
+        mockUSDC.mint(lender, USDC_TO_MINT);
+        mockUSDC.mint(lender2, USDC_TO_MINT);
+        mockUSDC.mint(address(this), USDC_TO_MINT);
     }
 
     /// @notice Sets function permissions for each role using correct USDC vault role IDs
@@ -105,32 +196,31 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         uvmSlowSelectors[0] = USDCVault.setStrategy.selector;
         uvmSlowSelectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
         uvmSlowSelectors[2] = USDCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID);
+        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID());
 
         // UVM_FAST functions (no delay)
         bytes4[] memory uvmFastSelectors = new bytes4[](1);
         uvmFastSelectors[0] = USDCVault.pause.selector;
-        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID);
+        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID());
 
         // UVA functions - use function signature for overloaded function
-        bytes4[] memory uvaSelectors = new bytes4[](1);
+        bytes4[] memory uvaSelectors = new bytes4[](2);
         uvaSelectors[0] = bytes4(keccak256("reallocateAssets()"));
-        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID);
+        uvaSelectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
+        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID());
 
-        // reallocateAssets(uint256) is restricted to BLP via msg.sender check, not AccessManager
+        // Grant UVA role to BLP for reallocateAssets(uint256) - the function also checks msg.sender == i_blp
+        manager.grantRole(UVA_ID(), address(mockBitmorPool), 0);
     }
 
     /// @notice Sets the strategy on the vault using UVM_SLOW role
+    /// @dev Also initializes the default Aave allocation (80%)
     function _setStrategy() internal {
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID, abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
-    }
+        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
 
-    /// @notice Transfers USDC to test accounts using Foundry's deal() cheatcode
-    /// @dev Uses deal() instead of safeTransfer to avoid dependency on holder balances
-    function _transferUSDC() internal {
-        deal(networkConfig.usdc, lender, USDC_TO_MINT);
-        deal(networkConfig.usdc, lender2, USDC_TO_MINT);
-        deal(networkConfig.usdc, address(this), USDC_TO_MINT);
+        // Initialize the default Aave allocation to 80%
+        vm.prank(address(vault));
+        strategy.setAaveAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
     }
 
     // ============ Helper Functions ============
@@ -208,6 +298,103 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         uint256 supply = vault.totalSupply();
         if (supply == 0) return 1e18;
         return (vault.totalAssets() * 1e18) / supply;
+    }
+
+    /// @notice Gets the current Aave balance from strategy
+    /// @return The USDC balance held in Aave via strategy
+    function _getAaveBalance() internal view returns (uint256) {
+        // Strategy deposits to MockAavePool which mints aTokens
+        // The aToken balance represents Aave position
+        return mockAaveAToken.balanceOf(address(strategy));
+    }
+
+    /// @notice Gets the current Bitmor Lending Pool balance from strategy
+    /// @return The USDC balance held in BLP via strategy
+    function _getBLPBalance() internal view returns (uint256) {
+        // Strategy deposits to MockBitmorPool which mints aTokens
+        return mockBitmorAToken.balanceOf(address(strategy));
+    }
+
+    /// @notice Gets total balance across all markets
+    /// @return The total USDC managed by strategy
+    function _getTotalBalance() internal view returns (uint256) {
+        return _getAaveBalance() + _getBLPBalance();
+    }
+
+    /// @notice Captures current vault state
+    /// @return state The vault state snapshot
+    function _captureVaultState() internal view returns (VaultState memory state) {
+        state.totalAssets = vault.totalAssets();
+        state.totalSupply = vault.totalSupply();
+        state.sharePrice = _getSharePrice();
+        state.aaveBalance = _getAaveBalance();
+        state.blpBalance = _getBLPBalance();
+    }
+
+    /// @notice Captures current user state
+    /// @param user The user address
+    /// @return state The user state snapshot
+    function _captureUserState(address user) internal view returns (UserState memory state) {
+        state.shareBalance = vault.balanceOf(user);
+        state.usdcBalance = IERC20(networkConfig.usdc).balanceOf(user);
+        state.assetValue = vault.convertToAssets(state.shareBalance);
+    }
+
+    // ============ Allocation and Rebalance Helpers ============
+
+    /// @notice Sets the Aave allocation on the strategy
+    /// @param allocationBps The new allocation in basis points (e.g., 8000 = 80%)
+    /// @dev Pranks as the vault since only the vault can call setAaveAllocation
+    function _setAllocation(uint256 allocationBps) internal {
+        vm.prank(address(vault));
+        strategy.setAaveAllocation(allocationBps);
+    }
+
+    /// @notice Triggers reallocation via the vault
+    function _rebalance() internal {
+        // reallocateAssets() requires UVA role, use schedule/execute
+        // Using encodeWithSignature to handle overloaded function
+        _scheduleAndExecuteLocal(uva, UVA_ID(), abi.encodeWithSignature("reallocateAssets()"));
+    }
+
+    /// @notice Triggers reallocation with specific amount (BLP priority)
+    /// @param amountToWithdraw Amount to reallocate from Aave to BLP
+    function _rebalanceWithAmount(uint256 amountToWithdraw) internal {
+        // reallocateAssets(uint256) is restricted to BLP via msg.sender check
+        vm.prank(networkConfig.bitmorPool);
+        vault.reallocateAssets(amountToWithdraw);
+    }
+
+    /// @notice Donates USDC directly to an address (for security tests)
+    /// @param target The address to donate to
+    /// @param amount The amount of USDC to donate
+    function _donate(address target, uint256 amount) internal {
+        address donor = makeAddr("DONOR");
+        mockUSDC.mint(donor, amount);
+        vm.prank(donor);
+        IERC20(networkConfig.usdc).transfer(target, amount);
+    }
+
+    /// @notice Asserts allocation is within tolerance of target
+    /// @param targetAaveAllocationBps Target Aave allocation in bps
+    /// @param toleranceBps Tolerance in basis points
+    function _assertAllocationCorrect(uint256 targetAaveAllocationBps, uint256 toleranceBps) internal view {
+        uint256 aaveBalance = _getAaveBalance();
+        uint256 totalBalance = _getTotalBalance();
+
+        if (totalBalance == 0) return;
+
+        uint256 actualAaveAllocationBps = (aaveBalance * BASIS_POINTS) / totalBalance;
+        uint256 delta = actualAaveAllocationBps > targetAaveAllocationBps
+            ? actualAaveAllocationBps - targetAaveAllocationBps
+            : targetAaveAllocationBps - actualAaveAllocationBps;
+
+        assertLe(delta, toleranceBps, "Allocation outside tolerance");
+    }
+
+    /// @notice Asserts default 80/20 allocation is correct
+    function _assertAllocationCorrect() internal view {
+        _assertAllocationCorrect(DEFAULT_AAVE_ALLOCATION_BPS, 100); // 1% tolerance
     }
 
     /// @notice Funds a lender with USDC and approves vault spending

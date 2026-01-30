@@ -109,8 +109,7 @@ library LSALogic {
 
         uint256 minimumReceivable = estimatedReceivable.mulDiv(slippage_sharesToAsset, BASIS_POINT_SCALE);
 
-        bytes memory redeemData =
-            abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, address(this));
+        bytes memory redeemData = abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, lsa);
 
         bytes memory result = ILoanVault(lsa).execute(collateralAsset, redeemData);
 

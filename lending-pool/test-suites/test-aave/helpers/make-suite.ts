@@ -1,4 +1,16 @@
-import { evmRevert, evmSnapshot, DRE } from '../../../helpers/misc-utils.js';
+/**
+ * Test environment setup for Hardhat 3 / ethers v6.
+ *
+ * TestEnv additions for Bitmor testing:
+ * - cbBTC: Underlying BTC token (8 decimals)
+ * - btcVault: MockBTCVault for cbBTC → bvBTC vault shares
+ * - mockLoan: MockLoan for liquidation testing (configurable loan state)
+ * - mockLoanProvider, mockBitmorUSDCVault: Bitmor caller mocks
+ *
+ * cbBTC is retrieved from database (deployed in __setup.spec.ts, not as lending reserve).
+ */
+
+import { evmRevert, evmSnapshot, DRE, getDb } from '../../../helpers/misc-utils.js';
 import {
   getLendingPool,
   getLendingPoolAddressesProvider,
@@ -17,6 +29,8 @@ import {
   getMockUSDCVault,
   getMockActualUSDCVault,
   getMockWETHVault,
+  getMockBTCVault,
+  getMockLoan,
 } from '../../../helpers/contracts-getters.js';
 import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
 import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
@@ -42,7 +56,12 @@ import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGatew
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
 import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
+import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
+import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
+import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
+import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
+import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
@@ -70,6 +89,14 @@ export interface TestEnv {
   usdcVault: MockUSDCVault;
   actualUSDCVault: MockUSDCVault;
   wethVault: MockUSDCVault;
+  // Bitmor mock callers
+  mockLoanProvider: MockLoanProvider;
+  mockBitmorUSDCVault: MockBitmorUSDCVault;
+  // BTC Vault infrastructure
+  cbBTC: MintableERC20;
+  btcVault: MockBTCVault;
+  // Loan infrastructure
+  mockLoan: MockLoan;
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -97,6 +124,11 @@ const testEnv: TestEnv = {
   paraswapLiquiditySwapAdapter: {} as ParaSwapLiquiditySwapAdapter,
   registry: {} as LendingPoolAddressesProviderRegistry,
   wethGateway: {} as WETHGateway,
+  mockLoanProvider: {} as MockLoanProvider,
+  mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
+  cbBTC: {} as MintableERC20,
+  btcVault: {} as MockBTCVault,
+  mockLoan: {} as MockLoan,
 } as TestEnv;
 
 export async function initializeMakeSuite() {
@@ -167,6 +199,37 @@ export async function initializeMakeSuite() {
   testEnv.usdcVault = await getMockUSDCVault();
   testEnv.actualUSDCVault = await getMockActualUSDCVault();
   testEnv.wethVault = await getMockWETHVault();
+
+  // Deploy Bitmor mock callers
+  const bitmorMocks = await deployMockBitmorCallers();
+  testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
+  testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
+
+  // Get cbBTC token (deployed separately, not as a reserve)
+  // NOTE: cbBTC is deployed in __setup.spec.ts but not initialized as a lending reserve.
+  // We get it directly from the database where it was registered during setup.
+  try {
+    const cbBTCEntry = await getDb().get(`cbBTC.${DRE.network.networkName}`).value();
+    if (cbBTCEntry && cbBTCEntry.address) {
+      testEnv.cbBTC = await getMintableERC20(cbBTCEntry.address);
+    }
+  } catch (e) {
+    console.log('cbBTC not found in database');
+  }
+
+  // Get BTC vault
+  try {
+    testEnv.btcVault = await getMockBTCVault();
+  } catch (e) {
+    console.log('MockBTCVault not deployed');
+  }
+
+  // Get Mock Loan
+  try {
+    testEnv.mockLoan = await getMockLoan();
+  } catch (e) {
+    console.log('MockLoan not deployed');
+  }
 }
 
 const setSnapshot = async () => {

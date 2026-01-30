@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
@@ -45,7 +46,7 @@ library FlashLoanLogic {
         /// @dev Loan Specific Address being closed
         address lsa;
         /// @dev If true, user receives cbBTC; if false, receives USDC
-        bool withdrawInCollateralAsset;
+        bool withdrawInBTC;
         /// @dev Fee charged for early loan closure
         uint256 preClosureFeeBps;
         uint256 preClosureFeeAmt;
@@ -64,6 +65,8 @@ library FlashLoanLogic {
         /// @dev Total flash loan amount including premium
         uint256 totalFlashLoanBorrowedAmt;
         uint256 btcAmtReceived;
+        uint256 totalBTCAmtToSwap;
+        uint256 preClosureFeeAmtInBTC;
     }
     uint256 constant BASIS_POINT_SCALE = 100_00;
 
@@ -116,14 +119,13 @@ library FlashLoanLogic {
         IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
 
         /// @dev Swap USDC to BTC
-        uint256 amountReceived = SwapLogic.executeSwap(
-            ctx.swapAdapter, ctx.debtAsset, ctx.collateralAsset, totalSwapAmount, minimumAcceptable
-        );
+        uint256 amountReceived =
+            SwapLogic.executeSwap(ctx.swapAdapter, ctx.debtAsset, ctx.btc, totalSwapAmount, minimumAcceptable);
 
         if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
 
-        /// @dev Approve BTC Vault, `collateralAsset` to spend `btc`.
-        IERC20(ctx.collateralAsset).forceApprove(ctx.btc, amountReceived);
+        /// @dev Approve BTC Vault (`collateralAsset`) to spend `btc`.
+        IERC20(ctx.btc).forceApprove(ctx.collateralAsset, amountReceived);
 
         /// @dev Depositing BTC into BTC Vault and receiving its shares `bvBTC`.
         uint256 bvBTCSharesReceived = ctx.collateralAsset.deposit(amountReceived, address(this));
@@ -183,8 +185,8 @@ library FlashLoanLogic {
         // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
         LocalVarsCloseLoan memory vars;
 
-        (vars.lsa, vars.withdrawInCollateralAsset, vars.preClosureFeeBps) =
-            abi.decode(params.params, (address, bool, uint256));
+        (vars.lsa, vars.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC) =
+            abi.decode(params.params, (address, bool, uint256, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[vars.lsa];
@@ -205,37 +207,26 @@ library FlashLoanLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
-            vars.collateralAmountWithdrawn =
-                vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, address(this));
+            vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, vars.lsa);
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
+            /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
+            /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
             vars.btcAmtReceived = vars.lsa
                 .redeemBTC(
-                    ctx.collateralAsset, vars.collateralAmountWithdrawn, loan.borrower, params.slippage_sharesToAsset
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
                 );
         }
         // ===============================================================
 
-        vars.preClosureFeeAmt = vars.btcAmtReceived.mulDivUp(vars.preClosureFeeBps, BASIS_POINT_SCALE);
-
         // Sends the pre-closure fee to the fee collector
-        IERC20(ctx.collateralAsset).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmt);
+        IERC20(ctx.btc).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmtInBTC);
 
         // =========== Swap the required amount to debt asset ==========
 
-        if (vars.withdrawInCollateralAsset) {
-            uint256 debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
-            uint256 debtAssetToRepayUSD = vars.totalFlashLoanBorrowedAmt * debtAssetPrice;
-
-            uint256 btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
-            vars.btcAmtToSwap = debtAssetToRepayUSD.mulDiv(8, btcPrice);
-        } else {
-            // When not withdrawing in collateral asset, swap all remaining after fee
-            vars.btcAmtToSwap = vars.btcAmtReceived - vars.preClosureFeeAmt;
-        }
-        // When withdrawInCollateralAsset=true, use the amount calculated in CloseLoanLogic
+        vars.btcAmtToSwap = vars.totalBTCAmtToSwap.min((vars.btcAmtReceived - vars.preClosureFeeAmtInBTC));
 
         vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
             ctx.zQuoter,
@@ -247,11 +238,11 @@ library FlashLoanLogic {
         );
 
         // Approve SwapAdaptor to spend tokens
-        IERC20(ctx.collateralAsset).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
+        IERC20(ctx.btc).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
 
         vars.debtAssetAmtReceived = SwapLogic.executeSwap(
             ctx.swapAdapter,
-            ctx.collateralAsset, //tokenIn
+            ctx.btc, //tokenIn
             ctx.debtAsset, // tokenOut
             vars.btcAmtToSwap, // amountIn
             vars.minimumAcceptable

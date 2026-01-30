@@ -24,7 +24,6 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
     // ===== Config Instances =====
 
     StrategyConfig internal strategyConfig;
-    RolesData internal rolesData;
 
     /// @notice Main entry point for LocalFullSetup
     /// @param enableTimeWarp Set true for Anvil (local or fork), false for live networks

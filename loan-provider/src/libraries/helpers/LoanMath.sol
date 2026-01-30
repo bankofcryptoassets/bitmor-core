@@ -50,11 +50,6 @@ library LoanMath {
     uint256 private constant MONTHS_PER_YEAR = 12;
 
     /**
-     * @dev Minimum deposit percentage required (33% in basis points)
-     */
-    uint256 private constant MIN_DEPOSIT_PERCENTAGE = 33_00;
-
-    /**
      * @dev Basis points denominator (100% = 10000)
      */
     uint256 private constant BASIS_POINTS = 100_00;
@@ -99,7 +94,7 @@ library LoanMath {
      * @notice Calculates the loan amount and monthly payment based on collateral and deposit
      * @dev Performs the following calculations:
      * 1. Converts collateral to USD value using oracle price
-     * 2. Validates deposit meets minimum 33% requirement
+     * 2. Validates deposit meets minimum deposit
      * 3. Calculates loan amount as: collateralValue - depositValue
      * 4. Computes EMI using standard amortization formula
      *
@@ -128,7 +123,7 @@ library LoanMath {
         // Ensure collateral value exceeds deposit
         if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
@@ -173,12 +168,12 @@ library LoanMath {
 
     /**
      * @notice Calculates loan details for a given collateral amount (used for previewing)
-     * @dev Similar to `calculateLoanAmt` but assumes minimum deposit (33% of collateral).
+     * @dev Similar to `calculateLoanAmt` but assumes minimum deposit as deposit amount.
      * Used by `Loan.getLoanDetails()` to preview loan terms before creation.
      *
      * ## Calculation Flow
      * 1. Convert collateral to USD value
-     * 2. Calculate minimum deposit as 33% of collateral
+     * 2. Calculate minimum deposit
      * 3. Loan amount = collateral value - minimum deposit value
      * 4. Calculate monthly payment using EMI formula
      *
@@ -201,12 +196,13 @@ library LoanMath {
         uint256 debtPriceUSD,
         uint256 debtAssetDecimals,
         uint256 interestRate,
-        uint256 duration
+        uint256 duration,
+        uint256 minDepositBps
     ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         // Convert collateral amount to USD value
         uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(MIN_DEPOSIT_PERCENTAGE, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 

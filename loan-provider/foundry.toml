@@ -11,10 +11,13 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
 ffi = true
+dynamic_test_linking = true
+
 [etherscan]
 base_sepolia = { key = "${ETHERSCAN_KEY}", chain = 84532 }
 
@@ -50,10 +53,130 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" }
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
 ffi = true
+
+# Unit test profile - local Anvil with mocks
+[profile.unit]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+test = "test/unit"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+ffi = true
+dynamic_test_linking = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
+
+# Fork test profile - Base Sepolia fork with fresh Bitmor
+[profile.fork]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+test = "test/fork"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+ffi = true
+fork_url = "${BASE_SEPOLIA_RPC_URL}"
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
+
+# Integration test profile - reads from deployments.json
+[profile.integration]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+test = "test/integration"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+ffi = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
+
+# Fuzz test profile
+[profile.fuzz]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+test = "test/fuzz"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+ffi = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
+
+[profile.fuzz.fuzz]
+runs = 1000
+seed = "0x1234"
+
+# Invariant test profile
+[profile.invariant]
+src = "src"
+out = "forge-out"
+libs = ["node_modules", "lib"]
+test = "test/invariant"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+ffi = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
+
+[profile.invariant.invariant]
+runs = 256
+depth = 50
+
+# Coverage profile - excludes scripts to avoid stack depth issues
+[profile.coverage]
+src = "src"
+out = "forge-out"
+test = "test/unit"
+script = ".coverage-disabled"  # Non-existent path to exclude scripts
+libs = ["node_modules", "lib"]
+optimizer = false  # Coverage needs optimizer disabled for accurate reports
+via_ir = false
+ffi = true
+dynamic_test_linking = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
 
 # Network configurations
 [rpc_endpoints]

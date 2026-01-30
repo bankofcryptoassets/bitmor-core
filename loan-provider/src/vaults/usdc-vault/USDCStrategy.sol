@@ -80,7 +80,7 @@ contract USDCStrategy is ISimpleStrategy {
      * @param _blp The address of the Bitmor Lending Pool
      */
     constructor(address _vault, address _aave, address _blp) {
-        if (_vault == address(0) || _aave == address(0) || _blp == address(0) || _aave == address(0)) {
+        if (_vault == address(0) || _aave == address(0) || _blp == address(0)) {
             revert Errors.ZeroAddress();
         }
 
@@ -172,11 +172,13 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Withdraws the requested amount from AAVE and deposit in BLP.
-     * @param amount The amount of assets to make available for withdrawal in BLP.
+     * @notice Withdraws assets from pools and transfers to vault for LP withdrawal.
+     * @param amount The amount of assets to withdraw and send to vault.
      */
     function withdraw(uint256 amount) external onlyVault {
         _withdrawFunds(amount);
+        // Transfer withdrawn assets to vault (msg.sender)
+        i_asset.safeTransfer(msg.sender, amount);
     }
 
     function reallocateAssets() external onlyVault {
@@ -230,16 +232,19 @@ contract USDCStrategy is ISimpleStrategy {
 
     /**
      * @notice Gets the balance of assets deposited in BLP
-     * @dev Queries the aToken balance from BLP reserve data
+     * @dev Queries the available liquidity and borrowed (+accured interest) liquidity in the reserve.
+     * @dev THIS FUNCTION ASSUMES THERE'S NO STABLE BORROW DEBT.
      * @return balance The amount of assets deposited in BLP
      */
     function _getBalanceInBLP() internal view returns (uint256 balance) {
-        //! TODO: This get's the balance of aToken not the underlying assets meaning the total assets can be wrong.
-        //! get the i_asset.balanceOf(aToken)
-        // Implemented the fix. This should work right.
+        //! TODO: available liquidity + borrowed(+accured interest)
+        // Implemented. Need to validate.
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
-        address aToken = reserveData.aTokenAddress;
-        balance = ERC20(i_asset).balanceOf(aToken);
+
+        uint256 availableLiquidity = ERC20(i_asset).balanceOf(reserveData.aTokenAddress);
+        uint256 totalVariableDebt = ERC20(reserveData.variableDebtTokenAddress).totalSupply();
+
+        balance = availableLiquidity + totalVariableDebt;
     }
 
     /**
@@ -248,7 +253,10 @@ contract USDCStrategy is ISimpleStrategy {
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
 
-        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
+        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(
+            s_aaveAllocation,
+            BASIS_POINT_SCALE
+        );
 
         if (targetBalanceInAave == 0) return;
 
@@ -286,11 +294,14 @@ contract USDCStrategy is ISimpleStrategy {
     function _withdrawFundsToBLP(uint256 amountToTransfer) internal {
         uint256 totalBalance = _getTotalBalanceInMarkets();
         uint256 totalBalanceAfter = totalBalance.zeroFloorSub(amountToTransfer);
-        uint256 targetBLPAssetsAfter =
-            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(s_aaveAllocation), BASIS_POINT_SCALE);
+        uint256 targetBLPAssetsAfter = totalBalanceAfter.mulDiv(
+            BASIS_POINT_SCALE.rawSub(s_aaveAllocation),
+            BASIS_POINT_SCALE
+        );
 
-        uint256 amountToWithdrawFromAave =
-            targetBLPAssetsAfter.rawAdd(amountToTransfer).zeroFloorSub(_getBalanceInBLP());
+        uint256 amountToWithdrawFromAave = targetBLPAssetsAfter
+            .rawAdd(amountToTransfer)
+            .zeroFloorSub(_getBalanceInBLP());
 
         if (amountToWithdrawFromAave == 0) return;
 
@@ -317,7 +328,11 @@ contract USDCStrategy is ISimpleStrategy {
         if (currentAaveBalance > targetAaveBalance) {
             uint256 amountToWithdrawFromAave = currentAaveBalance.rawSub(targetAaveBalance);
 
-            uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
+            uint256 finalAmountWithdrawn = i_aave.withdraw(
+                i_asset,
+                amountToWithdrawFromAave,
+                address(this)
+            );
             //!  TODO: Implement slippage check in case when AAVE don't have enough funds to provide to the user while withdrawing.
 
             if (finalAmountWithdrawn > amountToTransfer) {
@@ -334,7 +349,11 @@ contract USDCStrategy is ISimpleStrategy {
         if (currentBLPBalance > targetBLPBalance) {
             uint256 amountToWithdrawFromBLP = currentBLPBalance.rawSub(targetBLPBalance);
 
-            uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
+            uint256 finalAmountWithdrawn = i_blp.withdraw(
+                i_asset,
+                amountToWithdrawFromBLP,
+                address(this)
+            );
 
             if (finalAmountWithdrawn > remaining) {
                 uint256 excess = finalAmountWithdrawn.rawSub(remaining);
@@ -355,7 +374,11 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromAave Amount of assets to withdraw from Aave
      */
     function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
-        uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
+        uint256 finalAmountWithdrawn = i_aave.withdraw(
+            i_asset,
+            amountToWithdrawFromAave,
+            address(this)
+        );
 
         i_blp.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }
@@ -365,7 +388,11 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromBLP Amount of assets to withdraw from BLP
      */
     function _withdrawFomBLPAndDepositInAAVE(uint256 amountToWithdrawFromBLP) internal {
-        uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
+        uint256 finalAmountWithdrawn = i_blp.withdraw(
+            i_asset,
+            amountToWithdrawFromBLP,
+            address(this)
+        );
 
         i_aave.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }
