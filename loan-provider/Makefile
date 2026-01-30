@@ -119,10 +119,10 @@ test\:contract:
 # ============ Reports ============
 
 coverage:
-	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --no-match-path "script/*"
 
 coverage-lcov:
-	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report lcov
+	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --no-match-path "script/*" --report lcov
 
 coverage-html:
 	@FOUNDRY_PROFILE=coverage forge coverage --ir-minimum --report lcov && genhtml lcov.info -o coverage-html && open coverage-html/index.html
