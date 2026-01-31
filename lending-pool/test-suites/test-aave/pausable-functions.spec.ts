@@ -244,11 +244,9 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
     await addressesProvider.setBitmorLoan(borrower.address);
     await addressesProvider.setUSDCVault(mockBitmorUSDCVault.target);
     const asset = await mockBitmorUSDCVault.asset();
-    console.log("asset in test:: ", asset);
     await pool
       .connect(borrower.signer)
       .borrow(getContractAddress(usdc), amountUSDCToBorrow, 2, 0, borrower.address);
-    console.log("deposit complete");
 
     // Drops HF below 1
     await oracle.setAssetPrice(
@@ -271,8 +269,6 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
 
     // Pause pool
     await configurator.connect(users[1].signer).setPoolPause(true);
-
-    console.log("deposit complete");
 
     // Do liquidation
     await expect(

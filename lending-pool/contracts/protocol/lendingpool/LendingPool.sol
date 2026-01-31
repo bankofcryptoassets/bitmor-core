@@ -847,23 +847,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
 
         address vaultAddress = _addressesProvider.getUSDCVault();
         // address asset = IERC4626(vaultAddress).asset();
-        console.log("asset");
-        // console.log(asset);
-        // console.log("\n\n");
-        console.log("usdc vault address within contract:: ");
-        console.log(vaultAddress);
-        console.log("\n\n");
         if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
-            console.log("start of if");
             uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
 
             if (vars.amount > availableBalance) {
                 IUSDCVault(vaultAddress).reallocateAssets(vars.amount);
             }
-            console.log("end of if");
         }
-
-        console.log("(");
 
         ValidationLogic.validateBorrow(
             vars.asset,
@@ -879,11 +869,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
             _reservesCount,
             oracle
         );
-        console.log("((");
 
         reserve.updateState();
-
-        console.log("(((");
 
         uint256 currentStableRate = 0;
 
