@@ -21,7 +21,6 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
-import "hardhat/console.sol";
 
 /**
  * @title LendingPoolCollateralManager contract

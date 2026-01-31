@@ -11,7 +11,6 @@ import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
 import {DataTypes} from '../types/DataTypes.sol';
-import "hardhat/console.sol";
 
 /**
  * @title GenericLogic library

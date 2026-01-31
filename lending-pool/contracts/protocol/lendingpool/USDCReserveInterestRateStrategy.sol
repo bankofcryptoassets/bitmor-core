@@ -8,7 +8,6 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
 import {ILendingRateOracle} from "../../interfaces/ILendingRateOracle.sol";
 import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
-import "hardhat/console.sol";
 
 /**
  * @title USDCReserveInterestRateStrategy contract

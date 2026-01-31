@@ -10,7 +10,6 @@ import {ReserveConfiguration} from "../configuration/ReserveConfiguration.sol";
 import {GenericLogic} from "./GenericLogic.sol";
 import {ILoan} from "../../../interfaces/ILoan.sol";
 import {Helpers} from "../helpers/Helpers.sol";
-import "hardhat/console.sol";
 
 library LoanLiquidationLogic {
     using SafeMath for uint256;
