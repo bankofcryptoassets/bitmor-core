@@ -388,4 +388,25 @@ contract RepayLoanTest is BaseLoanTest {
         // Reset shortfall for other tests
         mockBitmorPool.setRepaymentShortfall(0);
     }
+
+    // ============ Collateral Withdrawal Failure ============
+
+    /// @notice Test that full repayment reverts when collateral withdrawal fails
+    /// @dev Covers RepayLogic.sol:97 CollateralWithdrawFailed error
+    function test_RevertWhen_FullRepaymentCollateralWithdrawFails() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+
+        // Set mock to simulate withdrawal failure for the LSA
+        mockBitmorPool.setWithdrawalFailure(lsa, true);
+
+        // Act & Assert - full repayment should fail when collateral withdrawal fails
+        vm.prank(user);
+        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        loan.repay(lsa, totalDebt);
+
+        // Reset for other tests
+        mockBitmorPool.setWithdrawalFailure(lsa, false);
+    }
 }
