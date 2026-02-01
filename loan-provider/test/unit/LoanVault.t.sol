@@ -545,7 +545,7 @@ contract LoanVaultTest is Test {
     // --- Determinism Tests ---
 
     /// @notice computeAddress returns the exact address where createLoanVault deploys
-    function test_loanVaultFactory_computeAddress_matchesDeployedVault() public {
+    function test_computeAddress_MatchesDeployedVault() public {
         // Deploy implementation and factory
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
