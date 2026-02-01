@@ -5,6 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title AdminSettersTest
 /// @notice Tests for Loan contract admin setter functions
@@ -39,12 +40,24 @@ contract AdminSettersTest is BaseLoanTest {
         assertTrue(loan.getPremiumCollector() != originalCollector, "Should differ from original");
     }
 
+    /// @notice Test successfully setting the liquidation fee collector address
+    function test_setLiquidationFeeCollector() public {
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeCollector.selector, newAddress);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getLiquidationFeeCollector(), newAddress, "LiquidationFeeCollector should be updated");
+    }
+
     // ============ Address Setters Zero Address Reverts ============
 
     /// @notice Test that address setters revert when given zero address
     function test_addressSetters_RevertWhen_ZeroAddress() public {
         // Only test setters that are assigned to LPM_SLOW role
-        bytes4[2] memory selectors = [Loan.setLoanVaultFactory.selector, Loan.setPremiumCollector.selector];
+        bytes4[3] memory selectors = [
+            Loan.setLoanVaultFactory.selector,
+            Loan.setPremiumCollector.selector,
+            Loan.setLiquidationFeeCollector.selector
+        ];
 
         for (uint256 i = 0; i < selectors.length; i++) {
             bytes memory data = abi.encodeWithSelector(selectors[i], address(0));
@@ -119,6 +132,35 @@ contract AdminSettersTest is BaseLoanTest {
         assertEq(loan.getMinDepositBps(), newValue, "MinDepositBps should be updated");
     }
 
+    /// @notice Test successfully setting the liquidation fee in basis points
+    function test_setLiquidationFeeBps() public {
+        uint256 newValue = TC.DEFAULT_LIQUIDATION_FEE_BPS;
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, newValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getLiquidationFeeBps(), newValue, "LiquidationFeeBps should be updated");
+    }
+
+    // ============ Uint256 Setters Boundary Tests ============
+
+    /// @notice Test setting liquidation fee at exactly max value (20%)
+    function test_setLiquidationFeeBps_AtMaxValue() public {
+        uint256 maxValue = TC.MAX_LIQUIDATION_FEE_BPS;
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getLiquidationFeeBps(), maxValue, "Should accept max value");
+    }
+
+    /// @notice Test that setting liquidation fee above max reverts
+    function test_setLiquidationFeeBps_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.MAX_LIQUIDATION_FEE_BPS + 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidFee.selector)
+        );
+    }
+
     // ============ Setters Without Role Revert ============
 
     /// @notice Test that setters revert when caller lacks the required role
@@ -129,7 +171,13 @@ contract AdminSettersTest is BaseLoanTest {
         loan.setLoanVaultFactory(newAddress);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
-        loan.setMinBTCAmount(100);
+        loan.setMinBTCAmount(TC.MIN_COLLATERAL);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        loan.setLiquidationFeeBps(TC.DEFAULT_LIQUIDATION_FEE_BPS);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        loan.setLiquidationFeeCollector(newAddress);
 
         vm.stopPrank();
     }
