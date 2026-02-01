@@ -23,3 +23,6 @@ loan-provider/lcov.filtered.info
 loan-provider/coverage-html
 docs
 lending-pool/types
+
+# Git worktrees
+.worktrees/
