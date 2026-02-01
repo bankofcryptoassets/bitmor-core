@@ -388,6 +388,24 @@ contract CloseLoanTest is BaseLoanTest {
         loan.executeOperation(debtAsset, 1000e6, 10e6, address(loan), params);
     }
 
+    /// @notice Test that close loan reverts when collateral withdrawal returns zero
+    /// @dev Covers FlashLoanLogic.sol:212 CollateralWithdrawFailed error
+    function test_RevertWhen_CloseLoanCollateralWithdrawFails() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Set mock to simulate withdrawal failure for the LSA
+        mockBitmorPool.setWithdrawalFailure(lsa, true);
+
+        // Act & Assert - close loan should fail when collateral withdrawal fails
+        vm.prank(user);
+        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        loan.closeLoan(lsa, true);
+
+        // Reset for other tests
+        mockBitmorPool.setWithdrawalFailure(lsa, false);
+    }
+
     // ============ Edge Case Tests ============
 
     /// @notice Test close loan with both withdrawal modes produce different results
