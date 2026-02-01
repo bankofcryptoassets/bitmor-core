@@ -278,7 +278,7 @@ contract RepayLoanTest is BaseLoanTest {
     // ============ Zero Amount Reverts ============
 
     /// @notice Test that zero repayment amount reverts
-    function test_repay_zeroAmount_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ZeroRepaymentAmount() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
@@ -292,7 +292,7 @@ contract RepayLoanTest is BaseLoanTest {
     // ============ Completed/Liquidated Loan Reverts ============
 
     /// @notice Test that repaying a completed loan reverts
-    function test_repay_completedLoan_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanAlreadyCompleted() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
@@ -310,7 +310,7 @@ contract RepayLoanTest is BaseLoanTest {
     /// @notice Test that repaying a liquidated loan reverts
     /// @dev KNOWN LIMITATION: Mock liquidationCall doesn't update Loan contract status.
     ///      This test calls updateLoanDataForFullLiquidation (with LPCM role) to simulate.
-    function test_repay_liquidatedLoan_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanAlreadyLiquidated() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(lsa);

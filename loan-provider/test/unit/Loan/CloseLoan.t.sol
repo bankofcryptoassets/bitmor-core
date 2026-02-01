@@ -267,14 +267,14 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that closing with zero LSA address reverts
-    function test_closeLoan_zeroLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ZeroLsaAddress() public setUpLoanForUser {
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAddress.selector);
         loan.closeLoan(address(0), true);
     }
 
     /// @notice Test that closing a non-existent LSA reverts
-    function test_closeLoan_nonExistentLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanDoesNotExist() public setUpLoanForUser {
         address randomAddress = makeAddr("nonExistentLsa");
 
         vm.prank(user);
@@ -284,7 +284,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing with insufficient collateral reverts
     /// @dev Drop BTC price so totalCollateralUSD <= totalDebtUSD + fees
-    function test_closeLoan_insufficientCollateral_reverts() public setUpLoanForUser {
+    function test_RevertWhen_InsufficientCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Drop collateral price significantly (e.g., 80% drop)
@@ -298,7 +298,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing a loan after full repayment reverts
     /// @dev Once debt is fully repaid via repay(), loan status is Completed
-    function test_closeLoan_afterFullRepayment_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ClosingAfterFullRepayment() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
@@ -323,7 +323,7 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that double-closing a loan reverts
-    function test_closeLoan_doubleClose_reverts() public setUpLoanForUser {
+    function test_RevertWhen_DoubleClose() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // First close should succeed
@@ -341,7 +341,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that non-borrower cannot close someone else's loan
     /// @dev Security test - should revert with access control error
-    function test_closeLoan_nonBorrower_reverts() public setUpLoanForUser {
+    function test_RevertWhen_CallerNotBorrower() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         address attacker = makeAddr("attacker");
 
