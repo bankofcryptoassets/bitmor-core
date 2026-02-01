@@ -175,7 +175,54 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
     }
 
+    // ============ Pause Helpers ============
+
+    /// @notice Pauses the loan contract via LPM_FAST role
+    function _pauseContract() internal {
+        uint64 lpmFastRole = LPM_FAST_ID();
+        vm.prank(admin);
+        manager.grantRole(lpmFastRole, admin, 0);
+        vm.prank(admin);
+        loan.pause();
+    }
+
+    /// @notice Unpauses the loan contract via LPM_SLOW role (with delay)
+    function _unpauseContract() internal {
+        bytes memory data = abi.encodeCall(loan.unpause, ());
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    }
+
+    // ============ Setter Helpers ============
+
+    /// @notice Sets minimum BTC amount via LPM_SLOW role
+    function _setMinBTCAmount(uint256 newMin) internal {
+        bytes memory data = abi.encodeCall(loan.setMinBTCAmount, (newMin));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    }
+
+    /// @notice Sets maximum BTC amount via LPM_SLOW role
+    function _setMaxBTCAmount(uint256 newMax) internal {
+        bytes memory data = abi.encodeCall(loan.setMaxBTCAmount, (newMax));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    }
+
+    /// @notice Sets minimum deposit basis points via LPM_SLOW role
+    function _setMinDepositBps(uint256 newBps) internal {
+        bytes memory data = abi.encodeCall(loan.setMinDepositBps, (newBps));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    }
+
     // ============ Loan Creation Helpers ============
+
+    /// @notice Creates a custom loan with specified deposit, premium, collateral, and duration
+    function _createCustomLoan(uint256 deposit, uint256 premium, uint256 collateral, uint256 duration)
+        internal
+        returns (address lsa)
+    {
+        _mintDebtAssetToUser();
+        vm.prank(user);
+        lsa = loan.initializeLoan(deposit, premium, collateral, duration, DATA);
+    }
 
     /// @dev Inherited _createStandardLoan from LoanUnitTestBase uses TC constants
 
