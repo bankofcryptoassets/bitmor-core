@@ -343,4 +343,16 @@ contract RepayLoanTest is BaseLoanTest {
         vm.expectRevert(Errors.ZeroAddress.selector);
         loan.repay(address(0), 1000e6);
     }
+
+    /// @notice Test that repaying a non-existent loan reverts
+    /// @dev Covers RepayLogic.sol:68 LoanDoesNotExists error
+    function test_RevertWhen_RepayNonExistentLoan() public setUpLoanForUser {
+        // Arrange - create a random address that has no loan
+        address fakeLsa = makeAddr("nonExistentLsa");
+
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.LoanDoesNotExists.selector);
+        loan.repay(fakeLsa, 1000e6);
+    }
 }
