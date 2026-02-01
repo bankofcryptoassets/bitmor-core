@@ -128,6 +128,11 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @inheritdoc ILendingPool
     function withdraw(address asset, uint256 amount, address to) external override returns (uint256) {
+        // Simulate withdrawal failure for testing
+        if (_withdrawalFailure[to]) {
+            return 0;
+        }
+
         DataTypes.ReserveData storage reserve = _reserves[asset];
         require(reserve.aTokenAddress != address(0), "Reserve not initialized");
 
@@ -173,6 +178,11 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 amountToRepay = amount == type(uint256).max ? currentDebt : amount;
         if (amountToRepay > currentDebt) {
             amountToRepay = currentDebt;
+        }
+
+        // Apply shortfall for testing refund logic (simulates pool returning less)
+        if (_repaymentShortfall > 0 && amountToRepay > _repaymentShortfall) {
+            amountToRepay = amountToRepay - _repaymentShortfall;
         }
 
         IERC20(asset).transferFrom(msg.sender, address(this), amountToRepay);
@@ -467,6 +477,36 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @param rate The new variable borrow rate (in RAY, e.g., 0.12e27 for 12%)
     function setVariableBorrowRate(address asset, uint256 rate) external {
         _reserves[asset].currentVariableBorrowRate = uint128(rate);
+    }
+
+    /// @notice Simulated repayment shortfall for testing refund logic
+    uint256 private _repaymentShortfall;
+
+    /// @notice Set a repayment shortfall (test helper)
+    /// @dev When set > 0, repay() will return (requestedAmount - shortfall)
+    /// @param shortfall The amount to subtract from actual repayment
+    function setRepaymentShortfall(uint256 shortfall) external {
+        _repaymentShortfall = shortfall;
+    }
+
+    /// @notice Get current repayment shortfall
+    function getRepaymentShortfall() external view returns (uint256) {
+        return _repaymentShortfall;
+    }
+
+    /// @notice Simulates withdrawal failure for testing
+    mapping(address => bool) private _withdrawalFailure;
+
+    /// @notice Set withdrawal to fail for a specific user (test helper)
+    /// @param onBehalfOf The user address whose withdrawals should fail
+    /// @param shouldFail Whether withdrawals should fail
+    function setWithdrawalFailure(address onBehalfOf, bool shouldFail) external {
+        _withdrawalFailure[onBehalfOf] = shouldFail;
+    }
+
+    /// @notice Check if withdrawal is set to fail for user
+    function isWithdrawalFailure(address onBehalfOf) external view returns (bool) {
+        return _withdrawalFailure[onBehalfOf];
     }
 
     /// @notice Mark a reserve as having invalid debt token (for error testing)
