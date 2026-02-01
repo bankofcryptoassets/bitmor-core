@@ -8,7 +8,6 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
 import {ILendingRateOracle} from "../../interfaces/ILendingRateOracle.sol";
 import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
-import "hardhat/console.sol";
 
 /**
  * @title USDCReserveInterestRateStrategy contract
@@ -174,11 +173,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
         vars.currentVariableBorrowRate = 0;
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;
-
-        console.log("****");
         vars.utilizationRate = vars.totalDebt == 0 ? 0 : vars.totalDebt.rayDiv(availableLiquidity.add(vars.totalDebt));
-        console.log("****");
-
 
         vars.currentStableBorrowRate =
             ILendingRateOracle(addressesProvider.getLendingRateOracle()).getMarketBorrowRate(reserve);

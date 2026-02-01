@@ -27,8 +27,6 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title LendingPool contract
  * @dev Main point of interaction with an Aave protocol's market
@@ -114,10 +112,6 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
-        console.log("\n\n\nconfiguration.data");
-        console.log(reserve.aTokenAddress);
-        console.log("\n\n\n");
-
         /**
          * @dev This access control check provides security against external funds.
          * If `msg.sender` is `loanProvider` it CAN ONLY BE for `bvBTC` deposit.
@@ -850,18 +844,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          */
 
         address vaultAddress = _addressesProvider.getUSDCVault();
-        console.log("vaultAddress:: ");
-        console.log(vaultAddress);
+        // address asset = IERC4626(vaultAddress).asset();
         if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
-            console.log("inside if");
             uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
 
             if (vars.amount > availableBalance) {
                 IUSDCVault(vaultAddress).reallocateAssets(vars.amount);
             }
         }
-
-        console.log(")");
 
         ValidationLogic.validateBorrow(
             vars.asset,
@@ -878,37 +868,28 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
             oracle
         );
 
-        console.log("))");
-
         reserve.updateState();
-
-        console.log(")))");
 
         uint256 currentStableRate = 0;
 
         bool isFirstBorrowing = false;
         if (DataTypes.InterestRateMode(vars.interestRateMode) == DataTypes.InterestRateMode.STABLE) {
-            console.log("inside 2nd if");
             currentStableRate = reserve.currentStableBorrowRate;
 
             isFirstBorrowing = IStableDebtToken(reserve.stableDebtTokenAddress)
                 .mint(vars.user, vars.onBehalfOf, vars.amount, currentStableRate);
         } else {
-            console.log("inside else");
-            console.log(reserve.variableDebtTokenAddress);
             isFirstBorrowing = IVariableDebtToken(reserve.variableDebtTokenAddress)
                 .mint(vars.user, vars.onBehalfOf, vars.amount, reserve.variableBorrowIndex);
         }
 
         if (isFirstBorrowing) {
-            console.log("inside 3rd if");
             userConfig.setBorrowing(reserve.id, true);
         }
 
         reserve.updateInterestRates(vars.asset, vars.aTokenAddress, 0, vars.releaseUnderlying ? vars.amount : 0);
 
         if (vars.releaseUnderlying) {
-            console.log("inside 4rd if");
             IAToken(vars.aTokenAddress).transferUnderlyingTo(vars.user, vars.amount);
         }
 

@@ -74,7 +74,7 @@ export interface TestEnv {
   dai: MintableERC20;
   aDai: AToken;
   usdc: MintableERC20;
-  aUsdc: AToken;
+  aUSDC: AToken;
   aave: MintableERC20;
   addressesProvider: LendingPoolAddressesProvider;
   uniswapLiquiditySwapAdapter: UniswapLiquiditySwapAdapter;
@@ -88,6 +88,7 @@ export interface TestEnv {
   mockBitmorUSDCVault: MockBitmorUSDCVault;
   // BTC Vault infrastructure
   cbBTC: MintableERC20;
+  acbBTC: AToken;
   btcVault: MockBTCVault;
   // Loan infrastructure
   mockLoan: MockLoan;
@@ -159,9 +160,12 @@ export async function initializeMakeSuite() {
 
   const allTokens = await testEnv.helpersContract.getAllATokens();
 
-  console.log('allTokens:', allTokens);
   const aDaiAddress = allTokens.find((aToken) => aToken.symbol === 'aDAI')?.tokenAddress;
-  const aUsdcAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
+
+  const acbBTCAddress = allTokens.find((aToken) => aToken.symbol === 'acbBTC')?.tokenAddress;
+
+  const aUSDCAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
+
   const aWEthAddress = allTokens.find((aToken) => aToken.symbol === 'aWETH')?.tokenAddress;
 
   const reservesTokens = await testEnv.helpersContract.getAllReservesTokens();
@@ -181,6 +185,8 @@ export async function initializeMakeSuite() {
   testEnv.aDai = await getAToken(aDaiAddress);
   testEnv.aUsdc = await getAToken(aUsdcAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
+  testEnv.acbBTC = await getAToken(acbBTCAddress);
+  testEnv.aUSDC = await getAToken(aUSDCAddress);
 
   testEnv.dai = await getMintableERC20(daiAddress);
   testEnv.usdc = await getMintableERC20(usdcAddress);
