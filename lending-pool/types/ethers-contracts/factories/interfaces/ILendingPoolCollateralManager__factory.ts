@@ -110,6 +110,37 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "collateral",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "liquidator",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "protocolFeeAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ProtocolLiquidationFee",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "reserve",
         "type": "address"
       },
@@ -240,4 +271,3 @@
       return new Contract(address, _abi, runner) as unknown as ILendingPoolCollateralManager;
     }
   }
-  

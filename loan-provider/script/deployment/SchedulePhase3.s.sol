@@ -70,13 +70,13 @@ contract SchedulePhase3 is Script, DeploymentHelper {
     /// @notice Schedules all timelocked operations for execution after delay
     /// @dev Adds SCHEDULE_BUFFER to account for block.timestamp drift between simulation and broadcast
     function _scheduleOperations() internal {
-        uint48 when =
-            uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
+        uint48 when = uint48(
+            block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER
+        );
 
         // LPM_SLOW Operations (Loan config) - use HelperConfig getters
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (helperConfig.getLiquidationBuffer())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
 

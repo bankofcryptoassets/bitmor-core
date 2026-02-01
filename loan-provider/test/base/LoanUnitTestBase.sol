@@ -219,8 +219,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
             address(0), // zQuoter (allowed to be zero)
             premiumCollector, // premiumCollector
             config.getPreClosureFee(), // preClosureFeeBps
-            config.getGracePeriod(), // gracePeriod
-            config.getLiquidationBuffer() // liquidationBuffer
+            config.getGracePeriod() // gracePeriod
         );
 
         loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));

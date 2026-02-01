@@ -83,6 +83,32 @@
       {
         "indexed": true,
         "internalType": "address",
+        "name": "newLiquidationFeeCollector",
+        "type": "address"
+      }
+    ],
+    "name": "Loan__LiquidationFeeCollectorUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newLiquidationFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__LiquidationFeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
         "name": "borrower",
         "type": "address"
       },
@@ -124,7 +150,7 @@
         "type": "address"
       }
     ],
-    "name": "Loan__LoanDataFullLiquidationUpdated",
+    "name": "Loan__LoanDataForFullLiquidationUpdated",
     "type": "event"
   },
   {
@@ -143,7 +169,7 @@
         "type": "uint256"
       }
     ],
-    "name": "Loan__LoanDataMicroLiquidationUpdated",
+    "name": "Loan__LoanDataForMicroLiquidationUpdated",
     "type": "event"
   },
   {
@@ -209,11 +235,50 @@
       {
         "indexed": true,
         "internalType": "uint256",
+        "name": "newMaxBTCAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__MaxBTCAmountUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
         "name": "newAmount",
         "type": "uint256"
       }
     ],
     "name": "Loan__MaxLoanAmountUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newMinBTCAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__MinBTCAmountUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newMinDepositBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__MinDepositUpdated",
     "type": "event"
   },
   {
@@ -240,6 +305,32 @@
       }
     ],
     "name": "Loan__PremiumCollectorUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newSlippage",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__SlippageForSharesToAssetUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "newSlippage",
+        "type": "uint256"
+      }
+    ],
+    "name": "Loan__SlippageForSwapUpdated",
     "type": "event"
   },
   {
@@ -301,7 +392,7 @@
       },
       {
         "internalType": "bool",
-        "name": "withdrawInCollateralAsset",
+        "name": "withdrawInBTC",
         "type": "bool"
       }
     ],
@@ -357,6 +448,32 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLiquidationFeeBps",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getLiquidationFeeCollector",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -469,6 +586,45 @@
   },
   {
     "inputs": [],
+    "name": "getMaxBTCAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMinBTCAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getMinDepositBps",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getPreClosureFee",
     "outputs": [
       {
@@ -496,6 +652,32 @@
   {
     "inputs": [],
     "name": "getRepaymentInterval",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getSlippageForSharesToAsset",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getSlippageForSwap",
     "outputs": [
       {
         "internalType": "uint256",
@@ -712,12 +894,77 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "newLiquidationFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setLiquidationFeeBps",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newFeeCollector",
+        "type": "address"
+      }
+    ],
+    "name": "setLiquidationFeeCollector",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "newFactory",
         "type": "address"
       }
     ],
     "name": "setLoanVaultFactory",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newMaxBTCAmt",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMaxBTCAmount",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newMinBTCAmt",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMinBTCAmount",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newMinDepositBps",
+        "type": "uint256"
+      }
+    ],
+    "name": "setMinDepositBps",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -744,6 +991,32 @@
       }
     ],
     "name": "setPremiumCollector",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newSlippage",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSlippageForSharesToAsset",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "newSlippage",
+        "type": "uint256"
+      }
+    ],
+    "name": "setSlippageForSwap",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -829,4 +1102,3 @@
       return new Contract(address, _abi, runner) as unknown as ILoan;
     }
   }
-  

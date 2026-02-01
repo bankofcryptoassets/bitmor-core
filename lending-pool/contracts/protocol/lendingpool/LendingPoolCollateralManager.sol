@@ -269,6 +269,8 @@ contract LendingPoolCollateralManager is
                     vars.protocolFee,
                     collateralReserve.liquidityIndex
                 );
+
+                emit ProtocolLiquidationFee(collateralAsset, user, msg.sender, vars.protocolFee);
             }
         }
 
@@ -478,6 +480,7 @@ contract LendingPoolCollateralManager is
                     vars.protocolFee,
                     collateralReserve.liquidityIndex
                 );
+                emit ProtocolLiquidationFee(collateralAsset, user, msg.sender, vars.protocolFee);
             }
         }
 
@@ -621,16 +624,40 @@ contract LendingPoolCollateralManager is
         return (collateralAmount, debtAmountNeeded, vars.liquidationBonus);
     }
 
+    /**
+     * @notice Calculates the protocol fee and liquidator's share of collateral
+     * @dev The protocol fee is taken as a percentage of the liquidation bonus only, not the base collateral
+     *
+     * Math breakdown:
+     * - maxCollateralToLiquidate = baseCollateral * (liquidationBonus / 10000)
+     * - baseCollateral = maxCollateral / (liquidationBonus / 10000) = maxCollateral * 10000 / liquidationBonus
+     * - bonusCollateral = maxCollateral - baseCollateral
+     * - protocolFee = bonusCollateral * (liquidationFee / 10000)
+     * - liquidatorCollateral = maxCollateral - protocolFee
+     *
+     * Example: If liquidationBonus = 10500 (105%) and liquidationFee = 2000 (20%):
+     * - maxCollateral = 105 tokens
+     * - baseCollateral = 105 * 10000 / 10500 = 100 tokens
+     * - bonusCollateral = 105 - 100 = 5 tokens
+     * - protocolFee = 5 * 2000 / 10000 = 1 token
+     * - liquidatorCollateral = 105 - 1 = 104 tokens
+     *
+     * @param maxCollateralToLiquidate Total collateral to liquidate (includes bonus)
+     * @param liquidationBonusPercent Liquidation bonus in basis points (e.g., 10500 = 105%)
+     * @param liquidationFee Protocol fee as percentage of bonus in basis points (e.g., 2000 = 20%)
+     * @return protocolFee Amount of collateral going to protocol
+     * @return liquidatorCollateral Amount of collateral going to liquidator
+     */
     function _calculateProtocolFee(
         uint256 maxCollateralToLiquidate,
-        uint256 liquidationBonus,
+        uint256 liquidationBonusPercent,
         uint256 liquidationFee
     ) internal pure returns (uint256 protocolFee, uint256 liquidatorCollateral) {
         if (liquidationFee == 0) return (0, maxCollateralToLiquidate);
 
         // Calculate base collateral (what liquidator would get without bonus)
         // baseCollateral = maxCollateral / (liquidationBonus / PERCENTAGE_FACTOR)
-        uint256 baseCollateral = maxCollateralToLiquidate.percentDiv(liquidationBonus);
+        uint256 baseCollateral = maxCollateralToLiquidate.percentDiv(liquidationBonusPercent);
 
         // Bonus is the difference
         uint256 bonusCollateral = maxCollateralToLiquidate.sub(baseCollateral);

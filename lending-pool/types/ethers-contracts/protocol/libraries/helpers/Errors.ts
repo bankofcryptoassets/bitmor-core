@@ -3,12 +3,12 @@
 /* eslint-disable */
 import type { BaseContract, BytesLike, FunctionFragment, Result, Interface, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedListener, TypedContractMethod } from "../../../common.js"
-  
+
 
   export interface ErrorsInterface extends Interface {
-    getFunction(nameOrSignature: "BORROW_ALLOWANCE_NOT_ENOUGH" | "CALLER_NOT_POOL_ADMIN" | "CT_CALLER_MUST_BE_LENDING_POOL" | "CT_CANNOT_GIVE_ALLOWANCE_TO_HIMSELF" | "CT_INVALID_BURN_AMOUNT" | "CT_INVALID_MINT_AMOUNT" | "CT_TRANSFER_AMOUNT_NOT_GT_0" | "LPAPR_INVALID_ADDRESSES_PROVIDER_ID" | "LPAPR_PROVIDER_NOT_REGISTERED" | "LPCM_CANNOT_FULL_LIQUIDATE" | "LPCM_CANNOT_MICRO_LIQUIDATE" | "LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED" | "LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD" | "LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE" | "LPCM_NO_ERRORS" | "LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER" | "LPC_CALLER_NOT_EMERGENCY_ADMIN" | "LPC_INVALID_ADDRESSES_PROVIDER_ID" | "LPC_INVALID_ATOKEN_POOL_ADDRESS" | "LPC_INVALID_CONFIGURATION" | "LPC_INVALID_STABLE_DEBT_TOKEN_POOL_ADDRESS" | "LPC_INVALID_STABLE_DEBT_TOKEN_UNDERLYING_ADDRESS" | "LPC_INVALID_VARIABLE_DEBT_TOKEN_POOL_ADDRESS" | "LPC_INVALID_VARIABLE_DEBT_TOKEN_UNDERLYING_ADDRESS" | "LPC_RESERVE_LIQUIDITY_NOT_0" | "LP_CALLER_MUST_BE_AN_ATOKEN" | "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR" | "LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER" | "LP_CHECK_TYPE_OF_LIQUIDATION_FAILED" | "LP_FAILED_COLLATERAL_SWAP" | "LP_FAILED_REPAY_WITH_COLLATERAL" | "LP_FLASHLOAN_DISABLED" | "LP_INCONSISTENT_FLASHLOAN_PARAMS" | "LP_INCONSISTENT_PARAMS_LENGTH" | "LP_INCONSISTENT_PROTOCOL_ACTUAL_BALANCE" | "LP_INTEREST_RATE_REBALANCE_CONDITIONS_NOT_MET" | "LP_INVALID_EQUAL_ASSETS_TO_SWAP" | "LP_INVALID_FLASHLOAN_MODE" | "LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN" | "LP_IS_PAUSED" | "LP_LIQUIDATION_CALL_FAILED" | "LP_MICRO_LIQUIDATION_FAILED" | "LP_NOT_CONTRACT" | "LP_NOT_ENOUGH_LIQUIDITY_TO_BORROW" | "LP_NOT_ENOUGH_STABLE_BORROW_BALANCE" | "LP_NO_MORE_RESERVES_ALLOWED" | "LP_REENTRANCY_NOT_ALLOWED" | "LP_REQUESTED_AMOUNT_TOO_SMALL" | "MATH_ADDITION_OVERFLOW" | "MATH_DIVISION_BY_ZERO" | "MATH_MULTIPLICATION_OVERFLOW" | "RC_INVALID_DECIMALS" | "RC_INVALID_LIQ_BONUS" | "RC_INVALID_LIQ_THRESHOLD" | "RC_INVALID_LTV" | "RC_INVALID_RESERVE_FACTOR" | "RL_LIQUIDITY_INDEX_OVERFLOW" | "RL_LIQUIDITY_RATE_OVERFLOW" | "RL_RESERVE_ALREADY_INITIALIZED" | "RL_STABLE_BORROW_RATE_OVERFLOW" | "RL_VARIABLE_BORROW_INDEX_OVERFLOW" | "RL_VARIABLE_BORROW_RATE_OVERFLOW" | "SDT_BURN_EXCEEDS_BALANCE" | "SDT_STABLE_DEBT_OVERFLOW" | "UL_INVALID_INDEX" | "VL_AMOUNT_BIGGER_THAN_MAX_LOAN_SIZE_STABLE" | "VL_BORROWING_NOT_ENABLED" | "VL_COLLATERAL_BALANCE_IS_0" | "VL_COLLATERAL_CANNOT_COVER_NEW_BORROW" | "VL_COLLATERAL_SAME_AS_BORROWING_CURRENCY" | "VL_CURRENT_AVAILABLE_LIQUIDITY_NOT_ENOUGH" | "VL_DEPOSIT_ALREADY_IN_USE" | "VL_HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD" | "VL_INCONSISTENT_FLASHLOAN_PARAMS" | "VL_INVALID_AMOUNT" | "VL_INVALID_INTEREST_RATE_MODE_SELECTED" | "VL_NOT_ENOUGH_AVAILABLE_USER_BALANCE" | "VL_NO_ACTIVE_RESERVE" | "VL_NO_DEBT_OF_SELECTED_TYPE" | "VL_NO_EXPLICIT_AMOUNT_TO_REPAY_ON_BEHALF" | "VL_NO_STABLE_RATE_LOAN_IN_RESERVE" | "VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE" | "VL_RESERVE_FROZEN" | "VL_STABLE_BORROWING_NOT_ENABLED" | "VL_TRANSFER_NOT_ALLOWED" | "VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0"): FunctionFragment;
+    getFunction(nameOrSignature: "BORROW_ALLOWANCE_NOT_ENOUGH" | "CALLER_NOT_POOL_ADMIN" | "CT_CALLER_MUST_BE_LENDING_POOL" | "CT_CANNOT_GIVE_ALLOWANCE_TO_HIMSELF" | "CT_INVALID_BURN_AMOUNT" | "CT_INVALID_MINT_AMOUNT" | "CT_TRANSFER_AMOUNT_NOT_GT_0" | "LPAPR_INVALID_ADDRESSES_PROVIDER_ID" | "LPAPR_PROVIDER_NOT_REGISTERED" | "LPCM_CANNOT_FULL_LIQUIDATE" | "LPCM_CANNOT_MICRO_LIQUIDATE" | "LPCM_CANNOT_RECEIVE_ATOKEN" | "LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED" | "LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD" | "LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE" | "LPCM_NO_ERRORS" | "LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER" | "LPC_CALLER_NOT_EMERGENCY_ADMIN" | "LPC_INVALID_ADDRESSES_PROVIDER_ID" | "LPC_INVALID_ATOKEN_POOL_ADDRESS" | "LPC_INVALID_CONFIGURATION" | "LPC_INVALID_STABLE_DEBT_TOKEN_POOL_ADDRESS" | "LPC_INVALID_STABLE_DEBT_TOKEN_UNDERLYING_ADDRESS" | "LPC_INVALID_VARIABLE_DEBT_TOKEN_POOL_ADDRESS" | "LPC_INVALID_VARIABLE_DEBT_TOKEN_UNDERLYING_ADDRESS" | "LPC_RESERVE_LIQUIDITY_NOT_0" | "LP_CALLER_MUST_BE_AN_ATOKEN" | "LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR" | "LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER" | "LP_CHECK_TYPE_OF_LIQUIDATION_FAILED" | "LP_FAILED_COLLATERAL_SWAP" | "LP_FAILED_REPAY_WITH_COLLATERAL" | "LP_FLASHLOAN_DISABLED" | "LP_INCONSISTENT_FLASHLOAN_PARAMS" | "LP_INCONSISTENT_PARAMS_LENGTH" | "LP_INCONSISTENT_PROTOCOL_ACTUAL_BALANCE" | "LP_INTEREST_RATE_REBALANCE_CONDITIONS_NOT_MET" | "LP_INVALID_EQUAL_ASSETS_TO_SWAP" | "LP_INVALID_FLASHLOAN_MODE" | "LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN" | "LP_IS_PAUSED" | "LP_LIQUIDATION_CALL_FAILED" | "LP_MICRO_LIQUIDATION_FAILED" | "LP_NOT_CONTRACT" | "LP_NOT_ENOUGH_LIQUIDITY_TO_BORROW" | "LP_NOT_ENOUGH_STABLE_BORROW_BALANCE" | "LP_NO_MORE_RESERVES_ALLOWED" | "LP_REENTRANCY_NOT_ALLOWED" | "LP_REQUESTED_AMOUNT_TOO_SMALL" | "MATH_ADDITION_OVERFLOW" | "MATH_DIVISION_BY_ZERO" | "MATH_MULTIPLICATION_OVERFLOW" | "RC_INVALID_DECIMALS" | "RC_INVALID_LIQ_BONUS" | "RC_INVALID_LIQ_THRESHOLD" | "RC_INVALID_LTV" | "RC_INVALID_RESERVE_FACTOR" | "RL_LIQUIDITY_INDEX_OVERFLOW" | "RL_LIQUIDITY_RATE_OVERFLOW" | "RL_RESERVE_ALREADY_INITIALIZED" | "RL_STABLE_BORROW_RATE_OVERFLOW" | "RL_VARIABLE_BORROW_INDEX_OVERFLOW" | "RL_VARIABLE_BORROW_RATE_OVERFLOW" | "SDT_BURN_EXCEEDS_BALANCE" | "SDT_STABLE_DEBT_OVERFLOW" | "UL_INVALID_INDEX" | "VL_AMOUNT_BIGGER_THAN_MAX_LOAN_SIZE_STABLE" | "VL_BORROWING_NOT_ENABLED" | "VL_COLLATERAL_BALANCE_IS_0" | "VL_COLLATERAL_CANNOT_COVER_NEW_BORROW" | "VL_COLLATERAL_SAME_AS_BORROWING_CURRENCY" | "VL_CURRENT_AVAILABLE_LIQUIDITY_NOT_ENOUGH" | "VL_DEPOSIT_ALREADY_IN_USE" | "VL_HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD" | "VL_INCONSISTENT_FLASHLOAN_PARAMS" | "VL_INVALID_AMOUNT" | "VL_INVALID_INTEREST_RATE_MODE_SELECTED" | "VL_NOT_ENOUGH_AVAILABLE_USER_BALANCE" | "VL_NO_ACTIVE_RESERVE" | "VL_NO_DEBT_OF_SELECTED_TYPE" | "VL_NO_EXPLICIT_AMOUNT_TO_REPAY_ON_BEHALF" | "VL_NO_STABLE_RATE_LOAN_IN_RESERVE" | "VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE" | "VL_RESERVE_FROZEN" | "VL_STABLE_BORROWING_NOT_ENABLED" | "VL_TRANSFER_NOT_ALLOWED" | "VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0"): FunctionFragment;
 
-    
+
 
     encodeFunctionData(functionFragment: 'BORROW_ALLOWANCE_NOT_ENOUGH', values?: undefined): string;
 encodeFunctionData(functionFragment: 'CALLER_NOT_POOL_ADMIN', values?: undefined): string;
@@ -21,6 +21,7 @@ encodeFunctionData(functionFragment: 'LPAPR_INVALID_ADDRESSES_PROVIDER_ID', valu
 encodeFunctionData(functionFragment: 'LPAPR_PROVIDER_NOT_REGISTERED', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LPCM_CANNOT_FULL_LIQUIDATE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LPCM_CANNOT_MICRO_LIQUIDATE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LPCM_CANNOT_RECEIVE_ATOKEN', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE', values?: undefined): string;
@@ -108,6 +109,7 @@ decodeFunctionResult(functionFragment: 'LPAPR_INVALID_ADDRESSES_PROVIDER_ID', da
 decodeFunctionResult(functionFragment: 'LPAPR_PROVIDER_NOT_REGISTERED', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LPCM_CANNOT_FULL_LIQUIDATE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LPCM_CANNOT_MICRO_LIQUIDATE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LPCM_CANNOT_RECEIVE_ATOKEN', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE', data: BytesLike): Result;
@@ -185,16 +187,16 @@ decodeFunctionResult(functionFragment: 'VL_TRANSFER_NOT_ALLOWED', data: BytesLik
 decodeFunctionResult(functionFragment: 'VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0', data: BytesLike): Result;
   }
 
-  
+
 
   export interface Errors extends BaseContract {
-    
+
     connect(runner?: ContractRunner | null): Errors;
     waitForDeployment(): Promise<this>;
 
     interface: ErrorsInterface;
 
-    
+
   queryFilter<TCEvent extends TypedContractEvent>(
     event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
@@ -208,7 +210,7 @@ decodeFunctionResult(functionFragment: 'VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0
 
   on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>
   on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>
-  
+
   once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>
   once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>
 
@@ -219,694 +221,702 @@ decodeFunctionResult(functionFragment: 'VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0
   removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>
 
 
-    
-    
+
+
     BORROW_ALLOWANCE_NOT_ENOUGH: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CALLER_NOT_POOL_ADMIN: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CT_CALLER_MUST_BE_LENDING_POOL: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CT_CANNOT_GIVE_ALLOWANCE_TO_HIMSELF: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CT_INVALID_BURN_AMOUNT: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CT_INVALID_MINT_AMOUNT: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     CT_TRANSFER_AMOUNT_NOT_GT_0: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPAPR_INVALID_ADDRESSES_PROVIDER_ID: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPAPR_PROVIDER_NOT_REGISTERED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_CANNOT_FULL_LIQUIDATE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_CANNOT_MICRO_LIQUIDATE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
+    LPCM_CANNOT_RECEIVE_ATOKEN: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+
+
+
     LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_NO_ERRORS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_CALLER_NOT_EMERGENCY_ADMIN: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_ADDRESSES_PROVIDER_ID: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_ATOKEN_POOL_ADDRESS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_CONFIGURATION: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_STABLE_DEBT_TOKEN_POOL_ADDRESS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_STABLE_DEBT_TOKEN_UNDERLYING_ADDRESS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_VARIABLE_DEBT_TOKEN_POOL_ADDRESS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_INVALID_VARIABLE_DEBT_TOKEN_UNDERLYING_ADDRESS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LPC_RESERVE_LIQUIDITY_NOT_0: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_CALLER_MUST_BE_AN_ATOKEN: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_CALLER_NOT_LENDING_POOL_CONFIGURATOR: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_CHECK_TYPE_OF_LIQUIDATION_FAILED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_FAILED_COLLATERAL_SWAP: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_FAILED_REPAY_WITH_COLLATERAL: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_FLASHLOAN_DISABLED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INCONSISTENT_FLASHLOAN_PARAMS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INCONSISTENT_PARAMS_LENGTH: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INCONSISTENT_PROTOCOL_ACTUAL_BALANCE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INTEREST_RATE_REBALANCE_CONDITIONS_NOT_MET: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INVALID_EQUAL_ASSETS_TO_SWAP: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INVALID_FLASHLOAN_MODE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_IS_PAUSED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_LIQUIDATION_CALL_FAILED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_MICRO_LIQUIDATION_FAILED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_NOT_CONTRACT: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_NOT_ENOUGH_LIQUIDITY_TO_BORROW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_NOT_ENOUGH_STABLE_BORROW_BALANCE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_NO_MORE_RESERVES_ALLOWED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_REENTRANCY_NOT_ALLOWED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     LP_REQUESTED_AMOUNT_TOO_SMALL: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     MATH_ADDITION_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     MATH_DIVISION_BY_ZERO: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     MATH_MULTIPLICATION_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RC_INVALID_DECIMALS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RC_INVALID_LIQ_BONUS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RC_INVALID_LIQ_THRESHOLD: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RC_INVALID_LTV: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RC_INVALID_RESERVE_FACTOR: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_LIQUIDITY_INDEX_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_LIQUIDITY_RATE_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_RESERVE_ALREADY_INITIALIZED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_STABLE_BORROW_RATE_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_VARIABLE_BORROW_INDEX_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     RL_VARIABLE_BORROW_RATE_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     SDT_BURN_EXCEEDS_BALANCE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     SDT_STABLE_DEBT_OVERFLOW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     UL_INVALID_INDEX: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_AMOUNT_BIGGER_THAN_MAX_LOAN_SIZE_STABLE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_BORROWING_NOT_ENABLED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_COLLATERAL_BALANCE_IS_0: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_COLLATERAL_CANNOT_COVER_NEW_BORROW: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_COLLATERAL_SAME_AS_BORROWING_CURRENCY: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_CURRENT_AVAILABLE_LIQUIDITY_NOT_ENOUGH: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_DEPOSIT_ALREADY_IN_USE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_HEALTH_FACTOR_LOWER_THAN_LIQUIDATION_THRESHOLD: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_INCONSISTENT_FLASHLOAN_PARAMS: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_INVALID_AMOUNT: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_INVALID_INTEREST_RATE_MODE_SELECTED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NOT_ENOUGH_AVAILABLE_USER_BALANCE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NO_ACTIVE_RESERVE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NO_DEBT_OF_SELECTED_TYPE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NO_EXPLICIT_AMOUNT_TO_REPAY_ON_BEHALF: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NO_STABLE_RATE_LOAN_IN_RESERVE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_RESERVE_FROZEN: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_STABLE_BORROWING_NOT_ENABLED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_TRANSFER_NOT_ALLOWED: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
 
-    
+
+
     VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0: TypedContractMethod<
       [],
       [string],
       'view'
     >
-    
+
 
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
@@ -962,6 +972,11 @@ getFunction(nameOrSignature: 'LPCM_CANNOT_FULL_LIQUIDATE'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'LPCM_CANNOT_MICRO_LIQUIDATE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'LPCM_CANNOT_RECEIVE_ATOKEN'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -1342,9 +1357,9 @@ getFunction(nameOrSignature: 'VL_UNDERLYING_BALANCE_NOT_GREATER_THAN_0'): TypedC
       'view'
     >;
 
-    
+
 
     filters: {
-      
+
     };
   }

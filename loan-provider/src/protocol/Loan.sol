@@ -58,7 +58,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
      * @param _gracePeriod Grace period for monthly payment
-     * @param _liquidationBuffer Buffer while liquidation
      */
     constructor(
         address _manager,
@@ -73,8 +72,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         address _zQuoter,
         address _premiumCollector,
         uint256 _preClosureFeeBps,
-        uint256 _gracePeriod,
-        uint256 _liquidationBuffer
+        uint256 _gracePeriod
     )
         LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
         AccessManaged(_manager)
@@ -88,7 +86,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         s_premiumCollector = _premiumCollector;
         s_preClosureFeeBps = _preClosureFeeBps;
         s_gracePeriod = _gracePeriod;
-        s_liquidationBuffer = _liquidationBuffer;
     }
 
     /**
@@ -397,13 +394,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_preClosureFeeBps;
     }
 
-    /**
-     * @inheritdoc ILoan
-     */
-    function getLiquidationBuffer() external view returns (uint256) {
-        return s_liquidationBuffer;
-    }
-
     function getSlippageForSharesToAsset() external view returns (uint256) {
         return s_slippage_sharesToAsset;
     }
@@ -461,14 +451,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function setLiquidationBuffer(uint256 newBuffer) external whenNotPaused restricted {
-        s_liquidationBuffer = newBuffer;
-        emit Loan__LiquidationBufferUpdated(newBuffer);
-    }
-
-    /**
-     * @inheritdoc ILoan
-     */
     function setPremiumCollector(address newPremiumCollector)
         external
         whenNotPaused
@@ -506,6 +488,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
+        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidFee();
         s_maxBTCAmt = newMaxBTCAmt;
         emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
     }
@@ -521,6 +504,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     function setLiquidationFeeBps(uint256 newLiquidationFeeBps) external whenNotPaused restricted {
+        if (newLiquidationFeeBps > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
         s_liquidationFee = newLiquidationFeeBps;
         emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);
     }

@@ -86,11 +86,6 @@ contract LoanStorage {
      */
     uint256 internal s_preClosureFeeBps;
 
-    /**
-     * @notice Buffer while liquidation
-     */
-    uint256 internal s_liquidationBuffer;
-
     /// @notice Fee on liquidation. This is implemented on liquidation bonus.
     uint256 internal s_liquidationFee;
 
@@ -139,7 +134,10 @@ contract LoanStorage {
     /**
      * @notice Initial Insurance ID
      */
-    uint256 public constant INITIAL_INSURANCE_ID = 0;
+    uint256 internal constant INITIAL_INSURANCE_ID = 0;
+
+    /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
+    uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
     // ============ Constructor ============
 

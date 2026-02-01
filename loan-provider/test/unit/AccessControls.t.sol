@@ -50,9 +50,6 @@ contract AccessControlsTest is BaseLoanTest {
         loan.setZQuoter(NEW_ZQUOTER);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.setLiquidationBuffer(NEW_LIQUIDATION_BUFFER);
-
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
@@ -74,9 +71,7 @@ contract AccessControlsTest is BaseLoanTest {
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
         );
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
-        );
+
         _scheduleAndExecute(
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
         );
@@ -90,7 +85,6 @@ contract AccessControlsTest is BaseLoanTest {
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
         assertEq(loan.s_swapAdapter(), NEW_SWAP_ADAPTER);
         assertEq(loan.s_zQuoter(), NEW_ZQUOTER);
-        assertEq(loan.getLiquidationBuffer(), NEW_LIQUIDATION_BUFFER);
         assertEq(loan.getPremiumCollector(), NEW_PREMIUM_COLLECTOR);
         assertEq(loan.getGracePeriod(), NEW_GRACE_PERIOD);
         assertEq(loan.getPreClosureFee(), NEW_PRE_CLOSURE_FEE);

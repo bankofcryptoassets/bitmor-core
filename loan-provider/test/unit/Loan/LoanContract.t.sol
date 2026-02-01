@@ -143,8 +143,7 @@ contract LoanContract is BaseLoanTest {
                 params[6], // allowed to be zero
                 params[7], // premiumCollector
                 preClosureFeeBps,
-                gracePeriod,
-                liquidationBuffer
+                gracePeriod
             );
         }
     }
@@ -165,7 +164,6 @@ contract LoanContract is BaseLoanTest {
         address premiumCollector = config.getPremiumCollector();
         uint256 preClosureFeeBps = config.getPreClosureFee();
         uint256 gracePeriod = config.getGracePeriod();
-        uint256 liquidationBuffer = config.getLiquidationBuffer();
 
         // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -182,8 +180,7 @@ contract LoanContract is BaseLoanTest {
             zQuoter,
             premiumCollector,
             preClosureFeeBps,
-            gracePeriod,
-            liquidationBuffer
+            gracePeriod
         );
     }
 }
