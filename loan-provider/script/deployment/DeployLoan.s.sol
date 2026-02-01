@@ -19,8 +19,7 @@ contract DeployLoan is Script {
         address zQuoter,
         address premiumCollector,
         uint256 preClosureFee,
-        uint256 gracePeriod,
-        uint256 liquidationBuffer
+        uint256 gracePeriod
     ) internal {
         vm.startBroadcast();
         new Loan(
@@ -36,8 +35,7 @@ contract DeployLoan is Script {
             zQuoter,
             premiumCollector,
             preClosureFee,
-            gracePeriod,
-            liquidationBuffer
+            gracePeriod
         );
         vm.stopBroadcast();
     }
@@ -57,8 +55,7 @@ contract DeployLoan is Script {
             config.getZQuoter(),
             config.getPremiumCollector(),
             config.getPreClosureFee(),
-            config.getGracePeriod(),
-            config.getLiquidationBuffer()
+            config.getGracePeriod()
         );
     }
 

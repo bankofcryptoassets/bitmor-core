@@ -43,7 +43,6 @@ contract ExecutePhase3 is Script, DeploymentHelper {
         console2.log("Executing Loan configuration...");
         manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (helperConfig.getLiquidationBuffer())));
         manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())));
         console2.log("Loan configuration complete.");

@@ -240,18 +240,6 @@ interface ILoan {
     function setPreClosureFee(uint256 newFee) external;
 
     /**
-     * @notice Updates the buffer required while Liquidation.
-     * @param newBuffer The new buffer (in bps)
-     * @dev This call is restricted to `LPM_SLOW` ONLY.
-     */
-    function setLiquidationBuffer(uint256 newBuffer) external;
-
-    /**
-     * @notice Returns the buffer required while liquidation.
-     */
-    function getLiquidationBuffer() external view returns (uint256);
-
-    /**
      * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
      * @param collateralAmount Collateral asset amount
      * @param duration Duration of the loan

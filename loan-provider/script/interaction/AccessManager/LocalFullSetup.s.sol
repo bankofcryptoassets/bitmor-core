@@ -168,7 +168,6 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
 
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (config.getLiquidationBuffer())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
 
@@ -203,7 +202,6 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
 
         manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (config.getLiquidationBuffer())));
         manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
 

@@ -103,8 +103,7 @@ contract DeployPhase3 is InitialSetup {
                 address(0), // zQuoter (not used locally)
                 msg.sender, // premiumCollector
                 PRE_CLOSURE_FEE,
-                GRACE_PERIOD,
-                LIQUIDATION_BUFFER
+                GRACE_PERIOD
             )
         );
         console2.log("Loan:", loan);
@@ -266,7 +265,6 @@ contract DeployPhase3 is InitialSetup {
         // LPM_SLOW Operations (Loan config)
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (GRACE_PERIOD)), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (LIQUIDATION_BUFFER)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (msg.sender)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (PRE_CLOSURE_FEE)), when);
 
