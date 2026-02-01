@@ -332,4 +332,15 @@ contract RepayLoanTest is BaseLoanTest {
         vm.expectRevert(Errors.LoanIsNotActive.selector);
         loan.repay(lsa, 1000e6);
     }
+
+    // ============ Zero/Non-Existent LSA Reverts ============
+
+    /// @notice Test that repaying with zero LSA address reverts
+    /// @dev Covers RepayLogic.sol:61-62 ZeroAddress error
+    function test_RevertWhen_RepayZeroLsaAddress() public setUpLoanForUser {
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        loan.repay(address(0), 1000e6);
+    }
 }
