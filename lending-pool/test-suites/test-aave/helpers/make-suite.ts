@@ -26,9 +26,6 @@ import {
   getUniswapRepayAdapter,
   getFlashLiquidationAdapter,
   getParaSwapLiquiditySwapAdapter,
-  getMockUSDCVault,
-  getMockActualUSDCVault,
-  getMockWETHVault,
   getMockBTCVault,
   getMockLoan,
 } from '../../../helpers/contracts-getters.js';
@@ -55,7 +52,6 @@ import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/W
 import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
-import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
 import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
@@ -87,9 +83,6 @@ export interface TestEnv {
   wethGateway: WETHGateway;
   flashLiquidationAdapter: FlashLiquidationAdapter;
   paraswapLiquiditySwapAdapter: ParaSwapLiquiditySwapAdapter;
-  usdcVault: MockUSDCVault;
-  actualUSDCVault: MockUSDCVault;
-  wethVault: MockUSDCVault;
   // Bitmor mock callers
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
@@ -118,6 +111,7 @@ const testEnv: TestEnv = {
   dai: {} as MintableERC20,
   aDai: {} as AToken,
   usdc: {} as MintableERC20,
+  aUsdc: {} as AToken,
   aave: {} as MintableERC20,
   addressesProvider: {} as LendingPoolAddressesProvider,
   uniswapLiquiditySwapAdapter: {} as UniswapLiquiditySwapAdapter,
@@ -181,7 +175,7 @@ export async function initializeMakeSuite() {
   const aaveAddress = reservesTokens.find((token) => token.symbol === 'AAVE')?.tokenAddress;
   const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
 
-  if (!aDaiAddress || !aWEthAddress) {
+  if (!aDaiAddress || !aUsdcAddress || !aWEthAddress) {
     process.exit(1);
   }
   if (!daiAddress || !usdcAddress || !aaveAddress || !wethAddress) {
@@ -189,6 +183,7 @@ export async function initializeMakeSuite() {
   }
 
   testEnv.aDai = await getAToken(aDaiAddress);
+  testEnv.aUsdc = await getAToken(aUsdcAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
   testEnv.acbBTC = await getAToken(acbBTCAddress);
   testEnv.aUSDC = await getAToken(aUSDCAddress);
@@ -204,10 +199,6 @@ export async function initializeMakeSuite() {
   testEnv.flashLiquidationAdapter = await getFlashLiquidationAdapter();
 
   testEnv.paraswapLiquiditySwapAdapter = await getParaSwapLiquiditySwapAdapter();
-
-  testEnv.usdcVault = await getMockUSDCVault();
-  testEnv.actualUSDCVault = await getMockActualUSDCVault();
-  testEnv.wethVault = await getMockWETHVault();
 
   // Deploy Bitmor mock callers
   const bitmorMocks = await deployMockBitmorCallers(usdcAddress);
