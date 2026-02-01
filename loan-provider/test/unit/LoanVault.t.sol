@@ -29,9 +29,9 @@ import {LSALogicHarness} from "../harness/LSALogicHarness.sol";
 /// @dev For system-level security/exploit tests with full loan integration context,
 ///      see test/unit/LSAExploit.t.sol which tests attack vectors against the real loan flow.
 contract LoanVaultTest is Test {
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // State Variables
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     LoanVault internal vault;
     MintableERC20 internal mockToken;
@@ -49,9 +49,9 @@ contract LoanVaultTest is Test {
     MockPriceOracle internal mockOracle;
     LoanVault internal lsa;
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // Test Actors
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     address internal owner;
     address internal borrower;
@@ -59,9 +59,12 @@ contract LoanVaultTest is Test {
     address internal spender;
     address internal recipient;
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    /// @dev Recognizable test value for execute() return validation
+    uint256 internal constant TEST_INPUT_VALUE = 42;
+
+    // ============================================================================
     // Setup
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     function setUp() public {
         // Create labeled test actors
@@ -78,9 +81,9 @@ contract LoanVaultTest is Test {
         returnTarget = new MockReturnTarget();
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // SECTION 1: LoanVault Tests
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     // --- Initialization Tests ---
 
@@ -337,20 +340,19 @@ contract LoanVaultTest is Test {
         // Arrange
         vault.initialize(owner, borrower);
 
-        // Test values: 42 is a recognizable non-zero test value; mock returns input * 2
-        uint256 testInput = 42;
-        uint256 expectedOutput = testInput * 2; // 84
+        // Test values: TEST_INPUT_VALUE is recognizable non-zero; mock returns input * 2
+        uint256 expectedOutput = TEST_INPUT_VALUE * 2; // 84
 
         // Act
         vm.prank(owner);
         bytes memory result = vault.execute(
-            address(returnTarget), abi.encodeWithSignature("setAndReturnValue(uint256)", testInput)
+            address(returnTarget), abi.encodeWithSignature("setAndReturnValue(uint256)", TEST_INPUT_VALUE)
         );
 
         // Assert
         uint256 returnedValue = abi.decode(result, (uint256));
         assertEq(returnedValue, expectedOutput, "return value should be input * 2");
-        assertEq(returnTarget.storedValue(), testInput, "stored value should match input");
+        assertEq(returnTarget.storedValue(), TEST_INPUT_VALUE, "stored value should match input");
     }
 
     /// @notice execute reverts when caller is not owner
@@ -368,7 +370,7 @@ contract LoanVaultTest is Test {
     function test_execute_EmitsExecutedEvent() public {
         // Arrange
         vault.initialize(owner, borrower);
-        bytes memory callData = abi.encodeWithSignature("setAndReturnValue(uint256)", 42);
+        bytes memory callData = abi.encodeWithSignature("setAndReturnValue(uint256)", TEST_INPUT_VALUE);
 
         // Assert - expect event
         // Note: Last two params (false, false) because returnData is computed during
@@ -441,9 +443,9 @@ contract LoanVaultTest is Test {
         assertEq(address(vault).balance, 1 ether, "balance should be 1 ether");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // SECTION 2: LoanVaultFactory Tests
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     // --- Constructor Tests ---
 
@@ -623,9 +625,9 @@ contract LoanVaultTest is Test {
         vm.stopPrank();
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // SECTION 3: LSALogic Tests
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     // --- approveCreditDelegation Tests ---
 
@@ -642,7 +644,9 @@ contract LoanVaultTest is Test {
         );
     }
 
-    /// @notice approveCreditDelegation approves delegate when debt token is valid
+    /// @notice Verifies approveCreditDelegation correctly encodes and dispatches the delegation call
+    /// @dev LIMITATION: Unit test verifies call encoding and dispatch via event emission.
+    ///      The mock verifies the call was made correctly; integration tests validate full behavior.
     function test_approveCreditDelegation_ApprovesDelegate() public {
         // Arrange
         _setupLSALogicInfrastructure();
@@ -654,6 +658,7 @@ contract LoanVaultTest is Test {
         );
 
         // Assert - expect LSA.execute() to be called with correct target and data
+        // Note: (true, true, false, false) - check indexed topics, skip data (returnData unpredictable)
         vm.expectEmit(true, true, false, false);
         emit ILoanVault.LoanVault__Executed(address(mockDebtToken), expectedCalldata, "");
 
@@ -715,6 +720,7 @@ contract LoanVaultTest is Test {
         );
 
         // Assert - expect LSA.execute() to be called with correct target and data
+        // Note: (true, true, false, false) - check indexed topics, skip data (returnData unpredictable)
         vm.expectEmit(true, true, false, false);
         emit ILoanVault.LoanVault__Executed(address(mockDebtToken), expectedCalldata, "");
 
@@ -808,11 +814,13 @@ contract LoanVaultTest is Test {
         assertGt(received, minimum, "received should exceed minimum threshold");
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
     // LSALogic Test Helpers
-    // ══════════════════════════════════════════════════════════════════════════════
+    // ============================================================================
 
     /// @notice Sets up basic LSALogic infrastructure for testing
+    /// @dev Creates minimal mock infrastructure without deposits or funded accounts.
+    ///      Use as base for tests that only need basic contract wiring.
     function _setupLSALogicInfrastructure() internal {
         // Deploy harness
         lsaHarness = new LSALogicHarness();
@@ -854,6 +862,8 @@ contract LoanVaultTest is Test {
     }
 
     /// @notice Sets up LSALogic infrastructure with a deposit to the lending pool
+    /// @dev Extends base setup with aToken position in lending pool. Use for tests
+    ///      requiring collateral state and lending pool interactions.
     function _setupLSALogicInfrastructureWithDeposit() internal {
         _setupLSALogicInfrastructure();
 
@@ -882,10 +892,9 @@ contract LoanVaultTest is Test {
     }
 
     /// @notice Sets up LSALogic infrastructure with shares in the LSA for redeem testing
-    /// @dev Note: This setup intentionally creates a non-1:1 share-to-asset ratio.
-    ///      The vault receives 2x underlying compared to shares, which means convertToAssets
-    ///      will return more than the share amount. Use _setupLSALogicInfrastructureWithSharesClean
-    ///      for tests requiring exact 1:1 ratio.
+    /// @dev WARNING: Creates intentional 2:1 asset-to-share ratio for slippage testing.
+    ///      convertToAssets returns 2x share amount. Use _setupLSALogicInfrastructureWithSharesClean
+    ///      when exact 1:1 calculations are required.
     function _setupLSALogicInfrastructureWithShares() internal {
         _setupLSALogicInfrastructure();
 
@@ -904,8 +913,8 @@ contract LoanVaultTest is Test {
     }
 
     /// @notice Sets up LSALogic infrastructure with shares maintaining 1:1 share-to-asset ratio
-    /// @dev Use this for testing exact slippage calculations where 1:1 ratio is expected
-    ///      Does NOT call _setupLSALogicInfrastructure to avoid extra underlying being minted
+    /// @dev Clean isolated setup (doesn't call base). Use for precise slippage calculations
+    ///      where 1 share = 1 asset is required for predictable assertions.
     function _setupLSALogicInfrastructureWithSharesClean() internal {
         // Deploy harness
         lsaHarness = new LSALogicHarness();
@@ -948,8 +957,8 @@ contract LoanVaultTest is Test {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 // Helper Mock for LSALogic tests
-// ══════════════════════════════════════════════════════════════════════════════
+// ============================================================================
 
 import {MockAToken} from "../mock/MockAToken.sol";

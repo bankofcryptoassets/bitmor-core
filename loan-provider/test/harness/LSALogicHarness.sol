@@ -6,6 +6,7 @@ import {LSALogic} from "@bitmor/libraries/logic/LSALogic.sol";
 /// @title LSALogicHarness
 /// @notice Test harness for LSALogic library that exposes internal functions
 /// @dev Allows direct unit testing of library functions without going through Loan.sol
+/// @custom:security FOR TESTING ONLY - Exposes internal functions. Never deploy to production.
 /// @author Bitmor Protocol
 contract LSALogicHarness {
     /// @notice Exposes LSALogic.approveCreditDelegation for testing

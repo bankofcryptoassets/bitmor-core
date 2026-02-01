@@ -24,7 +24,6 @@ contract ViewFunctionsTest is BaseLoanTest {
 
         // Verify against exact config values from HelperConfig
         assertEq(loan.getGracePeriod(), config.getGracePeriod(), "Grace period should match config");
-        assertEq(loan.getLiquidationBuffer(), config.getLiquidationBuffer(), "Liquidation buffer should match config");
         assertEq(loan.getPreClosureFee(), config.getPreClosureFee(), "Pre-closure fee should match config");
 
         // Verify against TestConstants configuration

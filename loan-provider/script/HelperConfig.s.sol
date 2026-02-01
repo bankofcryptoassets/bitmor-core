@@ -22,7 +22,6 @@ contract HelperConfig is Script {
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
-        uint256 liquidationBuffer;
         // Vault test config
         address usdc;
         address usdc_holder;
@@ -46,7 +45,6 @@ contract HelperConfig is Script {
     uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
-    uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
     // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
@@ -111,7 +109,6 @@ contract HelperConfig is Script {
         s_networkConfig.premiumCollector = getPremiumCollector();
         s_networkConfig.preClosureFeeBps = getPreClosureFee();
         s_networkConfig.gracePeriod = getGracePeriod();
-        s_networkConfig.liquidationBuffer = getLiquidationBuffer();
         s_networkConfig.usdc = getUSDC();
         s_networkConfig.usdc_holder = getUSDCHolder();
         s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
@@ -136,7 +133,6 @@ contract HelperConfig is Script {
         s_networkConfig.premiumCollector = BITMOR_OWNER;
         s_networkConfig.preClosureFeeBps = getPreClosureFee();
         s_networkConfig.gracePeriod = getGracePeriod();
-        s_networkConfig.liquidationBuffer = getLiquidationBuffer();
         s_networkConfig.usdc = mockUsdc;
         s_networkConfig.usdc_holder = BITMOR_OWNER;
         s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
@@ -153,10 +149,6 @@ contract HelperConfig is Script {
 
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
-    }
-
-    function getLiquidationBuffer() public pure returns (uint256) {
-        return LIQUIDATION_BUFFER;
     }
 
     function getPremiumCollector() public pure returns (address) {
