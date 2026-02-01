@@ -293,8 +293,7 @@ contract InitializeLoanTest is BaseLoanTest {
             loan.s_zQuoter(),
             loan.getPremiumCollector(),
             loan.getPreClosureFee(),
-            loan.getGracePeriod(),
-            loan.getLiquidationBuffer()
+            loan.getGracePeriod()
         );
 
         // Set up roles for loan2 before setting target selectors

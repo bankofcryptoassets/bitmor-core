@@ -231,6 +231,62 @@ contract MockLoan is ILoan {
         return (0, 0, 0);
     }
 
+    function setSlippageForSharesToAsset(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getSlippageForSharesToAsset() external view override returns (uint256) {
+        return 0;
+    }
+
+    function setSlippageForSwap(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getSlippageForSwap() external view override returns (uint256) {
+        return 0;
+    }
+
+    function setMaxBTCAmount(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getMaxBTCAmount() external view override returns (uint256) {
+        return 0;
+    }
+
+    function setMinBTCAmount(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getMinBTCAmount() external view override returns (uint256) {
+        return 0;
+    }
+
+    function getMinDepositBps() external view override returns (uint256) {
+        return 0;
+    }
+
+    function setMinDepositBps(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function setLiquidationFeeBps(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getLiquidationFeeBps() external view override returns (uint256) {
+        return 0;
+    }
+
+    function getLiquidationFeeCollector() external view override returns (address) {
+        return address(0);
+    }
+
+    function setLiquidationFeeCollector(address) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
     // ========== TEST HELPERS ==========
 
     /**

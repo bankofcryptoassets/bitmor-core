@@ -57,6 +57,10 @@ interface ILoan {
 
     event Loan__MinDepositUpdated(uint256 indexed newMinDepositBps);
 
+    event Loan__LiquidationFeeUpdated(uint256 indexed newLiquidationFee);
+
+    event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
+
     // ============ Main Functions ============
 
     /**
@@ -236,18 +240,6 @@ interface ILoan {
     function setPreClosureFee(uint256 newFee) external;
 
     /**
-     * @notice Updates the buffer required while Liquidation.
-     * @param newBuffer The new buffer (in bps)
-     * @dev This call is restricted to `LPM_SLOW` ONLY.
-     */
-    function setLiquidationBuffer(uint256 newBuffer) external;
-
-    /**
-     * @notice Returns the buffer required while liquidation.
-     */
-    function getLiquidationBuffer() external view returns (uint256);
-
-    /**
      * @notice Getter function to calculate the loan details based on the `collateralAmount` and `duration` of the Loan.
      * @param collateralAmount Collateral asset amount
      * @param duration Duration of the loan
@@ -279,4 +271,12 @@ interface ILoan {
     function getMinDepositBps() external view returns (uint256);
 
     function setMinDepositBps(uint256 newMinDepositBps) external;
+
+    function setLiquidationFeeBps(uint256 newLiquidationFee) external;
+
+    function getLiquidationFeeBps() external view returns (uint256);
+
+    function getLiquidationFeeCollector() external view returns (address);
+
+    function setLiquidationFeeCollector(address newFeeCollector) external;
 }

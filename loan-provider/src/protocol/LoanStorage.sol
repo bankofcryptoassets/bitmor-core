@@ -73,6 +73,9 @@ contract LoanStorage {
      */
     address internal s_premiumCollector;
 
+    /// @notice Collects fee on liquidation from Liquidation Bonus.
+    address internal s_liquidationFeeCollector;
+
     /**
      * @notice Grace period for monthly installments in `days`
      */
@@ -83,10 +86,8 @@ contract LoanStorage {
      */
     uint256 internal s_preClosureFeeBps;
 
-    /**
-     * @notice Buffer while liquidation
-     */
-    uint256 internal s_liquidationBuffer;
+    /// @notice Fee on liquidation. This is implemented on liquidation bonus.
+    uint256 internal s_liquidationFee;
 
     /// @notice Slippage in BPS while convert `bvBTC` shares to btc.
     uint256 internal s_slippage_sharesToAsset;
@@ -133,7 +134,10 @@ contract LoanStorage {
     /**
      * @notice Initial Insurance ID
      */
-    uint256 public constant INITIAL_INSURANCE_ID = 0;
+    uint256 internal constant INITIAL_INSURANCE_ID = 0;
+
+    /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
+    uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
     // ============ Constructor ============
 

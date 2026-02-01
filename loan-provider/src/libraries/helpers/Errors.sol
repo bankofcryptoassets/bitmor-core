@@ -225,4 +225,6 @@ library Errors {
 
     /// @notice Thrown when slippage exceeds while converting shares to assets.
     error SlippageExceededWhileConvertingToAssets();
+
+    error InvalidFee();
 }

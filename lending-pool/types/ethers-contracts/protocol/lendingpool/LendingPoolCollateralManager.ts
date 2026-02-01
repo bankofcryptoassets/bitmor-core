@@ -3,12 +3,12 @@
 /* eslint-disable */
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../common.js"
-  
+
 
   export interface LendingPoolCollateralManagerInterface extends Interface {
     getFunction(nameOrSignature: "checkTypeOfLiquidation" | "liquidationCall" | "microLiquidationCall"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "LiquidationCall" | "MicroLiquidationCall" | "ReserveUsedAsCollateralDisabled" | "ReserveUsedAsCollateralEnabled"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "LiquidationCall" | "MicroLiquidationCall" | "ProtocolLiquidationFee" | "ReserveUsedAsCollateralDisabled" | "ReserveUsedAsCollateralEnabled"): EventFragment;
 
     encodeFunctionData(functionFragment: 'checkTypeOfLiquidation', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'liquidationCall', values: [AddressLike, AddressLike, AddressLike, BigNumberish, boolean]): string;
@@ -19,7 +19,7 @@ decodeFunctionResult(functionFragment: 'liquidationCall', data: BytesLike): Resu
 decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike): Result;
   }
 
-  
+
     export namespace LiquidationCallEvent {
       export type InputTuple = [collateral: AddressLike, principal: AddressLike, user: AddressLike, debtToCover: BigNumberish, liquidatedCollateralAmount: BigNumberish, liquidator: AddressLike, receiveAToken: boolean];
       export type OutputTuple = [collateral: string, principal: string, user: string, debtToCover: bigint, liquidatedCollateralAmount: bigint, liquidator: string, receiveAToken: boolean];
@@ -30,7 +30,7 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
       export type LogDescription = TypedLogDescription<Event>
     }
 
-  
+
 
     export namespace MicroLiquidationCallEvent {
       export type InputTuple = [collateral: AddressLike, principal: AddressLike, user: AddressLike, debtToCover: BigNumberish, liquidatedCollateralAmount: BigNumberish, liquidator: AddressLike, receiveAToken: boolean];
@@ -42,7 +42,19 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
       export type LogDescription = TypedLogDescription<Event>
     }
 
-  
+
+
+    export namespace ProtocolLiquidationFeeEvent {
+      export type InputTuple = [collateral: AddressLike, user: AddressLike, liquidator: AddressLike, protocolFeeAmount: BigNumberish];
+      export type OutputTuple = [collateral: string, user: string, liquidator: string, protocolFeeAmount: bigint];
+      export interface OutputObject {collateral: string, user: string, liquidator: string, protocolFeeAmount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+
 
     export namespace ReserveUsedAsCollateralDisabledEvent {
       export type InputTuple = [reserve: AddressLike, user: AddressLike];
@@ -54,7 +66,7 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
       export type LogDescription = TypedLogDescription<Event>
     }
 
-  
+
 
     export namespace ReserveUsedAsCollateralEnabledEvent {
       export type InputTuple = [reserve: AddressLike, user: AddressLike];
@@ -66,16 +78,16 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
       export type LogDescription = TypedLogDescription<Event>
     }
 
-  
+
 
   export interface LendingPoolCollateralManager extends BaseContract {
-    
+
     connect(runner?: ContractRunner | null): LendingPoolCollateralManager;
     waitForDeployment(): Promise<this>;
 
     interface: LendingPoolCollateralManagerInterface;
 
-    
+
   queryFilter<TCEvent extends TypedContractEvent>(
     event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
@@ -89,7 +101,7 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
 
   on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>
   on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>
-  
+
   once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>
   once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>
 
@@ -100,30 +112,30 @@ decodeFunctionResult(functionFragment: 'microLiquidationCall', data: BytesLike):
   removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>
 
 
-    
-    
+
+
     checkTypeOfLiquidation: TypedContractMethod<
       [user: AddressLike, ],
       [bigint],
       'view'
     >
-    
 
-    
+
+
     liquidationCall: TypedContractMethod<
       [collateralAsset: AddressLike, debtAsset: AddressLike, user: AddressLike, debtToCover: BigNumberish, receiveAToken: boolean, ],
       [[bigint, string]],
       'nonpayable'
     >
-    
 
-    
+
+
     microLiquidationCall: TypedContractMethod<
       [data: BytesLike, ],
       [[bigint, string]],
       'nonpayable'
     >
-    
+
 
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
@@ -146,25 +158,30 @@ getFunction(nameOrSignature: 'microLiquidationCall'): TypedContractMethod<
 
     getEvent(key: 'LiquidationCall'): TypedContractEvent<LiquidationCallEvent.InputTuple, LiquidationCallEvent.OutputTuple, LiquidationCallEvent.OutputObject>;
 getEvent(key: 'MicroLiquidationCall'): TypedContractEvent<MicroLiquidationCallEvent.InputTuple, MicroLiquidationCallEvent.OutputTuple, MicroLiquidationCallEvent.OutputObject>;
+getEvent(key: 'ProtocolLiquidationFee'): TypedContractEvent<ProtocolLiquidationFeeEvent.InputTuple, ProtocolLiquidationFeeEvent.OutputTuple, ProtocolLiquidationFeeEvent.OutputObject>;
 getEvent(key: 'ReserveUsedAsCollateralDisabled'): TypedContractEvent<ReserveUsedAsCollateralDisabledEvent.InputTuple, ReserveUsedAsCollateralDisabledEvent.OutputTuple, ReserveUsedAsCollateralDisabledEvent.OutputObject>;
 getEvent(key: 'ReserveUsedAsCollateralEnabled'): TypedContractEvent<ReserveUsedAsCollateralEnabledEvent.InputTuple, ReserveUsedAsCollateralEnabledEvent.OutputTuple, ReserveUsedAsCollateralEnabledEvent.OutputObject>;
 
     filters: {
-      
+
       'LiquidationCall(address,address,address,uint256,uint256,address,bool)': TypedContractEvent<LiquidationCallEvent.InputTuple, LiquidationCallEvent.OutputTuple, LiquidationCallEvent.OutputObject>;
       LiquidationCall: TypedContractEvent<LiquidationCallEvent.InputTuple, LiquidationCallEvent.OutputTuple, LiquidationCallEvent.OutputObject>;
-    
+
 
       'MicroLiquidationCall(address,address,address,uint256,uint256,address,bool)': TypedContractEvent<MicroLiquidationCallEvent.InputTuple, MicroLiquidationCallEvent.OutputTuple, MicroLiquidationCallEvent.OutputObject>;
       MicroLiquidationCall: TypedContractEvent<MicroLiquidationCallEvent.InputTuple, MicroLiquidationCallEvent.OutputTuple, MicroLiquidationCallEvent.OutputObject>;
-    
+
+
+      'ProtocolLiquidationFee(address,address,address,uint256)': TypedContractEvent<ProtocolLiquidationFeeEvent.InputTuple, ProtocolLiquidationFeeEvent.OutputTuple, ProtocolLiquidationFeeEvent.OutputObject>;
+      ProtocolLiquidationFee: TypedContractEvent<ProtocolLiquidationFeeEvent.InputTuple, ProtocolLiquidationFeeEvent.OutputTuple, ProtocolLiquidationFeeEvent.OutputObject>;
+
 
       'ReserveUsedAsCollateralDisabled(address,address)': TypedContractEvent<ReserveUsedAsCollateralDisabledEvent.InputTuple, ReserveUsedAsCollateralDisabledEvent.OutputTuple, ReserveUsedAsCollateralDisabledEvent.OutputObject>;
       ReserveUsedAsCollateralDisabled: TypedContractEvent<ReserveUsedAsCollateralDisabledEvent.InputTuple, ReserveUsedAsCollateralDisabledEvent.OutputTuple, ReserveUsedAsCollateralDisabledEvent.OutputObject>;
-    
+
 
       'ReserveUsedAsCollateralEnabled(address,address)': TypedContractEvent<ReserveUsedAsCollateralEnabledEvent.InputTuple, ReserveUsedAsCollateralEnabledEvent.OutputTuple, ReserveUsedAsCollateralEnabledEvent.OutputObject>;
       ReserveUsedAsCollateralEnabled: TypedContractEvent<ReserveUsedAsCollateralEnabledEvent.InputTuple, ReserveUsedAsCollateralEnabledEvent.OutputTuple, ReserveUsedAsCollateralEnabledEvent.OutputObject>;
-    
+
     };
   }
