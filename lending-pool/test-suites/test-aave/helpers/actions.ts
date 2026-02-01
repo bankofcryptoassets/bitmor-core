@@ -147,8 +147,6 @@ export const deposit = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool } = testEnv;
-
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const amountToDeposit = await convertToCurrencyDecimals(reserve, amount);
@@ -194,11 +192,11 @@ export const deposit = async (
     // In production, this would be LSA address.
     const txResult = isUSDC
       ? await waitForTx(
-          await mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
-        )
+        await mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
+      )
       : await waitForTx(
-          await mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
-        );
+        await mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
+      );
 
     // BITMOR: Check aToken holder's balance AND user's wallet balance
     const {
@@ -294,7 +292,7 @@ export const withdraw = async (
   if (amount !== '-1') {
     amountToWithdraw = (await convertToCurrencyDecimals(reserve, amount)).toString();
   } else {
-    if(isUsdc) {
+    if (isUsdc) {
       amountToWithdraw = (await mockBitmorUSDCVault.balanceOf(user.address)).toString();
     } else {
       amountToWithdraw = MAX_UINT_AMOUNT;
@@ -303,10 +301,10 @@ export const withdraw = async (
 
   if (expectedResult === 'success') {
     const txResult = await waitForTx(
-        isUsdc ?
+      isUsdc ?
         await mockBitmorUSDCVault.connect(user.signer).withdraw(amountToWithdraw, user.address, user.address) :
         await pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address)
-      )
+    )
 
     const {
       reserveData: reserveDataAfter,
@@ -338,7 +336,7 @@ export const withdraw = async (
     );
 
     expectEqual(reserveDataAfter, expectedReserveData);
-    if(isUsdc) {
+    if (isUsdc) {
       expectEqualForWithdraw(userDataAfter, expectedUserData, amountToWithdraw);
     } else {
       expectEqual(userDataAfter, expectedUserData);
@@ -367,7 +365,7 @@ export const delegateBorrowAllowance = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool } = testEnv;
+  const { pool, mockBitmorUSDCVault } = testEnv;
 
   const reserveAddress: tEthereumAddress = await getReserveAddressFromSymbol(reserve);
 
@@ -382,9 +380,7 @@ export const delegateBorrowAllowance = async (
       ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
       : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
 
-  const delegateAllowancePromise = debtToken
-    .connect(user.signer)
-    .approveDelegation(receiver, amountToDelegate);
+  const delegateAllowancePromise = debtToken.connect(user.signer).approveDelegation(receiver, amountToDelegate);
 
   if (expectedResult === 'revert' && revertMessage) {
     await expect(delegateAllowancePromise, revertMessage).to.be.revertedWith(revertMessage);
@@ -614,7 +610,7 @@ export const repay = async (
       timestamp
     );
 
-    
+
 
     // expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserData);
@@ -651,7 +647,7 @@ export const setUseAsCollateral = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool } = testEnv;
+  const { pool, mockBitmorUSDCVault } = testEnv;
 
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -662,11 +658,20 @@ export const setUseAsCollateral = async (
   );
 
   const useAsCollateralBool = useAsCollateral.toLowerCase() === 'true';
+  const isUSDC = reserveSymbol === 'USDC';
 
   if (expectedResult === 'success') {
-    const txResult = await waitForTx(
-      await pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
-    );
+    let txResult;
+    if (isUSDC) {
+      txResult = await waitForTx(
+        await mockBitmorUSDCVault.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
+      );
+    }
+    else {
+      txResult = await waitForTx(
+        await pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
+      );
+    }
 
     const { txCost } = await getTxCostAndTimestamp(txResult);
 
@@ -692,10 +697,18 @@ export const setUseAsCollateral = async (
     //   });
     // }
   } else if (expectedResult === 'revert') {
-    await expect(
-      pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
-      revertMessage
-    ).to.be.revert(DRE.ethers);
+    if (isUSDC) {
+      await expect(
+        mockBitmorUSDCVault.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
+        revertMessage
+      ).to.be.revert(DRE.ethers);
+    }
+    else {
+      await expect(
+        pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
+        revertMessage
+      ).to.be.revert(DRE.ethers);
+    }
   }
 };
 

@@ -7,6 +7,7 @@ import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
 import {DataTypes} from '../../protocol/libraries/types/DataTypes.sol';
+import {VariableDebtToken} from "../../protocol/tokenization/VariableDebtToken.sol";
 
 /**
  * @title MockUSDCVault
@@ -196,6 +197,18 @@ contract MockUSDCVault is ERC20 {
 
         return assets;
     }
+
+    function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external {
+        ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
+        pool.setUserUseReserveAsCollateral(asset, useAsCollateral);
+    }
+    
+    // function approveDelegation(address receiver, uint256 amountToDelegate) external {
+    //     ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
+    //     DataTypes.ReserveData memory reserveData = pool.getReserveData(ASSET);
+    //     VariableDebtToken debtToken = VariableDebtToken(reserveData.variableDebtTokenAddress);
+    //     debtToken.approveDelegation(receiver, amountToDelegate);
+    // }
 
     // ========== VIEW FUNCTIONS ==========
 

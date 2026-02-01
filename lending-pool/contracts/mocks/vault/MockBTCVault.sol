@@ -9,11 +9,11 @@ pragma solidity 0.6.12;
  * - Enables testing vault-based deposit flow (LP_CALLER_NOT_VAULT check)
  */
 
-import {ERC20} from '../../dependencies/openzeppelin/contracts/ERC20.sol';
-import {IERC20} from '../../dependencies/openzeppelin/contracts/IERC20.sol';
-import {SafeERC20} from '../../dependencies/openzeppelin/contracts/SafeERC20.sol';
-import {ILendingPool} from '../../interfaces/ILendingPool.sol';
-import {ILendingPoolAddressesProvider} from '../../interfaces/ILendingPoolAddressesProvider.sol';
+import {ERC20} from "../../dependencies/openzeppelin/contracts/ERC20.sol";
+import {IERC20} from "../../dependencies/openzeppelin/contracts/IERC20.sol";
+import {SafeERC20} from "../../dependencies/openzeppelin/contracts/SafeERC20.sol";
+import {ILendingPool} from "../../interfaces/ILendingPool.sol";
+import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
 
 /**
  * @title MockBTCVault
@@ -51,9 +51,12 @@ contract MockBTCVault is ERC20 {
      * @param addressesProvider The address of the LendingPoolAddressesProvider
      * @param asset The underlying asset (cbBTC)
      */
-    constructor(address addressesProvider, address asset) public ERC20('Bitmor BTC Vault', 'bvBTC') {
-        require(addressesProvider != address(0), 'MockBTCVault: INVALID_ADDRESSES_PROVIDER');
-        require(asset != address(0), 'MockBTCVault: INVALID_ASSET');
+    constructor(
+        address addressesProvider,
+        address asset
+    ) public ERC20("Bitmor BTC Vault", "bvBTC") {
+        require(addressesProvider != address(0), "MockBTCVault: INVALID_ADDRESSES_PROVIDER");
+        require(asset != address(0), "MockBTCVault: INVALID_ASSET");
 
         ADDRESSES_PROVIDER = ILendingPoolAddressesProvider(addressesProvider);
         ASSET = asset;
@@ -77,8 +80,8 @@ contract MockBTCVault is ERC20 {
      * @return shares The amount of shares minted (1:1 with assets)
      */
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
-        require(assets > 0, 'MockBTCVault: ZERO_ASSETS');
-        require(receiver != address(0), 'MockBTCVault: ZERO_RECEIVER');
+        require(assets > 0, "MockBTCVault: ZERO_ASSETS");
+        require(receiver != address(0), "MockBTCVault: ZERO_RECEIVER");
 
         // Calculate shares (1:1 for this mock)
         shares = assets;
@@ -118,16 +121,16 @@ contract MockBTCVault is ERC20 {
         address receiver,
         address owner
     ) external returns (uint256 shares) {
-        require(assets > 0, 'MockBTCVault: ZERO_ASSETS');
-        require(receiver != address(0), 'MockBTCVault: ZERO_RECEIVER');
-        require(owner != address(0), 'MockBTCVault: ZERO_OWNER');
+        require(assets > 0, "MockBTCVault: ZERO_ASSETS");
+        require(receiver != address(0), "MockBTCVault: ZERO_RECEIVER");
+        require(owner != address(0), "MockBTCVault: ZERO_OWNER");
 
         shares = assets;
 
         if (msg.sender != owner) {
             uint256 allowed = allowance(owner, msg.sender);
             if (allowed != uint256(-1)) {
-                require(allowed >= shares, 'MockBTCVault: INSUFFICIENT_ALLOWANCE');
+                require(allowed >= shares, "MockBTCVault: INSUFFICIENT_ALLOWANCE");
                 _approve(owner, msg.sender, allowed - shares);
             }
         }
@@ -157,16 +160,16 @@ contract MockBTCVault is ERC20 {
         address receiver,
         address owner
     ) external returns (uint256 assets) {
-        require(shares > 0, 'MockBTCVault: ZERO_SHARES');
-        require(receiver != address(0), 'MockBTCVault: ZERO_RECEIVER');
-        require(owner != address(0), 'MockBTCVault: ZERO_OWNER');
+        require(shares > 0, "MockBTCVault: ZERO_SHARES");
+        require(receiver != address(0), "MockBTCVault: ZERO_RECEIVER");
+        require(owner != address(0), "MockBTCVault: ZERO_OWNER");
 
         assets = shares;
 
         if (msg.sender != owner) {
             uint256 allowed = allowance(owner, msg.sender);
             if (allowed != uint256(-1)) {
-                require(allowed >= shares, 'MockBTCVault: INSUFFICIENT_ALLOWANCE');
+                require(allowed >= shares, "MockBTCVault: INSUFFICIENT_ALLOWANCE");
                 _approve(owner, msg.sender, allowed - shares);
             }
         }
@@ -180,6 +183,11 @@ contract MockBTCVault is ERC20 {
         emit Withdraw(msg.sender, receiver, owner, withdrawn, shares);
 
         return assets;
+    }
+
+    function setUserUseReserveAsCollateral(address asset, bool useAsCollateral) external {
+        ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
+        pool.setUserUseReserveAsCollateral(asset, useAsCollateral);
     }
 
     // ========== ERC-4626 VIEW FUNCTIONS ==========

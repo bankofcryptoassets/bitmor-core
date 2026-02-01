@@ -6,7 +6,7 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface MockUSDCVaultInterface extends Interface {
-    getFunction(nameOrSignature: "ADDRESSES_PROVIDER" | "ASSET" | "allowance" | "approve" | "asset" | "balanceOf" | "decimals" | "decreaseAllowance" | "deposit" | "getLendingPool" | "increaseAllowance" | "name" | "previewDeposit" | "previewRedeem" | "previewWithdraw" | "redeem" | "symbol" | "totalAssets" | "totalSupply" | "transfer" | "transferFrom" | "withdraw"): FunctionFragment;
+    getFunction(nameOrSignature: "ADDRESSES_PROVIDER" | "ASSET" | "allowance" | "approve" | "asset" | "balanceOf" | "decimals" | "decreaseAllowance" | "deposit" | "getLendingPool" | "increaseAllowance" | "name" | "previewDeposit" | "previewRedeem" | "previewWithdraw" | "redeem" | "setUserUseReserveAsCollateral" | "symbol" | "totalAssets" | "totalSupply" | "transfer" | "transferFrom" | "withdraw"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "Deposit" | "Transfer" | "Withdraw"): EventFragment;
 
@@ -26,6 +26,7 @@ encodeFunctionData(functionFragment: 'previewDeposit', values: [BigNumberish]): 
 encodeFunctionData(functionFragment: 'previewRedeem', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewWithdraw', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'redeem', values: [BigNumberish, AddressLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setUserUseReserveAsCollateral', values: [AddressLike, boolean]): string;
 encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalAssets', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalSupply', values?: undefined): string;
@@ -49,6 +50,7 @@ decodeFunctionResult(functionFragment: 'previewDeposit', data: BytesLike): Resul
 decodeFunctionResult(functionFragment: 'previewRedeem', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewWithdraw', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'redeem', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setUserUseReserveAsCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'symbol', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalAssets', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalSupply', data: BytesLike): Result;
@@ -268,6 +270,14 @@ decodeFunctionResult(functionFragment: 'withdraw', data: BytesLike): Result;
     
 
     
+    setUserUseReserveAsCollateral: TypedContractMethod<
+      [asset: AddressLike, useAsCollateral: boolean, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     symbol: TypedContractMethod<
       [],
       [string],
@@ -396,6 +406,11 @@ getFunction(nameOrSignature: 'previewWithdraw'): TypedContractMethod<
 getFunction(nameOrSignature: 'redeem'): TypedContractMethod<
       [shares: BigNumberish, receiver: AddressLike, owner: AddressLike, ],
       [bigint],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setUserUseReserveAsCollateral'): TypedContractMethod<
+      [asset: AddressLike, useAsCollateral: boolean, ],
+      [void],
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'symbol'): TypedContractMethod<
