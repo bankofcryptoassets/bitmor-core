@@ -356,6 +356,38 @@ contract CloseLoanTest is BaseLoanTest {
         loan.closeLoan(lsa, true);
     }
 
+    // ============ Flash Loan Callback Security Tests ============
+
+    /// @notice Test that close loan callback reverts when initiator is not the Loan contract
+    /// @dev Covers FlashLoanLogic.sol:182 WrongFLInitiator error
+    function test_RevertWhen_CloseLoanWrongFlashLoanInitiator() public {
+        // Arrange - prepare flash loan params for close loan with wrong initiator
+        address wrongInitiator = makeAddr("wrongInitiator");
+        // flData for close: (lsa, withdrawInBTC, totalBTCAmtToSwap, preClosureFeeAmtInBTC)
+        bytes memory flData = abi.encode(address(0x1234), true, uint256(1e8), uint256(0.01e8));
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
+        vm.prank(address(mockAavePool));
+        vm.expectRevert(Errors.WrongFLInitiator.selector);
+        loan.executeOperation(debtAsset, 1000e6, 10e6, wrongInitiator, params);
+    }
+
+    /// @notice Test that close loan callback reverts when caller is not Aave pool
+    /// @dev Covers FlashLoanLogic.sol:179-180 CallerIsNotAAVEPool error
+    /// @dev Note: Init path tested in AccessControls.t.sol, this tests close path
+    function test_RevertWhen_CloseLoanCallerNotAavePool() public {
+        // Arrange
+        address attacker = makeAddr("attacker");
+        bytes memory flData = abi.encode(address(0x1234), true, uint256(1e8), uint256(0.01e8));
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert
+        vm.prank(attacker);
+        vm.expectRevert(Errors.CallerIsNotAAVEPool.selector);
+        loan.executeOperation(debtAsset, 1000e6, 10e6, address(loan), params);
+    }
+
     // ============ Edge Case Tests ============
 
     /// @notice Test close loan with both withdrawal modes produce different results
