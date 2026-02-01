@@ -21,7 +21,6 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
-import "hardhat/console.sol";
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -194,7 +193,6 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         }
 
         debtReserve.updateInterestRates(debtAsset, debtReserve.aTokenAddress, vars.actualDebtToLiquidate, 0);
-
         if (receiveAToken) {
             vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
             vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
@@ -221,9 +219,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             userConfig.setUsingAsCollateral(collateralReserve.id, false);
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
-
         _updateLoanForFullLiquidation(user);
-
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
 

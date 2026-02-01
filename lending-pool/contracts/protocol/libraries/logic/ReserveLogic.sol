@@ -14,7 +14,6 @@ import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {DataTypes} from '../types/DataTypes.sol';
-import "hardhat/console.sol";
 
 /**
  * @title ReserveLogic library

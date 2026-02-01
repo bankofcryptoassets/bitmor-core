@@ -34,13 +34,11 @@ export interface BitmorMocks {
 export async function deployMockBitmorCallers(usdcAddress: string): Promise<BitmorMocks> {
   const pool = await getLendingPool();
 
-  console.log("pool addr used for bitmor mocks:: ", pool.target);
   const addressesProvider = await getLendingPoolAddressesProvider();
 
   // In ethers v6, use .target for contract addresses
   const poolAddress = await pool.getAddress();
   const addressesProviderAddress = await addressesProvider.getAddress();
-  console.log("addressesProviderAddress:: ", addressesProviderAddress);
   
 
   // Deploy MockLoanProvider (uses DRE.ethers for Hardhat 3 compatibility)

@@ -1,21 +1,21 @@
-import { makeSuite } from './helpers/make-suite.js';
-import type { TestEnv } from './helpers/make-suite.js';
+import { makeSuite } from '../helpers/make-suite.js';
+import type { TestEnv } from '../helpers/make-suite.js';
 import {
   convertToCurrencyDecimals,
   buildFlashLiquidationAdapterParams,
   getContractAddress
-} from '../../helpers/contracts-helpers.js';
-import { getMockUniswapRouter } from '../../helpers/contracts-getters.js';
-import { deployFlashLiquidationAdapter } from '../../helpers/contracts-deployments.js';
-import type { MockUniswapV2Router02 } from '../../types/ethers-contracts/index.js';
+} from '../../../helpers/contracts-helpers.js';
+import { getMockUniswapRouter } from '../../../helpers/contracts-getters.js';
+import { deployFlashLiquidationAdapter } from '../../../helpers/contracts-deployments.js';
+import type { MockUniswapV2Router02 } from '../../../types/ethers-contracts/index.js';
 import BigNumber from "bignumber.js";
 
-import { DRE, evmRevert, evmSnapshot, increaseTime, waitForTx } from '../../helpers/misc-utils.js';
+import { DRE, evmRevert, evmSnapshot, increaseTime, waitForTx } from '../../../helpers/misc-utils.js';
 import { parseEther } from 'ethers';
-import { ProtocolErrors, RateMode } from '../../helpers/types.js';
-import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, oneEther } from '../../helpers/constants.js';
-import { getUserData } from './helpers/utils/helpers.js';
-import { calcExpectedStableDebtTokenBalance } from './helpers/utils/calculations.js';
+import { ProtocolErrors, RateMode } from '../../../helpers/types.js';
+import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, oneEther } from '../../../helpers/constants.js';
+import { getUserData } from '../helpers/utils/helpers.js';
+import { calcExpectedStableDebtTokenBalance } from '../helpers/utils/calculations.js';
 import chai from 'chai';
 const { expect } = chai;
 

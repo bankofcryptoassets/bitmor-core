@@ -8,7 +8,6 @@ import {DebtTokenBase} from './base/DebtTokenBase.sol';
 import {ILendingPool} from '../../interfaces/ILendingPool.sol';
 import {IAaveIncentivesController} from '../../interfaces/IAaveIncentivesController.sol';
 
-import "hardhat/console.sol";
 /**
  * @title VariableDebtToken
  * @notice Implements a variable debt token to track the borrowing positions of users
