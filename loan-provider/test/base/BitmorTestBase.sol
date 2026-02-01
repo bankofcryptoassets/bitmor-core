@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {TestConstants} from "../helpers/TestConstants.sol";
 
 /// @title BitmorTestBase
 /// @author Bitmor Protocol
@@ -485,6 +486,12 @@ abstract contract BitmorTestBase is Test {
         );
         _scheduleAndExecute(
             loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinDepositBps(uint256)", minDepositBps)
+        );
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setSlippageForSharesToAsset(uint256)", TestConstants.SLIPPAGE_SHARES_TO_ASSET)
         );
     }
 }
