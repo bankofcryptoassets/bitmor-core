@@ -112,6 +112,37 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepay.cancelAutoRepayment(lsa);
     }
 
+    /// @notice Tests that executeAutoRepayment reverts when user has not authorized
+    /// @dev Covers branch at line 88: `if (!isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash()`
+    function test_RevertWhen_ExecuteAutoRepayment_NotAuthorized() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        // Verify pre-condition: user has NOT authorized auto-repayment
+        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized");
+
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.InvalidRepaymentHash.selector);
+        autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
+    }
+
+    /// @notice Tests that executeAutoRepayment emits RepaymentExecuted with correct parameters
+    /// @dev Covers event emission at line 94
+    function test_executeAutoRepayment_EmitsEvent() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 repayAmount = loanData.estimatedMonthlyPayment;
+
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectEmit(true, true, false, true);
+        emit IAutoRepayment.AutoRepayment__RepaymentExecuted(lsa, user, repayAmount, repayAmount);
+        autoRepay.executeAutoRepayment(lsa, user, repayAmount);
+    }
+
     // ============ Internal Helper Functions ============
 
     /// @dev Set up auto repayment for user with an active loan
