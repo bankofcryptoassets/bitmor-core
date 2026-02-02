@@ -267,14 +267,14 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that closing with zero LSA address reverts
-    function test_closeLoan_zeroLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ZeroLsaAddress() public setUpLoanForUser {
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAddress.selector);
         loan.closeLoan(address(0), true);
     }
 
     /// @notice Test that closing a non-existent LSA reverts
-    function test_closeLoan_nonExistentLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanDoesNotExist() public setUpLoanForUser {
         address randomAddress = makeAddr("nonExistentLsa");
 
         vm.prank(user);
@@ -284,7 +284,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing with insufficient collateral reverts
     /// @dev Drop BTC price so totalCollateralUSD <= totalDebtUSD + fees
-    function test_closeLoan_insufficientCollateral_reverts() public setUpLoanForUser {
+    function test_RevertWhen_InsufficientCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Drop collateral price significantly (e.g., 80% drop)
@@ -298,7 +298,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing a loan after full repayment reverts
     /// @dev Once debt is fully repaid via repay(), loan status is Completed
-    function test_closeLoan_afterFullRepayment_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ClosingAfterFullRepayment() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
@@ -323,7 +323,7 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that double-closing a loan reverts
-    function test_closeLoan_doubleClose_reverts() public setUpLoanForUser {
+    function test_RevertWhen_DoubleClose() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // First close should succeed
@@ -341,7 +341,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that non-borrower cannot close someone else's loan
     /// @dev Security test - should revert with access control error
-    function test_closeLoan_nonBorrower_reverts() public setUpLoanForUser {
+    function test_RevertWhen_CallerNotBorrower() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         address attacker = makeAddr("attacker");
 
@@ -354,6 +354,58 @@ contract CloseLoanTest is BaseLoanTest {
         vm.prank(attacker);
         vm.expectRevert(Errors.UnauthorizedCaller.selector);
         loan.closeLoan(lsa, true);
+    }
+
+    // ============ Flash Loan Callback Security Tests ============
+
+    /// @notice Test that close loan callback reverts when initiator is not the Loan contract
+    /// @dev Covers FlashLoanLogic.sol:182 WrongFLInitiator error
+    function test_RevertWhen_CloseLoanWrongFlashLoanInitiator() public {
+        // Arrange - prepare flash loan params for close loan with wrong initiator
+        address wrongInitiator = makeAddr("wrongInitiator");
+        address mockLsa = makeAddr("mockLsa");
+        // flData for close: (lsa, withdrawInBTC, totalBTCAmtToSwap, preClosureFeeAmtInBTC)
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
+        vm.prank(address(mockAavePool));
+        vm.expectRevert(Errors.WrongFLInitiator.selector);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, wrongInitiator, params);
+    }
+
+    /// @notice Test that close loan callback reverts when caller is not Aave pool
+    /// @dev Covers FlashLoanLogic.sol:179-180 CallerIsNotAAVEPool error
+    /// @dev Note: Init path tested in AccessControls.t.sol, this tests close path
+    function test_RevertWhen_CloseLoanCallerNotAavePool() public {
+        // Arrange
+        address attacker = makeAddr("attacker");
+        address mockLsa = makeAddr("mockLsa");
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert
+        vm.prank(attacker);
+        vm.expectRevert(Errors.CallerIsNotAAVEPool.selector);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, address(loan), params);
+    }
+
+    /// @notice Test that close loan reverts when collateral withdrawal returns zero
+    /// @dev Covers FlashLoanLogic.sol:212 CollateralWithdrawFailed error
+    function test_RevertWhen_CloseLoanCollateralWithdrawFails() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Set mock to simulate withdrawal failure for the LSA
+        mockBitmorPool.setWithdrawalFailure(lsa, true);
+
+        // Act & Assert - close loan should fail when collateral withdrawal fails
+        vm.prank(user);
+        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        loan.closeLoan(lsa, true);
+
+        // Reset for other tests
+        mockBitmorPool.setWithdrawalFailure(lsa, false);
     }
 
     // ============ Edge Case Tests ============

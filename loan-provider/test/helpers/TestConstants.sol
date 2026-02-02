@@ -67,4 +67,13 @@ library TestConstants {
     uint256 internal constant MIN_DEPOSIT = 30_00; // 30%
 
     uint256 internal constant PRICE_PRECISION = 1e8;
+
+    // ============ Flash Loan Test Parameters ============
+    uint256 internal constant FLASH_LOAN_AMOUNT = 1000e6; // 1000 USDC flash loan for callback tests
+    uint256 internal constant FLASH_LOAN_PREMIUM = 10e6; // 10 USDC premium (1%)
+    uint256 internal constant TEST_BTC_SWAP_AMOUNT = 1e8; // 1 BTC for swap params
+    uint256 internal constant TEST_PRECLOSURE_FEE = 0.01e8; // 0.01 BTC pre-closure fee
+
+    // ============ Repayment Test Parameters ============
+    uint256 internal constant TEST_REPAYMENT_SHORTFALL = 100e6; // 100 USDC shortfall for refund tests
 }
