@@ -78,6 +78,25 @@ contract AutoRepaymentTest is BaseLoanTest {
         assertEq(durationBefore - durationAfter, 1, "Duration should decrease by 1");
     }
 
+    /// @notice Tests that user can cancel auto repayment for their authorized LSA
+    /// @dev Covers lines 78-81 of cancelAutoRepayment function
+    function test_cancelAutoRepayment() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Verify pre-condition: user is authorized
+        assertTrue(autoRepay.isAuthorized(user, lsa), "user should be authorized before cancel");
+
+        // Act
+        vm.prank(user);
+        vm.expectEmit(true, true, false, false);
+        emit IAutoRepayment.AutoRepayment__RepaymentCancelled(lsa, user);
+        autoRepay.cancelAutoRepayment(lsa);
+
+        // Assert
+        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized after cancel");
+    }
+
     // ============ Internal Helper Functions ============
 
     /// @dev Set up auto repayment for user with an active loan
