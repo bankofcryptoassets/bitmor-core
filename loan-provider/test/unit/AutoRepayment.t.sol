@@ -76,7 +76,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.startPrank(user);
-        IERC20(debtAsset).approve(address(autoRepay), DEBT_ASSET_TO_MINT_TO_USER);
+        IERC20(debtAsset).approve(address(autoRepay), USER_USDC_FUNDING);
         autoRepay.createAutoRepayment(lsa);
         vm.stopPrank();
     }

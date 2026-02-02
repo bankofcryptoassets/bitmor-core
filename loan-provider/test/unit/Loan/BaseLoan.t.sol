@@ -33,7 +33,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     // ============ Constants (aliased from TestConstants) ============
     uint256 internal constant PREMIUM_AMOUNT = TC.PREMIUM_AMOUNT;
     bytes internal constant DATA = "0xLOAN";
-    uint256 internal constant DEBT_ASSET_TO_MINT_TO_USER = TC.DEBT_ASSET_TO_MINT_TO_USER;
+    uint256 internal constant USER_USDC_FUNDING = TC.USER_USDC_BALANCE;
     uint256 internal constant LOAN_REPAYMENT_INTERVAL = TC.ONE_MONTH;
     uint256 internal constant STANDARD_COLLATERAL_AMOUNT = TC.STANDARD_COLLATERAL;
     uint256 internal constant STANDARD_DURATION = TC.STANDARD_DURATION;
@@ -163,7 +163,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     // ============ Internal Setup Helpers ============
 
     function _mintDebtAssetToUser() internal {
-        _fundUSDC(user, DEBT_ASSET_TO_MINT_TO_USER);
+        _fundUSDC(user, USER_USDC_FUNDING);
         vm.prank(user);
         mockUSDC.approve(address(loan), type(uint256).max);
     }
@@ -248,7 +248,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         vm.prank(admin);
         manager.grantRole(executorRoleId, borrower, NO_DELAY);
 
-        _fundUSDC(borrower, DEBT_ASSET_TO_MINT_TO_USER);
+        _fundUSDC(borrower, USER_USDC_FUNDING);
         vm.prank(borrower);
         mockUSDC.approve(address(loan), type(uint256).max);
 
@@ -276,7 +276,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     function _fundLiquidator() internal {
-        _fundUSDC(liquidator, DEBT_ASSET_TO_MINT_TO_USER);
+        _fundUSDC(liquidator, USER_USDC_FUNDING);
         vm.prank(liquidator);
         mockUSDC.approve(address(mockBitmorPool), type(uint256).max);
     }

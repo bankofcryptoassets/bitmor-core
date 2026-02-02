@@ -56,15 +56,6 @@ contract AdminSettersTest is BaseLoanTest {
 
     // ============ Uint256 Setters Success ============
 
-    /// @notice Test successfully setting the liquidation buffer
-    function test_setLiquidationBuffer() public {
-        uint256 newValue = 200;
-        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationBuffer.selector, newValue);
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
-
-        assertEq(loan.getLiquidationBuffer(), newValue, "LiquidationBuffer should be updated");
-    }
-
     /// @notice Test successfully setting the grace period
     function test_setGracePeriod() public {
         uint256 newValue = 7 days;

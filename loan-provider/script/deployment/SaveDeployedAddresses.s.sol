@@ -180,9 +180,6 @@ contract SaveDeployedAddresses is Script {
             '",',
             '"gracePeriod":"',
             vm.toString(helperConfig.getGracePeriod()),
-            '",',
-            '"liquidationBuffer":"',
-            vm.toString(helperConfig.getLiquidationBuffer()),
             '"}'
         );
     }

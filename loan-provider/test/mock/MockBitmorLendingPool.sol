@@ -39,6 +39,9 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @notice Tracks whether a user's loan is overdue (for micro liquidation)
     mapping(address => bool) private _isOverdue;
 
+    /// @notice Tracks reserves marked as invalid (for testing invalid debt token scenarios)
+    mapping(address => bool) private _invalidReserves;
+
     /// @notice Tracks user health factors (for full liquidation)
     mapping(address => uint256) private _healthFactors;
 
@@ -188,6 +191,11 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @inheritdoc ILendingPool
     function getReserveData(address asset) external view override returns (DataTypes.ReserveData memory) {
+        // If reserve is marked invalid, return empty reserve with zero addresses
+        if (_invalidReserves[asset]) {
+            DataTypes.ReserveData memory emptyReserve;
+            return emptyReserve;
+        }
         return _reserves[asset];
     }
 
@@ -459,6 +467,19 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @param rate The new variable borrow rate (in RAY, e.g., 0.12e27 for 12%)
     function setVariableBorrowRate(address asset, uint256 rate) external {
         _reserves[asset].currentVariableBorrowRate = uint128(rate);
+    }
+
+    /// @notice Mark a reserve as having invalid debt token (for error testing)
+    /// @dev When set, getReserveData() returns empty reserve with zero addresses
+    /// @param asset The asset to mark as invalid
+    function setInvalidReserve(address asset) external {
+        _invalidReserves[asset] = true;
+    }
+
+    /// @notice Reset reserve to valid state
+    /// @param asset The asset to reset
+    function resetInvalidReserve(address asset) external {
+        _invalidReserves[asset] = false;
     }
 
     /// @inheritdoc ILendingPool

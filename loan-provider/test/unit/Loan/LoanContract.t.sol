@@ -25,7 +25,6 @@ contract LoanContract is BaseLoanTest {
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
-        uint256 liquidationBuffer;
     }
 
     /// @dev Load all constructor params from mocks into a struct
@@ -44,7 +43,6 @@ contract LoanContract is BaseLoanTest {
         p.premiumCollector = premiumCollector;
         p.preClosureFeeBps = config.getPreClosureFee();
         p.gracePeriod = config.getGracePeriod();
-        p.liquidationBuffer = config.getLiquidationBuffer();
     }
 
     /// @notice Reverts on zero-address inputs for all Loan view functions that accept a user/LSA address.
@@ -136,6 +134,8 @@ contract LoanContract is BaseLoanTest {
     /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
     function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
+        uint256 preClosureFeeBps = config.getPreClosureFee();
+        uint256 gracePeriod = config.getGracePeriod();
 
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc, 6=swapAdapter, 7=premiumCollector
         for (uint256 i = 0; i < 8; i++) {

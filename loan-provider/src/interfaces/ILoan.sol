@@ -45,8 +45,6 @@ interface ILoan {
 
     event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
-    event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
-
     event Loan__SlippageForSharesToAssetUpdated(uint256 indexed newSlippage);
 
     event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
