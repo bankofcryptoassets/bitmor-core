@@ -11,6 +11,18 @@ Bitmor is a BTC-collateralized lending protocol built on Aave V2. The repository
 
 Users deposit USDC, flash loan additional USDC from Aave V3, swap to cbBTC as collateral, deposit into the Bitmor Lending Pool, and repay monthly.
 
+## Skill Overrides
+
+**IMPORTANT: When using `/brainstorming` or `/superpowers:brainstorming`, ALWAYS follow these additional rules:**
+
+1. **Ask these questions first:**
+   - "Are we gonna work with parallel agents?"
+   - If yes: "Will we use git worktrees?"
+
+2. **After brainstorming:**
+   - If user asks to write a plan → use `/superpowers:writing-plans` skill
+   - If parallel agents are requested → include `/superpowers:dispatching-parallel-agents` in the plan
+
 ## Commands
 
 ### lending-pool/ (Hardhat)
@@ -65,7 +77,9 @@ make setBitmorLoan
 make verifyAll
 
 # Coverage & gas
-make coverage
+make coverage                # Uses FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
+make coverage-lcov           # Generate lcov report
+make coverage-html           # Generate HTML coverage report
 make gasReport
 ```
 

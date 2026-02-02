@@ -135,6 +135,8 @@ function test_Transfer_EmitsEvent() public {
 
 ### Revert Testing
 
+Following this name convention: `test_FunctionName_Revert[When][If]_Condition()`
+
 Use specific error selectors, not generic `vm.expectRevert()`:
 
 ```solidity

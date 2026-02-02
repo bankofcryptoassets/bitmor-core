@@ -472,8 +472,9 @@ contract RolesData {
     /// @dev Selectors for deposit function on BTCVault (ERC4626 standard)
     /// @return selectors Array of function selectors
     function getBVD_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
+        selectors = new bytes4[](2);
         selectors[0] = BTCVault.deposit.selector;
+        selectors[1] = BTCVault.mint.selector;
     }
 
     /// @notice Returns function selectors for UVM_FAST role

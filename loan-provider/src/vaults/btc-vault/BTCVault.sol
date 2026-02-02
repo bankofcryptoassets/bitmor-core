@@ -454,7 +454,14 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param to Address to receive the minted shares
      * @return Amount of shares minted
      */
-    function deposit(uint256 assets, address to) public override nonReentrant restricted returns (uint256) {
+    function deposit(uint256 assets, address to)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        restricted
+        returns (uint256)
+    {
         return super.deposit(assets, to);
     }
 
@@ -465,7 +472,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param to Address to receive the minted shares
      * @return Amount of assets deposited
      */
-    function mint(uint256 shares, address to) public override nonReentrant restricted returns (uint256) {
+    function mint(uint256 shares, address to) public override nonReentrant whenNotPaused restricted returns (uint256) {
         return super.mint(shares, to);
     }
 
@@ -477,7 +484,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param owner Address that owns the shares to burn
      * @return Amount of shares burned
      */
-    function withdraw(uint256 assets, address to, address owner) public override nonReentrant returns (uint256) {
+    function withdraw(uint256 assets, address to, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
         return super.withdraw(assets, to, owner);
     }
 
@@ -489,7 +502,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param owner Address that owns the shares to redeem
      * @return Amount of assets received
      */
-    function redeem(uint256 shares, address to, address owner) public override nonReentrant returns (uint256) {
+    function redeem(uint256 shares, address to, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
         return super.redeem(shares, to, owner);
     }
 
@@ -711,4 +730,3 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         if (totalSupplied != totalWithdrawn) revert Errors.InvalidReallocation();
     }
 }
-
