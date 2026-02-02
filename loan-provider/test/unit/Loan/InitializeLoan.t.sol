@@ -317,7 +317,7 @@ contract InitializeLoanTest is BaseLoanTest {
         // Fund the new mockPool with USDC for flash loans
         mockUSDC.mint(address(mockPool), TC.LENDING_POOL_USDC_BALANCE);
 
-        _utilSeedUserAndApprove(user, debtAsset, address(loan2), DEBT_ASSET_TO_MINT_TO_USER);
+        _utilSeedUserAndApprove(user, debtAsset, address(loan2), USER_USDC_FUNDING);
 
         // Use _utilCreateLoan with loan2 for this specific test
         (address lsa,) =
@@ -388,7 +388,7 @@ contract InitializeLoanTest is BaseLoanTest {
     function test_initializeLoan_RevertWhen_CallerLacksExecutorRole() public {
         address noRoleUser = makeAddr("noRoleUser");
 
-        _fundUSDC(noRoleUser, DEBT_ASSET_TO_MINT_TO_USER);
+        _fundUSDC(noRoleUser, USER_USDC_FUNDING);
 
         vm.startPrank(noRoleUser);
         mockUSDC.approve(address(loan), type(uint256).max);
