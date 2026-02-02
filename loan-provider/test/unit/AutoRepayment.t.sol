@@ -97,6 +97,21 @@ contract AutoRepaymentTest is BaseLoanTest {
         assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized after cancel");
     }
 
+    /// @notice Tests that cancelAutoRepayment reverts when user is not authorized
+    /// @dev Covers branch at line 79: `if (!isAuthorized[msg.sender][lsa]) revert Errors.InvalidRepaymentHash()`
+    function test_RevertWhen_CancelAutoRepayment_NotAuthorized() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Verify pre-condition: user has NOT authorized auto-repayment
+        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized");
+
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.InvalidRepaymentHash.selector);
+        autoRepay.cancelAutoRepayment(lsa);
+    }
+
     // ============ Internal Helper Functions ============
 
     /// @dev Set up auto repayment for user with an active loan
