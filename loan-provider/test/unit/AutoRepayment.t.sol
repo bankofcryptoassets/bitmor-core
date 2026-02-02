@@ -6,6 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title AutoRepaymentTest
 /// @notice Tests for AutoRepayment contract functionality
@@ -50,6 +51,15 @@ contract AutoRepaymentTest is BaseLoanTest {
         vm.expectEmit(true, true, false, false);
         emit IAutoRepayment.AutoRepayment__RepaymentCreated(lsa, user);
         autoRepay.createAutoRepayment(lsa);
+    }
+
+    /// @notice Tests that createAutoRepayment reverts when lsa is zero address
+    /// @dev Covers branch at line 67: `if (lsa == address(0)) revert Errors.ZeroAddress()`
+    function test_RevertWhen_CreateAutoRepayment_ZeroAddress() public {
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        autoRepay.createAutoRepayment(address(0));
     }
 
     function test_executeAutoRepayment() public setUpAutoRepayment {
