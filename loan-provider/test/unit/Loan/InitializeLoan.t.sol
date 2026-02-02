@@ -405,12 +405,13 @@ contract InitializeLoanTest is BaseLoanTest {
     function test_RevertWhen_InitLoanWrongFlashLoanInitiator() public {
         // Arrange - prepare flash loan params with wrong initiator
         address wrongInitiator = makeAddr("wrongInitiator");
-        bytes memory flData = abi.encode(address(0x1234), uint256(1e8));
+        address mockLsa = makeAddr("mockLsa");
+        bytes memory flData = abi.encode(mockLsa, TC.TEST_BTC_SWAP_AMOUNT);
         bytes memory params = abi.encode(true, flData); // true = initializingLoan
 
         // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
         vm.prank(address(mockAavePool));
         vm.expectRevert(Errors.WrongFLInitiator.selector);
-        loan.executeOperation(debtAsset, 1000e6, 10e6, wrongInitiator, params);
+        loan.executeOperation(debtAsset, TC.FLASH_LOAN_AMOUNT, TC.FLASH_LOAN_PREMIUM, wrongInitiator, params);
     }
 }

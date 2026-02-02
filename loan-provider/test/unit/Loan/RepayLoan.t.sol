@@ -366,10 +366,9 @@ contract RepayLoanTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
         uint256 repayAmount = loanData.estimatedMonthlyPayment;
-        uint256 shortfall = 100e6; // Pool will repay 100 USDC less than requested
 
         // Set mock to simulate pool returning less (this is the INPUT condition)
-        mockBitmorPool.setRepaymentShortfall(shortfall);
+        mockBitmorPool.setRepaymentShortfall(TEST_REPAYMENT_SHORTFALL);
 
         uint256 userBalanceBefore = IERC20(debtAsset).balanceOf(user);
 
@@ -380,10 +379,18 @@ contract RepayLoanTest is BaseLoanTest {
         uint256 userBalanceAfter = IERC20(debtAsset).balanceOf(user);
 
         // Assert - verify ACTUAL token transfer (not mock return value)
-        // User should only lose (repayAmount - shortfall) tokens due to refund
+        // User should only lose (repayAmount - TEST_REPAYMENT_SHORTFALL) tokens due to refund
         uint256 actualTokensSpent = userBalanceBefore - userBalanceAfter;
-        assertEq(actualTokensSpent, repayAmount - shortfall, "User should receive refund of shortfall amount");
-        assertEq(finalAmountRepaid, repayAmount - shortfall, "Return value should match actual repayment");
+        assertEq(
+            actualTokensSpent,
+            repayAmount - TEST_REPAYMENT_SHORTFALL,
+            "User should receive refund of shortfall amount"
+        );
+        assertEq(
+            finalAmountRepaid,
+            repayAmount - TEST_REPAYMENT_SHORTFALL,
+            "Return value should match actual repayment"
+        );
 
         // Reset shortfall for other tests
         mockBitmorPool.setRepaymentShortfall(0);

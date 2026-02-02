@@ -54,6 +54,13 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     uint256 internal constant PAYMENT_TOLERANCE = TC.PAYMENT_TOLERANCE;
     uint256 internal constant DEBT_DUST_THRESHOLD = TC.DEBT_DUST_THRESHOLD;
 
+    // ============ Flash Loan Test Parameters ============
+    uint256 internal constant FLASH_LOAN_AMOUNT = TC.FLASH_LOAN_AMOUNT;
+    uint256 internal constant FLASH_LOAN_PREMIUM = TC.FLASH_LOAN_PREMIUM;
+    uint256 internal constant TEST_BTC_SWAP_AMOUNT = TC.TEST_BTC_SWAP_AMOUNT;
+    uint256 internal constant TEST_PRECLOSURE_FEE = TC.TEST_PRECLOSURE_FEE;
+    uint256 internal constant TEST_REPAYMENT_SHORTFALL = TC.TEST_REPAYMENT_SHORTFALL;
+
     // ============ Generic Test Snapshot Structs ============
 
     /// @dev Generic test state snapshot struct for capturing before/after state

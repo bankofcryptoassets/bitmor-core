@@ -363,14 +363,15 @@ contract CloseLoanTest is BaseLoanTest {
     function test_RevertWhen_CloseLoanWrongFlashLoanInitiator() public {
         // Arrange - prepare flash loan params for close loan with wrong initiator
         address wrongInitiator = makeAddr("wrongInitiator");
+        address mockLsa = makeAddr("mockLsa");
         // flData for close: (lsa, withdrawInBTC, totalBTCAmtToSwap, preClosureFeeAmtInBTC)
-        bytes memory flData = abi.encode(address(0x1234), true, uint256(1e8), uint256(0.01e8));
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
         bytes memory params = abi.encode(false, flData); // false = closing loan
 
         // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
         vm.prank(address(mockAavePool));
         vm.expectRevert(Errors.WrongFLInitiator.selector);
-        loan.executeOperation(debtAsset, 1000e6, 10e6, wrongInitiator, params);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, wrongInitiator, params);
     }
 
     /// @notice Test that close loan callback reverts when caller is not Aave pool
@@ -379,13 +380,14 @@ contract CloseLoanTest is BaseLoanTest {
     function test_RevertWhen_CloseLoanCallerNotAavePool() public {
         // Arrange
         address attacker = makeAddr("attacker");
-        bytes memory flData = abi.encode(address(0x1234), true, uint256(1e8), uint256(0.01e8));
+        address mockLsa = makeAddr("mockLsa");
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
         bytes memory params = abi.encode(false, flData); // false = closing loan
 
         // Act & Assert
         vm.prank(attacker);
         vm.expectRevert(Errors.CallerIsNotAAVEPool.selector);
-        loan.executeOperation(debtAsset, 1000e6, 10e6, address(loan), params);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, address(loan), params);
     }
 
     /// @notice Test that close loan reverts when collateral withdrawal returns zero
