@@ -7,6 +7,7 @@ import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {IAccessManager} from "@openzeppelin/access/manager/IAccessManager.sol";
 
 /// @title USDCVaultTest
 /// @notice Comprehensive test suite for the USDC Vault core functionality
@@ -250,6 +251,76 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     }
 
     // ============================================
+    // ============ SECTION: MINT MECHANICS
+    // ============================================
+
+    /// @notice Test that mint() returns expected assets required
+    function test_mint_mintsCorrectAssets() public {
+        uint256 sharesToMint = 1000e6;
+
+        // Fund lender
+        _fundLenderWithUsdc(lender, LARGE_DEPOSIT);
+
+        // Preview expected assets before mint
+        uint256 previewedAssets = vault.previewMint(sharesToMint);
+
+        // Execute mint
+        vm.startPrank(lender);
+        IERC20(networkConfig.usdc).approve(address(vault), previewedAssets);
+        uint256 actualAssets = vault.mint(sharesToMint, lender);
+        vm.stopPrank();
+
+        // Assert: actual assets should equal previewed assets
+        assertEq(actualAssets, previewedAssets, "Mint should require previewMint() assets");
+
+        // Verify shares were actually minted to lender
+        assertEq(vault.balanceOf(lender), sharesToMint, "Lender should have received the minted shares");
+    }
+
+    /// @notice Test that mint() can send shares to a different receiver
+    function test_mint_toReceiver() public {
+        address receiver = lender2;
+        uint256 sharesToMint = 1000e6;
+
+        // Ensure receiver has no shares initially
+        assertEq(vault.balanceOf(receiver), 0, "Receiver should have no shares initially");
+
+        // Fund lender
+        _fundLenderWithUsdc(lender, LARGE_DEPOSIT);
+        uint256 assetsRequired = vault.previewMint(sharesToMint);
+
+        // Mint with different receiver
+        vm.startPrank(lender);
+        IERC20(networkConfig.usdc).approve(address(vault), assetsRequired);
+        vault.mint(sharesToMint, receiver);
+        vm.stopPrank();
+
+        // Assert: shares went to receiver, not minter
+        assertEq(vault.balanceOf(lender), 0, "Minter should have no shares");
+        assertEq(vault.balanceOf(receiver), sharesToMint, "Receiver should have all shares");
+    }
+
+    /// @notice Test that mint() reverts when paused
+    function test_mint_RevertWhen_Paused() public {
+        uint256 sharesToMint = 1000e6;
+
+        // Fund lender
+        _fundLenderWithUsdc(lender, LARGE_DEPOSIT);
+        uint256 assetsRequired = vault.previewMint(sharesToMint);
+
+        // Pause the vault
+        vm.prank(uvm_fast);
+        vault.pause();
+
+        // Attempt to mint should revert
+        vm.startPrank(lender);
+        IERC20(networkConfig.usdc).approve(address(vault), assetsRequired);
+        vm.expectRevert();
+        vault.mint(sharesToMint, lender);
+        vm.stopPrank();
+    }
+
+    // ============================================
     // ============ SECTION: WITHDRAW MECHANICS
     // ============================================
 
@@ -420,5 +491,27 @@ contract USDCVaultTest is BaseTestForUSDCVault {
 
         // Verify asset is set correctly
         assertEq(testVault.asset(), networkConfig.usdc, "i_asset should be set to USDC");
+    }
+
+    // ============================================
+    // ============ SECTION: Pausability
+    // ============================================
+
+    function test_pause() public {
+        vm.prank(uvm_fast);
+        bytes memory data = abi.encodeWithSelector(vault.pause.selector);
+        _scheduleAndExecute(uvm_fast, UVM_FAST_ID(), data);
+
+        bool currentStatus = vault.paused();
+        assertEq(currentStatus, true);
+    }
+
+    function test_pause_revertWhen_UnauthorizedCallerCalls() public {
+        vm.prank(attacker);
+        bytes memory data = abi.encodeWithSelector(vault.pause.selector);
+        bytes memory revertData = abi.encodeWithSelector(
+            IAccessManager.AccessManagerUnauthorizedCall.selector, attacker, address(vault), vault.pause.selector
+        );
+        _scheduleAndExpectRevert(attacker, UVM_FAST_ID(), data, revertData);
     }
 }
