@@ -31,12 +31,10 @@ contract LSALogicHarness {
     /// @param collateralAsset Collateral asset address (e.g., cbBTC)
     /// @param recipient Address to receive the withdrawn collateral
     /// @return amountWithdrawn The actual amount of collateral withdrawn
-    function exposed_withdrawCollateral(
-        address lsa,
-        address bitmorPool,
-        address collateralAsset,
-        address recipient
-    ) external returns (uint256 amountWithdrawn) {
+    function exposed_withdrawCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
+        external
+        returns (uint256 amountWithdrawn)
+    {
         return LSALogic.withdrawCollateral(lsa, bitmorPool, collateralAsset, recipient);
     }
 

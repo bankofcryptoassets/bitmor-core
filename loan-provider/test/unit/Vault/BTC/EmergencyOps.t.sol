@@ -131,35 +131,21 @@ contract EmergencyOpsTest is BaseTestForBTCVault {
     // ============ Pause Tests ============
 
     /// @notice Pause should block deposits
-    /// @dev BUG DISCOVERED: BTCVault.deposit() does NOT have whenNotPaused modifier
-    ///      This test documents the ACTUAL behavior - deposit works when paused
-    ///      Expected: Should revert with EnforcedPause
-    ///      Actual: Does NOT revert, deposit proceeds
-    ///      Location: BTCVault.sol line 457 - missing whenNotPaused modifier
-    function test_pause_DepositWorksWhenPaused_BUG() public {
+    function test_pause_revertWhen_DepositWhilePaused() public {
         // Arrange
         _addStrategy(address(strategy), EMERGENCY_STRATEGY_CAP);
         _pause();
 
-        // Act - BUG: This should revert but doesn't
+        // Act & Assert - deposit should revert when paused
         vm.startPrank(user);
         mockUSDC.approve(address(vault), EMERGENCY_DEPOSIT_AMOUNT);
-        uint256 shares = vault.deposit(EMERGENCY_DEPOSIT_AMOUNT, user);
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        vault.deposit(EMERGENCY_DEPOSIT_AMOUNT, user);
         vm.stopPrank();
-
-        // Assert - documenting actual (buggy) behavior
-        assertGt(shares, 0, "BUG: deposit works when paused, should be blocked");
     }
 
     /// @notice Pause should block mint
-    /// @dev BUG DISCOVERED: BTCVault.mint() does NOT have whenNotPaused modifier
-    ///      This test documents the ACTUAL behavior - mint works when paused
-    ///      Expected: Should revert with EnforcedPause
-    ///      Actual: Does NOT revert, mint proceeds
-    ///      Location: BTCVault.sol line 468 - missing whenNotPaused modifier
-    ///      Note: mint also requires BVD role, which is not granted by default.
-    ///      Setting up mint role to test the pause behavior.
-    function test_pause_MintWorksWhenPaused_BUG() public {
+    function test_pause_revertWhen_MintWhilePaused() public {
         // Arrange - add mint to BVD selectors so user can mint
         bytes4[] memory mintSelector = new bytes4[](1);
         mintSelector[0] = BTCVault.mint.selector;
@@ -168,18 +154,16 @@ contract EmergencyOpsTest is BaseTestForBTCVault {
         _addStrategy(address(strategy), EMERGENCY_STRATEGY_CAP);
         _pause();
 
-        // Act - BUG: This should revert but doesn't
+        // Act & Assert - mint should revert when paused
         vm.startPrank(user);
         mockUSDC.approve(address(vault), EMERGENCY_DEPOSIT_AMOUNT);
-        uint256 assets = vault.mint(TEST_AMOUNT, user);
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        vault.mint(TEST_AMOUNT, user);
         vm.stopPrank();
-
-        // Assert - documenting actual (buggy) behavior
-        assertGt(assets, 0, "BUG: mint works when paused, should be blocked");
     }
 
-    /// @notice Withdraw should still work when paused (users can exit)
-    function test_pause_AllowsWithdraw_UsersCanExit() public {
+    /// @notice Pause should block withdraw (all operations blocked by design)
+    function test_pause_revertWhen_WithdrawWhilePaused() public {
         // Arrange
         _addStrategy(address(strategy), EMERGENCY_STRATEGY_CAP);
         _depositAsUser(EMERGENCY_DEPOSIT_AMOUNT);
@@ -190,34 +174,25 @@ contract EmergencyOpsTest is BaseTestForBTCVault {
         _pause();
 
         uint256 maxWithdrawable = vault.maxWithdraw(user);
-        assertGt(maxWithdrawable, 0, "should have withdrawable amount");
 
-        // Act - Withdraw should work even when paused
+        // Act & Assert - withdraw should revert when paused
         vm.prank(user);
-        uint256 sharesBurned = vault.withdraw(maxWithdrawable / 2, user, user);
-
-        // Assert
-        assertGt(sharesBurned, 0, "withdraw should burn shares when paused");
-        assertLt(vault.balanceOf(user), userSharesBefore, "user shares should decrease");
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        vault.withdraw(maxWithdrawable / 2, user, user);
     }
 
-    /// @notice Redeem should still work when paused (users can exit)
-    function test_pause_AllowsRedeem_UsersCanExit() public {
+    /// @notice Pause should block redeem (all operations blocked by design)
+    function test_pause_revertWhen_RedeemWhilePaused() public {
         // Arrange
         _addStrategy(address(strategy), EMERGENCY_STRATEGY_CAP);
         uint256 shares = _depositAsUser(EMERGENCY_DEPOSIT_AMOUNT);
 
         _pause();
 
-        uint256 userBalanceBefore = mockUSDC.balanceOf(user);
-
-        // Act - Redeem should work even when paused
+        // Act & Assert - redeem should revert when paused
         vm.prank(user);
-        uint256 assetsReceived = vault.redeem(shares / 2, user, user);
-
-        // Assert
-        assertGt(assetsReceived, 0, "redeem should return assets when paused");
-        assertGt(mockUSDC.balanceOf(user), userBalanceBefore, "user USDC balance should increase");
+        vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
+        vault.redeem(shares / 2, user, user);
     }
 
     /// @notice Unpause should restore deposit capability
