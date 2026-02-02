@@ -43,6 +43,8 @@ contract AutoRepaymentTest is BaseLoanTest {
 
     // ============ Tests ============
 
+    /// @notice Tests that user can create auto repayment authorization for their LSA
+    /// @dev Covers happy path for createAutoRepayment at lines 66-73
     function test_createAutoRepayment() public setUpLoanForUser {
         uint256 index = 0;
         address lsa = loan.getUserLoanAtIndex(user, index);
@@ -62,6 +64,8 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepay.createAutoRepayment(address(0));
     }
 
+    /// @notice Tests that executor can successfully execute auto repayment
+    /// @dev Covers happy path for executeAutoRepayment at lines 87-94, verifies loan duration decreases
     function test_executeAutoRepayment() public setUpAutoRepayment {
         uint256 index = 0;
         address lsa = loan.getUserLoanAtIndex(user, index);
@@ -125,6 +129,20 @@ contract AutoRepaymentTest is BaseLoanTest {
         // Act & Assert
         vm.prank(autoRepaymentExecutor);
         vm.expectRevert(Errors.InvalidRepaymentHash.selector);
+        autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
+    }
+
+    /// @notice Tests that executeAutoRepayment reverts when called by non-executor
+    /// @dev Covers AccessManaged `restricted` modifier on executeAutoRepayment
+    function test_RevertWhen_ExecuteAutoRepayment_CallerNotExecutor() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        address nonExecutor = makeAddr("nonExecutor");
+
+        // Act & Assert - AccessManaged reverts with AccessManagedUnauthorized
+        vm.prank(nonExecutor);
+        vm.expectRevert();
         autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
     }
 
