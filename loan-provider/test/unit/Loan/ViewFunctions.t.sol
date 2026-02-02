@@ -39,6 +39,10 @@ contract ViewFunctionsTest is BaseLoanTest {
 
         // Verify constant values
         assertEq(loan.getRepaymentInterval(), 30 days, "Repayment interval should be exactly 30 days");
+
+        // Verify liquidation fee defaults (uninitialized = 0)
+        assertEq(loan.getLiquidationFeeBps(), 0, "Liquidation fee should default to 0");
+        assertEq(loan.getLiquidationFeeCollector(), address(0), "Liquidation fee collector should default to address(0)");
     }
 
     // ============ User Loan Functions ============
