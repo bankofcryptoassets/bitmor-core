@@ -111,7 +111,7 @@ const testEnv: TestEnv = {
   dai: {} as MintableERC20,
   aDai: {} as AToken,
   usdc: {} as MintableERC20,
-  aUsdc: {} as AToken,
+  aUSDC: {} as AToken,
   aave: {} as MintableERC20,
   addressesProvider: {} as LendingPoolAddressesProvider,
   uniswapLiquiditySwapAdapter: {} as UniswapLiquiditySwapAdapter,
@@ -175,7 +175,7 @@ export async function initializeMakeSuite() {
   const aaveAddress = reservesTokens.find((token) => token.symbol === 'AAVE')?.tokenAddress;
   const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
 
-  if (!aDaiAddress || !aUsdcAddress || !aWEthAddress) {
+  if (!aDaiAddress || !aUSDCAddress || !aWEthAddress) {
     process.exit(1);
   }
   if (!daiAddress || !usdcAddress || !aaveAddress || !wethAddress) {
@@ -183,7 +183,7 @@ export async function initializeMakeSuite() {
   }
 
   testEnv.aDai = await getAToken(aDaiAddress);
-  testEnv.aUsdc = await getAToken(aUsdcAddress);
+  testEnv.aUSDC = await getAToken(aUSDCAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
   testEnv.acbBTC = await getAToken(acbBTCAddress);
   testEnv.aUSDC = await getAToken(aUSDCAddress);

@@ -1,13 +1,13 @@
-import { configuration as actionsConfiguration } from './helpers/actions.js';
-import { configuration as calculationsConfiguration } from './helpers/utils/calculations.js';
+import { configuration as actionsConfiguration } from '../helpers/actions.js';
+import { configuration as calculationsConfiguration } from '../helpers/utils/calculations.js';
 
 import fs from 'fs';
 import BigNumber from "bignumber.js";
 
-import { makeSuite } from './helpers/make-suite.js';
-import { getReservesConfigByPool } from '../../helpers/configuration.js';
-import { AavePools, iAavePoolAssets, IReserveParams } from '../../helpers/types.js';
-import { executeStory } from './helpers/scenario-engine.js';
+import { makeSuite } from '../helpers/make-suite.js';
+import { getReservesConfigByPool } from '../../../helpers/configuration.js';
+import { AavePools, iAavePoolAssets, IReserveParams } from '../../../helpers/types.js';
+import { executeStory } from '../helpers/scenario-engine.js';
 
 const scenarioData = fs.readFileSync('./test-suites/test-aave/helpers/scenarios/borrow-repay-stable.json', 'utf8');
 const loadedScenario = JSON.parse(scenarioData);

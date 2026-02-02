@@ -11,7 +11,7 @@ import { DRE } from '../../helpers/misc-utils.js';
 makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
 
   it('USDC Vault deposits to pool and receives aTokens', async () => {
-    const { users, usdc, aUsdc, mockBitmorUSDCVault } = testEnv;
+    const { users, usdc, aUSDC, mockBitmorUSDCVault } = testEnv;
 
     const depositor = users[0];
     const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
@@ -29,8 +29,8 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
       .deposit(amountUSDCtoDeposit, depositor.address);
 
     // Check that VAULT received the aTokens
-    const vaultATokenBalance = await aUsdc.balanceOf(vaultAddress);
-    const userATokenBalance = await aUsdc.balanceOf(depositor.address);
+    const vaultATokenBalance = await aUSDC.balanceOf(vaultAddress);
+    const userATokenBalance = await aUSDC.balanceOf(depositor.address);
 
     expect(vaultATokenBalance.toString()).to.be.equal(
       amountUSDCtoDeposit.toString(),
@@ -46,7 +46,7 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     const borrower = users[1];
 
     // User 0 deposits 30000 USDC via VAULT to provide liquidity
-    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '30000');
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '300000');
     await usdc.connect(depositor.signer).mint(amountUSDCtoDeposit);
 
     const vaultAddress = await mockBitmorUSDCVault.getAddress();

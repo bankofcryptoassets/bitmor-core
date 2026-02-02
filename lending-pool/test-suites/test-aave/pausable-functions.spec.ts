@@ -198,13 +198,13 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
     //mints USDC to depositor
     await usdc
       .connect(depositor.signer)
-      .mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000'));
+      .mint(await convertToCurrencyDecimals(getContractAddress(usdc), '100000'));
 
     //approve protocol to access depositor wallet
     await usdc.connect(depositor.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     //user 3 deposits 1000 USDC
-    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '100000');
 
     // override the USDC vault address to by pass check on LendingPool(Error: LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER)
     await addressesProvider.setUSDCVault(depositor.address);
