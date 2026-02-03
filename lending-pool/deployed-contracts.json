@@ -637,7 +637,7 @@
   },
   "UniswapLiquiditySwapAdapter": {
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0x7997A4c8b8E97d289989431B996AB1C6a9975Ad9",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -649,7 +649,7 @@
   },
   "FlashLiquidationAdapter": {
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0xb1DcE3617838AcbCa7f9CC84d475eF4414d92C06",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -667,7 +667,7 @@
   },
   "ParaSwapLiquiditySwapAdapter": {
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0x2dD8146Ad2138ac61F93E549f8F917927B47E28a",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
