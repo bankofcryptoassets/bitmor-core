@@ -26,6 +26,8 @@ import {UserConfiguration} from "../libraries/configuration/UserConfiguration.so
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
 
 /**
  * @title LendingPool contract
@@ -675,17 +677,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * @return type of liquidation.
      */
     function checkTypeOfLiquidation(address user) external view override returns (uint256) {
-        address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
-
-        //solium-disable-next-line
-        (bool success, bytes memory result) =
-            collateralManager.staticcall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", user));
-
-        require(success, Errors.LP_CHECK_TYPE_OF_LIQUIDATION_FAILED);
-
-        uint256 typeOfLiquidation = abi.decode(result, (uint256));
-
-        return typeOfLiquidation;
+        address oracle = _addressesProvider.getPriceOracle();
+        (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
+            user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle
+        );
+        return LoanLiquidationLogic.checkTypeOfLiquidation(
+            user, _reserves, hf, oracle, ILoan(_addressesProvider.getBitmorLoan())
+        );
     }
 
     /**
