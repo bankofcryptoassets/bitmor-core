@@ -1,4 +1,5 @@
-import BigNumber from "bignumber.js";
+import BigNumber from 'bignumber.js';
+
 import {
   calcExpectedReserveDataAfterBorrow,
   calcExpectedReserveDataAfterDeposit,
@@ -16,7 +17,7 @@ import {
 } from './utils/calculations.js';
 import { getReserveAddressFromSymbol, getReserveData, getUserData } from './utils/helpers.js';
 
-import { convertToCurrencyDecimals, getContractAddress } from '../../../helpers/contracts-helpers.js';
+import { convertToCurrencyDecimals } from '../../../helpers/contracts-helpers.js';
 import {
   getAToken,
   getMintableERC20,
@@ -24,14 +25,14 @@ import {
   getVariableDebtToken,
 } from '../../../helpers/contracts-getters.js';
 import { MAX_UINT_AMOUNT, ONE_YEAR } from '../../../helpers/constants.js';
-import type { TestEnv } from './make-suite.js';
+import { SignerWithAddress, TestEnv } from './make-suite.js';
 import { advanceTimeAndBlock, DRE, timeLatest, waitForTx } from '../../../helpers/misc-utils.js';
 
 import chai from 'chai';
 import { ReserveData, UserReserveData } from './utils/interfaces/index.js';
-import { AToken } from '../../../types/ethers-contracts/index.js';
+import { ContractReceipt } from 'ethers';
+import { AToken } from '../../../types/AToken';
 import { RateMode, tEthereumAddress } from '../../../helpers/types.js';
-import type { SignerWithAddress } from '../../../helpers/types.js';
 
 const { expect } = chai;
 
@@ -62,18 +63,18 @@ const almostEqualOrEqual = function (
       console.log('Found a undefined value for Key ', key, ' value ', expected[key], actual[key]);
     }
 
-    if (BigNumber.isBigNumber(actual[key])) {
-      const actualValue = (actual[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
-      const expectedValue = (expected[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+    if (actual[key] instanceof BigNumber) {
+      const actualValue = (<BigNumber>actual[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
+      const expectedValue = (<BigNumber>expected[key]).decimalPlaces(0, BigNumber.ROUND_DOWN);
 
       this.assert(
         actualValue.eq(expectedValue) ||
-        actualValue.plus(1).eq(expectedValue) ||
-        actualValue.eq(expectedValue.plus(1)) ||
-        actualValue.plus(2).eq(expectedValue) ||
-        actualValue.eq(expectedValue.plus(2)) ||
-        actualValue.plus(3).eq(expectedValue) ||
-        actualValue.eq(expectedValue.plus(3)),
+          actualValue.plus(1).eq(expectedValue) ||
+          actualValue.eq(expectedValue.plus(1)) ||
+          actualValue.plus(2).eq(expectedValue) ||
+          actualValue.eq(expectedValue.plus(2)) ||
+          actualValue.plus(3).eq(expectedValue) ||
+          actualValue.eq(expectedValue.plus(3)),
         `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
         `expected #{act} to be almost equal or equal #{exp} for property ${key}`,
         expectedValue.toFixed(0),
@@ -82,8 +83,8 @@ const almostEqualOrEqual = function (
     } else {
       this.assert(
         actual[key] !== null &&
-        expected[key] !== null &&
-        actual[key].toString() === expected[key].toString(),
+          expected[key] !== null &&
+          actual[key].toString() === expected[key].toString(),
         `expected #{act} to be equal #{exp} for property ${key}`,
         `expected #{act} to be equal #{exp} for property ${key}`,
         expected[key],
@@ -122,19 +123,13 @@ export const mint = async (reserveSymbol: string, amount: string, user: SignerWi
 };
 
 export const approve = async (reserveSymbol: string, user: SignerWithAddress, testEnv: TestEnv) => {
-  const { mockBitmorUSDCVault, mockLoanProvider } = testEnv;
+  const { pool } = testEnv;
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const token = await getMintableERC20(reserve);
 
-  // BITMOR: Route to correct vault based on asset type
-  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
-  const isUSDC = reserveSymbol === 'USDC';
-  const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
-  const vaultAddress = await vault.getAddress();
-
   await waitForTx(
-    await token.connect(user.signer).approve(vaultAddress, '100000000000000000000000000000')
+    await token.connect(user.signer).approve(pool.address, '100000000000000000000000000000')
   );
 };
 
@@ -148,32 +143,19 @@ export const deposit = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
+  const { pool } = testEnv;
+
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const amountToDeposit = await convertToCurrencyDecimals(reserve, amount);
 
   const txOptions: any = {};
 
-  // BITMOR ARCHITECTURE: Get vault data for aToken balance checks
-  // In Bitmor, vault holds aTokens, users hold vault shares
-  // BITMOR: Route to correct vault based on asset type
-  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
-  const { mockBitmorUSDCVault, mockLoanProvider } = testEnv;
-  const isUSDC = reserveSymbol === 'USDC';
-  const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
-  const vaultAddress = await vault.getAddress();
-
-  // BITMOR TEST SIMPLIFICATION: In production, LSAs (LoanVaults) receive aTokens for cbBTC deposits.
-  // However, in these simplified tests, we send aTokens directly to user.address to avoid creating LSAs.
-  // For USDC, vault receives aTokens as expected in production.
-  const aTokenHolder = isUSDC ? vaultAddress : sender.address;
-
-  // BITMOR: Get aToken holder's balance AND user's wallet balance
   const { reserveData: reserveDataBefore, userData: userDataBefore } = await getContractsData(
     reserve,
-    aTokenHolder, // Check aToken holder's balance (vault for USDC, user for cbBTC in tests)
+    onBehalfOf,
     testEnv,
-    sender.address // Check user's wallet balance for tokens
+    sender.address
   );
 
   if (sendValue) {
@@ -181,30 +163,17 @@ export const deposit = async (
   }
 
   if (expectedResult === 'success') {
-    // Get the token contract
-    const token = await getMintableERC20(reserve);
+    const txResult = await waitForTx(
+      await pool
+        .connect(sender.signer)
+        .deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions)
+    );
 
-    // Approve vault (user already has tokens from mint action)
-    await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
-
-    // BITMOR: Deposit via vault (sender receives vault shares, vault receives aTokens)
-    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
-    // @auditor For cbBTC, we use sender.address as onBehalfOf (test simplification).
-    // In production, this would be LSA address.
-    const txResult = isUSDC
-      ? await waitForTx(
-        await mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address)
-      )
-      : await waitForTx(
-        await mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0)
-      );
-
-    // BITMOR: Check aToken holder's balance AND user's wallet balance
     const {
       reserveData: reserveDataAfter,
       userData: userDataAfter,
       timestamp,
-    } = await getContractsData(reserve, aTokenHolder, testEnv, sender.address);
+    } = await getContractsData(reserve, onBehalfOf, testEnv, sender.address);
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
@@ -227,14 +196,6 @@ export const deposit = async (
     expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserReserveData);
 
-    // BITMOR: Verify user received vault shares for USDC (not aTokens)
-    // @auditor In Bitmor production: For USDC, users hold vault shares while vault holds aTokens.
-    // For cbBTC, LSAs (LoanVaults) hold aTokens. In these tests, we simplify by having users directly hold aTokens to avoid creating LSAs.
-    if (isUSDC) {
-      const userVaultShares = await mockBitmorUSDCVault.balanceOf(sender.address);
-      expect(userVaultShares).to.be.gte(amountToDeposit, 'BITMOR: User should have USDC vault shares');
-    }
-
     // truffleAssert.eventEmitted(txResult, "Deposit", (ev: any) => {
     //   const {_reserve, _user, _amount} = ev;
     //   return (
@@ -244,25 +205,10 @@ export const deposit = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
-    // Get the token contract
-    const token = await getMintableERC20(reserve);
-
-    // Approve vault (user already has tokens from mint action)
-    await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
-
-    // BITMOR: Expect revert when depositing via vault
-    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
-    if (isUSDC) {
-      await expect(
-        mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address),
-        revertMessage
-      ).to.be.revert(DRE.ethers);
-    } else {
-      await expect(
-        mockLoanProvider.connect(sender.signer).deposit(reserve, amountToDeposit, sender.address, 0),
-        revertMessage
-      ).to.be.revert(DRE.ethers);
-    }
+    await expect(
+      pool.connect(sender.signer).deposit(reserve, amountToDeposit, onBehalfOf, '0', txOptions),
+      revertMessage
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -274,48 +220,33 @@ export const withdraw = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool, mockBitmorUSDCVault } = testEnv;
+  const { pool } = testEnv;
 
-  const isUsdc = reserveSymbol === 'USDC';
   const {
     aTokenInstance,
     reserve,
     userData: userDataBefore,
     reserveData: reserveDataBefore,
-  } = await getDataBeforeAction(
-    reserveSymbol,
-    isUsdc ? getContractAddress(mockBitmorUSDCVault) : user.address,
-    testEnv
-  );
+  } = await getDataBeforeAction(reserveSymbol, user.address, testEnv);
 
   let amountToWithdraw = '0';
 
   if (amount !== '-1') {
     amountToWithdraw = (await convertToCurrencyDecimals(reserve, amount)).toString();
   } else {
-    if (isUsdc) {
-      amountToWithdraw = (await mockBitmorUSDCVault.balanceOf(user.address)).toString();
-    } else {
-      amountToWithdraw = MAX_UINT_AMOUNT;
-    }
+    amountToWithdraw = MAX_UINT_AMOUNT;
   }
 
   if (expectedResult === 'success') {
     const txResult = await waitForTx(
-      isUsdc ?
-        await mockBitmorUSDCVault.connect(user.signer).withdraw(amountToWithdraw, user.address, user.address) :
-        await pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address)
-    )
+      await pool.connect(user.signer).withdraw(reserve, amountToWithdraw, user.address)
+    );
 
     const {
       reserveData: reserveDataAfter,
       userData: userDataAfter,
       timestamp,
-    } = await getContractsData(
-      reserve,
-      isUsdc ? getContractAddress(mockBitmorUSDCVault) : user.address,
-      testEnv
-    );
+    } = await getContractsData(reserve, user.address, testEnv);
 
     const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
@@ -337,11 +268,8 @@ export const withdraw = async (
     );
 
     expectEqual(reserveDataAfter, expectedReserveData);
-    if (isUsdc) {
-      expectEqualForWithdraw(userDataAfter, expectedUserData, amountToWithdraw);
-    } else {
-      expectEqual(userDataAfter, expectedUserData);
-    }
+    expectEqual(userDataAfter, expectedUserData);
+
     // truffleAssert.eventEmitted(txResult, "Redeem", (ev: any) => {
     //   const {_from, _value} = ev;
     //   return (
@@ -366,7 +294,7 @@ export const delegateBorrowAllowance = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool, mockBitmorUSDCVault } = testEnv;
+  const { pool } = testEnv;
 
   const reserveAddress: tEthereumAddress = await getReserveAddressFromSymbol(reserve);
 
@@ -381,7 +309,9 @@ export const delegateBorrowAllowance = async (
       ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
       : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
 
-  const delegateAllowancePromise = debtToken.connect(user.signer).approveDelegation(receiver, amountToDelegate);
+  const delegateAllowancePromise = debtToken
+    .connect(user.signer)
+    .approveDelegation(receiver, amountToDelegate);
 
   if (expectedResult === 'revert' && revertMessage) {
     await expect(delegateAllowancePromise, revertMessage).to.be.revertedWith(revertMessage);
@@ -407,7 +337,7 @@ export const borrow = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { mockLoanProvider } = testEnv;
+  const { pool } = testEnv;
 
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -421,24 +351,8 @@ export const borrow = async (
   const amountToBorrow = await convertToCurrencyDecimals(reserve, amount);
 
   if (expectedResult === 'success') {
-    // BITMOR: Set up credit delegation before borrowing
-    // @auditor In production, LSA delegates credit to Loan contract.
-    // In tests, user delegates credit to mockLoanProvider.
-    const { pool } = testEnv;
-    const reserveData = await pool.getReserveData(reserve);
-    const debtToken =
-      interestRateMode === '1'
-        ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
-        : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
-
-    const mockLoanProviderAddress = await mockLoanProvider.getAddress();
-    await waitForTx(
-      await debtToken.connect(user.signer).approveDelegation(mockLoanProviderAddress, amountToBorrow)
-    );
-
-    // BITMOR: Route borrow through mockLoanProvider
     const txResult = await waitForTx(
-      await mockLoanProvider
+      await pool
         .connect(user.signer)
         .borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf)
     );
@@ -500,23 +414,8 @@ export const borrow = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
-    // BITMOR: Set up credit delegation for revert cases too
-    // (otherwise it fails at delegation before reaching the actual error being tested)
-    const { pool } = testEnv;
-    const reserveData = await pool.getReserveData(reserve);
-    const debtToken =
-      interestRateMode === '1'
-        ? await getStableDebtToken(reserveData.stableDebtTokenAddress)
-        : await getVariableDebtToken(reserveData.variableDebtTokenAddress);
-
-    const mockLoanProviderAddress = await mockLoanProvider.getAddress();
-    await waitForTx(
-      await debtToken.connect(user.signer).approveDelegation(mockLoanProviderAddress, amountToBorrow)
-    );
-
-    // BITMOR: Route borrow through mockLoanProvider for revert cases
     await expect(
-      mockLoanProvider.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
+      pool.connect(user.signer).borrow(reserve, amountToBorrow, interestRateMode, '0', onBehalfOf),
       revertMessage
     ).to.be.revert(DRE.ethers);
   }
@@ -533,7 +432,7 @@ export const repay = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { mockLoanProvider, usdc } = testEnv;
+  const { pool } = testEnv;
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
   const { reserveData: reserveDataBefore, userData: userDataBefore } = await getContractsData(
@@ -543,24 +442,11 @@ export const repay = async (
   );
 
   let amountToRepay = '0';
-  const token = await getMintableERC20(reserve);
 
   if (amount !== '-1') {
     amountToRepay = (await convertToCurrencyDecimals(reserve, amount)).toString();
   } else {
-    // For "repay all" (-1), query the actual debt amount based on rate mode
-    const { pool } = testEnv;
-    const reserveData = await pool.getReserveData(reserve);
-
-    if (rateMode === '1') {
-      // Stable rate debt
-      const stableDebtToken = await getStableDebtToken(reserveData.stableDebtTokenAddress);
-      amountToRepay = (await stableDebtToken.balanceOf(onBehalfOf.address)).toString();
-    } else {
-      // Variable rate debt
-      const variableDebtToken = await getVariableDebtToken(reserveData.variableDebtTokenAddress);
-      amountToRepay = (await variableDebtToken.balanceOf(onBehalfOf.address)).toString();
-    }
+    amountToRepay = MAX_UINT_AMOUNT;
   }
   amountToRepay = '0x' + new BigNumber(amountToRepay).toString(16);
 
@@ -572,17 +458,13 @@ export const repay = async (
   }
 
   if (expectedResult === 'success') {
-    await waitForTx(
-      await token.connect(user.signer).approve(await mockLoanProvider.getAddress(), amountToRepay)
-    );
-
     const txResult = await waitForTx(
-      await mockLoanProvider
+      await pool
         .connect(user.signer)
-        .repay(reserve, amountToRepay, rateMode, onBehalfOf.address)
+        .repay(reserve, amountToRepay, rateMode, onBehalfOf.address, txOptions)
     );
 
-    const { txTimestamp } = await getTxCostAndTimestamp(txResult);
+    const { txCost, txTimestamp } = await getTxCostAndTimestamp(txResult);
 
     const {
       reserveData: reserveDataAfter,
@@ -611,9 +493,7 @@ export const repay = async (
       timestamp
     );
 
-
-
-    // expectEqual(reserveDataAfter, expectedReserveData);
+    expectEqual(reserveDataAfter, expectedReserveData);
     expectEqual(userDataAfter, expectedUserData);
 
     // truffleAssert.eventEmitted(txResult, "Repay", (ev: any) => {
@@ -626,15 +506,10 @@ export const repay = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
-    const token = await getMintableERC20(reserve);
-    await waitForTx(
-      await token.connect(user.signer).approve(await mockLoanProvider.getAddress(), amountToRepay)
-    );
-
     await expect(
-      mockLoanProvider
+      pool
         .connect(user.signer)
-        .repay(reserve, amountToRepay, rateMode, onBehalfOf.address),
+        .repay(reserve, amountToRepay, rateMode, onBehalfOf.address, txOptions),
       revertMessage
     ).to.be.revert(DRE.ethers);
   }
@@ -648,7 +523,7 @@ export const setUseAsCollateral = async (
   testEnv: TestEnv,
   revertMessage?: string
 ) => {
-  const { pool, mockBitmorUSDCVault } = testEnv;
+  const { pool } = testEnv;
 
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
 
@@ -659,20 +534,11 @@ export const setUseAsCollateral = async (
   );
 
   const useAsCollateralBool = useAsCollateral.toLowerCase() === 'true';
-  const isUSDC = reserveSymbol === 'USDC';
 
   if (expectedResult === 'success') {
-    let txResult;
-    if (isUSDC) {
-      txResult = await waitForTx(
-        await mockBitmorUSDCVault.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
-      );
-    }
-    else {
-      txResult = await waitForTx(
-        await pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
-      );
-    }
+    const txResult = await waitForTx(
+      await pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool)
+    );
 
     const { txCost } = await getTxCostAndTimestamp(txResult);
 
@@ -698,18 +564,10 @@ export const setUseAsCollateral = async (
     //   });
     // }
   } else if (expectedResult === 'revert') {
-    if (isUSDC) {
-      await expect(
-        mockBitmorUSDCVault.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
-        revertMessage
-      ).to.be.revert(DRE.ethers);
-    }
-    else {
-      await expect(
-        pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
-        revertMessage
-      ).to.be.revert(DRE.ethers);
-    }
+    await expect(
+      pool.connect(user.signer).setUserUseReserveAsCollateral(reserve, useAsCollateralBool),
+      revertMessage
+    ).to.be.revert(DRE.ethers);
   }
 };
 
@@ -773,8 +631,8 @@ export const swapBorrowRateMode = async (
     //   );
     // });
   } else if (expectedResult === 'revert') {
-    await expect(pool.connect(user.signer).swapBorrowRateMode(reserve, rateMode), revertMessage)
-      .to.be.revert(DRE.ethers);
+    await expect(pool.connect(user.signer).swapBorrowRateMode(reserve, rateMode), revertMessage).to
+      .be.revert(DRE.ethers);
   }
 };
 
@@ -852,15 +710,6 @@ const expectEqual = (
   }
 };
 
-const expectEqualForWithdraw = (
-  actual: UserReserveData,
-  expected: UserReserveData,
-  amount: BigNumber
-) => {
-  expected.walletBalance = new BigNumber(expected.walletBalance - amount);
-  expectEqual(actual, expected)
-}
-
 interface ActionData {
   reserve: string;
   reserveData: ReserveData;
@@ -885,25 +734,16 @@ const getDataBeforeAction = async (
   };
 };
 
-export const getTxCostAndTimestamp = async (tx: any) => {
-  // ethers v6 receipt has: blockNumber, hash, gasUsed, effectiveGasPrice
-  const blockNumber = tx?.blockNumber;
-  if (blockNumber == null) {
-    throw new Error("No tx blocknumber");
+export const getTxCostAndTimestamp = async (tx: ContractReceipt) => {
+  if (!tx.blockNumber || !tx.transactionHash || !tx.cumulativeGasUsed) {
+    throw new Error('No tx blocknumber');
   }
+  const txTimestamp = new BigNumber((await DRE.ethers.provider.getBlock(tx.blockNumber)).timestamp);
 
-  const gasUsed = tx.gasUsed ?? tx.cumulativeGasUsed; // prefer v6 gasUsed, fallback for older
-  const gasPrice = tx.effectiveGasPrice ?? tx.gasPrice; // prefer v6 effectiveGasPrice
-
-  if (gasUsed == null || gasPrice == null) {
-    throw new Error("Missing gasUsed / effectiveGasPrice on receipt");
-  }
-
-  const block = await DRE.ethers.provider.getBlock(blockNumber);
-  const txTimestamp = new BigNumber(block.timestamp.toString());
-
-  // txCost in WEI (same as your old v5 logic)
-  const txCost = new BigNumber(gasUsed.toString()).multipliedBy(gasPrice.toString());
+  const txInfo = await DRE.ethers.provider.getTransaction(tx.transactionHash);
+  const txCost = new BigNumber(tx.cumulativeGasUsed.toString()).multipliedBy(
+    txInfo.gasPrice.toString()
+  );
 
   return { txCost, txTimestamp };
 };

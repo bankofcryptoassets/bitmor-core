@@ -697,7 +697,7 @@
   },
   "SelfdestructTransferMock": {
     "default": {
-      "address": "0xFb6888b081b6A32A18cD7Dd77238207DB51450BB",
+      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   }
