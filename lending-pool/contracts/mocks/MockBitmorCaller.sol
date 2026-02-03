@@ -71,32 +71,3 @@ contract MockLoanProvider {
         return pool.repay(asset, amount, rateMode, onBehalfOf);
     }
 }
-
-/// @title MockUSDCVault
-/// @notice Mock contract simulating the USDCVault for lending-pool tests
-/// @dev Allows deposit operations through the lending pool
-contract MockUSDCVault {
-    using SafeERC20 for IERC20;
-
-    ILendingPool public pool;
-
-    constructor(address _pool) public {
-        pool = ILendingPool(_pool);
-    }
-
-    /// @notice Deposits USDC into the lending pool
-    /// @param asset The asset to deposit (should be USDC)
-    /// @param amount The amount to deposit
-    /// @param onBehalfOf The user receiving the aTokens
-    /// @param referralCode Referral code (unused)
-    function deposit(
-        address asset,
-        uint256 amount,
-        address onBehalfOf,
-        uint16 referralCode
-    ) external {
-        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(asset).safeApprove(address(pool), amount);
-        pool.deposit(asset, amount, onBehalfOf, referralCode);
-    }
-}
