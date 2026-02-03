@@ -1,0 +1,83 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+/**
+ * @title FuzzConstants
+ * @author Bitmor Protocol
+ * @notice Constants and bounds for fuzz testing
+ * @dev Import as FC: `import {FuzzConstants as FC} from "./FuzzConstants.sol";`
+ */
+library FuzzConstants {
+    // ============ Price Bounds (8 decimals) ============
+
+    /// @dev Minimum BTC price: $1,000
+    uint256 constant MIN_BTC_PRICE = 1000e8;
+
+    /// @dev Maximum BTC price: $1,000,000
+    uint256 constant MAX_BTC_PRICE = 1_000_000e8;
+
+    /// @dev USDC price (stable): $1
+    uint256 constant USDC_PRICE = 1e8;
+
+    // ============ Interest Rate Bounds (RAY - 27 decimals) ============
+
+    /// @dev Minimum interest rate: 0%
+    uint256 constant MIN_INTEREST_RATE = 0;
+
+    /// @dev Maximum interest rate: 12% APR
+    uint256 constant MAX_INTEREST_RATE = 0.12e27;
+
+    // ============ Duration Bounds ============
+
+    /// @dev Minimum loan duration: 1 month
+    uint256 constant MIN_DURATION = 1;
+
+    /// @dev Maximum loan duration: 60 months
+    uint256 constant MAX_DURATION = 60;
+
+    // ============ BTC Amount Bounds (8 decimals) ============
+
+    /// @dev Minimum BTC amount: 0.01 BTC
+    uint256 constant MIN_BTC_AMOUNT = 0.01e8;
+
+    /// @dev Maximum BTC amount: 100 BTC
+    uint256 constant MAX_BTC_AMOUNT = 100e8;
+
+    // ============ USDC Amount Bounds (6 decimals) ============
+
+    /// @dev Minimum USDC amount: 1 USDC
+    uint256 constant MIN_USDC_AMOUNT = 1e6;
+
+    /// @dev Maximum USDC amount: 10M USDC
+    uint256 constant MAX_USDC_AMOUNT = 10_000_000e6;
+
+    // ============ Deposit Bounds ============
+
+    /// @dev Minimum deposit: 30% (in basis points)
+    uint256 constant MIN_DEPOSIT_BPS = 30_00;
+
+    /// @dev Maximum deposit: 100% (in basis points)
+    uint256 constant MAX_DEPOSIT_BPS = 100_00;
+
+    /// @dev Basis points denominator
+    uint256 constant BPS_DENOMINATOR = 100_00;
+
+    // ============ Precision Constants ============
+
+    /// @dev RAY precision (27 decimals)
+    uint256 constant RAY = 1e27;
+
+    /// @dev Maximum roundtrip slippage: 1% (in WAD for assertApproxEqRel)
+    uint256 constant MAX_ROUNDTRIP_SLIPPAGE = 0.01e18;
+
+    /// @dev Maximum yield buffer for invariant checks
+    uint256 constant MAX_YIELD_BUFFER = 1000e6;
+
+    // ============ Exponent Bounds ============
+
+    /// @dev Maximum exponent for rayPow (prevents overflow)
+    uint256 constant MAX_EXPONENT = 120;
+
+    /// @dev Maximum base for rayPow (prevents overflow)
+    uint256 constant MAX_RAY_BASE = type(uint128).max;
+}
