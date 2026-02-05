@@ -211,7 +211,7 @@ interface ILoan {
 
     /**
      * @notice Updates the grace period for microLiquidation.
-     * @param gracePeriod New grace period in `days`
+     * @param gracePeriod New grace period in `seconds`
      * @dev This call is restricted to `LPM_SLOW` ONLY.
      */
     function setGracePeriod(uint256 gracePeriod) external;

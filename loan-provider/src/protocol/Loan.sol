@@ -57,7 +57,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
      * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
-     * @param _gracePeriod Grace period for monthly payment
+     * @param _gracePeriod Grace period for monthly payment in `seconds`
      */
     constructor(
         address _manager,

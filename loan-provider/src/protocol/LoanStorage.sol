@@ -77,7 +77,7 @@ contract LoanStorage {
     address internal s_liquidationFeeCollector;
 
     /**
-     * @notice Grace period for monthly installments in `days`
+     * @notice Grace period for monthly installments in `seconds`.
      */
     uint256 internal s_gracePeriod;
 
