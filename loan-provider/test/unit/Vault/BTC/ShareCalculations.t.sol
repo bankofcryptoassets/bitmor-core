@@ -230,21 +230,19 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
 
     // ============ Edge Case Tests ============
 
-    /// @notice Tiny deposit (1 wei) should either work or revert cleanly
-    function test_deposit_TinyAmount_HandlesCorrectly() public {
-        // This may revert due to zero shares or succeed with rounding
+    /// @notice Tiny deposit (1 wei) returns 0 or 1 share due to rounding
+    /// @dev ERC4626 allows dust deposits. With 1:1 initial exchange rate, 1 wei may mint 0-1 shares
+    function test_deposit_TinyAmount_ReturnsMinimalShares() public {
         vm.startPrank(user);
         mockUSDC.approve(address(vault), TINY_DEPOSIT);
 
-        // Either succeeds with some shares or reverts
-        try vault.deposit(TINY_DEPOSIT, user) returns (uint256 shares) {
-            // If it succeeds, should have gotten some shares
-            assertGe(shares, 0, "tiny deposit should return >= 0 shares");
-        } catch {
-            // Reverting on tiny deposit is acceptable behavior
-            assertTrue(true, "reverting on tiny deposit is acceptable");
-        }
+        // 1 wei deposit should succeed (ERC4626 allows dust)
+        uint256 shares = vault.deposit(TINY_DEPOSIT, user);
         vm.stopPrank();
+
+        // With standard ERC4626 math, 1 wei should mint 0 or 1 share
+        // (depends on offset and current exchange rate)
+        assertLe(shares, 1, "1 wei deposit should mint at most 1 share");
     }
 
     /// @notice `maxDeposit` should return remaining strategy cap

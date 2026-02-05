@@ -382,14 +382,10 @@ contract RepayLoanTest is BaseLoanTest {
         // User should only lose (repayAmount - TEST_REPAYMENT_SHORTFALL) tokens due to refund
         uint256 actualTokensSpent = userBalanceBefore - userBalanceAfter;
         assertEq(
-            actualTokensSpent,
-            repayAmount - TEST_REPAYMENT_SHORTFALL,
-            "User should receive refund of shortfall amount"
+            actualTokensSpent, repayAmount - TEST_REPAYMENT_SHORTFALL, "User should receive refund of shortfall amount"
         );
         assertEq(
-            finalAmountRepaid,
-            repayAmount - TEST_REPAYMENT_SHORTFALL,
-            "Return value should match actual repayment"
+            finalAmountRepaid, repayAmount - TEST_REPAYMENT_SHORTFALL, "Return value should match actual repayment"
         );
 
         // Reset shortfall for other tests

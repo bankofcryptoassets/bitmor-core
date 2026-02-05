@@ -208,21 +208,15 @@ contract DepositFundsTest is BaseTestForBTCVault {
         assertEq(total, inStrategy1 + inStrategy2, "totalAssets should equal sum of strategies");
     }
 
-    /// @notice getAssetInStrategy for non-existent strategy should revert or return 0
-    function test_getAssetInStrategy_NonExistentStrategy() public {
+    /// @notice getAssetInStrategy for non-existent strategy reverts with StrategyNotFound
+    /// @dev StrategyStateLogic.getStrategyIndex reverts with StrategyNotFound when strategy not in mapping
+    function test_getAssetInStrategy_NonExistentStrategy_RevertsWithStrategyNotFound() public {
         _addStrategy(address(strategy), LARGE_CAP);
 
-        // Query non-added strategy - this may revert or return 0
-        // depending on implementation
         address fakeStrategy = makeAddr("fakeStrategy");
 
-        // This tests whether the contract handles invalid strategy lookups
-        try vault.getAssetInStrategy(fakeStrategy) returns (uint256 assets) {
-            // If it doesn't revert, should return 0
-            assertEq(assets, 0, "non-existent strategy should return 0 assets");
-        } catch {
-            // Reverting is also acceptable
-            assertTrue(true, "reverting on non-existent strategy is acceptable");
-        }
+        // Non-existent strategy lookup should revert with specific error
+        vm.expectRevert(Errors.StrategyNotFound.selector);
+        vault.getAssetInStrategy(fakeStrategy);
     }
 }

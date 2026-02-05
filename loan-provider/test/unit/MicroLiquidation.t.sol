@@ -49,13 +49,9 @@ contract MicroLiquidationTest is BaseLoanTest {
         _warpPastGracePeriod();
         _fundLiquidator();
 
-        // Set up micro-liquidation eligibility
+        // Set up micro-liquidation eligibility (configures mock to return LIQUIDATION_TYPE_MICRO)
         mockBitmorPool.setUserOverdue(lsa, true);
         _setLiquidationType(lsa, LIQUIDATION_TYPE_MICRO);
-
-        // Check liquidation type - should be 2 (micro-liquidation)
-        uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_MICRO, "Liquidation type should be 2 (micro)");
 
         // Re-capture liquidator balances after funding (reset for accurate delta)
         state.liquidatorState = _captureLiquidatorSnapshot();
@@ -313,28 +309,29 @@ contract MicroLiquidationTest is BaseLoanTest {
         assertGt(state.monthsLiquidated + (state.fullLiquidationExecuted ? 1 : 0), 0, "At least one liquidation");
     }
 
-    // ============ Test: Liquidation Type Changes Over Time ============
+    // ============ Test: Mock Setup Verification ============
 
-    /// @notice Test that liquidation type changes from 0 to 2 as payment becomes overdue
-    function test_microLiquidation_afterGracePeriod_returnsTypeMicro() public setUpLoanForUser {
+    /// @notice Verify mock setup correctly simulates liquidation type transitions
+    /// @dev This documents expected mock configuration for micro-liquidation scenarios.
+    ///      In production, checkTypeOfLiquidation is computed by the lending pool based on
+    ///      health factor and payment status. Here we verify mock setup is correct.
+    function test_microLiquidation_mockSetup_configuresCorrectly() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         _updateAddressesProviderBitmorLoan();
 
-        // Assert before warp: checkType == 0 (loan is fresh, not overdue)
+        // Fresh loan: mock defaults to LIQUIDATION_TYPE_NONE
         uint256 liquidationTypeBefore = _checkLiquidationType(lsa);
-        assertEq(liquidationTypeBefore, LIQUIDATION_TYPE_NONE, "Fresh loan should not be liquidatable (type 0)");
+        assertEq(liquidationTypeBefore, LIQUIDATION_TYPE_NONE, "Mock should default to type 0 for fresh loans");
 
-        // Warp past grace period + interval
+        // Configure mock for micro-liquidation scenario
         _warpPastGracePeriod();
-
-        // Set overdue state in mock pool (simulates loan being past payment due)
         mockBitmorPool.setUserOverdue(lsa, true);
         _setLiquidationType(lsa, LIQUIDATION_TYPE_MICRO);
 
-        // Assert after warp: checkType == 2 (micro-liquidation eligible)
+        // Verify mock configuration (this tests mock, not contract logic)
         uint256 liquidationTypeAfter = _checkLiquidationType(lsa);
-        assertEq(liquidationTypeAfter, LIQUIDATION_TYPE_MICRO, "Should be micro-liquidation eligible (type 2)");
+        assertEq(liquidationTypeAfter, LIQUIDATION_TYPE_MICRO, "Mock should be configured for micro-liquidation");
     }
 
     // ============ Test: Micro-Liquidation Within Grace Period Should Revert ============

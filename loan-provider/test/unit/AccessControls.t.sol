@@ -8,8 +8,10 @@ import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
 /// @title AccessControlsTest
-/// @notice Test suite for verifying access control mechanisms in the Bitmor Protocol
-/// @dev Updated to use AccessManaged pattern instead of Ownable
+/// @notice Test suite for verifying AccessManaged role-based access control mechanisms
+/// @dev Focuses on: unauthorized access reverts, role assignments, and cross-cutting access control.
+///      For comprehensive testing of individual setter functions (values, bounds, events),
+///      see AdminSetters.t.sol which provides dedicated setter coverage.
 contract AccessControlsTest is BaseLoanTest {
     address internal attacker;
 
@@ -125,13 +127,13 @@ contract AccessControlsTest is BaseLoanTest {
         );
     }
 
-    /// @notice Unauthorized callers cannot update loan status.
+    /// @notice Unauthorized callers cannot update loan data for micro liquidation.
     function test_protocolMutators_updateLoanDataForMicroLiquidation_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.updateLoanDataForFullLiquidation(lsa);
+        loan.updateLoanDataForMicroLiquidation(lsa);
     }
 
     /// @notice Unauthorized callers cannot update stored loan data.
