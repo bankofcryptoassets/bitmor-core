@@ -10,9 +10,10 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 
 /// @title InsuranceTest
-/// @notice Tests for insurance-related flows.
-/// @dev Note: Insurance ID is set via mock since the actual insurance integration
-/// requires Deribit. Tests verify the protocol behavior assuming insurance is active.
+/// @author Bitmor Protocol
+/// @notice Tests for insurance-related flows including premium handling and insured loan liquidation protection
+/// @dev Insurance ID is set via mock since actual Deribit integration is not available in unit tests.
+///      Tests verify the protocol behavior assuming insurance is active.
 contract InsuranceTest is BaseLoanTest {
     // Insurance bonus is 3% (300 basis points)
     uint256 internal constant INSURANCE_BONUS_BPS = 300;
@@ -21,6 +22,7 @@ contract InsuranceTest is BaseLoanTest {
         super.setUp();
     }
 
+    /// @notice Creates a loan with the given `premiumAmount` and returns the LSA and loan data
     function _createInsuredLoan(uint256 premiumAmount)
         internal
         returns (address lsa, DataTypes.LoanData memory loanData)
@@ -34,6 +36,7 @@ contract InsuranceTest is BaseLoanTest {
         loanData = loan.getLoanByLSA(lsa);
     }
 
+    /// @notice Converts a `collateralAmount` (8 decimals) to USDC (6 decimals) using oracle prices
     function _collateralToUsdc(uint256 collateralAmount) internal view returns (uint256) {
         uint256 btcPrice = _getBtcPrice();
         uint256 usdcPrice = _getUsdcPrice();

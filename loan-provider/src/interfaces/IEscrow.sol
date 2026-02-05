@@ -3,7 +3,8 @@ pragma solidity 0.8.30;
 
 /**
  * @title IEscrow
- * @notice Interface for Escrow contract
+ * @author Bitmor Protocol
+ * @notice Interface for the Escrow contract that holds collateral locked during loan operations
  */
 interface IEscrow {
     /**

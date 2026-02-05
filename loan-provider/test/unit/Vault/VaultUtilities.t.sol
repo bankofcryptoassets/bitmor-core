@@ -6,9 +6,10 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title VaultUtilities
-/// @notice Shared utility contract for USDC Vault tests
-/// @dev Contains reusable helpers for ERC4626 vault testing
-/// @dev Inherits from Test to access vm cheatcodes and assertion functions
+/// @author Bitmor Protocol
+/// @notice Shared utility contract for ERC-4626 vault tests (both BTCVault and USDCVault)
+/// @dev Contains reusable helpers for token minting, vault operations, previews, assertions, and time manipulation.
+///      Inherits from `Test` to access vm cheatcodes and assertion functions.
 abstract contract VaultUtilities is Test {
     // ============ Constants ============
 

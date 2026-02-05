@@ -5,6 +5,10 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockTokenizedStrategy, BaseTestForBTCVault} from "../BaseTestForBTCVault.t.sol";
 
+/// @title WithdrawQueue
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault withdraw queue update and validation
+/// @dev Verifies queue reordering and revert when new queue length exceeds total strategies
 contract WithdrawQueue is BaseTestForBTCVault {
     modifier addStrategies() {
         _addStrategies();
@@ -33,6 +37,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
         _scheduleAndExpectRevert(bva_slow, bva_slow_id(), data, abi.encodeWithSelector(Errors.WrongLength.selector));
     }
 
+    /// @notice Deploys and adds 5 strategies with `STANDARD_STRATEGY_CAP` to the vault
     function _addStrategies() public {
         for (uint256 i = 0; i < 5; i++) {
             MockTokenizedStrategy newStrategy = new MockTokenizedStrategy(address(yieldSource), address(vault));

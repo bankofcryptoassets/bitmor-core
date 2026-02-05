@@ -8,9 +8,10 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title RepayLoanTest
-/// @notice Tests for loan repayment functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.repay` covering single/multi-month payments, overpayment, edge cases, and reverts
 contract RepayLoanTest is BaseLoanTest {
-    /// @dev Struct to hold repayment-specific fields that extend TestSnapshot
+    /// @notice Repayment-specific fields extending `TestSnapshot` with input and output amounts
     struct RepaymentExtension {
         uint256 repayAmount;
         uint256 finalAmountRepaid;
@@ -18,7 +19,7 @@ contract RepayLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Execute repayment and return state snapshot using generic TestSnapshot
+    /// @notice Executes a repayment of `repayAmount` on `lsa` and returns before/after state snapshots
     function _repayAndFetch(address lsa, uint256 repayAmount)
         internal
         returns (TestSnapshot memory snapshot, RepaymentExtension memory ext)
@@ -32,25 +33,25 @@ contract RepayLoanTest is BaseLoanTest {
         _updateTestSnapshotAfter(snapshot, lsa);
     }
 
-    /// @dev Assert duration was reduced by expected periods
+    /// @notice Asserts that duration was reduced by exactly `expectedPeriodsPaid` periods
     function _assertDurationReduced(TestSnapshot memory snapshot, uint256 expectedPeriodsPaid) internal pure {
         uint256 actualPeriodsPaid = snapshot.durationBefore - snapshot.durationAfter;
         assertEq(actualPeriodsPaid, expectedPeriodsPaid, "Duration reduction mismatch");
     }
 
-    /// @dev Assert debt reduction matches amount repaid (±2 wei for interest index rounding).
+    /// @notice Asserts that debt reduction matches `finalAmountRepaid` within 2 wei tolerance for interest rounding
     function _assertDebtDelta(TestSnapshot memory snapshot, uint256 finalAmountRepaid) internal pure {
         uint256 debtReduction = snapshot.debtBefore - snapshot.debtAfter;
         // Allow 2 wei tolerance for interest accrual rounding between snapshot and repay
         assertApproxEqAbs(debtReduction, finalAmountRepaid, 2, "Debt delta mismatch");
     }
 
-    /// @dev Assert loan is still active
+    /// @notice Asserts that the loan status after the action is `Active`
     function _assertLoanActive(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should be active");
     }
 
-    /// @dev Assert loan is completed
+    /// @notice Asserts that the loan status after the action is `Completed`
     function _assertLoanCompleted(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
     }
@@ -278,7 +279,7 @@ contract RepayLoanTest is BaseLoanTest {
     // ============ Zero Amount Reverts ============
 
     /// @notice Test that zero repayment amount reverts
-    function test_repay_zeroAmount_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ZeroRepaymentAmount() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
@@ -292,7 +293,7 @@ contract RepayLoanTest is BaseLoanTest {
     // ============ Completed/Liquidated Loan Reverts ============
 
     /// @notice Test that repaying a completed loan reverts
-    function test_repay_completedLoan_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanAlreadyCompleted() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
@@ -310,7 +311,7 @@ contract RepayLoanTest is BaseLoanTest {
     /// @notice Test that repaying a liquidated loan reverts
     /// @dev KNOWN LIMITATION: Mock liquidationCall doesn't update Loan contract status.
     ///      This test calls updateLoanDataForFullLiquidation (with LPCM role) to simulate.
-    function test_repay_liquidatedLoan_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanAlreadyLiquidated() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(lsa);
@@ -331,5 +332,85 @@ contract RepayLoanTest is BaseLoanTest {
         vm.prank(user);
         vm.expectRevert(Errors.LoanIsNotActive.selector);
         loan.repay(lsa, 1000e6);
+    }
+
+    // ============ Zero/Non-Existent LSA Reverts ============
+
+    /// @notice Test that repaying with zero LSA address reverts
+    /// @dev Covers RepayLogic.sol:61-62 ZeroAddress error
+    function test_RevertWhen_RepayZeroLsaAddress() public setUpLoanForUser {
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        loan.repay(address(0), 1000e6);
+    }
+
+    /// @notice Test that repaying a non-existent loan reverts
+    /// @dev Covers RepayLogic.sol:68 LoanDoesNotExists error
+    function test_RevertWhen_RepayNonExistentLoan() public setUpLoanForUser {
+        // Arrange - create a random address that has no loan
+        address fakeLsa = makeAddr("nonExistentLsa");
+
+        // Act & Assert
+        vm.prank(user);
+        vm.expectRevert(Errors.LoanDoesNotExists.selector);
+        loan.repay(fakeLsa, 1000e6);
+    }
+
+    // ============ Refund Edge Cases ============
+
+    /// @notice Test that excess payment is refunded when pool repays less than requested
+    /// @dev Covers RepayLogic.sol:109-110 refund branch
+    /// @dev NOT mock cheating: we verify the user's actual token balance change
+    function test_repay_RefundsExcessWhenPoolRepaysLess() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 repayAmount = loanData.estimatedMonthlyPayment;
+
+        // Set mock to simulate pool returning less (this is the INPUT condition)
+        mockBitmorPool.setRepaymentShortfall(TEST_REPAYMENT_SHORTFALL);
+
+        uint256 userBalanceBefore = IERC20(debtAsset).balanceOf(user);
+
+        // Act
+        vm.prank(user);
+        uint256 finalAmountRepaid = loan.repay(lsa, repayAmount);
+
+        uint256 userBalanceAfter = IERC20(debtAsset).balanceOf(user);
+
+        // Assert - verify ACTUAL token transfer (not mock return value)
+        // User should only lose (repayAmount - TEST_REPAYMENT_SHORTFALL) tokens due to refund
+        uint256 actualTokensSpent = userBalanceBefore - userBalanceAfter;
+        assertEq(
+            actualTokensSpent, repayAmount - TEST_REPAYMENT_SHORTFALL, "User should receive refund of shortfall amount"
+        );
+        assertEq(
+            finalAmountRepaid, repayAmount - TEST_REPAYMENT_SHORTFALL, "Return value should match actual repayment"
+        );
+
+        // Reset shortfall for other tests
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    // ============ Collateral Withdrawal Failure ============
+
+    /// @notice Test that full repayment reverts when collateral withdrawal fails
+    /// @dev Covers RepayLogic.sol:97 CollateralWithdrawFailed error
+    function test_RevertWhen_FullRepaymentCollateralWithdrawFails() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+
+        // Set mock to simulate withdrawal failure for the LSA
+        mockBitmorPool.setWithdrawalFailure(lsa, true);
+
+        // Act & Assert - full repayment should fail when collateral withdrawal fails
+        vm.prank(user);
+        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        loan.repay(lsa, totalDebt);
+
+        // Reset for other tests
+        mockBitmorPool.setWithdrawalFailure(lsa, false);
     }
 }

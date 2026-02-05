@@ -10,8 +10,10 @@ import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddr
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 
 /// @title FullLiquidationTest
-/// @notice Tests for full liquidation functionality (liquidationType == 1)
+/// @author Bitmor Protocol
+/// @notice Tests for full liquidation functionality (`liquidationType == 1`) including status updates, partial coverage, and revert cases
 contract FullLiquidationTest is BaseLoanTest {
+    /// @notice Sets and verifies the insurance ID for `lsa` in the loan contract
     function _setInsuranceId(address lsa, uint256 newInsuranceId) internal {
         loan.updateInsuranceId(lsa, newInsuranceId);
 
@@ -24,9 +26,8 @@ contract FullLiquidationTest is BaseLoanTest {
     function test_fullLiquidation_updatesLoanStatus() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
-        uint256 liquidationType = _setupForFullLiquidation(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        // Setup mock for full liquidation scenario (price drop + low health factor)
+        _setupForFullLiquidation(lsa);
 
         // Capture state using generic helper
         LiquidationTestState memory state = _captureLiquidationStateBefore(lsa);
@@ -52,22 +53,23 @@ contract FullLiquidationTest is BaseLoanTest {
         assertGt(state.collateralReceived, 0, "Liquidator should have received collateral");
     }
 
-    /// @notice Low health factor triggers full liquidation type.
-    function test_fullLiquidation_lowHealthFactor_returnsTypeFull() public setUpLoanForUser {
+    /// @notice Verify mock setup correctly configures full liquidation scenario
+    /// @dev This documents expected mock configuration. In production, checkTypeOfLiquidation
+    ///      is computed by the lending pool based on health factor.
+    function test_fullLiquidation_mockSetup_configuresCorrectly() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
+        // Setup mock for full liquidation scenario (this tests mock, not contract logic)
         uint256 liquidationType = _setupForFullLiquidation(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation eligible");
+        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Mock should be configured for full liquidation");
     }
 
     /// @notice Partial Debt Coverage in Full liquidation
     function test_fullLiquidation_partialDebtCoverage() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
-        uint256 liquidationType = _setupForFullLiquidation(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        // Setup mock for full liquidation scenario
+        _setupForFullLiquidation(lsa);
 
         // Get initial debt
         uint256 initialDebt = _getLsaDebtBalance(lsa);
@@ -88,9 +90,8 @@ contract FullLiquidationTest is BaseLoanTest {
     function test_fullLiquidation_receivesATokens() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
-        uint256 liquidationType = _setupForFullLiquidation(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        // Setup mock for full liquidation scenario
+        _setupForFullLiquidation(lsa);
 
         // Get collateral aToken address
         address collateralAToken = _utilGetATokenAddress(s_bitmorPool, collateralAsset);
@@ -127,9 +128,8 @@ contract FullLiquidationTest is BaseLoanTest {
     function test_fullLiquidation_debtTransferredToAToken() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup for full liquidation using composite helper
-        uint256 liquidationType = _setupForFullLiquidation(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        // Setup mock for full liquidation scenario
+        _setupForFullLiquidation(lsa);
 
         // Snapshot balances before using generic helpers
         uint256 poolBalanceBefore = IERC20(debtAsset).balanceOf(s_bitmorPool);
@@ -200,9 +200,7 @@ contract FullLiquidationTest is BaseLoanTest {
         _dropOraclePrice(collateralAsset, PRICE_DROP_50_PERCENT);
         // Set health factor < 1 for full liquidation eligibility
         mockBitmorPool.setHealthFactor(lsa, 0.5e18);
-
-        uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        _setLiquidationType(lsa, LIQUIDATION_TYPE_FULL);
 
         // Clear liquidator's balances (reset from base setup) and set approval only
         uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
@@ -233,9 +231,7 @@ contract FullLiquidationTest is BaseLoanTest {
         _dropOraclePrice(collateralAsset, PRICE_DROP_50_PERCENT);
         // Set health factor < 1 for full liquidation eligibility
         mockBitmorPool.setHealthFactor(lsa, 0.5e18);
-
-        uint256 liquidationType = _checkLiquidationType(lsa);
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "Should be full liquidation type");
+        _setLiquidationType(lsa, LIQUIDATION_TYPE_FULL);
 
         // Reset liquidator's allowance (base setup gave max allowance)
         vm.prank(liquidator);
@@ -257,11 +253,8 @@ contract FullLiquidationTest is BaseLoanTest {
     function test_fullLiquidation_priceDropBeforePaymentDue_noInsurance_liquidates() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
-        // Setup without warp - price drop only (loan not overdue)
-        uint256 liquidationType = _setupForFullLiquidationNoWarp(lsa, PRICE_DROP_50_PERCENT);
-
-        // Should be full liquidation eligible when not insured
-        assertEq(liquidationType, LIQUIDATION_TYPE_FULL, "HF < 1 should allow full liquidation when not insured");
+        // Setup mock for full liquidation without time warp (price drop only, loan not overdue)
+        _setupForFullLiquidationNoWarp(lsa, PRICE_DROP_50_PERCENT);
 
         // Execute full liquidation
         vm.prank(liquidator);

@@ -3,7 +3,8 @@ pragma solidity 0.8.30;
 
 /**
  * @title IUniswapV4SwapAdapter
- * @notice Interface for UniswapV4SwapAdapterV2 contract
+ * @author Bitmor Protocol
+ * @notice Interface for the Uniswap V4 swap adapter used on Base Sepolia testnet
  * @dev Deployed at: 0x96C69Cd797a62C33FF805905dd241703A37F0020 (Base Sepolia)
  */
 interface IUniswapV4SwapAdapter {

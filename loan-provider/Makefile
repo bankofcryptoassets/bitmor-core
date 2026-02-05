@@ -1,6 +1,6 @@
 -include .env
 
-.PHONY: all test clean deploy fund help install snapshot format anvil
+.PHONY: all test clean deploy fund help install snapshot format anvil coverage coverage-lcov coverage-html
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
@@ -17,6 +17,7 @@ help:
 	@echo "  make test:fork           Run fork tests (requires BASE_SEPOLIA_RPC_URL)"
 	@echo "  make test:loan:unit      Run Loan contract unit tests"
 	@echo "  make test:vault:unit     Run Vault unit tests"
+	@echo "  make test:strategy:unit  Run Strategy unit tests"
 	@echo "  make test:liquidation:unit  Run liquidation unit tests"
 	@echo "  make test:fuzz           Run fuzz tests (placeholder)"
 	@echo "  make test:invariant      Run invariant tests (placeholder)"
@@ -96,6 +97,10 @@ test\:vault\:unit:
 test\:liquidation\:unit:
 	@echo "Running liquidation unit tests..."
 	@FOUNDRY_PROFILE=unit forge test --match-path "test/unit/*Liquidation*.sol" -vvv
+
+test\:strategy\:unit:
+	@echo "Running Strategy unit tests..."
+	@FOUNDRY_PROFILE=unit forge test --match-path "test/unit/Strategy/**/*.sol" -vvv
 
 # ============ Placeholder Tests ============
 

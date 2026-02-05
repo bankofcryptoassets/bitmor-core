@@ -7,7 +7,8 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title ViewFunctionsTest
-/// @notice Tests for Loan contract view/getter functions
+/// @author Bitmor Protocol
+/// @notice Tests for Loan contract view/getter functions including configuration values and user loan queries
 contract ViewFunctionsTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();
@@ -39,6 +40,12 @@ contract ViewFunctionsTest is BaseLoanTest {
 
         // Verify constant values
         assertEq(loan.getRepaymentInterval(), 30 days, "Repayment interval should be exactly 30 days");
+
+        // Verify liquidation fee defaults (uninitialized = 0)
+        assertEq(loan.getLiquidationFeeBps(), 0, "Liquidation fee should default to 0");
+        assertEq(
+            loan.getLiquidationFeeCollector(), address(0), "Liquidation fee collector should default to address(0)"
+        );
     }
 
     // ============ User Loan Functions ============

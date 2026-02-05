@@ -55,52 +55,40 @@ library CloseLoanLogic {
      * @dev Used internally to organize intermediate calculation values
      */
     struct LocalVarsCloseLoan {
+        /// @dev Total collateral value in USD (8 decimals from Chainlink)
         uint256 totalCollateralUSD;
-        /**
-         * @dev Total collateral value in USD
-         */ uint256 totalDebtUSD;
-        /**
-         * @dev Total debt value in USD
-         */ uint256 collateralAssetPrice;
-        /**
-         * @dev Current cbBTC price in USD (8 decimals)
-         */ uint256 debtAssetPrice;
+        /// @dev Total debt value in USD (8 decimals from Chainlink)
+        uint256 totalDebtUSD;
+        /// @dev Current bvBTC share price in USD (8 decimals)
+        uint256 collateralAssetPrice;
+        /// @dev Current USDC price in USD (8 decimals)
+        uint256 debtAssetPrice;
+        /// @dev Current cbBTC price in USD (8 decimals)
         uint256 btcPrice;
-        /**
-         * @dev Current USDC price in USD (8 decimals)
-         */ uint256 collateralAmt;
+        /// @dev Amount of aTokens (bvBTC collateral) held by LSA
+        uint256 collateralAmt;
+        /// @dev Collateral amount converted to underlying cbBTC
         uint256 collateralAmtInBTC;
-        /**
-         * @dev Amount of aTokens (collateral) held by LSA
-         */ uint256 preClosureFeeAmtInBTC;
-        /**
-         * @dev Pre-closure fee in collateral asset
-         */ uint256 preClosureFeeUSD;
-        /**
-         * @dev Pre-closure fee in USD
-         */ uint256 debtAmt;
-        /**
-         * @dev Total debt amount (vdtToken balance)
-         */ uint256 flashLoanPremiumBps;
-        /**
-         * @dev Aave flash loan premium in basis points
-         */ uint256 flashLoanPremiumAmount;
+        /// @dev Pre-closure fee denominated in cbBTC
+        uint256 preClosureFeeAmtInBTC;
+        /// @dev Pre-closure fee denominated in USD
+        uint256 preClosureFeeUSD;
+        /// @dev Total outstanding debt (variable debt token balance)
+        uint256 debtAmt;
+        /// @dev Aave flash loan premium in basis points
+        uint256 flashLoanPremiumBps;
+        /// @dev Flash loan premium in debt asset (USDC)
+        uint256 flashLoanPremiumAmount;
+        /// @dev Flash loan premium converted to cbBTC
         uint256 flashLoanPremiumAmountInBTC;
-        /**
-         * @dev Flash loan premium in debt asset
-         */ uint256 flashLoanPremiumAmountUSD;
-        /**
-         * @dev Flash loan premium in USD
-         */ uint256 totalBTCAmtToSwap;
-        /**
-         * @dev Amount of collateral to swap for debt repayment
-         */ uint256 remainingBTCAmt;
-        /**
-         * @dev Remaining collateral after operations
-         */ uint256 remainingDebtAssetBal;
-        /**
-         * @dev Remaining debt asset after operations
-         */
+        /// @dev Flash loan premium in USD
+        uint256 flashLoanPremiumAmountUSD;
+        /// @dev Amount of cbBTC to swap for debt repayment
+        uint256 totalBTCAmtToSwap;
+        /// @dev Remaining cbBTC after all operations
+        uint256 remainingBTCAmt;
+        /// @dev Remaining debt asset (USDC) after all operations
+        uint256 remainingDebtAssetBal;
     }
 
     /**
@@ -226,13 +214,15 @@ library CloseLoanLogic {
     }
 
     /**
-     * @notice Convert one asset to another.
-     * @dev ASSUMING both `assetAPrice` and `assetBPrice` have same decimals.
-     * @param assetAAmt Amount of AssetA token
-     * @param assetAPrice AssetA token unit price.
-     * @param assetBPrice AssetB token unit price.
-     * @param assetADecimals AssetA token decimals.
-     * @param assetBDecimals AssetB token decimals
+     * @notice Converts an amount of one asset to the equivalent amount of another using oracle prices
+     * @dev Assumes both `assetAPrice` and `assetBPrice` have the same decimal precision (8 decimals from Chainlink).
+     * Uses `mulDivUp` for rounding up to ensure sufficient coverage in debt repayment scenarios.
+     * @param assetAAmt Amount of asset A to convert
+     * @param assetAPrice Unit price of asset A (8 decimals)
+     * @param assetBPrice Unit price of asset B (8 decimals)
+     * @param assetADecimals Decimal precision of asset A token
+     * @param assetBDecimals Decimal precision of asset B token
+     * @return The equivalent amount of asset B
      */
     function _convertFromAssetAToAssetB(
         uint256 assetAAmt,

@@ -18,11 +18,12 @@ import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title InitializeLoanTest
-/// @notice Tests for loan initialization functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.initializeLoan` covering deposits, collateral boundaries, access control, and flash loans
 contract InitializeLoanTest is BaseLoanTest {
     // ============ Local Test Helpers ============
 
-    /// @dev Assert loan was created correctly with expected parameters
+    /// @notice Asserts that a loan at `lsa` was created with the expected borrower, duration, and collateral
     function _assertLoanCreated(
         address lsa,
         address expectedBorrower,
@@ -36,7 +37,7 @@ contract InitializeLoanTest is BaseLoanTest {
         assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Status should be Active");
     }
 
-    /// @dev Assert loan data has expected basic properties
+    /// @notice Asserts that `loanData` has the expected borrower, duration, and non-zero loan amount and payment
     function _assertLoanDataBasics(
         DataTypes.LoanData memory loanData,
         address expectedBorrower,
@@ -398,5 +399,20 @@ contract InitializeLoanTest is BaseLoanTest {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
         loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
         vm.stopPrank();
+    }
+
+    /// @notice Test that flash loan callback reverts when initiator is not the Loan contract
+    /// @dev Covers FlashLoanLogic.sol:100 WrongFLInitiator error
+    function test_RevertWhen_InitLoanWrongFlashLoanInitiator() public {
+        // Arrange - prepare flash loan params with wrong initiator
+        address wrongInitiator = makeAddr("wrongInitiator");
+        address mockLsa = makeAddr("mockLsa");
+        bytes memory flData = abi.encode(mockLsa, TC.TEST_BTC_SWAP_AMOUNT);
+        bytes memory params = abi.encode(true, flData); // true = initializingLoan
+
+        // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
+        vm.prank(address(mockAavePool));
+        vm.expectRevert(Errors.WrongFLInitiator.selector);
+        loan.executeOperation(debtAsset, TC.FLASH_LOAN_AMOUNT, TC.FLASH_LOAN_PREMIUM, wrongInitiator, params);
     }
 }

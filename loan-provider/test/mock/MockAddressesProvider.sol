@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 
 /// @title MockAddressesProvider
+/// @author Bitmor Protocol
 /// @notice Mock addresses provider for unit testing
 /// @dev Implements ILendingPoolAddressesProvider with configurable addresses and stubbed methods
 contract MockAddressesProvider is ILendingPoolAddressesProvider {

@@ -23,11 +23,11 @@ import {MockPriceOracle} from "../mock/MockPriceOracle.sol";
 import {LSALogicHarness} from "../harness/LSALogicHarness.sol";
 
 /// @title LoanVaultTest
-/// @notice Comprehensive unit tests for LoanVault.sol, LoanVaultFactory.sol, and LSALogic.sol
+/// @author Bitmor Protocol
+/// @notice Comprehensive unit tests for `LoanVault.sol`, `LoanVaultFactory.sol`, and `LSALogic.sol`
 /// @dev All LSA-related unit tests consolidated here for isolated mock-based testing.
-///      These tests use mocks to test individual contract behaviors in isolation.
-/// @dev For system-level security/exploit tests with full loan integration context,
-///      see test/unit/LSAExploit.t.sol which tests attack vectors against the real loan flow.
+///      For system-level security/exploit tests with full loan integration context,
+///      see `test/unit/LSAExploit.t.sol` which tests attack vectors against the real loan flow.
 contract LoanVaultTest is Test {
     // ============================================================================
     // State Variables
@@ -653,9 +653,8 @@ contract LoanVaultTest is Test {
         uint256 delegationAmount = TC.USER_USDC_BALANCE;
 
         // Build expected calldata that LSALogic should encode
-        bytes memory expectedCalldata = abi.encodeWithSignature(
-            "approveDelegation(address,uint256)", address(this), delegationAmount
-        );
+        bytes memory expectedCalldata =
+            abi.encodeWithSignature("approveDelegation(address,uint256)", address(this), delegationAmount);
 
         // Assert - expect LSA.execute() to be called with correct target and data
         // Note: (true, true, false, false) - check indexed topics, skip data (returnData unpredictable)
@@ -695,9 +694,8 @@ contract LoanVaultTest is Test {
         _setupLSALogicInfrastructure();
 
         // Deploy mock aToken for BTC vault (needed for withdraw)
-        MockAToken mockAToken = new MockAToken(
-            "Bitmor aToken bvBTC", "abvBTC", 8, address(mockBTCVault), address(mockBitmorPool)
-        );
+        MockAToken mockAToken =
+            new MockAToken("Bitmor aToken bvBTC", "abvBTC", 8, address(mockBTCVault), address(mockBitmorPool));
         mockBitmorPool.initReserve(address(mockBTCVault), address(mockAToken), address(0));
 
         // Act - withdraw with zero balance
@@ -715,9 +713,8 @@ contract LoanVaultTest is Test {
         _setupLSALogicInfrastructure();
 
         // Build expected calldata for zero amount delegation
-        bytes memory expectedCalldata = abi.encodeWithSignature(
-            "approveDelegation(address,uint256)", address(this), uint256(0)
-        );
+        bytes memory expectedCalldata =
+            abi.encodeWithSignature("approveDelegation(address,uint256)", address(this), uint256(0));
 
         // Assert - expect LSA.execute() to be called with correct target and data
         // Note: (true, true, false, false) - check indexed topics, skip data (returnData unpredictable)
@@ -740,9 +737,8 @@ contract LoanVaultTest is Test {
         _setupLSALogicInfrastructureWithSharesClean();
 
         // Act - redeem zero shares
-        uint256 received = lsaHarness.exposed_redeemBTC(
-            address(lsa), address(mockBTCVault), 0, recipient, TC.BPS_DENOMINATOR
-        );
+        uint256 received =
+            lsaHarness.exposed_redeemBTC(address(lsa), address(mockBTCVault), 0, recipient, TC.BPS_DENOMINATOR);
 
         // Assert - zero shares should return zero assets
         assertEq(received, 0, "zero shares should return zero assets");
@@ -780,7 +776,8 @@ contract LoanVaultTest is Test {
         mockBTCVault.setMockRedeemReturn(exactMinimum);
 
         // Act
-        uint256 received = lsaHarness.exposed_redeemBTC(address(lsa), address(mockBTCVault), sharesAmount, recipient, slippageBps);
+        uint256 received =
+            lsaHarness.exposed_redeemBTC(address(lsa), address(mockBTCVault), sharesAmount, recipient, slippageBps);
 
         // Assert
         assertEq(received, exactMinimum, "should receive exact minimum");
@@ -801,13 +798,8 @@ contract LoanVaultTest is Test {
         mockBTCVault.setMockRedeemReturn(aboveMinimum);
 
         // Act
-        uint256 received = lsaHarness.exposed_redeemBTC(
-            address(lsa),
-            address(mockBTCVault),
-            sharesAmount,
-            recipient,
-            slippageBps
-        );
+        uint256 received =
+            lsaHarness.exposed_redeemBTC(address(lsa), address(mockBTCVault), sharesAmount, recipient, slippageBps);
 
         // Assert - should succeed because received (100%) >= minimum (99%)
         assertEq(received, aboveMinimum, "should receive configured amount");
@@ -868,9 +860,8 @@ contract LoanVaultTest is Test {
         _setupLSALogicInfrastructure();
 
         // Deploy mock aToken for BTC vault
-        MockAToken mockAToken = new MockAToken(
-            "Bitmor aToken bvBTC", "abvBTC", 8, address(mockBTCVault), address(mockBitmorPool)
-        );
+        MockAToken mockAToken =
+            new MockAToken("Bitmor aToken bvBTC", "abvBTC", 8, address(mockBTCVault), address(mockBitmorPool));
 
         // Initialize reserve for BTC vault
         mockBitmorPool.initReserve(address(mockBTCVault), address(mockAToken), address(0));

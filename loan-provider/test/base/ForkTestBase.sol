@@ -83,7 +83,8 @@ abstract contract ForkTestBase is BitmorTestBase {
 
     // ============ External Protocol Loading ============
 
-    /// @notice Loads real external protocol addresses from fork
+    /// @notice Loads real Aave V3 and token addresses from the forked network
+    /// @dev Aave V3 addresses are only available on non-local chains (chainid != 31337)
     function _loadExternalProtocols() internal virtual {
         // Real Aave V3 from fork (only available on mainnet)
         if (block.chainid != 31337) {
@@ -98,7 +99,8 @@ abstract contract ForkTestBase is BitmorTestBase {
 
     // ============ FFI Deployment ============
 
-    /// @notice Deploys lending-pool via FFI
+    /// @notice Deploys the Bitmor lending pool via FFI npm migration script
+    /// @dev Runs `npm run bitmor:localhost:dev:migration` in the `../lending-pool` directory
     function _deployLendingPoolViaFFI() internal {
         string[] memory cmd = new string[](5);
         cmd[0] = "npm";
@@ -110,7 +112,7 @@ abstract contract ForkTestBase is BitmorTestBase {
         vm.ffi(cmd);
     }
 
-    /// @notice Loads lending-pool addresses after FFI deployment
+    /// @notice Loads Bitmor lending pool addresses from config after FFI deployment
     function _loadLendingPoolAddresses() internal {
         bitmorPool = config.getBitmorPool();
         addressesProvider = config.getAddressesProvider();

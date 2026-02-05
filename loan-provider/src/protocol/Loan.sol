@@ -47,6 +47,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     /**
      * @notice Initializes the Loan contract with protocol addresses and configuration
+     * @param _manager AccessManager contract address for role-based access control
      * @param _aaveV3Pool Aave V3 pool address for flash loans
      * @param _aaveAddressesProvider Addresses Provider for flash loan operations
      * @param _bitmorPool Bitmor Lending Pool
@@ -56,8 +57,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _btc Wrapped BTC address
      * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
      * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
+     * @param _premiumCollector Address that collects insurance premiums
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
-     * @param _gracePeriod Grace period for monthly payment
+     * @param _gracePeriod Grace period for monthly payment in seconds
      */
     constructor(
         address _manager,
@@ -394,30 +396,37 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_preClosureFeeBps;
     }
 
+    /// @inheritdoc ILoan
     function getSlippageForSharesToAsset() external view returns (uint256) {
         return s_slippage_sharesToAsset;
     }
 
+    /// @inheritdoc ILoan
     function getSlippageForSwap() external view returns (uint256) {
         return s_slippage_swap;
     }
 
+    /// @inheritdoc ILoan
     function getMaxBTCAmount() external view returns (uint256) {
         return s_maxBTCAmt;
     }
 
+    /// @inheritdoc ILoan
     function getMinBTCAmount() external view returns (uint256) {
         return s_minBTCAmt;
     }
 
+    /// @inheritdoc ILoan
     function getMinDepositBps() external view returns (uint256) {
         return s_minDeposit;
     }
 
+    /// @inheritdoc ILoan
     function getLiquidationFeeBps() external view returns (uint256) {
         return s_liquidationFee;
     }
 
+    /// @inheritdoc ILoan
     function getLiquidationFeeCollector() external view returns (address) {
         return s_liquidationFeeCollector;
     }
@@ -477,38 +486,45 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
+    /// @inheritdoc ILoan
     function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
         s_slippage_sharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
+    /// @inheritdoc ILoan
     function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
         s_slippage_swap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
 
+    /// @inheritdoc ILoan
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
         if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidFee();
         s_maxBTCAmt = newMaxBTCAmt;
         emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
     }
 
+    /// @inheritdoc ILoan
     function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
         s_minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }
 
+    /// @inheritdoc ILoan
     function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
         s_minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
     }
 
+    /// @inheritdoc ILoan
     function setLiquidationFeeBps(uint256 newLiquidationFeeBps) external whenNotPaused restricted {
         if (newLiquidationFeeBps > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
         s_liquidationFee = newLiquidationFeeBps;
         emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);
     }
 
+    /// @inheritdoc ILoan
     function setLiquidationFeeCollector(address newLiquidationFeeCollector)
         external
         whenNotPaused
@@ -520,16 +536,16 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     /**
-     * @notice Execute in case of emergency.
-     * @dev This is restricted to `UVM_FAST` role ONLY.
+     * @notice Pauses the contract in case of emergency
+     * @custom:access Restricted to `LPM_FAST` role
      */
     function pause() external whenNotPaused restricted {
         _pause();
     }
 
     /**
-     * @notice Execute when to unpause.
-     * @dev This is restricted to `UVM_SLOW` role ONLY.
+     * @notice Unpauses the contract to resume normal operations
+     * @custom:access Restricted to `LPM_SLOW` role
      */
     function unpause() external whenPaused restricted {
         _unpause();
