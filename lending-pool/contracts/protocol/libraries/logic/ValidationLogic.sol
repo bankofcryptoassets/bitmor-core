@@ -249,50 +249,51 @@ library ValidationLogic {
     );
   }
 
-  /**
-   * @dev Validates a swap of borrow rate mode.
-   * @param reserve The reserve state on which the user is swapping the rate
-   * @param userConfig The user reserves configuration
-   * @param stableDebt The stable debt of the user
-   * @param variableDebt The variable debt of the user
-   * @param currentRateMode The rate mode of the borrow
-   */
-  function validateSwapRateMode(
-    DataTypes.ReserveData storage reserve,
-    DataTypes.UserConfigurationMap storage userConfig,
-    uint256 stableDebt,
-    uint256 variableDebt,
-    DataTypes.InterestRateMode currentRateMode
-  ) external view {
-    (bool isActive, bool isFrozen, , bool stableRateEnabled) = reserve.configuration.getFlags();
+  // /**
+  //  * @dev Not used in our BITMOR Protocol
+  //  * @dev Validates a swap of borrow rate mode.
+  //  * @param reserve The reserve state on which the user is swapping the rate
+  //  * @param userConfig The user reserves configuration
+  //  * @param stableDebt The stable debt of the user
+  //  * @param variableDebt The variable debt of the user
+  //  * @param currentRateMode The rate mode of the borrow
+  //  */
+  // function validateSwapRateMode(
+  //   DataTypes.ReserveData storage reserve,
+  //   DataTypes.UserConfigurationMap storage userConfig,
+  //   uint256 stableDebt,
+  //   uint256 variableDebt,
+  //   DataTypes.InterestRateMode currentRateMode
+  // ) external view {
+  //   (bool isActive, bool isFrozen, , bool stableRateEnabled) = reserve.configuration.getFlags();
 
-    require(isActive, Errors.VL_NO_ACTIVE_RESERVE);
-    require(!isFrozen, Errors.VL_RESERVE_FROZEN);
+  //   require(isActive, Errors.VL_NO_ACTIVE_RESERVE);
+  //   require(!isFrozen, Errors.VL_RESERVE_FROZEN);
 
-    if (currentRateMode == DataTypes.InterestRateMode.STABLE) {
-      require(stableDebt > 0, Errors.VL_NO_STABLE_RATE_LOAN_IN_RESERVE);
-    } else if (currentRateMode == DataTypes.InterestRateMode.VARIABLE) {
-      require(variableDebt > 0, Errors.VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE);
-      /**
-       * user wants to swap to stable, before swapping we need to ensure that
-       * 1. stable borrow rate is enabled on the reserve
-       * 2. user is not trying to abuse the reserve by depositing
-       * more collateral than he is borrowing, artificially lowering
-       * the interest rate, borrowing at variable, and switching to stable
-       *
-       */
-      require(stableRateEnabled, Errors.VL_STABLE_BORROWING_NOT_ENABLED);
+  //   if (currentRateMode == DataTypes.InterestRateMode.STABLE) {
+  //     require(stableDebt > 0, Errors.VL_NO_STABLE_RATE_LOAN_IN_RESERVE);
+  //   } else if (currentRateMode == DataTypes.InterestRateMode.VARIABLE) {
+  //     require(variableDebt > 0, Errors.VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE);
+  //     /**
+  //      * user wants to swap to stable, before swapping we need to ensure that
+  //      * 1. stable borrow rate is enabled on the reserve
+  //      * 2. user is not trying to abuse the reserve by depositing
+  //      * more collateral than he is borrowing, artificially lowering
+  //      * the interest rate, borrowing at variable, and switching to stable
+  //      *
+  //      */
+  //     require(stableRateEnabled, Errors.VL_STABLE_BORROWING_NOT_ENABLED);
 
-      require(
-        !userConfig.isUsingAsCollateral(reserve.id) ||
-          reserve.configuration.getLtv() == 0 ||
-          stableDebt.add(variableDebt) > IERC20(reserve.aTokenAddress).balanceOf(msg.sender),
-        Errors.VL_COLLATERAL_SAME_AS_BORROWING_CURRENCY
-      );
-    } else {
-      revert(Errors.VL_INVALID_INTEREST_RATE_MODE_SELECTED);
-    }
-  }
+  //     require(
+  //       !userConfig.isUsingAsCollateral(reserve.id) ||
+  //         reserve.configuration.getLtv() == 0 ||
+  //         stableDebt.add(variableDebt) > IERC20(reserve.aTokenAddress).balanceOf(msg.sender),
+  //       Errors.VL_COLLATERAL_SAME_AS_BORROWING_CURRENCY
+  //     );
+  //   } else {
+  //     revert(Errors.VL_INVALID_INTEREST_RATE_MODE_SELECTED);
+  //   }
+  // }
 
   /**
    * @dev Validates a stable borrow rate rebalance action
@@ -376,15 +377,16 @@ library ValidationLogic {
     );
   }
 
-  /**
-   * @dev Validates a flashloan action
-   * @param assets The assets being flashborrowed
-   * @param amounts The amounts for each asset being borrowed
-   *
-   */
-  function validateFlashloan(address[] memory assets, uint256[] memory amounts) internal pure {
-    require(assets.length == amounts.length, Errors.VL_INCONSISTENT_FLASHLOAN_PARAMS);
-  }
+  // /**
+  //  * @dev Not used in our BITMOR Protocol
+  //  * @dev Validates a flashloan action
+  //  * @param assets The assets being flashborrowed
+  //  * @param amounts The amounts for each asset being borrowed
+  //  *
+  //  */
+  // function validateFlashloan(address[] memory assets, uint256[] memory amounts) internal pure {
+  //   require(assets.length == amounts.length, Errors.VL_INCONSISTENT_FLASHLOAN_PARAMS);
+  // }
 
   /**
    * @dev Validates the liquidation action

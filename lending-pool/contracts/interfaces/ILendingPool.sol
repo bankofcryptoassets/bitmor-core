@@ -244,13 +244,14 @@ interface ILendingPool {
      */
     function repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf) external returns (uint256);
 
-    /**
-     * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
-     * @param asset The address of the underlying asset borrowed
-     * @param rateMode The rate mode that the user wants to swap to
-     *
-     */
-    function swapBorrowRateMode(address asset, uint256 rateMode) external;
+    // /**
+    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing.
+    //  * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
+    //  * @param asset The address of the underlying asset borrowed
+    //  * @param rateMode The rate mode that the user wants to swap to
+    //  *
+    //  */
+    // function swapBorrowRateMode(address asset, uint256 rateMode) external;
 
     /**
      * @dev Rebalances the stable interest rate of a user to the current stable rate defined on the reserve.

@@ -40,27 +40,27 @@ import {
   MockStableDebtToken__factory,
   MockVariableDebtToken__factory,
   MockUniswapV2Router02__factory,
-  ParaSwapLiquiditySwapAdapter__factory,
+  // ParaSwapLiquiditySwapAdapter__factory,
   PriceOracle__factory,
   ReserveLogic__factory,
   SelfdestructTransfer__factory,
   StableDebtToken__factory,
-  UniswapLiquiditySwapAdapter__factory,
-  UniswapRepayAdapter__factory,
+  // UniswapLiquiditySwapAdapter__factory,
+  // UniswapRepayAdapter__factory,
   VariableDebtToken__factory,
-  WalletBalanceProvider__factory,
+  // WalletBalanceProvider__factory,
   WETH9Mocked__factory,
-  WETHGateway__factory,
-  FlashLiquidationAdapter__factory,
-  UiPoolDataProviderV2__factory,
-  UiPoolDataProviderV2V3__factory,
-  UiIncentiveDataProviderV2__factory,
+  // WETHGateway__factory,
+  // FlashLiquidationAdapter__factory,
+  // UiPoolDataProviderV2__factory,
+  // UiPoolDataProviderV2V3__factory,
+  // UiIncentiveDataProviderV2__factory,
   MockBTCVault__factory,
   MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
 // Import MockUSDCVault from vault/ to get the correct 2-arg constructor
 import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
-import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
+// import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
   withSaveAndVerify,
   registerContractInJsonDb,
@@ -75,68 +75,68 @@ import { StableAndVariableTokensHelper__factory } from '../types/ethers-contract
 import type { MintableDelegationERC20, DelegationAwareAToken } from '../types/ethers-contracts/index.js';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import type { LendingPoolLibraryAddresses } from '../types/ethers-contracts/factories/protocol/lendingpool/LendingPool__factory.js';
-import type { UiPoolDataProvider } from '../types/ethers-contracts/index.js';
+// import type { UiPoolDataProvider } from '../types/ethers-contracts/index.js';
 import { eNetwork } from './types.js';
 
-export const deployUiIncentiveDataProviderV2 = async (verify?: boolean) =>
-  withSaveAndVerify(
-    await new UiIncentiveDataProviderV2__factory(await getFirstSigner()).deploy(),
-    eContractid.UiIncentiveDataProviderV2,
-    [],
-    verify
-  );
+// export const deployUiIncentiveDataProviderV2 = async (verify?: boolean) =>
+//   withSaveAndVerify(
+//     await new UiIncentiveDataProviderV2__factory(await getFirstSigner()).deploy(),
+//     eContractid.UiIncentiveDataProviderV2,
+//     [],
+//     verify
+//   );
 
-export const deployUiIncentiveDataProviderV2V3 = async (verify?: boolean) => {
-  const id = eContractid.UiIncentiveDataProviderV2V3;
-  const instance = await deployContract<UiIncentiveDataProviderV2V3>(id, []);
-  if (verify) {
-    await verifyContract(id, instance, []);
-  }
-  return instance;
-};
+// export const deployUiIncentiveDataProviderV2V3 = async (verify?: boolean) => {
+//   const id = eContractid.UiIncentiveDataProviderV2V3;
+//   const instance = await deployContract<UiIncentiveDataProviderV2V3>(id, []);
+//   if (verify) {
+//     await verifyContract(id, instance, []);
+//   }
+//   return instance;
+// };
 
-export const deployUiPoolDataProviderV2 = async (
-  chainlinkAggregatorProxy: string,
-  chainlinkEthUsdAggregatorProxy: string,
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new UiPoolDataProviderV2__factory(await getFirstSigner()).deploy(
-      chainlinkAggregatorProxy,
-      chainlinkEthUsdAggregatorProxy
-    ),
-    eContractid.UiPoolDataProvider,
-    [chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy],
-    verify
-  );
+// export const deployUiPoolDataProviderV2 = async (
+//   chainlinkAggregatorProxy: string,
+//   chainlinkEthUsdAggregatorProxy: string,
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new UiPoolDataProviderV2__factory(await getFirstSigner()).deploy(
+//       chainlinkAggregatorProxy,
+//       chainlinkEthUsdAggregatorProxy
+//     ),
+//     eContractid.UiPoolDataProvider,
+//     [chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy],
+//     verify
+//   );
 
-export const deployUiPoolDataProviderV2V3 = async (
-  chainlinkAggregatorProxy: string,
-  chainlinkEthUsdAggregatorProxy: string,
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new UiPoolDataProviderV2V3__factory(await getFirstSigner()).deploy(
-      chainlinkAggregatorProxy,
-      chainlinkEthUsdAggregatorProxy
-    ),
-    eContractid.UiPoolDataProvider,
-    [chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy],
-    verify
-  );
+// export const deployUiPoolDataProviderV2V3 = async (
+//   chainlinkAggregatorProxy: string,
+//   chainlinkEthUsdAggregatorProxy: string,
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new UiPoolDataProviderV2V3__factory(await getFirstSigner()).deploy(
+//       chainlinkAggregatorProxy,
+//       chainlinkEthUsdAggregatorProxy
+//     ),
+//     eContractid.UiPoolDataProvider,
+//     [chainlinkAggregatorProxy, chainlinkEthUsdAggregatorProxy],
+//     verify
+//   );
 
-export const deployUiPoolDataProvider = async (
-  [incentivesController, aaveOracle]: [tEthereumAddress, tEthereumAddress],
-  verify?: boolean
-) => {
-  const id = eContractid.UiPoolDataProvider;
-  const args: string[] = [incentivesController, aaveOracle];
-  const instance = await deployContract<UiPoolDataProvider>(id, args);
-  if (verify) {
-    await verifyContract(id, instance, args);
-  }
-  return instance;
-};
+// export const deployUiPoolDataProvider = async (
+//   [incentivesController, aaveOracle]: [tEthereumAddress, tEthereumAddress],
+//   verify?: boolean
+// ) => {
+//   const id = eContractid.UiPoolDataProvider;
+//   const args: string[] = [incentivesController, aaveOracle];
+//   const instance = await deployContract<UiPoolDataProvider>(id, args);
+//   if (verify) {
+//     await verifyContract(id, instance, args);
+//   }
+//   return instance;
+// };
 
 const readArtifact = async (id: string) => {
   return (DRE as HardhatRuntimeEnvironment).artifacts.readArtifact(id);
@@ -335,13 +335,14 @@ export const deployMockFlashLoanReceiver = async (
     verify
   );
 
-export const deployWalletBalancerProvider = async (verify?: boolean) =>
-  withSaveAndVerify(
-    await new WalletBalanceProvider__factory(await getFirstSigner()).deploy(),
-    eContractid.WalletBalanceProvider,
-    [],
-    verify
-  );
+// WALLET BALANCE PROVIDER removed - not used in Bitmor protocol 
+// export const deployWalletBalancerProvider = async (verify?: boolean) =>
+//   withSaveAndVerify(
+//     await new WalletBalanceProvider__factory(await getFirstSigner()).deploy(),
+//     eContractid.WalletBalanceProvider,
+//     [],
+//     verify
+//   );
 
 export const deployAaveProtocolDataProvider = async (
   addressesProvider: tEthereumAddress,
@@ -609,21 +610,22 @@ export const deployATokensAndRatesHelper = async (
     verify
   );
 
-export const deployWETHGateway = async (args: [tEthereumAddress], verify?: boolean) =>
-  withSaveAndVerify(
-    await new WETHGateway__factory(await getFirstSigner()).deploy(...args),
-    eContractid.WETHGateway,
-    args,
-    verify
-  );
+// WETHGateway removed - not used in Bitmor protocol
+// export const deployWETHGateway = async (args: [tEthereumAddress], verify?: boolean) =>
+//   withSaveAndVerify(
+//     await new WETHGateway__factory(await getFirstSigner()).deploy(...args),
+//     eContractid.WETHGateway,
+//     args,
+//     verify
+//   );
 
-export const authorizeWETHGateway = async (
-  wethGateWay: tEthereumAddress,
-  lendingPool: tEthereumAddress
-) =>
-  await new WETHGateway__factory(await getFirstSigner())
-    .attach(wethGateWay)
-    .authorizeLendingPool(lendingPool);
+// export const authorizeWETHGateway = async (
+//   wethGateWay: tEthereumAddress,
+//   lendingPool: tEthereumAddress
+// ) =>
+//   await new WETHGateway__factory(await getFirstSigner())
+//     .attach(wethGateWay)
+//     .authorizeLendingPool(lendingPool);
 
 export const deployMockStableDebtToken = async (
   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress, string, string, string],
@@ -770,38 +772,39 @@ export const deployMockLoan = async (
     verify
   );
 
-export const deployUniswapLiquiditySwapAdapter = async (
-  args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new UniswapLiquiditySwapAdapter__factory(await getFirstSigner()).deploy(...args),
-    eContractid.UniswapLiquiditySwapAdapter,
-    args,
-    verify
-  );
+// Uniswap/Flash Liquidation Adapters removed - not used in Bitmor protocol
+// export const deployUniswapLiquiditySwapAdapter = async (
+//   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new UniswapLiquiditySwapAdapter__factory(await getFirstSigner()).deploy(...args),
+//     eContractid.UniswapLiquiditySwapAdapter,
+//     args,
+//     verify
+//   );
 
-export const deployUniswapRepayAdapter = async (
-  args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new UniswapRepayAdapter__factory(await getFirstSigner()).deploy(...args),
-    eContractid.UniswapRepayAdapter,
-    args,
-    verify
-  );
+// export const deployUniswapRepayAdapter = async (
+//   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new UniswapRepayAdapter__factory(await getFirstSigner()).deploy(...args),
+//     eContractid.UniswapRepayAdapter,
+//     args,
+//     verify
+//   );
 
-export const deployFlashLiquidationAdapter = async (
-  args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new FlashLiquidationAdapter__factory(await getFirstSigner()).deploy(...args),
-    eContractid.FlashLiquidationAdapter,
-    args,
-    verify
-  );
+// export const deployFlashLiquidationAdapter = async (
+//   args: [tEthereumAddress, tEthereumAddress, tEthereumAddress],
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new FlashLiquidationAdapter__factory(await getFirstSigner()).deploy(...args),
+//     eContractid.FlashLiquidationAdapter,
+//     args,
+//     verify
+//   );
 
 export const chooseATokenDeployment = (id: eContractid) => {
   switch (id) {
@@ -893,13 +896,14 @@ export const deployMockParaSwapAugustusRegistry = async (
     verify
   );
 
-export const deployParaSwapLiquiditySwapAdapter = async (
-  args: [tEthereumAddress, tEthereumAddress],
-  verify?: boolean
-) =>
-  withSaveAndVerify(
-    await new ParaSwapLiquiditySwapAdapter__factory(await getFirstSigner()).deploy(...args),
-    eContractid.ParaSwapLiquiditySwapAdapter,
-    args,
-    verify
-  );
+// ParaSwap Adapter removed - not used in Bitmor protocol
+// export const deployParaSwapLiquiditySwapAdapter = async (
+//   args: [tEthereumAddress, tEthereumAddress],
+//   verify?: boolean
+// ) =>
+//   withSaveAndVerify(
+//     await new ParaSwapLiquiditySwapAdapter__factory(await getFirstSigner()).deploy(...args),
+//     eContractid.ParaSwapLiquiditySwapAdapter,
+//     args,
+//     verify
+//   );

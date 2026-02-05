@@ -28,6 +28,7 @@ import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
+import "hardhat/console.sol";
 
 /**
  * @title LendingPool contract
@@ -285,40 +286,43 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         return paybackAmount;
     }
 
-    /**
-     * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
-     * @param asset The address of the underlying asset borrowed
-     * @param rateMode The rate mode that the user wants to swap to
-     *
-     */
-    function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
-        DataTypes.ReserveData storage reserve = _reserves[asset];
+    // /**
+    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing. 
+    //  * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
+    //  * @param asset The address of the underlying asset borrowed
+    //  * @param rateMode The rate mode that the user wants to swap to
+    //  *
+    //  */
+    // function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
+    //     DataTypes.ReserveData storage reserve = _reserves[asset];
 
-        (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
+    //     (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
 
-        DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
+    //     DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
+    //     console.log("Reaching here 0?");
 
-        ValidationLogic.validateSwapRateMode(
-            reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
-        );
+    //     ValidationLogic.validateSwapRateMode(
+    //         reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
+    //     );
 
-        reserve.updateState();
+    //     reserve.updateState();
 
-        if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
-            IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
-        } else {
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
-            IStableDebtToken(reserve.stableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
-        }
+    //     if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
+    //         IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
+    //     } else {
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
+    //         IStableDebtToken(reserve.stableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
+    //     }
 
-        reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
 
-        emit Swap(asset, msg.sender, rateMode);
-    }
+    //     reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
+
+    //     emit Swap(asset, msg.sender, rateMode);
+    // }
 
     /**
      * @dev Rebalances the stable interest rate of a user to the current stable rate defined on the reserve.

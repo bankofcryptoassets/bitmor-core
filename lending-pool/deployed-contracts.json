@@ -57,7 +57,7 @@
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
-      "address": "0xFb6888b081b6A32A18cD7Dd77238207DB51450BB",
+      "address": "0xC8Df507578fEfb60aA626ABFDDB20B48ee439ad1",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -67,7 +67,7 @@
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
-      "address": "0x9D2F6Ec881323E78f27d58b996b81EaBCEF8eC58",
+      "address": "0xD325d114a728C2114Bd33Ad47152f790f2a29c5c",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -77,7 +77,7 @@
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
-      "address": "0x4fE09fd873d2E21045d25f6aC3eBcC578b3FE33D",
+      "address": "0xf4a603251E93fAc1DB29AdC48B9446E753e5A755",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -86,7 +86,7 @@
       "address": "0x56D13Eb21a625EdA8438F55DF2C31dC3632034f5"
     },
     "default": {
-      "address": "0xad17D0b25259128C968dbCa61CB5864C78004DBE"
+      "address": "0x910b6a78b413e47401f20aA2350d264b55ae0189"
     }
   },
   "LendingPool": {
@@ -94,7 +94,7 @@
       "address": "0x477044170B5AB7DdF4d688e6C6Da6Cc5465338c4"
     },
     "default": {
-      "address": "0xad17D0b25259128C968dbCa61CB5864C78004DBE",
+      "address": "0x910b6a78b413e47401f20aA2350d264b55ae0189",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -207,6 +207,10 @@
     "localhost": {
       "address": "0x8fC8CFB7f7362E44E472c690A6e025B80E406458",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+    },
+    "default": {
+      "address": "0xC8Df507578fEfb60aA626ABFDDB20B48ee439ad1",
+      "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
   "rateStrategyUSDC": {
@@ -220,7 +224,7 @@
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0xBdFE372Bb5a0db801A1a17796EC5cfF2F30A714C",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -556,7 +560,7 @@
   },
   "DelegationAwareAToken": {
     "default": {
-      "address": "0xFb6888b081b6A32A18cD7Dd77238207DB51450BB",
+      "address": "0xC8Df507578fEfb60aA626ABFDDB20B48ee439ad1",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -655,13 +659,13 @@
   },
   "MockParaSwapAugustus": {
     "default": {
-      "address": "0x63b9792E7A95e3aa037255E8cAa0Dfd76f7383e7",
+      "address": "0x7997A4c8b8E97d289989431B996AB1C6a9975Ad9",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
   "MockParaSwapAugustusRegistry": {
     "default": {
-      "address": "0xc783bfC59158E888dA3E9c7768aaDC7a58ee7809",
+      "address": "0x2E5a2652BDB3da24249EaDf9028a6D75e20D86C5",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
@@ -673,25 +677,25 @@
   },
   "MintableDelegationERC20": {
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0xBdFE372Bb5a0db801A1a17796EC5cfF2F30A714C",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
   "MockAToken": {
     "default": {
-      "address": "0x36372ca6a6b65B924ab1f88165F563189B638a6b",
+      "address": "0xBdFE372Bb5a0db801A1a17796EC5cfF2F30A714C",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
   "MockStableDebtToken": {
     "default": {
-      "address": "0x9D2F6Ec881323E78f27d58b996b81EaBCEF8eC58",
+      "address": "0xD325d114a728C2114Bd33Ad47152f790f2a29c5c",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },
   "MockVariableDebtToken": {
     "default": {
-      "address": "0xad17D0b25259128C968dbCa61CB5864C78004DBE",
+      "address": "0x910b6a78b413e47401f20aA2350d264b55ae0189",
       "deployer": "0xc783df8a850f42e7F7e57013759C285caa701eB6"
     }
   },

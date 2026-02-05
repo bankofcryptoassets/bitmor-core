@@ -16,21 +16,21 @@ import {
   deployPriceOracle,
   deployLendingPoolCollateralManager,
   deployMockFlashLoanReceiver,
-  deployWalletBalancerProvider,
+  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   deployAaveProtocolDataProvider,
   deployLendingRateOracle,
   deployStableAndVariableTokensHelper,
   deployATokensAndRatesHelper,
-  deployWETHGateway,
+  // deployWETHGateway,  // Not used in Bitmor protocol
   deployWETHMocked,
   deployMockUniswapRouter,
-  deployUniswapLiquiditySwapAdapter,
-  deployUniswapRepayAdapter,
-  deployFlashLiquidationAdapter,
+  // deployUniswapLiquiditySwapAdapter,  // Not used in Bitmor protocol
+  // deployUniswapRepayAdapter,  // Not used in Bitmor protocol
+  // deployFlashLiquidationAdapter,  // Not used in Bitmor protocol
   deployMockParaSwapAugustus,
   deployMockParaSwapAugustusRegistry,
-  deployParaSwapLiquiditySwapAdapter,
-  authorizeWETHGateway,
+  // deployParaSwapLiquiditySwapAdapter,  // Not used in Bitmor protocol
+  // authorizeWETHGateway,  // Not used in Bitmor protocol
   deployATokenImplementations,
   deployAaveOracle,
   deployMockBTCVault,
@@ -350,20 +350,22 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     getContractAddress(mockTokens.WETH),
   ];
 
-  await deployUniswapLiquiditySwapAdapter(adapterParams);
-  await deployUniswapRepayAdapter(adapterParams);
-  await deployFlashLiquidationAdapter(adapterParams);
+  // Adapters not used in Bitmor protocol
+  // await deployUniswapLiquiditySwapAdapter(adapterParams);
+  // await deployUniswapRepayAdapter(adapterParams);
+  // await deployFlashLiquidationAdapter(adapterParams);
 
   const augustus = await deployMockParaSwapAugustus();
 
   const augustusRegistry = await deployMockParaSwapAugustusRegistry([getContractAddress(augustus)]);
 
-  await deployParaSwapLiquiditySwapAdapter([getContractAddress(addressesProvider), getContractAddress(augustusRegistry)]);
+  // await deployParaSwapLiquiditySwapAdapter([getContractAddress(addressesProvider), getContractAddress(augustusRegistry)]);
 
-  await deployWalletBalancerProvider();
+  // await deployWalletBalancerProvider();
 
-  const gateWay = await deployWETHGateway([getContractAddress(mockTokens.WETH)]);
-  await authorizeWETHGateway(getContractAddress(gateWay), lendingPoolAddress);
+  // WETHGateway not used in Bitmor protocol
+  // const gateWay = await deployWETHGateway([getContractAddress(mockTokens.WETH)]);
+  // await authorizeWETHGateway(getContractAddress(gateWay), lendingPoolAddress);
 
   console.timeEnd('setup');
 };

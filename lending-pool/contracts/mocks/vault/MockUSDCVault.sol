@@ -202,7 +202,18 @@ contract MockUSDCVault is ERC20 {
         ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
         pool.setUserUseReserveAsCollateral(asset, useAsCollateral);
     }
-    
+
+    /**
+     * @notice Reallocate assets to ensure sufficient liquidity in the lending pool
+     * @dev Called by LendingPool during borrow when liquidity is needed
+     * @param amount The amount of assets needed
+     */
+    function reallocateAssets(uint256 amount) external {
+        // In production, this would withdraw from strategies to provide liquidity
+        // For mock: no-op since we don't have complex strategy allocation
+        // The assets are already in the aToken from deposit
+    }
+
     // function approveDelegation(address receiver, uint256 amountToDelegate) external {
     //     ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
     //     DataTypes.ReserveData memory reserveData = pool.getReserveData(ASSET);
