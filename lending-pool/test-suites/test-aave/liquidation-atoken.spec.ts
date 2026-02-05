@@ -22,7 +22,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LPCM_CANNOT_FULL_LIQUIDATE
   } = ProtocolErrors;
 
-  it('Deposits cbBTC, borrows USDC/Check liquidation fails because health factor is above 1', async () => {
+  it('Deposits cbBTC, borrows USDC/Check liquidation fails because type of liquidation is not 1', async () => {
     const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, mockLoan, addressesProvider, helpersContract } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
@@ -408,4 +408,63 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       'Invalid collateral available liquidity'
     );
   });
+
+  it('User 5 deposits 10000 USDC, liquidation fails because the health factor is below threshold', async () => {
+    const {users, usdc, mockLoanProvider, mockLoan, helpersContract, pool, addressesProvider, cbBTC, oracle} = testEnv;
+    const user = users[5];
+    await addressesProvider.setBitmorLoan(mockLoanProvider);
+    const amountBtcToDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '0.1');
+    await cbBTC.connect(user.signer).mint(amountBtcToDeposit);
+    await cbBTC.connect(user.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
+      .connect(user.signer)
+      .deposit(getContractAddress(cbBTC), amountBtcToDeposit, user.address, '0');
+    
+    
+    const amountUsdcToBorrow = await convertToCurrencyDecimals(getContractAddress(usdc), '5000');
+    
+    await mockLoan.createActiveLoan(
+      user.address,
+      user.address,
+      amountBtcToDeposit,
+      amountUsdcToBorrow,
+      12,
+      5000
+    );
+  
+    const {variableDebtTokenAddress} = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", variableDebtTokenAddress);
+    await Vdt.connect(user.signer).approveDelegation(
+      mockLoanProvider.target,
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
+  
+    await mockLoanProvider
+      .connect(user.signer)
+      .borrow(getContractAddress(usdc), amountUsdcToBorrow, RateMode.Variable, '0', user.address);
+    
+    const poolAccountData = await pool.getUserAccountData(mockLoanProvider.target);
+    const userAccountData = await pool.getUserAccountData(user.address);
+
+    console.log("poolAccountData:: ", poolAccountData);
+    console.log("userAccountData:: ", userAccountData);
+
+    await addressesProvider.setBitmorLoan(mockLoan.target);
+    // let type = await pool.checkTypeOfLiquidation(user.address);
+    // console.log("type:: ", type);
+    // const price = await oracle.getAssetPrice(getContractAddress(cbBTC));
+    // console.log("price:: ", price);
+    // const newPrice = (new BigNumber(price) * new BigNumber(50)) / new BigNumber(100);
+    // const newPrice = (price * 8980n) / 10000n;
+    // console.log("newPrice:: ", newPrice);
+    // await oracle.setAssetPrice(getContractAddress(cbBTC), newPrice);
+    await mockLoan.setLoanStatus(user.address, 2n);
+    const type = await pool.checkTypeOfLiquidation(user.address);
+    expect(type.toString()).to.be.equals("0");
+    // console.log("type:: ", type);
+    // const userAccountData2 = await pool.getUserAccountData(user.address);
+    // console.log("userAccountData2:: ", userAccountData2);
+  })
+
+  it('Check type of liquidation should return 0 for inactive loans', async() => {})
 });

@@ -299,7 +299,6 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     //     (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
 
     //     DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
-    //     console.log("Reaching here 0?");
 
     //     ValidationLogic.validateSwapRateMode(
     //         reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode

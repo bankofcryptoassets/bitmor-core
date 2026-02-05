@@ -424,12 +424,14 @@ library ValidationLogic {
       );
     }
 
-    if (userHealthFactor >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD) {
-      return (
-        uint256(Errors.CollateralManagerErrors.HEALTH_FACTOR_ABOVE_THRESHOLD),
-        Errors.LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD
-      );
-    }
+    // todo: validate if this is needed,
+    // todo: when type of liquidation is not 1 user health factor is definitely more than `HEALTH_FACTOR_LIQUIDATION_THRESHOLD`
+    // if (userHealthFactor >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD) {
+    //   return (
+    //     uint256(Errors.CollateralManagerErrors.HEALTH_FACTOR_ABOVE_THRESHOLD),
+    //     Errors.LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD
+    //   );
+    // }
 
     bool isCollateralEnabled = collateralReserve.configuration.getLiquidationThreshold() > 0 &&
       userConfig.isUsingAsCollateral(collateralReserve.id);
