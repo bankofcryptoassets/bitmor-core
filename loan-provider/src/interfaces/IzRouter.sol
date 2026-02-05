@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 /**
  * @title IzRouter
+ * @author Zamm DeFi
  * @notice Interface for zRouter on Base network (Aerodrome DEX)
  * @dev Based on: https://github.com/zammdefi/zRouter/blob/main/src/IzRouter.sol
  */

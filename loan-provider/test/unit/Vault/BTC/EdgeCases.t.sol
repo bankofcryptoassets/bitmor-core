@@ -8,8 +8,9 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title EdgeCasesTest
+/// @author Bitmor Protocol
 /// @notice Tests for BTCVault edge cases and boundary conditions
-/// @dev Hunts for zero-amount bugs, overflow issues, empty state handling
+/// @dev Hunts for zero-amount bugs, overflow issues, and empty state handling
 contract EdgeCasesTest is BaseTestForBTCVault {
     // ============ Constants ============
     uint256 constant EDGE_STRATEGY_CAP = 10000e6;

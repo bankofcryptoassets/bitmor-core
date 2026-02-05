@@ -6,8 +6,9 @@ import {SimpleTokenizedStrategyHarness} from "../../harness/SimpleTokenizedStrat
 import {MockVault} from "../../mock/MockVault.sol";
 
 /// @title SimpleTokenizedStrategyTest
+/// @author Bitmor Protocol
 /// @notice Unit tests for SimpleTokenizedStrategy abstract contract
-/// @dev Tests via harness since contract is abstract
+/// @dev Tests via `SimpleTokenizedStrategyHarness` since the contract is abstract
 contract SimpleTokenizedStrategyTest is BaseStrategyTest {
     /// @notice Test that constructor sets i_yieldSource correctly
     function test_Constructor_SetsYieldSource() public view {

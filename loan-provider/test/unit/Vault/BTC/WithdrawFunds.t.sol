@@ -8,7 +8,8 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title WithdrawFundsTest
-/// @notice Tests for BTCVault _withdrawFunds internal logic via withdraw/redeem
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault `_withdrawFunds` internal logic via `withdraw`/`redeem`
 /// @dev Hunts for withdrawal ordering bugs, liquidity issues, and fund extraction problems
 contract WithdrawFundsTest is BaseTestForBTCVault {
     // ============ Additional Strategies ============

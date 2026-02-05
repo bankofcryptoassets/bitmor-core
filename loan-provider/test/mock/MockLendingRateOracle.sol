@@ -2,7 +2,9 @@
 pragma solidity 0.8.30;
 
 /// @title MockLendingRateOracle
+/// @author Bitmor Protocol
 /// @notice Mock oracle for market borrow rates used by interest rate strategies
+/// @dev Provides configurable per-asset market borrow rates. Defaults to 3% if not set.
 contract MockLendingRateOracle {
     mapping(address => uint256) private _marketBorrowRates;
 

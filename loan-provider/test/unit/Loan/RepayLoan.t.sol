@@ -8,9 +8,10 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title RepayLoanTest
-/// @notice Tests for loan repayment functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.repay` covering single/multi-month payments, overpayment, edge cases, and reverts
 contract RepayLoanTest is BaseLoanTest {
-    /// @dev Struct to hold repayment-specific fields that extend TestSnapshot
+    /// @notice Repayment-specific fields extending `TestSnapshot` with input and output amounts
     struct RepaymentExtension {
         uint256 repayAmount;
         uint256 finalAmountRepaid;
@@ -18,7 +19,7 @@ contract RepayLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Execute repayment and return state snapshot using generic TestSnapshot
+    /// @notice Executes a repayment of `repayAmount` on `lsa` and returns before/after state snapshots
     function _repayAndFetch(address lsa, uint256 repayAmount)
         internal
         returns (TestSnapshot memory snapshot, RepaymentExtension memory ext)
@@ -32,25 +33,25 @@ contract RepayLoanTest is BaseLoanTest {
         _updateTestSnapshotAfter(snapshot, lsa);
     }
 
-    /// @dev Assert duration was reduced by expected periods
+    /// @notice Asserts that duration was reduced by exactly `expectedPeriodsPaid` periods
     function _assertDurationReduced(TestSnapshot memory snapshot, uint256 expectedPeriodsPaid) internal pure {
         uint256 actualPeriodsPaid = snapshot.durationBefore - snapshot.durationAfter;
         assertEq(actualPeriodsPaid, expectedPeriodsPaid, "Duration reduction mismatch");
     }
 
-    /// @dev Assert debt reduction matches amount repaid (±2 wei for interest index rounding).
+    /// @notice Asserts that debt reduction matches `finalAmountRepaid` within 2 wei tolerance for interest rounding
     function _assertDebtDelta(TestSnapshot memory snapshot, uint256 finalAmountRepaid) internal pure {
         uint256 debtReduction = snapshot.debtBefore - snapshot.debtAfter;
         // Allow 2 wei tolerance for interest accrual rounding between snapshot and repay
         assertApproxEqAbs(debtReduction, finalAmountRepaid, 2, "Debt delta mismatch");
     }
 
-    /// @dev Assert loan is still active
+    /// @notice Asserts that the loan status after the action is `Active`
     function _assertLoanActive(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should be active");
     }
 
-    /// @dev Assert loan is completed
+    /// @notice Asserts that the loan status after the action is `Completed`
     function _assertLoanCompleted(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
     }

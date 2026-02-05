@@ -10,8 +10,9 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IAccessManager} from "@openzeppelin/access/manager/IAccessManager.sol";
 
 /// @title USDCVaultTest
+/// @author Bitmor Protocol
 /// @notice Comprehensive test suite for the USDC Vault core functionality
-/// @dev Tests ERC4626 compliance, deposit/withdraw mechanics, and strategy management
+/// @dev Tests ERC-4626 compliance, deposit/withdraw mechanics, and strategy management
 contract USDCVaultTest is BaseTestForUSDCVault {
     // ============================================
     // ============ SECTION: ERC4626 COMPLIANCE

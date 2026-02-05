@@ -11,24 +11,25 @@ import {Vm} from "forge-std/Vm.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title CloseLoanTest
-/// @notice Tests for loan closure functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.closeLoan` covering withdrawal modes, pre-closure fees, flash loan security, and edge cases
 contract CloseLoanTest is BaseLoanTest {
     // ============ Constants ============
 
-    /// @dev ERC20 Transfer event signature for log parsing
+    /// @dev ERC20 `Transfer` event signature hash used for log parsing in transfer verification
     bytes32 private constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
 
     // ============ Local Structs ============
     // Note: Uses TestSnapshot + UserBalanceSnapshot from BaseLoanTest
     // Extended with close-loan-specific fields
 
-    /// @dev Struct to hold close loan specific state (combines TestSnapshot + UserBalanceSnapshot)
+    /// @notice Close loan state combining `TestSnapshot` and `UserBalanceSnapshot` for before/after comparison
     struct CloseLoanExtension {
         TestSnapshot loanState;
         UserBalanceSnapshot userBalances;
     }
 
-    /// @dev Struct to hold parsed transfer info
+    /// @notice Parsed ERC20 transfer event data
     struct TransferInfo {
         address from;
         address to;
@@ -37,13 +38,13 @@ contract CloseLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Capture initial state before close loan using generic helpers
+    /// @notice Captures loan and user balance state before `closeLoan` into a `CloseLoanExtension`
     function _captureCloseLoanStateBefore(address lsa) internal view returns (CloseLoanExtension memory state) {
         state.loanState = _captureTestSnapshot(lsa);
         state.userBalances = _captureUserBalanceSnapshot();
     }
 
-    /// @dev Update state after close loan
+    /// @notice Populates "after" fields in `CloseLoanExtension` with current state
     function _updateCloseLoanStateAfter(CloseLoanExtension memory state, address lsa) internal view {
         _updateTestSnapshotAfter(state.loanState, lsa);
         _updateUserBalanceSnapshotAfter(state.userBalances);
@@ -76,12 +77,12 @@ contract CloseLoanTest is BaseLoanTest {
         }
     }
 
-    /// @dev Get pre-closure fee in basis points
+    /// @notice Returns the pre-closure fee in basis points from the loan contract
     function _getPreClosureFeeBps() internal view returns (uint256) {
         return loan.getPreClosureFee();
     }
 
-    /// @dev Calculate expected pre-closure fee
+    /// @notice Calculates the expected pre-closure fee in BTC for a given `collateralAmount` of vault shares
     function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
         return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
     }

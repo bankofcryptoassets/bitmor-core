@@ -9,10 +9,10 @@ import {TokenizedStrategyLogic} from "../logic/TokenizedStrategyLogic.sol";
 import {StrategyStateLogic} from "../logic/StrategyStateLogic.sol";
 
 /**
- * @title Helpers
- * @notice Utility functions for validating strategy operations and state changes
- * @dev Centralized validation logic used across strategy management functions
+ * @title BTCVault__Validation
  * @author Bitmor Protocol
+ * @notice Utility functions for validating strategy operations and state changes in the BTCVault
+ * @dev Centralized validation logic used across strategy management functions
  */
 library BTCVault__Validation {
     using FixedPointMathLib for uint256;

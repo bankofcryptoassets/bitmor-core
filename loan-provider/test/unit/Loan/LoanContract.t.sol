@@ -7,10 +7,11 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
-/// @title LoanContract
-/// @notice Consolidated tests for core Loan contract functionality
+/// @title LoanContractTest
+/// @author Bitmor Protocol
+/// @notice Consolidated tests for core Loan contract functionality including constructor validation, view functions, and strike price
 contract LoanContract is BaseLoanTest {
-    /// @dev Struct to hold constructor parameters, avoiding stack too deep in tests
+    /// @notice Holds all Loan constructor parameters to avoid stack-too-deep errors in table-driven tests
     struct ConstructorParams {
         address accessManager;
         address aaveV3Pool;
@@ -27,8 +28,7 @@ contract LoanContract is BaseLoanTest {
         uint256 gracePeriod;
     }
 
-    /// @dev Load all constructor params from mocks into a struct
-    /// @notice Uses mock addresses from test infrastructure to ensure all addresses are valid
+    /// @notice Loads all constructor params from mock addresses into a struct for table-driven constructor tests
     function _loadConstructorParams() internal view returns (ConstructorParams memory p) {
         p.accessManager = address(manager);
         p.aaveV3Pool = aavePool;

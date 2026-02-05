@@ -8,8 +8,9 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title EmergencyOpsTest
+/// @author Bitmor Protocol
 /// @notice Tests for BTCVault emergency operations and pause functionality
-/// @dev Hunts for incomplete emergency withdrawals, pause bypass, state corruption
+/// @dev Hunts for incomplete emergency withdrawals, pause bypass, and state corruption
 contract EmergencyOpsTest is BaseTestForBTCVault {
     // ============ Additional Strategies ============
     MockTokenizedStrategy strategy2;

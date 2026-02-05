@@ -8,8 +8,9 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 /// @title USDCStrategyTest
+/// @author Bitmor Protocol
 /// @notice Unit tests for USDCStrategy internal functions and edge cases
-/// @dev Uses USDCStrategyHarness to expose internal functions for testing
+/// @dev Uses `USDCStrategyHarness` to expose internal functions for testing
 contract USDCStrategyTest is BaseTestForUSDCVault {
     USDCStrategyHarness internal strategyHarness;
 

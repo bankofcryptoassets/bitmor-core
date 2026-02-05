@@ -10,8 +10,10 @@ import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddr
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 
 /// @title FullLiquidationTest
-/// @notice Tests for full liquidation functionality (liquidationType == 1)
+/// @author Bitmor Protocol
+/// @notice Tests for full liquidation functionality (`liquidationType == 1`) including status updates, partial coverage, and revert cases
 contract FullLiquidationTest is BaseLoanTest {
+    /// @notice Sets and verifies the insurance ID for `lsa` in the loan contract
     function _setInsuranceId(address lsa, uint256 newInsuranceId) internal {
         loan.updateInsuranceId(lsa, newInsuranceId);
 

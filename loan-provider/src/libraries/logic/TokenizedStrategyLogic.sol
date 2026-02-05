@@ -12,9 +12,9 @@ import {SimpleTokenizedStrategy} from "../../vaults/btc-vault/TokenizedStrategy/
 
 /**
  * @title TokenizedStrategyLogic
+ * @author Bitmor Protocol
  * @notice Library for interacting with tokenized strategies and managing fund flows
  * @dev Handles deposits, withdrawals, and reallocations across multiple tokenized strategies
- * @author Bitmor Protocol
  */
 library TokenizedStrategyLogic {
     using FixedPointMathLib for uint256;

@@ -30,10 +30,24 @@ contract MockUniswapV4SwapAdapter is IUniswapV4SwapAdapter {
     /// @notice USDC price in USD with 8 decimals (e.g., 1e8 = $1)
     uint256 public usdcPrice;
 
+    /**
+     * @notice Emitted when a mock swap is executed
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param amountIn Amount of input tokens swapped
+     * @param amountOut Amount of output tokens received
+     * @param caller Address that initiated the swap
+     */
     event MockSwap(
         address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, address indexed caller
     );
 
+    /**
+     * @notice Deploys the mock adapter with oracle and token addresses
+     * @param _oracle The price oracle address
+     * @param _btc The BTC token address
+     * @param _usdc The USDC token address
+     */
     constructor(address _oracle, address _btc, address _usdc) {
         i_ORACLE = _oracle;
         i_BTC = _btc;

@@ -23,11 +23,11 @@ import {MockPriceOracle} from "../mock/MockPriceOracle.sol";
 import {LSALogicHarness} from "../harness/LSALogicHarness.sol";
 
 /// @title LoanVaultTest
-/// @notice Comprehensive unit tests for LoanVault.sol, LoanVaultFactory.sol, and LSALogic.sol
+/// @author Bitmor Protocol
+/// @notice Comprehensive unit tests for `LoanVault.sol`, `LoanVaultFactory.sol`, and `LSALogic.sol`
 /// @dev All LSA-related unit tests consolidated here for isolated mock-based testing.
-///      These tests use mocks to test individual contract behaviors in isolation.
-/// @dev For system-level security/exploit tests with full loan integration context,
-///      see test/unit/LSAExploit.t.sol which tests attack vectors against the real loan flow.
+///      For system-level security/exploit tests with full loan integration context,
+///      see `test/unit/LSAExploit.t.sol` which tests attack vectors against the real loan flow.
 contract LoanVaultTest is Test {
     // ============================================================================
     // State Variables

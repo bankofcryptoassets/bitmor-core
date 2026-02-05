@@ -9,8 +9,9 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title ReallocationTest
-/// @notice Tests for BTCVault reallocateFunds and changeStrategyCap
-/// @dev Hunts for reallocation bugs, cap enforcement issues, fund movement errors
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault `reallocateFunds` and `changeStrategyCap`
+/// @dev Hunts for reallocation bugs, cap enforcement issues, and fund movement errors
 contract ReallocationTest is BaseTestForBTCVault {
     // ============ Additional Strategies ============
     MockTokenizedStrategy strategy2;

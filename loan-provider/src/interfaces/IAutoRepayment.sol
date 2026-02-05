@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 /**
  * @title IAutoRepayment
+ * @author Bitmor Protocol
  * @notice Interface for the AutoRepayment contract
  * @dev Defines functions for automatic loan repayment execution
  */
@@ -10,7 +11,7 @@ interface IAutoRepayment {
     // ============ Events ============
 
     /**
-     * @notice Emitted when a auto-repayment is executed
+     * @notice Emitted when an auto-repayment is executed
      * @param lsa Loan Specific Address
      * @param user User address whose loan was repaid
      * @param amount Amount requested for repayment
@@ -52,11 +53,11 @@ interface IAutoRepayment {
 
     /**
      * @notice Executes automatic repayment for a user's loan
-     * @dev Can only be called by the executor address
-     * @dev Requires valid repayment hash and user USDC approval
+     * @dev Requires valid authorization and user USDC approval to this contract
      * @param lsa Loan Specific Address
      * @param user User address whose loan is being repaid
      * @param amount Amount to repay
+     * @custom:access Restricted to `ARE` (Auto Repayment Executor) role
      */
     function executeAutoRepayment(address lsa, address user, uint256 amount) external;
 }

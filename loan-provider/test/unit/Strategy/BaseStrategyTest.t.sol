@@ -12,8 +12,10 @@ import {MockERC20} from "../../mock/MockERC20.sol";
 import {MockVault} from "../../mock/MockVault.sol";
 
 /// @title BaseStrategyTest
+/// @author Bitmor Protocol
 /// @notice Shared setup and helpers for TokenizedStrategy unit tests
-/// @dev Provides mock infrastructure for testing strategies in isolation
+/// @dev Provides mock infrastructure (MockAaveV3Pool, MockAToken, MockERC20, MockVault) for testing strategies in isolation.
+///      Deploys both `AaveTokenizedStrategy` and `SimpleTokenizedStrategyHarness` for subclass tests.
 contract BaseStrategyTest is Test {
     // ============ Constants ============
 

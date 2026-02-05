@@ -9,15 +9,16 @@ import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddr
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 
 /// @title MicroLiquidationTest
-/// @notice Tests for micro-liquidation functionality (liquidationType == 2)
-/// @dev Micro-liquidation covers one monthly payment when borrower is overdue but loan is still healthy
-/// @dev Uses LiquidationTestState from BaseLoanTest for state management
+/// @author Bitmor Protocol
+/// @notice Tests for micro-liquidation functionality (`liquidationType == 2`)
+/// @dev Micro-liquidation covers one monthly payment when the borrower is overdue but the loan is still healthy.
+///      Uses `LiquidationTestState` from `BaseLoanTest` for state management.
 contract MicroLiquidationTest is BaseLoanTest {
     // ============ Local Structs ============
     // Note: Uses LiquidationTestState from BaseLoanTest for most state management
     // Extended fields only for micro-liquidation-specific tracking
 
-    /// @dev Extension struct for micro-liquidation specific fields
+    /// @notice Extension struct tracking micro-liquidation-specific debt token and remaining debt state
     struct MicroLiquidationExtension {
         uint256 debtATokenBalanceBefore;
         uint256 debtATokenBalanceAfter;

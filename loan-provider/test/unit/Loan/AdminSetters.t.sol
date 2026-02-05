@@ -8,10 +8,11 @@ import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title AdminSettersTest
+/// @author Bitmor Protocol
 /// @notice Comprehensive tests for Loan contract admin setter functions
 /// @dev Focuses on: value updates, input validation (zero address, bounds), and state changes.
 ///      For cross-cutting access control tests (unauthorized access, role verification),
-///      see AccessControls.t.sol which focuses on AccessManaged patterns.
+///      see `AccessControls.t.sol` which focuses on AccessManaged patterns.
 contract AdminSettersTest is BaseLoanTest {
     address newAddress = makeAddr("newAddress");
 

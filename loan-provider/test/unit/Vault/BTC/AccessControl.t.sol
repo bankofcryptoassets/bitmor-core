@@ -11,7 +11,9 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /**
  * @title AccessManager Test Suite for BTCVault
+ * @author Bitmor Protocol
  * @notice Tests restricted access enforced by AccessManager roles
+ * @dev Validates that each BTCVault function is correctly gated by its corresponding role (BVM_SLOW, BVM_FAST, BVC, BVA_SLOW, BVA_FAST, BVD)
  */
 contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
     address unauthorized;
@@ -255,6 +257,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         vault.deposit(DEPOSIT_AMOUNT, unauthorized);
     }
 
+    /// @notice Helper to add two strategies (`strategy` and `strategy2`) with standard caps
     function _addStrategies() internal {
         _scheduleAndExecute(
             bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
@@ -264,6 +267,8 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         );
     }
 
+    /// @notice Helper to approve and deposit as `user`
+    /// @param depositAmount Amount of USDC to deposit
     function _depositAsUser(uint256 depositAmount) internal {
         vm.startPrank(user);
         ERC20(networkConfig.usdc).approve(address(vault), depositAmount);
@@ -271,10 +276,17 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
         vm.stopPrank();
     }
 
+    /// @notice Expects the next call to revert with `AccessManagedUnauthorized` for `caller`
+    /// @param caller The unauthorized address expected in the revert
     function _expectUnauthorized(address caller) internal {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, caller));
     }
 
+    /// @notice Schedules a delayed operation via AccessManager without executing it
+    /// @param caller The address scheduling the operation
+    /// @param roleId The role ID used to determine the execution delay
+    /// @param data The encoded function call data
+    /// @return when The timestamp at which the operation can be executed
     function _scheduleOperation(address caller, uint64 roleId, bytes memory data) internal returns (uint48 when) {
         (, uint32 delay,,) = manager.getAccess(roleId, caller);
         when = uint48(block.timestamp + delay);

@@ -8,10 +8,11 @@ import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
 /// @title AccessControlsTest
+/// @author Bitmor Protocol
 /// @notice Test suite for verifying AccessManaged role-based access control mechanisms
 /// @dev Focuses on: unauthorized access reverts, role assignments, and cross-cutting access control.
 ///      For comprehensive testing of individual setter functions (values, bounds, events),
-///      see AdminSetters.t.sol which provides dedicated setter coverage.
+///      see `AdminSetters.t.sol` which provides dedicated setter coverage.
 contract AccessControlsTest is BaseLoanTest {
     address internal attacker;
 

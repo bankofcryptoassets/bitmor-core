@@ -27,7 +27,7 @@ contract LoanStorage {
     address public immutable i_AAVE_V3_POOL;
 
     /**
-     * @notice Adddress provider required for flash loan compatibility
+     * @notice Address provider required for flash loan compatibility
      */
     address public immutable i_AAVE_ADDRESSES_PROVIDER;
 
@@ -144,10 +144,12 @@ contract LoanStorage {
     /**
      * @notice Initializes the storage contract with immutable protocol addresses
      * @param _aaveV3Pool Aave V3 pool address (for flash loans)
+     * @param _aaveAddressesProvider Aave V3 addresses provider (for flash loan compatibility)
      * @param _bitmorPool Bitmor Lending Pool
      * @param _oracle Price Oracle
-     * @param _collateralAsset Collateral asset address (cbBTC)
+     * @param _collateralAsset Collateral asset address (bvBTC)
      * @param _debtAsset Debt asset address (USDC)
+     * @param _btc Wrapped Bitcoin address (cbBTC)
      */
     constructor(
         address _aaveV3Pool,

@@ -12,9 +12,9 @@ import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
 /// @title BaseTestForBTCVault
 /// @author Bitmor Protocol
-/// @notice Comprehensive test suite for BTCVault functionality
-/// @dev Tests vault operations, fee calculations, and strategy integration using mainnet fork.
-///      Inherits from BitmorTestBase for AccessManager configuration and VaultUtilities for ERC-4626 testing helpers.
+/// @notice Base test contract for BTCVault unit tests with mock infrastructure
+/// @dev Sets up `BTCVaultHarness`, `MockTokenizedStrategy`, AccessManager roles, fee configuration, and test accounts.
+///      Inherits from `BitmorTestBase` for AccessManager configuration and `VaultUtilities` for ERC-4626 testing helpers.
 contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @notice BTCVault contract instance under test
     BTCVaultHarness vault;
@@ -59,6 +59,7 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @notice Small test amount for edge cases (100 USDC)
     uint256 public constant SMALL_TEST_AMOUNT = 100e6;
 
+    /// @notice Initial deposit amount used for specific scenario tests (347,933 USDC)
     uint256 public constant INITIAL_DEPOSIT_AMOUNT = 347933e6;
 
     /// @notice Standard strategy cap for tests (200,000 USDC - 2x DEPOSIT_AMOUNT)

@@ -8,8 +8,9 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title DepositFundsTest
-/// @notice Tests for BTCVault _depositFunds internal logic via deposit()
-/// @dev Hunts for fund distribution bugs, cap enforcement issues, queue ordering problems
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault `_depositFunds` internal logic via `deposit()`
+/// @dev Hunts for fund distribution bugs, cap enforcement issues, and queue ordering problems
 contract DepositFundsTest is BaseTestForBTCVault {
     // ============ Additional Strategies ============
     MockTokenizedStrategy strategy2;
