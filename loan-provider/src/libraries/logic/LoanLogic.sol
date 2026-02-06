@@ -110,6 +110,7 @@ library LoanLogic {
             createdAt: block.timestamp,
             insuranceID: params.insuranceID,
             lastPaymentTimestamp: block.timestamp,
+            amountRepaidInCurrentPeriod: 0,
             status: DataTypes.LoanStatus.Active
         });
 

@@ -90,6 +90,71 @@ contract RepayLoanTest is BaseLoanTest {
         _assertLoanActive(snapshot);
     }
 
+    /// @notice Test that two partial payments summing to one monthly payment reduce duration by 1
+    function test_repay_twoPartialPaymentsSumToOnePeriod() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 halfPayment = loanData.estimatedMonthlyPayment / 2;
+
+        uint256 durationBefore = loanData.duration;
+
+        // First partial payment (half)
+        vm.prank(user);
+        loan.repay(lsa, halfPayment);
+
+        DataTypes.LoanData memory loanDataMid = loan.getLoanByLSA(lsa);
+        assertEq(loanDataMid.duration, durationBefore, "Duration should not change after first half payment");
+        assertEq(loanDataMid.amountRepaidInCurrentPeriod, halfPayment, "Accumulator should track first partial payment");
+
+        // Second partial payment (remaining half)
+        uint256 remainingForPeriod = loanData.estimatedMonthlyPayment - halfPayment;
+        vm.prank(user);
+        loan.repay(lsa, remainingForPeriod);
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1 after full period covered");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, 0, "Accumulator should reset after full period");
+    }
+
+    /// @notice Test that partial payments accumulating to 1.2x monthly payment reduce duration by 1 with remainder carried
+    function test_repay_partialPaymentsWithRemainder() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 monthly = loanData.estimatedMonthlyPayment;
+        uint256 durationBefore = loanData.duration;
+
+        // Pay in three chunks: 40%, 40%, 40% = 120% of monthly -> 1 period + 20% remainder
+        uint256 chunk = (monthly * 40) / 100;
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 40%
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 80%
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 120%
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        uint256 expectedRemainder = (chunk * 3) - monthly;
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1 period");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, expectedRemainder, "Remainder should carry over");
+    }
+
+    /// @notice Test that a single full monthly payment still decrements duration by 1 (regression)
+    function test_repay_singleFullPaymentStillWorks() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 durationBefore = loanData.duration;
+
+        vm.prank(user);
+        loan.repay(lsa, loanData.estimatedMonthlyPayment);
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, 0, "Accumulator should be 0 after exact payment");
+    }
+
     /// @notice Test repaying more than one month's estimated payment (2x)
     function test_repay_moreThanEstimatedMonthlyAmount() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
