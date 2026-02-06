@@ -26,6 +26,9 @@ import {UserConfiguration} from "../libraries/configuration/UserConfiguration.so
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
+import "hardhat/console.sol";
 
 /**
  * @title LendingPool contract
@@ -112,6 +115,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
+
         /**
          * @dev This access control check provides security against external funds.
          * If `msg.sender` is `loanProvider` it CAN ONLY BE for `bvBTC` deposit.
@@ -282,40 +286,42 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         return paybackAmount;
     }
 
-    /**
-     * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
-     * @param asset The address of the underlying asset borrowed
-     * @param rateMode The rate mode that the user wants to swap to
-     *
-     */
-    function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
-        DataTypes.ReserveData storage reserve = _reserves[asset];
+    // /**
+    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing. 
+    //  * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
+    //  * @param asset The address of the underlying asset borrowed
+    //  * @param rateMode The rate mode that the user wants to swap to
+    //  *
+    //  */
+    // function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
+    //     DataTypes.ReserveData storage reserve = _reserves[asset];
 
-        (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
+    //     (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
 
-        DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
+    //     DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
 
-        ValidationLogic.validateSwapRateMode(
-            reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
-        );
+    //     ValidationLogic.validateSwapRateMode(
+    //         reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
+    //     );
 
-        reserve.updateState();
+    //     reserve.updateState();
 
-        if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
-            IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
-        } else {
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
-            IStableDebtToken(reserve.stableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
-        }
+    //     if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
+    //         IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
+    //     } else {
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
+    //         IStableDebtToken(reserve.stableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
+    //     }
 
-        reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
 
-        emit Swap(asset, msg.sender, rateMode);
-    }
+    //     reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
+
+    //     emit Swap(asset, msg.sender, rateMode);
+    // }
 
     /**
      * @dev Rebalances the stable interest rate of a user to the current stable rate defined on the reserve.
@@ -674,17 +680,13 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * @return type of liquidation.
      */
     function checkTypeOfLiquidation(address user) external view override returns (uint256) {
-        address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
-
-        //solium-disable-next-line
-        (bool success, bytes memory result) =
-            collateralManager.staticcall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", user));
-
-        require(success, Errors.LP_CHECK_TYPE_OF_LIQUIDATION_FAILED);
-
-        uint256 typeOfLiquidation = abi.decode(result, (uint256));
-
-        return typeOfLiquidation;
+        address oracle = _addressesProvider.getPriceOracle();
+        (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
+            user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle
+        );
+        return LoanLiquidationLogic.checkTypeOfLiquidation(
+            user, _reserves, hf, oracle, ILoan(_addressesProvider.getBitmorLoan())
+        );
     }
 
     /**
@@ -844,7 +846,6 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          */
 
         address vaultAddress = _addressesProvider.getUSDCVault();
-        // address asset = IERC4626(vaultAddress).asset();
         if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
             uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
 

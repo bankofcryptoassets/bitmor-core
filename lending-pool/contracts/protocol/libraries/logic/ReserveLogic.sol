@@ -14,6 +14,7 @@ import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {DataTypes} from '../types/DataTypes.sol';
+import "hardhat/console.sol";
 
 /**
  * @title ReserveLogic library
@@ -130,28 +131,29 @@ library ReserveLogic {
     );
   }
 
-  /**
-   * @dev Accumulates a predefined amount of asset to the reserve as a fixed, instantaneous income. Used for example to accumulate
-   * the flashloan fee to the reserve, and spread it between all the depositors
-   * @param reserve The reserve object
-   * @param totalLiquidity The total liquidity available in the reserve
-   * @param amount The amount to accomulate
-   *
-   */
-  function cumulateToLiquidityIndex(
-    DataTypes.ReserveData storage reserve,
-    uint256 totalLiquidity,
-    uint256 amount
-  ) internal {
-    uint256 amountToLiquidityRatio = amount.wadToRay().rayDiv(totalLiquidity.wadToRay());
+  // todo: not being used anywhere, code unreachable.
+  // /**
+  //  * @dev Accumulates a predefined amount of asset to the reserve as a fixed, instantaneous income. Used for example to accumulate
+  //  * the flashloan fee to the reserve, and spread it between all the depositors
+  //  * @param reserve The reserve object
+  //  * @param totalLiquidity The total liquidity available in the reserve
+  //  * @param amount The amount to accomulate
+  //  *
+  //  */
+  // function cumulateToLiquidityIndex(
+  //   DataTypes.ReserveData storage reserve,
+  //   uint256 totalLiquidity,
+  //   uint256 amount
+  // ) internal {
+  //   uint256 amountToLiquidityRatio = amount.wadToRay().rayDiv(totalLiquidity.wadToRay());
 
-    uint256 result = amountToLiquidityRatio.add(WadRayMath.ray());
+  //   uint256 result = amountToLiquidityRatio.add(WadRayMath.ray());
 
-    result = result.rayMul(reserve.liquidityIndex);
-    require(result <= type(uint128).max, Errors.RL_LIQUIDITY_INDEX_OVERFLOW);
+  //   result = result.rayMul(reserve.liquidityIndex);
+  //   require(result <= type(uint128).max, Errors.RL_LIQUIDITY_INDEX_OVERFLOW);
 
-    reserve.liquidityIndex = uint128(result);
-  }
+  //   reserve.liquidityIndex = uint128(result);
+  // }
 
   /**
    * @dev Initializes a reserve
@@ -285,6 +287,7 @@ library ReserveLogic {
     vars.reserveFactor = reserve.configuration.getReserveFactor();
 
     if (vars.reserveFactor == 0) {
+      console.log("returning from if: vars.reserveFactor == 0");
       return;
     }
 

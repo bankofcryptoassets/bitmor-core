@@ -126,8 +126,6 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
         //avoid stack too deep
         availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
-
-
         return calculateInterestRates(
             reserve, availableLiquidity, totalStableDebt, totalVariableDebt, averageStableBorrowRate, reserveFactor
         );
@@ -164,16 +162,28 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     ) public view override returns (uint256, uint256, uint256) {
         CalcInterestRatesLocalVars memory vars;
 
+
+
         vars.totalDebt = totalStableDebt.add(totalVariableDebt);
+
+
         vars.currentVariableBorrowRate = 0;
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;
+
+
+
         vars.utilizationRate = vars.totalDebt == 0 ? 0 : vars.totalDebt.rayDiv(availableLiquidity.add(vars.totalDebt));
+
 
         vars.currentStableBorrowRate =
             ILendingRateOracle(addressesProvider.getLendingRateOracle()).getMarketBorrowRate(reserve);
 
+
+
         if (vars.utilizationRate > OPTIMAL_UTILIZATION_RATE) {
+    
+
             uint256 excessUtilizationRateRatio =
                 vars.utilizationRate.sub(OPTIMAL_UTILIZATION_RATE).rayDiv(EXCESS_UTILIZATION_RATE);
 
@@ -183,6 +193,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
             vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(_variableRateSlope1)
                 .add(_variableRateSlope2.rayMul(excessUtilizationRateRatio));
         } else {
+
             vars.currentStableBorrowRate = vars.currentStableBorrowRate
                 .add(_stableRateSlope1.rayMul(vars.utilizationRate.rayDiv(OPTIMAL_UTILIZATION_RATE)));
             vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(

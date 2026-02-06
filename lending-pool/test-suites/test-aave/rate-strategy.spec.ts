@@ -196,4 +196,58 @@ makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
       'Invalid stable rate'
     );
   });
+
+  // ============ GETTER FUNCTION TESTS ============
+
+  it('variableRateSlope1() returns correct value', async () => {
+    const slope1 = await strategyInstance.variableRateSlope1();
+    expect(slope1.toString()).to.be.equal(
+      rateStrategyStableOne.variableRateSlope1,
+      'Invalid variableRateSlope1'
+    );
+  });
+
+  it('variableRateSlope2() returns correct value', async () => {
+    const slope2 = await strategyInstance.variableRateSlope2();
+    expect(slope2.toString()).to.be.equal(
+      rateStrategyStableOne.variableRateSlope2,
+      'Invalid variableRateSlope2'
+    );
+  });
+
+  it('stableRateSlope1() returns correct value', async () => {
+    const slope1 = await strategyInstance.stableRateSlope1();
+    expect(slope1.toString()).to.be.equal(
+      rateStrategyStableOne.stableRateSlope1,
+      'Invalid stableRateSlope1'
+    );
+  });
+
+  it('stableRateSlope2() returns correct value', async () => {
+    const slope2 = await strategyInstance.stableRateSlope2();
+    expect(slope2.toString()).to.be.equal(
+      rateStrategyStableOne.stableRateSlope2,
+      'Invalid stableRateSlope2'
+    );
+  });
+
+  it('baseVariableBorrowRate() returns correct value', async () => {
+    const baseRate = await strategyInstance.baseVariableBorrowRate();
+    expect(baseRate.toString()).to.be.equal(
+      rateStrategyStableOne.baseVariableBorrowRate,
+      'Invalid baseVariableBorrowRate'
+    );
+  });
+
+  it('getMaxVariableBorrowRate() returns sum of base + slope1 + slope2', async () => {
+    const maxRate = await strategyInstance.getMaxVariableBorrowRate();
+    const expectedMaxRate = new BigNumber(rateStrategyStableOne.baseVariableBorrowRate)
+      .plus(rateStrategyStableOne.variableRateSlope1)
+      .plus(rateStrategyStableOne.variableRateSlope2);
+
+    expect(maxRate.toString()).to.be.equal(
+      expectedMaxRate.toFixed(0),
+      'Invalid maxVariableBorrowRate'
+    );
+  });
 });

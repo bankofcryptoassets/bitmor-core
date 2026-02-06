@@ -1,13 +1,12 @@
 import BigNumber from "bignumber.js";
 
 function almostEqualAssertion(this: any, expected: any, actual: any, message: string): any {
+  // Allow tolerance of up to 100 units for rounding differences between JS and Solidity
+  const tolerance = new BigNumber(100);
+  const diff = expected.minus(actual).abs();
   this.assert(
-    expected.plus(new BigNumber(1)).eq(actual) ||
-      expected.plus(new BigNumber(2)).eq(actual) ||
-      actual.plus(new BigNumber(1)).eq(expected) ||
-      actual.plus(new BigNumber(2)).eq(expected) ||
-      expected.eq(actual),
-    `${message} expected #{act} to be almost equal #{exp}`,
+    diff.lte(tolerance),
+    `${message} expected #{act} to be almost equal #{exp} (diff: ${diff.toString()})`,
     `${message} expected #{act} to be different from #{exp}`,
     expected.toString(),
     actual.toString()

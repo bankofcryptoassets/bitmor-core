@@ -131,3 +131,16 @@ const getATokenUserData = async (
   const scaledBalance = await aToken.scaledBalanceOf(user);
   return scaledBalance.toString();
 };
+
+export const getReserveFactorFromData = (data: BigNumber): BigNumber => {
+  // In Aave, reserve factor occupies 16 bits starting at bit 64:
+  // reserveFactor = (data & ~RESERVE_FACTOR_MASK) >> 64
+  // which is equivalent to: (data >> 64) & ((1 << 16) - 1)
+  const SHIFT = new BigNumber(2).pow(64);    // 2^64
+  const WIDTH = new BigNumber(2).pow(16);    // 2^16
+
+  // Use BigNumber arithmetic instead of JS bitwise operators (which truncate to 32 bits).
+  // floor(data / 2^64) % 2^16
+  const shifted = data.dividedToIntegerBy(SHIFT);
+  return shifted.mod(WIDTH);
+};
