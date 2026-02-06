@@ -44,54 +44,45 @@ makeSuite('Withdraw', (testEnv) => {
         ).to.not.be.rejected;
     });
 
-    it("should allow withdraw after borrowing", async () => {
-        const { users, pool, cbBTC, usdc, addressesProvider, configurator, mockBitmorUSDCVault, helpersContract } = testEnv;
+    it("should allow withdraw after borrowing and repaying all debt", async () => {
+        // This test covers GenericLogic.balanceDecreaseAllowed lines 88-90:
+        // if (vars.totalDebtInETH == 0) { return true; }
+        const { users, pool, cbBTC, usdc, addressesProvider, mockBitmorUSDCVault, helpersContract } = testEnv;
 
         const depositor = users[5];
 
         await addressesProvider.setUSDCVault(depositor.address);
         await addressesProvider.setBitmorLoan(depositor.address);
 
-        // Disable USDC as collateral by setting its liquidation threshold to zero.
-        // This ensures GenericLogic.balanceDecreaseAllowed() short-circuits on vars.liquidationThreshold == 0.
-        await configurator.configureReserveAsCollateral(
-            getContractAddress(usdc),
-            '0',
-            '0',
-            '0'
-        );
-
-        console.log("configured reserve as collateral");
-
-        // Provide ample cbbtc collateral so the user can safely borrow USDC
-        const amountDaiToDeposit = await convertToCurrencyDecimals(
+        // Deposit cbBTC as collateral (has liquidationThreshold > 0)
+        const amountCbBTCToDeposit = await convertToCurrencyDecimals(
             getContractAddress(cbBTC),
             '10'
         );
-        await cbBTC.connect(depositor.signer).mint(amountDaiToDeposit);
+        await cbBTC.connect(depositor.signer).mint(amountCbBTCToDeposit);
         await cbBTC.connect(depositor.signer).approve(
             getContractAddress(pool),
             APPROVAL_AMOUNT_LENDING_POOL
         );
         await pool
             .connect(depositor.signer)
-            .deposit(getContractAddress(cbBTC), amountDaiToDeposit, depositor.address, '0');
-        console.log("cbbtc deposit complete");
+            .deposit(getContractAddress(cbBTC), amountCbBTCToDeposit, depositor.address, '0');
 
-        // const amountUsdcToDeposit = await convertToCurrencyDecimals(
-        //     getContractAddress(usdc),
-        //     '100000000'
-        // );
-        // await usdc.connect(depositor.signer).mint(amountUsdcToDeposit);
-        // await usdc.connect(depositor.signer).approve(
-        //     getContractAddress(pool),
-        //     APPROVAL_AMOUNT_LENDING_POOL
-        // );
-        // await pool
-        //     .connect(depositor.signer)
-        //     .deposit(getContractAddress(usdc), amountUsdcToDeposit, depositor.address, '0');
+        // Deposit USDC to provide liquidity for borrowing
+        const amountUsdcToDeposit = await convertToCurrencyDecimals(
+            getContractAddress(usdc),
+            '100000'
+        );
+        await usdc.connect(depositor.signer).mint(amountUsdcToDeposit);
+        await usdc.connect(depositor.signer).approve(
+            getContractAddress(pool),
+            APPROVAL_AMOUNT_LENDING_POOL
+        );
+        await pool
+            .connect(depositor.signer)
+            .deposit(getContractAddress(usdc), amountUsdcToDeposit, depositor.address, '0');
 
-        // Borrow a small amount of USDC on behalf of the depositor
+        // Borrow USDC
         const amountUsdcToBorrow = await convertToCurrencyDecimals(
             getContractAddress(usdc),
             '1000'
@@ -114,17 +105,102 @@ makeSuite('Withdraw', (testEnv) => {
             depositor.address
         );
 
-        console.log("borrow also complete")
+        // Repay all debt - use max uint256 to repay entire balance
+        await usdc.connect(depositor.signer).approve(
+            getContractAddress(pool),
+            APPROVAL_AMOUNT_LENDING_POOL
+        );
+        await pool.connect(depositor.signer).repay(
+            getContractAddress(usdc),
+            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", // max uint256 = repay all
+            2, // variable rate
+            depositor.address
+        );
 
-        // Now withdraw part of the USDC while there is an outstanding borrow.
-        // This drives ValidationLogic.validateWithdraw -> GenericLogic.balanceDecreaseAllowed
-        // through the vars.liquidationThreshold == 0 early-return branch.
-        // const amountUsdcToWithdraw = amountUsdcToDeposit.div(2);
+        // Now withdraw cbBTC - user has collateral with liquidationThreshold > 0 but NO debt
+        // This hits GenericLogic.balanceDecreaseAllowed lines 88-90: if (vars.totalDebtInETH == 0) return true
+        const amountCbBTCToWithdraw = amountCbBTCToDeposit / 2n;
 
-        // await expect(
-        //     pool
-        //         .connect(depositor.signer)
-        //         .withdraw(getContractAddress(usdc), amountUsdcToWithdraw, depositor.address)
-        // ).to.not.be.reverted;
+        await expect(
+            pool
+                .connect(depositor.signer)
+                .withdraw(getContractAddress(cbBTC), amountCbBTCToWithdraw, depositor.address)
+        ).to.not.be.rejected;
+    });
+
+    it("should allow partial withdraw with outstanding debt (covers health factor calculation)", async () => {
+        // This test covers GenericLogic.balanceDecreaseAllowed lines 102-115:
+        // The health factor calculation path when user has collateral AND debt
+        const { users, pool, cbBTC, usdc, addressesProvider, mockBitmorUSDCVault, helpersContract } = testEnv;
+
+        const depositor = users[6];
+
+        await addressesProvider.setUSDCVault(depositor.address);
+        await addressesProvider.setBitmorLoan(depositor.address);
+
+        // Deposit cbBTC as collateral (has liquidationThreshold > 0)
+        const amountCbBTCToDeposit = await convertToCurrencyDecimals(
+            getContractAddress(cbBTC),
+            '10'
+        );
+        await cbBTC.connect(depositor.signer).mint(amountCbBTCToDeposit);
+        await cbBTC.connect(depositor.signer).approve(
+            getContractAddress(pool),
+            APPROVAL_AMOUNT_LENDING_POOL
+        );
+        await pool
+            .connect(depositor.signer)
+            .deposit(getContractAddress(cbBTC), amountCbBTCToDeposit, depositor.address, '0');
+
+        // Deposit USDC to provide liquidity for borrowing
+        const amountUsdcToDeposit = await convertToCurrencyDecimals(
+            getContractAddress(usdc),
+            '100000'
+        );
+        await usdc.connect(depositor.signer).mint(amountUsdcToDeposit);
+        await usdc.connect(depositor.signer).approve(
+            getContractAddress(pool),
+            APPROVAL_AMOUNT_LENDING_POOL
+        );
+        await pool
+            .connect(depositor.signer)
+            .deposit(getContractAddress(usdc), amountUsdcToDeposit, depositor.address, '0');
+
+        // Borrow USDC (creates debt)
+        const amountUsdcToBorrow = await convertToCurrencyDecimals(
+            getContractAddress(usdc),
+            '1000'
+        );
+
+        await addressesProvider.setUSDCVault(mockBitmorUSDCVault.target);
+
+        const {variableDebtTokenAddress} = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+        const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", variableDebtTokenAddress);
+        await Vdt.connect(depositor.signer).approveDelegation(
+            pool.target,
+            "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        );
+
+        await pool.connect(depositor.signer).borrow(
+            getContractAddress(usdc),
+            amountUsdcToBorrow,
+            2, // variable rate
+            0, // referralCode
+            depositor.address
+        );
+
+        // Withdraw a small amount of cbBTC while having outstanding debt
+        // This triggers the health factor calculation at lines 102-115:
+        // - liquidationThreshold > 0 (passes lines 76-78)
+        // - totalDebtInETH > 0 (passes lines 88-90)
+        // - collateralBalanceAfterDecrease > 0 (passes lines 99-101)
+        // - Executes health factor calculation at lines 103-115
+        const amountCbBTCToWithdraw = amountCbBTCToDeposit / 10n; // Small amount to keep health factor safe
+
+        await expect(
+            pool
+                .connect(depositor.signer)
+                .withdraw(getContractAddress(cbBTC), amountCbBTCToWithdraw, depositor.address)
+        ).to.not.be.rejected;
     });
 })
