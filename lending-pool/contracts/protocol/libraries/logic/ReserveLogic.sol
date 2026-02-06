@@ -14,6 +14,7 @@ import {WadRayMath} from '../math/WadRayMath.sol';
 import {PercentageMath} from '../math/PercentageMath.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {DataTypes} from '../types/DataTypes.sol';
+import "hardhat/console.sol";
 
 /**
  * @title ReserveLogic library
@@ -286,6 +287,7 @@ library ReserveLogic {
     vars.reserveFactor = reserve.configuration.getReserveFactor();
 
     if (vars.reserveFactor == 0) {
+      console.log("returning from if: vars.reserveFactor == 0");
       return;
     }
 

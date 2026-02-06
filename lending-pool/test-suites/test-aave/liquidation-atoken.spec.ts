@@ -409,7 +409,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     );
   });
 
-  it('User 5 deposits 10000 USDC, liquidation fails because the health factor is below threshold', async () => {
+  it('Check type of liquidation should return 0 for inactive loans', async() => {
     const {users, usdc, mockLoanProvider, mockLoan, helpersContract, pool, addressesProvider, cbBTC, oracle} = testEnv;
     const user = users[5];
     await addressesProvider.setBitmorLoan(mockLoanProvider);
@@ -442,26 +442,10 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     await mockLoanProvider
       .connect(user.signer)
       .borrow(getContractAddress(usdc), amountUsdcToBorrow, RateMode.Variable, '0', user.address);
-    
-    const poolAccountData = await pool.getUserAccountData(mockLoanProvider.target);
-    const userAccountData = await pool.getUserAccountData(user.address);
 
     await addressesProvider.setBitmorLoan(mockLoan.target);
-    // let type = await pool.checkTypeOfLiquidation(user.address);
-    // console.log("type:: ", type);
-    // const price = await oracle.getAssetPrice(getContractAddress(cbBTC));
-    // console.log("price:: ", price);
-    // const newPrice = (new BigNumber(price) * new BigNumber(50)) / new BigNumber(100);
-    // const newPrice = (price * 8980n) / 10000n;
-    // console.log("newPrice:: ", newPrice);
-    // await oracle.setAssetPrice(getContractAddress(cbBTC), newPrice);
     await mockLoan.setLoanStatus(user.address, 2n);
     const type = await pool.checkTypeOfLiquidation(user.address);
     expect(type.toString()).to.be.equals("0");
-    // console.log("type:: ", type);
-    // const userAccountData2 = await pool.getUserAccountData(user.address);
-    // console.log("userAccountData2:: ", userAccountData2);
   })
-
-  it('Check type of liquidation should return 0 for inactive loans', async() => {})
 });

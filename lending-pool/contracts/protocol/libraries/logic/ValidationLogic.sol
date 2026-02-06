@@ -116,7 +116,6 @@ library ValidationLogic {
    * @param reserves The addresses of all the active reserves
    * @param oracle The price oracle
    */
-
   function validateBorrow(
     address asset,
     DataTypes.ReserveData storage reserve,
