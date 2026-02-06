@@ -25,7 +25,7 @@ import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
  * 2. Caps repayment to outstanding debt (no overpayment)
  * 3. Pulls funds from payer and approves Bitmor Pool
  * 4. Executes repayment on Bitmor Lending Pool
- * 5. Updates loan state (duration, status)
+ * 5. Accumulates partial payments; updates loan duration when full period(s) covered
  * 6. Withdraws collateral if fully repaid
  * 7. Refunds excess payment if any
  */
@@ -42,7 +42,8 @@ library RepayLogic {
      *
      * ## State Changes
      * - If fully repaid: status = `Completed`, duration = 0, collateral withdrawn to borrower
-     * - If partial: duration reduced by number of periods covered
+     * - If partial period: `amountRepaidInCurrentPeriod` accumulates; duration unchanged
+     * - If accumulated amount covers full period(s): duration reduced, remainder carried over
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
@@ -101,8 +102,13 @@ library RepayLogic {
 
             emit ILoan.Loan__ClosedLoan(params.lsa);
         } else {
-            uint256 periods = finalAmountRepaid.mulDiv(1, loan.estimatedMonthlyPayment);
-            loan.duration -= periods;
+            loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
+            uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;
+            if (periods > 0) {
+                loan.duration -= periods;
+                loan.amountRepaidInCurrentPeriod -= periods * loan.estimatedMonthlyPayment;
+                loan.lastPaymentTimestamp = block.timestamp;
+            }
         }
 
         // Refund any unspent amount to the payer

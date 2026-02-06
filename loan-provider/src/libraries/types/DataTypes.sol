@@ -495,6 +495,7 @@ library DataTypes {
      * @param createdAt Unix timestamp when loan was created
      * @param insuranceID Insurance/Order ID for tracking this loan
      * @param lastPaymentTimestamp Timestamp at which last payment was made.
+     * @param amountRepaidInCurrentPeriod Accumulated partial repayments within the current billing period (6 decimals)
      * @param status Current lifecycle status of the loan
      */
     struct LoanData {
@@ -507,6 +508,7 @@ library DataTypes {
         uint256 createdAt;
         uint256 insuranceID;
         uint256 lastPaymentTimestamp;
+        uint256 amountRepaidInCurrentPeriod;
         LoanStatus status;
     }
 
