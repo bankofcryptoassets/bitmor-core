@@ -25,14 +25,4 @@ library Helpers {
       IERC20(reserve.variableDebtTokenAddress).balanceOf(user)
     );
   }
-
-  function getUserCurrentDebtMemory(
-    address user,
-    DataTypes.ReserveData memory reserve
-  ) internal view returns (uint256, uint256) {
-    return (
-      IERC20(reserve.stableDebtTokenAddress).balanceOf(user),
-      IERC20(reserve.variableDebtTokenAddress).balanceOf(user)
-    );
-  }
 }

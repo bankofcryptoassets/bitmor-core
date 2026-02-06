@@ -24,13 +24,14 @@ import {
   getVariableDebtToken,
 } from '../../../helpers/contracts-getters.js';
 import { MAX_UINT_AMOUNT, ONE_YEAR } from '../../../helpers/constants.js';
-import { SignerWithAddress, TestEnv } from './make-suite.js';
+import type { TestEnv } from './make-suite.js';
 import { advanceTimeAndBlock, DRE, timeLatest, waitForTx } from '../../../helpers/misc-utils.js';
 
 import chai from 'chai';
 import { ReserveData, UserReserveData } from './utils/interfaces/index.js';
 import { AToken } from '../../../types/ethers-contracts/index.js';
 import { RateMode, tEthereumAddress } from '../../../helpers/types.js';
+import type { SignerWithAddress } from '../../../helpers/types.js';
 
 const { expect } = chai;
 
