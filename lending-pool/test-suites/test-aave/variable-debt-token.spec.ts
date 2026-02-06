@@ -208,4 +208,66 @@ makeSuite('Variable debt token tests', (testEnv: TestEnv) => {
       expect(fallback).to.not.equal(ZeroAddress);
     });
   });
+
+  describe('DebtTokenBase: disabled ERC20 functions', () => {
+    it('transfer reverts with TRANSFER_NOT_SUPPORTED', async () => {
+      const { users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.transfer(users[0].address, '1')
+      ).to.be.revertedWith('TRANSFER_NOT_SUPPORTED');
+    });
+
+    it('allowance reverts with ALLOWANCE_NOT_SUPPORTED', async () => {
+      const { deployer, users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.allowance(deployer.address, users[0].address)
+      ).to.be.revertedWith('ALLOWANCE_NOT_SUPPORTED');
+    });
+
+    it('approve reverts with APPROVAL_NOT_SUPPORTED', async () => {
+      const { users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.approve(users[0].address, '1')
+      ).to.be.revertedWith('APPROVAL_NOT_SUPPORTED');
+    });
+
+    it('transferFrom reverts with TRANSFER_NOT_SUPPORTED', async () => {
+      const { deployer, users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.transferFrom(deployer.address, users[0].address, '1')
+      ).to.be.revertedWith('TRANSFER_NOT_SUPPORTED');
+    });
+
+    it('increaseAllowance reverts with ALLOWANCE_NOT_SUPPORTED', async () => {
+      const { users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.increaseAllowance(users[0].address, '1')
+      ).to.be.revertedWith('ALLOWANCE_NOT_SUPPORTED');
+    });
+
+    it('decreaseAllowance reverts with ALLOWANCE_NOT_SUPPORTED', async () => {
+      const { users, usdc, helpersContract } = testEnv;
+      const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+      const variableDebtContract = await getVariableDebtToken(variableDebtTokenAddress);
+
+      await expect(
+        variableDebtContract.decreaseAllowance(users[0].address, '1')
+      ).to.be.revertedWith('ALLOWANCE_NOT_SUPPORTED');
+    });
+  });
 });

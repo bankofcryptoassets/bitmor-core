@@ -303,55 +303,6 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     });
   });
 
-  describe('validateLiquidationCall edge cases', () => {
-    const {
-      LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD,
-    } = ProtocolErrors;
-
-    it('Reverts full liquidation when health factor is above threshold despite type=1', async () => {
-      const { pool, users, mockLoan, addressesProvider, cbBTC, usdc } = testEnv;
-      // Reuse user[5] who already has 1 cbBTC collateral, ~25000 USDC debt (HF >> 1)
-      const user = users[5];
-
-      // Create MockLoan with tiny collateralAmount (1 satoshi) so checkTypeOfLiquidation
-      // returns 1 (collateral value in loan data is too small for micro-liquidation)
-      await mockLoan.setCollateralAssetAddress(getContractAddress(cbBTC));
-      await mockLoan.setDebtAssetAddress(getContractAddress(usdc));
-      await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
-
-      await mockLoan.createActiveLoan(
-        user.address,
-        user.address,
-        1, // 1 satoshi in loan data - makes micro-liq impossible
-        parseUnits('25000', 6),
-        12,
-        parseUnits('25000', 6)
-      );
-
-      // Make loan overdue
-      await mockLoan.makeLoanOverdue(user.address, 1);
-
-      // Verify checkTypeOfLiquidation returns 1 (full liquidation due to insufficient collateral in loan data)
-      const liquidationType = await pool.checkTypeOfLiquidation(user.address);
-      expect(liquidationType).to.equal(1n);
-
-      // Verify health factor is above 1 (real pool position has plenty of collateral)
-      const userData = await pool.getUserAccountData(user.address);
-      expect(userData.healthFactor).to.be.greaterThan(parseEther('1'));
-
-      // Attempt full liquidation - should revert because HF > threshold
-      await expect(
-        pool.liquidationCall(
-          getContractAddress(cbBTC),
-          getContractAddress(usdc),
-          user.address,
-          parseUnits('1000', 6),
-          false
-        )
-      ).to.be.revertedWith(LPCM_HEALTH_FACTOR_NOT_BELOW_THRESHOLD);
-    });
-  });
-
   describe('validateMicroLiquidationCall edge cases', () => {
     const {
       LPCM_COLLATERAL_CANNOT_BE_LIQUIDATED,

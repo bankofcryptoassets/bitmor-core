@@ -479,33 +479,6 @@ contract LendingPoolCollateralManager is
         return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
     }
 
-    /**
-     * Returns the type of Liquidation
-     * 0 => No Liquidation
-     * 1 => Full Liquidation
-     * 2 => MicroLiquidation
-     * @param user Address of the borrower
-     */
-    function checkTypeOfLiquidation(address user) external view override returns (uint256) {
-        address oracle = _addressesProvider.getPriceOracle();
-        (, , , , uint256 hf) = GenericLogic.calculateUserAccountData(
-            user,
-            _reserves,
-            _usersConfig[user],
-            _reservesList,
-            _reservesCount,
-            oracle
-        );
-        return
-            LoanLiquidationLogic.checkTypeOfLiquidation(
-                user,
-                _reserves,
-                hf,
-                oracle,
-                ILoan(_addressesProvider.getBitmorLoan())
-            );
-    }
-
     function _updateLoanForMicroLiquidation(address lsa) internal {
         address bitmorLoan = _addressesProvider.getBitmorLoan();
 

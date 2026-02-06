@@ -446,9 +446,6 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const poolAccountData = await pool.getUserAccountData(mockLoanProvider.target);
     const userAccountData = await pool.getUserAccountData(user.address);
 
-    console.log("poolAccountData:: ", poolAccountData);
-    console.log("userAccountData:: ", userAccountData);
-
     await addressesProvider.setBitmorLoan(mockLoan.target);
     // let type = await pool.checkTypeOfLiquidation(user.address);
     // console.log("type:: ", type);

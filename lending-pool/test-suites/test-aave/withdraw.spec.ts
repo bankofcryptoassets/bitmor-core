@@ -27,8 +27,6 @@ makeSuite('Withdraw', (testEnv) => {
             .deposit(getContractAddress(usdc), amountUsdcToDeposit, depositor.address, '0');
         
         const userAccountData = await pool.getUserAccountData(depositor.address);
-        console.log("deposito.address:: ", depositor.address);
-        console.log("userAccountData:: ", userAccountData, userAccountData.totalDebtETH.toString());
 
         const userConfig = await pool.getUserConfiguration(depositor.address);
         console.log("userConfig:: ", userConfig, userConfig);
