@@ -77,10 +77,10 @@ contract LoanVaultFactory is ILoanVaultFactory {
 
     /**
      * @notice Creates a new LoanVault using CREATE2
-     * @dev Can only be called by the authorized Loan contract
      * @param borrower The user creating the loan
      * @param timestamp The creation timestamp (for salt generation)
      * @return vault The address of the newly created vault
+     * @custom:access Restricted to the authorized Loan contract
      */
     function createLoanVault(address borrower, uint256 timestamp) external onlyLoanContract returns (address vault) {
         // Generate deterministic salt from borrower and timestamp

@@ -4,8 +4,9 @@ pragma solidity 0.8.30;
 import {BaseStrategyTest} from "./BaseStrategyTest.t.sol";
 
 /// @title AaveTokenizedStrategyTest
+/// @author Bitmor Protocol
 /// @notice Unit tests for AaveTokenizedStrategy contract
-/// @dev Tests deposit/withdraw flows with MockAaveV3Pool
+/// @dev Tests deposit/withdraw flows, yield accrual, and ERC-4626 compliance with `MockAaveV3Pool`
 contract AaveTokenizedStrategyTest is BaseStrategyTest {
     // ============ Constructor Tests ============
 

@@ -9,7 +9,8 @@ import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title AutoRepaymentTest
-/// @notice Tests for AutoRepayment contract functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `AutoRepayment` contract covering creation, execution, cancellation, and access control
 contract AutoRepaymentTest is BaseLoanTest {
     // ============ State Variables ============
 
@@ -163,7 +164,7 @@ contract AutoRepaymentTest is BaseLoanTest {
 
     // ============ Internal Helper Functions ============
 
-    /// @dev Set up auto repayment for user with an active loan
+    /// @notice Creates an active loan for `user`, approves USDC spending, and creates auto-repayment authorization
     function _setupAutoRepayment() internal {
         _setUpLoanForUser();
         address lsa = loan.getUserLoanAtIndex(user, 0);

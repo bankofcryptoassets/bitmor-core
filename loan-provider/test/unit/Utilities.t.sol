@@ -13,9 +13,10 @@ import {IReserveInterestRateStrategy} from "@bitmor/interfaces/IReserveInterestR
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
 /// @title Utilities
-/// @notice Shared utility contract for Bitmor Protocol tests
-/// @dev Contains reusable helpers organized by category
-/// @dev Inherits from Test to access vm cheatcodes and assertion functions
+/// @author Bitmor Protocol
+/// @notice Shared utility contract for Bitmor Protocol tests providing token, oracle, time, and liquidation helpers
+/// @dev Abstract base inheriting from `Test` for vm cheatcodes. Organized by category: token minting,
+///      loan factory, reserve balances, oracle manipulation, time warping, assertions, and liquidation.
 abstract contract Utilities is Test {
     // ============ Constants ============
 

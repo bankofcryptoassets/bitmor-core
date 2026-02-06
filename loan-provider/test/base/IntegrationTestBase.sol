@@ -38,8 +38,13 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     // ============ Test Actors ============
 
+    /// @notice Admin address loaded from deployment config (`BITMOR_OWNER`)
     address public admin;
+
+    /// @notice Standard test user for loan operations
     address public testUser;
+
+    /// @notice Test liquidator for liquidation scenarios
     address public testLiquidator;
 
     // ============ Snapshot ============

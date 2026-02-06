@@ -11,24 +11,25 @@ import {Vm} from "forge-std/Vm.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title CloseLoanTest
-/// @notice Tests for loan closure functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.closeLoan` covering withdrawal modes, pre-closure fees, flash loan security, and edge cases
 contract CloseLoanTest is BaseLoanTest {
     // ============ Constants ============
 
-    /// @dev ERC20 Transfer event signature for log parsing
+    /// @dev ERC20 `Transfer` event signature hash used for log parsing in transfer verification
     bytes32 private constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
 
     // ============ Local Structs ============
     // Note: Uses TestSnapshot + UserBalanceSnapshot from BaseLoanTest
     // Extended with close-loan-specific fields
 
-    /// @dev Struct to hold close loan specific state (combines TestSnapshot + UserBalanceSnapshot)
+    /// @notice Close loan state combining `TestSnapshot` and `UserBalanceSnapshot` for before/after comparison
     struct CloseLoanExtension {
         TestSnapshot loanState;
         UserBalanceSnapshot userBalances;
     }
 
-    /// @dev Struct to hold parsed transfer info
+    /// @notice Parsed ERC20 transfer event data
     struct TransferInfo {
         address from;
         address to;
@@ -37,13 +38,13 @@ contract CloseLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Capture initial state before close loan using generic helpers
+    /// @notice Captures loan and user balance state before `closeLoan` into a `CloseLoanExtension`
     function _captureCloseLoanStateBefore(address lsa) internal view returns (CloseLoanExtension memory state) {
         state.loanState = _captureTestSnapshot(lsa);
         state.userBalances = _captureUserBalanceSnapshot();
     }
 
-    /// @dev Update state after close loan
+    /// @notice Populates "after" fields in `CloseLoanExtension` with current state
     function _updateCloseLoanStateAfter(CloseLoanExtension memory state, address lsa) internal view {
         _updateTestSnapshotAfter(state.loanState, lsa);
         _updateUserBalanceSnapshotAfter(state.userBalances);
@@ -76,12 +77,12 @@ contract CloseLoanTest is BaseLoanTest {
         }
     }
 
-    /// @dev Get pre-closure fee in basis points
+    /// @notice Returns the pre-closure fee in basis points from the loan contract
     function _getPreClosureFeeBps() internal view returns (uint256) {
         return loan.getPreClosureFee();
     }
 
-    /// @dev Calculate expected pre-closure fee
+    /// @notice Calculates the expected pre-closure fee in BTC for a given `collateralAmount` of vault shares
     function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
         return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
     }
@@ -412,26 +413,69 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test close loan with both withdrawal modes produce different results
     function test_closeLoan_withdrawModes_differ() public {
-        // Setup two loans to compare
+        // Setup two loans to compare both withdrawal modes
         _mintDebtAssetToUser();
 
-        // Create first loan
+        // Create first loan (will close with withdrawInBTC=true)
         (,, uint256 minDeposit1) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         vm.prank(user);
         address lsa1 =
             loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
 
-        // Capture state using generic helpers
-        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa1);
+        // Capture state before first close
+        uint256 userCollateralBefore1 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetBefore1 = IERC20(debtAsset).balanceOf(user);
 
-        // Close withdrawing in collateral
+        // Close first loan withdrawing in BTC (collateral)
         vm.prank(user);
         loan.closeLoan(lsa1, true);
 
-        uint256 userCollateralAfterFirst = IERC20(btc).balanceOf(user);
+        uint256 userCollateralAfter1 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetAfter1 = IERC20(debtAsset).balanceOf(user);
 
-        // The user should have received BTC primarily
-        assertGt(userCollateralAfterFirst - state.userBalances.userCollateralBefore, 0, "Should receive BTC in mode 1");
+        // Calculate deltas for mode 1 (withdrawInBTC=true)
+        uint256 btcReceived1 = userCollateralAfter1 - userCollateralBefore1;
+        uint256 usdcReceived1 = userDebtAssetAfter1 - userDebtAssetBefore1;
+
+        // Mode 1 should primarily receive BTC
+        assertGt(btcReceived1, 0, "Mode 1 should receive BTC");
+
+        // Warp time to avoid CREATE2 collision (factory uses block.timestamp in salt)
+        vm.warp(block.timestamp + 1);
+
+        // Mint more funds for second loan
+        _mintDebtAssetToUser();
+
+        // Create second loan (will close with withdrawInBTC=false)
+        (,, uint256 minDeposit2) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        vm.prank(user);
+        address lsa2 =
+            loan.initializeLoan(minDeposit2, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
+
+        // Capture state before second close
+        uint256 userCollateralBefore2 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetBefore2 = IERC20(debtAsset).balanceOf(user);
+
+        // Close second loan withdrawing in USDC (debt asset)
+        vm.prank(user);
+        loan.closeLoan(lsa2, false);
+
+        uint256 userCollateralAfter2 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetAfter2 = IERC20(debtAsset).balanceOf(user);
+
+        // Calculate deltas for mode 2 (withdrawInBTC=false)
+        uint256 btcReceived2 = userCollateralAfter2 - userCollateralBefore2;
+        uint256 usdcReceived2 = userDebtAssetAfter2 - userDebtAssetBefore2;
+
+        // Mode 2 should primarily receive USDC (collateral swapped to debt asset)
+        assertGt(usdcReceived2, 0, "Mode 2 should receive USDC");
+
+        // The two modes should produce different token distribution
+        // Mode 1: more BTC, less USDC. Mode 2: less BTC, more USDC.
+        assertTrue(
+            btcReceived1 > btcReceived2 || usdcReceived2 > usdcReceived1,
+            "Withdrawal modes should produce different token distributions"
+        );
     }
 
     /// @notice Test close immediately after loan creation

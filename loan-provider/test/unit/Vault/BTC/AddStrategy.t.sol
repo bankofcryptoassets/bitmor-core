@@ -9,7 +9,8 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockTokenizedStrategy, BaseTestForBTCVault} from "../BaseTestForBTCVault.t.sol";
 
 /**
- * @title AddStrategy Test Suite for SimpleVaultWithTokenizedStrategy
+ * @title AddStrategy Test Suite for BTCVault
+ * @author Bitmor Protocol
  * @notice Tests for adding strategies to the vault
  * @dev Tests various scenarios including first strategy, multiple strategies, and error conditions
  */

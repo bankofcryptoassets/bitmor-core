@@ -4,7 +4,8 @@ pragma solidity 0.8.30;
 import {UnitTestBase} from "../../base/UnitTestBase.sol";
 
 /// @title SampleUnitTest
-/// @notice Demonstrates how to write unit tests using the new infrastructure
+/// @author Bitmor Protocol
+/// @notice Template demonstrating how to write unit tests using the `UnitTestBase` infrastructure
 contract SampleUnitTest is UnitTestBase {
     function test_mockTokensHaveCorrectDecimals() public view {
         assertEq(mockCbBTC.decimals(), 8, "cbBTC should have 8 decimals");

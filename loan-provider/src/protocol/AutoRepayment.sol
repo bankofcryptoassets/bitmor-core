@@ -83,6 +83,7 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
 
     /**
      * @inheritdoc IAutoRepayment
+     * @custom:access Restricted to `ARE` (Auto Repayment Executor) role
      */
     function executeAutoRepayment(address lsa, address user, uint256 amount) external restricted {
         if (!isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash();

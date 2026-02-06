@@ -8,9 +8,10 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title RepayLoanTest
-/// @notice Tests for loan repayment functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.repay` covering single/multi-month payments, overpayment, edge cases, and reverts
 contract RepayLoanTest is BaseLoanTest {
-    /// @dev Struct to hold repayment-specific fields that extend TestSnapshot
+    /// @notice Repayment-specific fields extending `TestSnapshot` with input and output amounts
     struct RepaymentExtension {
         uint256 repayAmount;
         uint256 finalAmountRepaid;
@@ -18,7 +19,7 @@ contract RepayLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Execute repayment and return state snapshot using generic TestSnapshot
+    /// @notice Executes a repayment of `repayAmount` on `lsa` and returns before/after state snapshots
     function _repayAndFetch(address lsa, uint256 repayAmount)
         internal
         returns (TestSnapshot memory snapshot, RepaymentExtension memory ext)
@@ -32,25 +33,25 @@ contract RepayLoanTest is BaseLoanTest {
         _updateTestSnapshotAfter(snapshot, lsa);
     }
 
-    /// @dev Assert duration was reduced by expected periods
+    /// @notice Asserts that duration was reduced by exactly `expectedPeriodsPaid` periods
     function _assertDurationReduced(TestSnapshot memory snapshot, uint256 expectedPeriodsPaid) internal pure {
         uint256 actualPeriodsPaid = snapshot.durationBefore - snapshot.durationAfter;
         assertEq(actualPeriodsPaid, expectedPeriodsPaid, "Duration reduction mismatch");
     }
 
-    /// @dev Assert debt reduction matches amount repaid (±2 wei for interest index rounding).
+    /// @notice Asserts that debt reduction matches `finalAmountRepaid` within 2 wei tolerance for interest rounding
     function _assertDebtDelta(TestSnapshot memory snapshot, uint256 finalAmountRepaid) internal pure {
         uint256 debtReduction = snapshot.debtBefore - snapshot.debtAfter;
         // Allow 2 wei tolerance for interest accrual rounding between snapshot and repay
         assertApproxEqAbs(debtReduction, finalAmountRepaid, 2, "Debt delta mismatch");
     }
 
-    /// @dev Assert loan is still active
+    /// @notice Asserts that the loan status after the action is `Active`
     function _assertLoanActive(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Active), "Loan should be active");
     }
 
-    /// @dev Assert loan is completed
+    /// @notice Asserts that the loan status after the action is `Completed`
     function _assertLoanCompleted(TestSnapshot memory snapshot) internal pure {
         assertEq(uint256(snapshot.statusAfter), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
     }
@@ -87,6 +88,71 @@ contract RepayLoanTest is BaseLoanTest {
         assertLt(snapshot.debtAfter, snapshot.debtBefore, "Debt should still decrease");
         _assertDebtDelta(snapshot, ext.finalAmountRepaid);
         _assertLoanActive(snapshot);
+    }
+
+    /// @notice Test that two partial payments summing to one monthly payment reduce duration by 1
+    function test_repay_twoPartialPaymentsSumToOnePeriod() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 halfPayment = loanData.estimatedMonthlyPayment / 2;
+
+        uint256 durationBefore = loanData.duration;
+
+        // First partial payment (half)
+        vm.prank(user);
+        loan.repay(lsa, halfPayment);
+
+        DataTypes.LoanData memory loanDataMid = loan.getLoanByLSA(lsa);
+        assertEq(loanDataMid.duration, durationBefore, "Duration should not change after first half payment");
+        assertEq(loanDataMid.amountRepaidInCurrentPeriod, halfPayment, "Accumulator should track first partial payment");
+
+        // Second partial payment (remaining half)
+        uint256 remainingForPeriod = loanData.estimatedMonthlyPayment - halfPayment;
+        vm.prank(user);
+        loan.repay(lsa, remainingForPeriod);
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1 after full period covered");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, 0, "Accumulator should reset after full period");
+    }
+
+    /// @notice Test that partial payments accumulating to 1.2x monthly payment reduce duration by 1 with remainder carried
+    function test_repay_partialPaymentsWithRemainder() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 monthly = loanData.estimatedMonthlyPayment;
+        uint256 durationBefore = loanData.duration;
+
+        // Pay in three chunks: 40%, 40%, 40% = 120% of monthly -> 1 period + 20% remainder
+        uint256 chunk = (monthly * 40) / 100;
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 40%
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 80%
+
+        vm.prank(user);
+        loan.repay(lsa, chunk); // 120%
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        uint256 expectedRemainder = (chunk * 3) - monthly;
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1 period");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, expectedRemainder, "Remainder should carry over");
+    }
+
+    /// @notice Test that a single full monthly payment still decrements duration by 1 (regression)
+    function test_repay_singleFullPaymentStillWorks() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 durationBefore = loanData.duration;
+
+        vm.prank(user);
+        loan.repay(lsa, loanData.estimatedMonthlyPayment);
+
+        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
+        assertEq(loanDataAfter.duration, durationBefore - 1, "Duration should decrease by 1");
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, 0, "Accumulator should be 0 after exact payment");
     }
 
     /// @notice Test repaying more than one month's estimated payment (2x)

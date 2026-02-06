@@ -5,8 +5,10 @@ import {ERC4626} from "@solady/tokens/ERC4626.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 /// @title MockBTCVault
-/// @notice Simplified ERC-4626 vault for testing - wraps cbBTC → bvBTC shares
-/// @dev No strategies, no fees, 1:1 share ratio for testing simplicity
+/// @author Bitmor Protocol
+/// @notice Simplified ERC-4626 vault for testing - wraps cbBTC into bvBTC shares
+/// @dev No strategies, no fees, 1:1 share ratio for testing simplicity.
+///      Supports configurable `redeem()` return values for slippage testing.
 contract MockBTCVault is ERC4626 {
     address private immutable _underlying;
     string private _name;
@@ -15,12 +17,17 @@ contract MockBTCVault is ERC4626 {
 
     // ============ Slippage Testing Support ============
 
-    /// @notice Mock return value for redeem (for slippage testing)
+    /// @dev Mock return value for `redeem()` when slippage testing is enabled
     uint256 private _mockRedeemReturn;
 
-    /// @notice Whether to use mock redeem return instead of actual calculation
+    /// @dev Whether to use mock redeem return instead of actual ERC-4626 calculation
     bool private _useMockRedeemReturn;
 
+    /// @notice Creates a new MockBTCVault
+    /// @param underlying_ Address of the underlying BTC token (e.g., cbBTC)
+    /// @param name_ Vault token name (e.g., "Bitmor Vault BTC")
+    /// @param symbol_ Vault token symbol (e.g., "bvBTC")
+    /// @param decimals_ Number of decimals for the underlying asset
     constructor(address underlying_, string memory name_, string memory symbol_, uint8 decimals_) {
         _underlying = underlying_;
         _name = name_;

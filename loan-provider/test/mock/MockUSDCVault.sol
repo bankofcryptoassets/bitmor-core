@@ -4,15 +4,23 @@ pragma solidity 0.8.30;
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title MockUSDCVault
+/// @author Bitmor Protocol
 /// @notice Minimal ERC-4626 vault for USDC interest rate strategy testing
+/// @dev Supports overriding `totalAssets()` for controlled interest rate calculations
 contract MockUSDCVault is ERC4626 {
     address private immutable _underlying;
     string private _name;
     string private _symbol;
     uint8 private immutable _decimals;
 
+    /// @dev When non-zero, `totalAssets()` returns this value instead of actual balance
     uint256 private _mockTotalAssets;
 
+    /// @notice Creates a new MockUSDCVault
+    /// @param underlying_ Address of the underlying USDC token
+    /// @param name_ Vault token name
+    /// @param symbol_ Vault token symbol
+    /// @param decimals_ Number of decimals for the underlying asset (6 for USDC)
     constructor(address underlying_, string memory name_, string memory symbol_, uint8 decimals_) {
         _underlying = underlying_;
         _name = name_;

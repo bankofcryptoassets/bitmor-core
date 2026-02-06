@@ -8,8 +8,9 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 /// @title USDCStrategyTest
+/// @author Bitmor Protocol
 /// @notice Unit tests for USDCStrategy internal functions and edge cases
-/// @dev Uses USDCStrategyHarness to expose internal functions for testing
+/// @dev Uses `USDCStrategyHarness` to expose internal functions for testing
 contract USDCStrategyTest is BaseTestForUSDCVault {
     USDCStrategyHarness internal strategyHarness;
 
@@ -94,9 +95,10 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
     // ============ SECTION: _reallocateAssets EDGE CASES
     // ============================================
 
-    /// @notice Test that reallocateAssets returns early when target Aave balance is zero
-    /// @dev This tests line 258: if (targetBalanceInAave == 0) return;
-    function test_reallocateAssets_zeroTargetAave_earlyReturn() public {
+    /// @notice Test that reallocateAssets completes successfully when target Aave is zero
+    /// @dev This tests the branch where targetBalanceInAave == 0. With mocks, the actual
+    ///      funds movement depends on mock implementation. This verifies no revert occurs.
+    function test_reallocateAssets_zeroTargetAave_completesSuccessfully() public {
         // Fund and deposit first
         _fundLenderWithUsdc(lender, LARGE_DEPOSIT);
         _deposit(lender, LARGE_DEPOSIT);
@@ -104,19 +106,19 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
         // Capture state before
         VaultState memory stateBefore = _captureVaultState();
 
-        // Set allocation to 0% (all should go to BLP)
+        // Set allocation to 0% (target is all in BLP)
         _setAllocation(0);
 
-        // Trigger reallocation - should early return since targetBalanceInAave == 0
+        // Trigger reallocation - should complete without revert
         _rebalance();
 
         // Capture state after
         VaultState memory stateAfter = _captureVaultState();
 
-        // Note: With 0% Aave allocation, the function might still try to move funds
-        // This test verifies the early return branch at line 258
-        // The behavior depends on whether currentBalanceInAave > targetBalanceInAave
-        assertTrue(true, "Reallocation completed without revert");
+        // Verify total assets are preserved (no loss during reallocation)
+        assertApproxEqRel(
+            stateAfter.totalAssets, stateBefore.totalAssets, 0.01e18, "Total assets should be preserved after rebalance"
+        );
     }
 
     // ============================================
@@ -215,22 +217,15 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
         );
     }
 
-    /// @notice Test that withdrawFunds reverts when there's insufficient liquidity
-    /// @dev This tests line 355: if (remaining != 0) revert Errors.InsufficientBalance();
-    function test_withdrawFunds_RevertWhen_InsufficientLiquidity() public {
+    /// @notice Test that vault enforces ERC4626 maxWithdraw limit
+    /// @dev This tests the ERC4626 withdraw limit, not the strategy's InsufficientBalance error.
+    ///      The Errors.InsufficientBalance revert (line 355) requires mock manipulation to test
+    ///      where both Aave and BLP return less than expected - a more complex setup.
+    function test_withdrawFunds_RevertWhen_ExceedsMaxWithdraw() public {
         // Fund and deposit a small amount
         _fundLenderWithUsdc(lender, STANDARD_DEPOSIT);
         _deposit(lender, STANDARD_DEPOSIT);
 
-        // Get the total available
-        uint256 totalAvailable = _getTotalBalance();
-
-        // Try to withdraw more than available - this should trigger the revert
-        // We need to manipulate the mock to return less than expected
-        // For now, test the normal path - a proper test would require mock manipulation
-
-        // This test documents that we need to test the InsufficientBalance revert
-        // The revert occurs when both Aave and BLP don't have enough funds
         uint256 maxWithdraw = vault.maxWithdraw(lender);
 
         // Verify we can withdraw what's available

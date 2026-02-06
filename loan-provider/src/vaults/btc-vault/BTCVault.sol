@@ -159,6 +159,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Sets the entry fee for deposits
      * @param newEntryFee The new entry fee in basis points (e.g., 50 = 0.5%)
+     * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function setEntryFee(uint256 newEntryFee) external restricted {
         if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
@@ -171,6 +172,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Sets the exit fee for withdrawals
      * @param newExitFee The new exit fee in basis points (e.g., 100 = 1%)
+     * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function setExitFee(uint256 newExitFee) external restricted {
         if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
@@ -183,6 +185,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Sets the address that will receive collected fees
      * @param newFeeRecipient The new fee recipient address (cannot be zero address)
+     * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function setFeeRecipient(address newFeeRecipient) external restricted {
         if (newFeeRecipient == address(0)) revert Errors.ZeroAddress();
@@ -194,8 +197,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Sets the maximum number of strategies the vault can manage
-     * @dev Only callable by authorized role
      * @param newMaxStrategies The new maximum strategies limit
+     * @custom:access Requires BVC role (1-day delay)
      */
     function setMaxStrategies(uint256 newMaxStrategies) external restricted {
         s_vault.maxStrategies = newMaxStrategies;
@@ -205,9 +208,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Adds a new tokenized strategy to the vault
-     * @dev Only callable by CURATOR role. Strategy must be compatible with vault asset
+     * @dev Strategy must be compatible with the vault asset
      * @param strategy The address of the tokenized strategy contract to add
      * @param cap The maximum amount of assets this strategy can hold
+     * @custom:access Requires BVC role (1-day delay)
      */
     function addStrategy(address strategy, uint256 cap) external restricted {
         s_strategy.validateStrategyAddition(strategy, i_asset, s_vault.maxStrategies);
@@ -221,9 +225,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Changes the asset allocation cap for an existing strategy
-     * @dev Only callable by CURATOR role. Must validate strategy exists
      * @param strategy The address of the strategy to modify
      * @param newCap The new maximum amount of assets this strategy can hold
+     * @custom:access Requires BVC role (1-day delay)
      */
     function changeStrategyCap(address strategy, uint256 newCap) external restricted {
         s_strategy.validateCapChange(strategy, newCap);
@@ -235,8 +239,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Reallocates funds across strategies according to specified allocations
-     * @dev Only callable by ALLOCATOR role. Validates total allocations and asset availability
+     * @dev Validates total allocations and asset availability before execution
      * @param allocations Array of allocation instructions specifying strategy and amount changes
+     * @custom:access Requires BVA_FAST role
      */
     function reallocateFunds(DataTypes.Allocation[] calldata allocations) external restricted {
         s_strategy.validateReallocateFunds(totalAssets(), i_asset);
@@ -248,7 +253,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Emergency function to withdraw all funds from all strategies back to the vault
-     * @dev Only callable by MANAGER role. Used in emergency situations to secure assets
+     * @dev Used in emergency situations to secure assets
+     * @custom:access Requires BVM_FAST role
      */
     function emergencyWithdrawFunds() external restricted {
         s_strategy.emergencyWithdraw();
@@ -258,8 +264,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Updates the order in which strategies receive deposits
-     * @dev Only callable by ALLOCATOR role. Queue determines priority for fund deployment
+     * @dev Queue determines priority for fund deployment
      * @param newSupplyQueue Array of strategy indices in desired supply order
+     * @custom:access Requires BVA_SLOW role (1-day delay)
      */
     function updateSupplyQueue(uint256[] memory newSupplyQueue) external restricted {
         s_strategy.validateNewSupplyQueue(newSupplyQueue, s_vault.maxStrategies);
@@ -271,8 +278,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Updates the order in which strategies are drained for withdrawals
-     * @dev Only callable by ALLOCATOR role. Queue determines priority for fund withdrawal
+     * @dev Queue determines priority for fund withdrawal
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
+     * @custom:access Requires BVA_SLOW role (1-day delay)
      */
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
@@ -284,7 +292,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Pauses all vault operations in case of emergency
-     * @dev Only callable by authorized emergency role when vault is not paused
+     * @custom:access Requires BVM_FAST role
      */
     function pause() external whenNotPaused restricted {
         _pause();
@@ -292,7 +300,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Resumes vault operations after an emergency pause
-     * @dev Only callable by authorized role when vault is paused
+     * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function unpause() external whenPaused restricted {
         _unpause();
@@ -453,6 +461,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param assets Amount of underlying assets to deposit
      * @param to Address to receive the minted shares
      * @return Amount of shares minted
+     * @custom:access Requires BVD role
      */
     function deposit(uint256 assets, address to)
         public
@@ -471,6 +480,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param shares Exact amount of shares to mint
      * @param to Address to receive the minted shares
      * @return Amount of assets deposited
+     * @custom:access Requires BVD role
      */
     function mint(uint256 shares, address to) public override nonReentrant whenNotPaused restricted returns (uint256) {
         return super.mint(shares, to);
@@ -547,6 +557,16 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         _depositFunds(assets);
     }
 
+    /**
+     * @notice Internal function for `withdraw` and `redeem` with exit fee collection
+     * @dev Calculates exit fee, withdraws total needed from strategies, sends fee to recipient,
+     * then calls the parent `_withdraw` to transfer exact `assets` to the user.
+     * @param by The address initiating the withdrawal
+     * @param to The address receiving the underlying assets
+     * @param owner The address that owns the shares being burned
+     * @param assets The amount of underlying assets to send to `to`
+     * @param shares The amount of shares to burn
+     */
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         uint256 fee = getExitFee();
         uint256 totalToWithdraw = assets;

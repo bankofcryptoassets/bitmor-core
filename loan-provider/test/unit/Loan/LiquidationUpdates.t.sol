@@ -7,7 +7,8 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title LiquidationUpdatesTest
-/// @notice Tests for Loan contract liquidation update functions
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.updateLoanDataForMicroLiquidation`, `updateLoanDataForFullLiquidation`, and `updateInsuranceId`
 contract LiquidationUpdatesTest is BaseLoanTest {
     address lsa;
     address noRoleUser;

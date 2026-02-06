@@ -5,9 +5,9 @@ import {DataTypes} from "../types/DataTypes.sol";
 
 /**
  * @title VaultStateLogic
+ * @author Bitmor Protocol
  * @notice Library for managing vault configuration state including fees and recipient settings
  * @dev Simple state update functions for vault configuration management
- * @author Bitmor Protocol
  */
 library VaultStateLogic {
     /**

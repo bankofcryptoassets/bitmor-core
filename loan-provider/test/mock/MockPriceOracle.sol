@@ -7,17 +7,26 @@ import {ERC4626} from "@solady/tokens/ERC4626.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /// @title MockPriceOracle
-/// @notice Mock price oracle for unit testing
-/// @dev Allows setting and getting asset prices with test helpers
-/// //! TODO: this needs to be changed to provide the similar setup as AaveOracle in lendingpool.
+/// @author Bitmor Protocol
+/// @notice Mock price oracle for unit testing with configurable asset prices
+/// @dev Implements IPriceOracleGetter. For `btcVault`, computes price as BTC price scaled by
+///      the vault's share-to-asset conversion rate. All other assets return stored prices directly.
+//! TODO: Align mock with AaveOracle setup from the lending pool for closer parity
 contract MockPriceOracle is IPriceOracleGetter {
     using FixedPointMathLib for uint256;
 
+    /// @dev Mapping of asset address to price (8 decimals, e.g., 100000e8 = $100,000)
     mapping(address => uint256) private _prices;
 
+    /// @notice Address of the BTC vault whose price is derived from share conversion
     address public btcVault;
+
+    /// @notice Address of the underlying BTC token used for vault price derivation
     address public btc;
 
+    /// @notice Creates a new MockPriceOracle
+    /// @param _btcVault Address of the BTC vault (price derived from share-to-asset ratio)
+    /// @param _btc Address of the underlying BTC token
     constructor(address _btcVault, address _btc) {
         btcVault = _btcVault;
         btc = _btc;
@@ -30,7 +39,9 @@ contract MockPriceOracle is IPriceOracleGetter {
         _prices[asset] = price;
     }
 
-    /// @notice Get the price of an asset
+    /// @notice Get the price of an asset in USD (8 decimals)
+    /// @dev For `btcVault`, derives price from BTC price scaled by vault share-to-asset ratio.
+    ///      For all other assets, returns the stored price directly.
     /// @param asset The asset address
     /// @return The price in 8 decimals
     function getAssetPrice(address asset) external view override returns (uint256) {
@@ -45,7 +56,7 @@ contract MockPriceOracle is IPriceOracleGetter {
         return _getAssetPrice(asset);
     }
 
-    /// @notice Get the price of an asset
+    /// @dev Returns the stored price for `asset` from the internal mapping
     /// @param asset The asset address
     /// @return The price in 8 decimals
     function _getAssetPrice(address asset) internal view returns (uint256) {

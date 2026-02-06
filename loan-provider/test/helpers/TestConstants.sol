@@ -2,8 +2,9 @@
 pragma solidity 0.8.30;
 
 /// @title TestConstants
-/// @notice Centralized test-specific magic values (not protocol configuration)
-/// @dev Protocol configuration belongs in HelperConfig.s.sol
+/// @author Bitmor Protocol
+/// @notice Centralized test-specific constants eliminating magic values across all test files
+/// @dev Protocol configuration belongs in HelperConfig.s.sol. Import as `TestConstants as TC`.
 library TestConstants {
     // ============ Test Funding Amounts ============
     uint256 internal constant USER_USDC_BALANCE = 1_000_000e6; // 1M USDC

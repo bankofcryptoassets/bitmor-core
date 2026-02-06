@@ -14,9 +14,10 @@ import {MockVariableDebtToken} from "./MockVariableDebtToken.sol";
 
 /// @title MockBitmorLendingPool
 /// @author Bitmor Protocol
-/// @notice Mock Bitmor lending pool for unit testing
-/// @dev Implements core ILendingPool functions (deposit, withdraw, borrow, repay)
-///      Liquidation and stub methods will be added in Task 6
+/// @notice Mock Bitmor lending pool for unit testing loan lifecycle and liquidation flows
+/// @dev Implements core ILendingPool functions (deposit, withdraw, borrow, repay, liquidation).
+///      Provides test helpers for controlling liquidation type, health factor, overdue state,
+///      repayment shortfall, and withdrawal failure simulation.
 contract MockBitmorLendingPool is ILendingPool {
     /// @notice The addresses provider for this lending pool
     ILendingPoolAddressesProvider private _addressesProvider;
@@ -91,7 +92,11 @@ contract MockBitmorLendingPool is ILendingPool {
         _initReserveInternal(asset, aToken, variableDebtToken, interestRateStrategy);
     }
 
-    /// @dev Internal function to initialize a reserve
+    /// @dev Internal function to initialize a reserve with default configuration values
+    /// @param asset The underlying asset address
+    /// @param aToken The aToken address for this reserve
+    /// @param variableDebtToken The variable debt token address
+    /// @param interestRateStrategy The interest rate strategy address (can be address(0))
     function _initReserveInternal(
         address asset,
         address aToken,
@@ -239,7 +244,7 @@ contract MockBitmorLendingPool is ILendingPool {
         return _paused;
     }
 
-    // ============ Stub Functions (to be completed in Task 6) ============
+    // ============ Stub Functions ============
 
     /// @inheritdoc ILendingPool
     function swapBorrowRateMode(address, uint256) external override {
@@ -354,7 +359,12 @@ contract MockBitmorLendingPool is ILendingPool {
         _executeMicroLiquidation(collateralAsset, debtAsset, user, debtToCover);
     }
 
-    /// @dev Internal micro liquidation - doesn't call full liquidation update
+    /// @dev Internal micro liquidation execution - seizes collateral and burns debt without
+    ///      triggering full liquidation loan status update. Calls `updateLoanDataForMicroLiquidation` instead.
+    /// @param collateralAsset The collateral asset to seize
+    /// @param debtAsset The debt asset being repaid by the liquidator
+    /// @param user The borrower being liquidated
+    /// @param debtToCover The amount of debt to cover in this micro liquidation
     function _executeMicroLiquidation(address collateralAsset, address debtAsset, address user, uint256 debtToCover)
         internal
     {

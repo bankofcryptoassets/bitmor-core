@@ -47,8 +47,9 @@ library FlashLoanLogic {
         address lsa;
         /// @dev If true, user receives cbBTC; if false, receives USDC
         bool withdrawInBTC;
-        /// @dev Fee charged for early loan closure
+        /// @dev Fee charged for early loan closure in basis points
         uint256 preClosureFeeBps;
+        /// @dev Pre-closure fee amount in debt asset
         uint256 preClosureFeeAmt;
         /// @dev Actual amount repaid to Bitmor Pool
         uint256 finalAmountRepaid;
@@ -64,10 +65,17 @@ library FlashLoanLogic {
         uint256 debtAssetAmtReceived;
         /// @dev Total flash loan amount including premium
         uint256 totalFlashLoanBorrowedAmt;
+        /// @dev Amount of cbBTC received after redeeming bvBTC shares
         uint256 btcAmtReceived;
+        /// @dev Total cbBTC amount to swap, calculated in `CloseLoanLogic`
         uint256 totalBTCAmtToSwap;
+        /// @dev Pre-closure fee amount denominated in cbBTC
         uint256 preClosureFeeAmtInBTC;
     }
+
+    /**
+     * @dev Basis points denominator for percentage calculations (100% = 10000)
+     */
     uint256 constant BASIS_POINT_SCALE = 100_00;
 
     /**
@@ -76,18 +84,15 @@ library FlashLoanLogic {
      *
      * Flow:
      * 1. Swap `debtAsset` to `btc`
-     * 2. Deposit `btc` to `collateralAsset` which is BTC vault and receives `bvBTC` shares.
+     * 2. Deposit `btc` to `collateralAsset` which is BTC vault and receives `bvBTC` shares
      * 3. Deposit `bvBTC` in `bitmorPool`
      * 4. Borrow `debtAsset` from `bitmorPool`
      * 5. Repay the Flash Loan `amount` and `premium`
      *
-     * ## Security Checks
-     * - Caller must be Aave V3 pool
-     * - Initiator must be the Loan contract (this)
-     *
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
+     * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
      */
     function executeFLOperationInitiailizingLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,
@@ -170,6 +175,7 @@ library FlashLoanLogic {
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
+     * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
      */
     function executeFLOperationCloseLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,

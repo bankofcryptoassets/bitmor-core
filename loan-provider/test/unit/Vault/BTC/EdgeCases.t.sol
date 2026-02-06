@@ -8,8 +8,9 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title EdgeCasesTest
+/// @author Bitmor Protocol
 /// @notice Tests for BTCVault edge cases and boundary conditions
-/// @dev Hunts for zero-amount bugs, overflow issues, empty state handling
+/// @dev Hunts for zero-amount bugs, overflow issues, and empty state handling
 contract EdgeCasesTest is BaseTestForBTCVault {
     // ============ Constants ============
     uint256 constant EDGE_STRATEGY_CAP = 10000e6;
@@ -51,21 +52,24 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         assertEq(shares, 0, "zero deposit should return zero shares");
     }
 
-    /// @notice Withdraw with zero amount should revert or no-op
-    function test_withdraw_ZeroAmount_HandlesCorrectly() public {
+    /// @notice Withdraw with zero amount burns zero shares per ERC4626 spec
+    /// @dev ERC4626 allows zero-amount withdrawals, returning 0 shares burned
+    function test_withdraw_ZeroAmount_BurnsZeroShares() public {
         // Arrange
         _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
         _depositAsUser(EDGE_DEPOSIT_AMOUNT);
 
-        // Act - Try zero withdraw
+        uint256 sharesBefore = vault.balanceOf(user);
+
+        // Act - Zero withdraw should succeed per ERC4626 spec
         vm.prank(user);
-        try vault.withdraw(0, user, user) returns (uint256 shares) {
-            // If it succeeds, should have burned zero shares
-            assertEq(shares, 0, "zero withdraw should burn zero shares");
-        } catch {
-            // Reverting on zero withdraw is also acceptable
-            assertTrue(true, "reverting on zero withdraw is acceptable");
-        }
+        uint256 sharesBurned = vault.withdraw(0, user, user);
+
+        uint256 sharesAfter = vault.balanceOf(user);
+
+        // Assert - Zero withdraw burns zero shares, balance unchanged
+        assertEq(sharesBurned, 0, "zero withdraw should burn zero shares");
+        assertEq(sharesAfter, sharesBefore, "share balance should be unchanged");
     }
 
     /// @notice Mint with zero shares - ERC4626 allows this but takes 0 assets

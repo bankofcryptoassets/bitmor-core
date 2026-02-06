@@ -8,7 +8,8 @@ import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title PauseUnpauseTest
-/// @notice Tests for Loan contract pause/unpause functionality
+/// @author Bitmor Protocol
+/// @notice Tests for Loan contract pause/unpause lifecycle including role enforcement and operation blocking
 contract PauseUnpauseTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();

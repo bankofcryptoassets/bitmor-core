@@ -2,8 +2,10 @@
 pragma solidity 0.8.30;
 
 /**
- * @title ISwapAdapter
- * @notice Interface for SwapAdapter contract
+ * @title ISwapAdaptor
+ * @author Bitmor Protocol
+ * @notice Interface for swap adapter contracts used by the protocol for USDC <-> cbBTC token swaps
+ * @dev Implemented by SwapAdaptor (Aerodrome on Base mainnet) and UniswapV4SwapAdapterWrapper (testnet)
  */
 interface ISwapAdaptor {
     /**

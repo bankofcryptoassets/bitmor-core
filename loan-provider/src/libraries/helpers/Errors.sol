@@ -226,5 +226,6 @@ library Errors {
     /// @notice Thrown when slippage exceeds while converting shares to assets.
     error SlippageExceededWhileConvertingToAssets();
 
+    /// @notice Thrown when a fee parameter is set to an invalid value
     error InvalidFee();
 }

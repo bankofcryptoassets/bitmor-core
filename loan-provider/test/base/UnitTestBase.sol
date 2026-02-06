@@ -10,23 +10,40 @@ import {MockAaveV3Pool} from "../mock/MockAaveV3Pool.sol";
 import {MockERC20} from "../mock/MockERC20.sol";
 
 /// @title UnitTestBase
-/// @notice Base contract for unit tests with mocks and fresh lending-pool deployment
-/// @dev Deploys mock tokens, mock Aave V3, and prepares for lending-pool integration
+/// @author Bitmor Protocol
+/// @notice Tier 1 test base providing mock tokens, mock Aave V3, and common test actors
+/// @dev Inherits BitmorTestBase (Tier 0) and adds mock externals for unit testing without a fork
 abstract contract UnitTestBase is BitmorTestBase {
     // ============ Configuration ============
+
+    /// @notice Helper config for network-specific addresses and protocol parameters
     HelperConfig public config;
 
     // ============ Mock Externals ============
+
+    /// @notice Mock Aave V3 pool for flash loan testing
     MockAaveV3Pool public mockAavePool;
+
+    /// @notice Mock cbBTC token (8 decimals)
     MockERC20 public mockCbBTC;
+
+    /// @notice Mock USDC token (6 decimals)
     MockERC20 public mockUSDC;
 
     // ============ Test Actors ============
+
+    /// @notice Admin address for deployments and role grants
     address public admin;
+
+    /// @notice Standard test user for loan operations
     address public testUser;
+
+    /// @notice Test liquidator for liquidation scenarios
     address public testLiquidator;
 
     // ============ Snapshot ============
+
+    /// @dev Snapshot ID for reverting state between tests
     uint256 internal _baseSnapshotId;
 
     function setUp() public virtual override {
@@ -57,24 +74,34 @@ abstract contract UnitTestBase is BitmorTestBase {
 
     // ============ Token Helpers ============
 
-    /// @notice Funds an address with mock cbBTC
+    /// @notice Mints mock cbBTC to `to`
+    /// @param to Recipient address
+    /// @param amount Amount of cbBTC to mint (8 decimals)
     function _fundCbBTC(address to, uint256 amount) internal {
         mockCbBTC.mint(to, amount);
     }
 
-    /// @notice Funds an address with mock USDC
+    /// @notice Mints mock USDC to `to`
+    /// @param to Recipient address
+    /// @param amount Amount of USDC to mint (6 decimals)
     function _fundUSDC(address to, uint256 amount) internal {
         mockUSDC.mint(to, amount);
     }
 
-    /// @notice Funds an address with USDC and approves a spender
+    /// @notice Mints mock USDC to `to` and approves `spender` for `amount`
+    /// @param to Recipient address
+    /// @param spender Address to approve for spending
+    /// @param amount Amount of USDC to mint and approve (6 decimals)
     function _fundUSDCAndApprove(address to, address spender, uint256 amount) internal {
         mockUSDC.mint(to, amount);
         vm.prank(to);
         mockUSDC.approve(spender, amount);
     }
 
-    /// @notice Funds an address with cbBTC and approves a spender
+    /// @notice Mints mock cbBTC to `to` and approves `spender` for `amount`
+    /// @param to Recipient address
+    /// @param spender Address to approve for spending
+    /// @param amount Amount of cbBTC to mint and approve (8 decimals)
     function _fundCbBTCAndApprove(address to, address spender, uint256 amount) internal {
         mockCbBTC.mint(to, amount);
         vm.prank(to);

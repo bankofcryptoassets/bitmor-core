@@ -52,14 +52,17 @@ library SwapLogic {
     uint256 constant PRICE_PRECISION = 1e8;
 
     /**
-     * @notice Execute swap via SwapAdaptor with optional zQuoter validation
-     * @dev If zQuoter is address(0), skips price validation (testnet mode)
+     * @notice Executes a token swap via the `SwapAdaptor`
+     * @dev Delegates to `ISwapAdaptor.swapExactTokensForTokens` and validates the output
+     * meets the minimum acceptable threshold. Caller must approve the `swapAdaptor` to
+     * spend `amountIn` of `tokenIn` before calling.
      * @param swapAdaptor SwapAdaptor contract address
-     * @param tokenIn Input token (e.g., USDC)
-     * @param tokenOut Output token (e.g., cbBTC)
-     * @param amountIn Amount of input tokens
-     * @param minAcceptable Minimum output amount
-     * @return amountOut Actual output amount received
+     * @param tokenIn Input token address (e.g., USDC)
+     * @param tokenOut Output token address (e.g., cbBTC)
+     * @param amountIn Amount of input tokens to swap
+     * @param minAcceptable Minimum output amount (reverts if not met)
+     * @return amountOut Actual output amount received from the swap
+     * @custom:security Reverts with `Errors.LessThanMinimumAmtReceived` if output is below `minAcceptable`
      */
     function executeSwap(
         address swapAdaptor,
@@ -79,7 +82,8 @@ library SwapLogic {
 
     /**
      * @notice Calculates the minimum acceptable output amount for a swap with slippage protection
-     * @dev Uses zQuoter for mainnet price discovery, or oracle prices for testnet fallback
+     * @dev Uses zQuoter for mainnet price discovery, or oracle prices for testnet fallback.
+     * Despite the name, this function works for any token pair, not just BTC.
      *
      * ## Calculation Methods
      * - **With zQuoter**: Queries expected output from Aerodrome quoter and applies slippage
@@ -92,6 +96,7 @@ library SwapLogic {
      * @param amountIn Amount of input tokens to swap
      * @param maxSlippageBps Maximum acceptable slippage in basis points (e.g., 50 = 0.5%)
      * @return minAcceptable Minimum output amount after slippage tolerance
+     * @custom:security Reverts with `Errors.ZeroAmount` if zQuoter returns zero expected output
      */
     function calculateMinBTCAmt(
         address zQuoter,

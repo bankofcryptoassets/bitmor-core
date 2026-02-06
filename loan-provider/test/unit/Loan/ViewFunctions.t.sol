@@ -7,7 +7,8 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title ViewFunctionsTest
-/// @notice Tests for Loan contract view/getter functions
+/// @author Bitmor Protocol
+/// @notice Tests for Loan contract view/getter functions including configuration values and user loan queries
 contract ViewFunctionsTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();
