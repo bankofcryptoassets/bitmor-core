@@ -8,6 +8,9 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {BaseTestForBTCVault, BTCVaultHarness} from "../BaseTestForBTCVault.t.sol";
 
+/// @title BTCVaultTest
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault constructor, external setters, public view functions, and internal metadata
 contract BTCVaultTest is BaseTestForBTCVault {
     using FixedPointMathLib for uint256;
 

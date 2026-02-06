@@ -2,8 +2,9 @@
 pragma solidity 0.8.30;
 
 /// @title TestConstants
-/// @notice Centralized test-specific magic values (not protocol configuration)
-/// @dev Protocol configuration belongs in HelperConfig.s.sol
+/// @author Bitmor Protocol
+/// @notice Centralized test-specific constants eliminating magic values across all test files
+/// @dev Protocol configuration belongs in HelperConfig.s.sol. Import as `TestConstants as TC`.
 library TestConstants {
     // ============ Test Funding Amounts ============
     uint256 internal constant USER_USDC_BALANCE = 1_000_000e6; // 1M USDC
@@ -30,6 +31,10 @@ library TestConstants {
     uint256 internal constant LIQUIDATION_TYPE_FULL = 1;
     uint256 internal constant LIQUIDATION_TYPE_MICRO = 2;
 
+    // ============ Liquidation Fee ============
+    uint256 internal constant MAX_LIQUIDATION_FEE_BPS = 20_00;
+    uint256 internal constant DEFAULT_LIQUIDATION_FEE_BPS = 500;
+
     // ============ Insurance Constants ============
     uint256 internal constant DEFAULT_INSURANCE_ID = 1;
     uint256 internal constant INSURANCE_BONUS_BPS = 300; // 3% bonus
@@ -43,9 +48,6 @@ library TestConstants {
     // ============ Vault Configuration ============
     uint256 internal constant BTC_VAULT_INITIAL_BALANCE = 1000e8; // 1000 cbBTC for vault
     uint256 internal constant USDC_VAULT_INITIAL_LIQUIDITY = 100_000_000e6; // 100M USDC
-
-    // ============ Debt Asset Amounts ============
-    uint256 internal constant DEBT_ASSET_TO_MINT_TO_USER = 1_000_000e6;
 
     // ============ LendingPool Test Constants ============
     uint256 internal constant BTC_SEED_AMOUNT = 10e8; // 10 BTC
@@ -64,4 +66,19 @@ library TestConstants {
     uint256 internal constant RAY = 1e27;
     uint256 internal constant BPS_DENOMINATOR = 10_000;
     uint256 internal constant PRECISION = 1e18;
+
+    uint256 internal constant SLIPPAGE_SWAP = 50; // 50bps
+    uint256 internal constant SLIPPAGE_SHARES_TO_ASSET = 100; // 100bps
+    uint256 internal constant MIN_DEPOSIT = 30_00; // 30%
+
+    uint256 internal constant PRICE_PRECISION = 1e8;
+
+    // ============ Flash Loan Test Parameters ============
+    uint256 internal constant FLASH_LOAN_AMOUNT = 1000e6; // 1000 USDC flash loan for callback tests
+    uint256 internal constant FLASH_LOAN_PREMIUM = 10e6; // 10 USDC premium (1%)
+    uint256 internal constant TEST_BTC_SWAP_AMOUNT = 1e8; // 1 BTC for swap params
+    uint256 internal constant TEST_PRECLOSURE_FEE = 0.01e8; // 0.01 BTC pre-closure fee
+
+    // ============ Repayment Test Parameters ============
+    uint256 internal constant TEST_REPAYMENT_SHORTFALL = 100e6; // 100 USDC shortfall for refund tests
 }

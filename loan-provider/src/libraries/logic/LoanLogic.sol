@@ -91,7 +91,8 @@ library LoanLogic {
                 IERC20Metadata(ctx.debtAsset).decimals(),
                 params.collateralAmount,
                 IERC20Metadata(ctx.collateralAsset).decimals(),
-                params.duration
+                params.duration,
+                ctx.minDepositBps
             )
         );
 
@@ -109,6 +110,7 @@ library LoanLogic {
             createdAt: block.timestamp,
             insuranceID: params.insuranceID,
             lastPaymentTimestamp: block.timestamp,
+            amountRepaidInCurrentPeriod: 0,
             status: DataTypes.LoanStatus.Active
         });
 
@@ -191,12 +193,13 @@ library LoanLogic {
     }
 
     /**
-     * @notice Calculates loan amount and monthly payment by fetching current rates from Aave V2
-     * @dev Fetch oracle price for the assets
-     * @param data Params to calculate the loan details based on deposit amount
-     * @return exactLoanAmt Calculated loan amount in USDC (6 decimals)
-     * @return monthlyPayAmt Estimated monthly payment (6 decimals)
-     * @return minDepositRequired Minimum deposit requried amount
+     * @notice Calculates loan amount and monthly payment by fetching current rates from the Bitmor Lending Pool
+     * @dev Fetches oracle prices for both assets and the maximum variable borrow rate from the
+     * reserve's interest rate strategy. Delegates the actual math to `LoanMath.calculateLoanAmt`.
+     * @param data Parameters containing pool, oracle, asset addresses, amounts, and duration
+     * @return exactLoanAmt Calculated loan amount in debt asset decimals (6 for USDC)
+     * @return monthlyPayAmt Estimated monthly payment in debt asset decimals
+     * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
     function _calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
         internal
@@ -226,7 +229,8 @@ library LoanLogic {
                 collateralPriceUSD,
                 debtPriceUSD,
                 maxInterestRate,
-                data.duration
+                data.duration,
+                data.minDepositBps
             )
         );
     }
@@ -235,6 +239,7 @@ library LoanLogic {
      * @notice Calculates loan details for a given collateral amount and duration
      * @dev Used by `Loan.getLoanDetails()` to preview loan terms before creation.
      * Fetches current oracle prices and interest rates to compute values.
+     * @param ctx Context containing collateral bounds and minimum deposit BPS
      * @param bitmorPool Bitmor Lending Pool address for interest rate data
      * @param _oracle Price oracle address for asset valuations
      * @param collateralAsset Collateral asset address (cbBTC)
@@ -246,6 +251,7 @@ library LoanLogic {
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
     function calculateLoanDetails(
+        DataTypes.CalculateLoanDetailsContext memory ctx,
         address bitmorPool,
         address _oracle,
         address collateralAsset,
@@ -253,6 +259,10 @@ library LoanLogic {
         uint256 collateralAmount,
         uint256 duration
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+        if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
+        if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
+        if (duration == 0) revert Errors.ZeroAmount();
+
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
         uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
@@ -272,7 +282,8 @@ library LoanLogic {
             debtPriceUSD,
             IERC20Metadata(debtAsset).decimals(),
             interestRate,
-            duration
+            duration,
+            ctx.minDepositBps
         );
     }
 }

@@ -80,11 +80,12 @@ contract LoanVault is ILoanVault {
     // ============ Token Operations ============
 
     /**
-     * @notice Approves a spender to use tokens held by this vault
-     * @dev Used to approve escrow for transferring acbBTC for operations
+     * @notice Approves a `spender` to use `amount` of `token` held by this vault
+     * @dev Resets approval to zero first for safety (handles tokens like USDT)
      * @param token The token to approve
      * @param spender The address to approve
      * @param amount The amount to approve
+     * @custom:access Restricted to owner (Loan contract)
      */
     function approveToken(address token, address spender, uint256 amount) external override onlyOwner {
         require(token != address(0), "LoanVault: invalid token");
@@ -97,11 +98,11 @@ contract LoanVault is ILoanVault {
     }
 
     /**
-     * @notice Transfer token
-     * @dev Used to transfer aToken from LoanVault to `to`
+     * @notice Transfers `amount` of `token` from this vault to `to`
      * @param token The token to transfer
      * @param to The receiver address
      * @param amount The amount to transfer
+     * @custom:access Restricted to owner (Loan contract)
      */
     function transferToken(address token, address to, uint256 amount) external override onlyOwner {
         require(token != address(0), "LoanVault: invalid token");
@@ -114,11 +115,12 @@ contract LoanVault is ILoanVault {
     // ============ Arbitrary Execution ============
 
     /**
-     * @notice Executes an arbitrary call from this vault
+     * @notice Executes an arbitrary call from this vault to `target` with `data`
      * @dev Provides flexibility for complex operations (supply, borrow, repay, etc.)
      * @param target The contract to call
      * @param data The calldata to send
      * @return result The return data from the call
+     * @custom:access Restricted to owner (Loan contract)
      */
     function execute(address target, bytes calldata data) external override onlyOwner returns (bytes memory result) {
         require(target != address(0), "LoanVault: invalid target");

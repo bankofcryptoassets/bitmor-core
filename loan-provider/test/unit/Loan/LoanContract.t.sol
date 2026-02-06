@@ -7,9 +7,44 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
-/// @title LoanContract
-/// @notice Consolidated tests for core Loan contract functionality
+/// @title LoanContractTest
+/// @author Bitmor Protocol
+/// @notice Consolidated tests for core Loan contract functionality including constructor validation, view functions, and strike price
 contract LoanContract is BaseLoanTest {
+    /// @notice Holds all Loan constructor parameters to avoid stack-too-deep errors in table-driven tests
+    struct ConstructorParams {
+        address accessManager;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address bitmorPool;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address swapAdapterWrapper;
+        address zQuoter;
+        address premiumCollector;
+        uint256 preClosureFeeBps;
+        uint256 gracePeriod;
+    }
+
+    /// @notice Loads all constructor params from mock addresses into a struct for table-driven constructor tests
+    function _loadConstructorParams() internal view returns (ConstructorParams memory p) {
+        p.accessManager = address(manager);
+        p.aaveV3Pool = aavePool;
+        p.aaveAddressesProvider = s_addressesProvider;
+        p.bitmorPool = s_bitmorPool;
+        p.oracle = address(mockOracle);
+        p.collateralAsset = collateralAsset; // mockBTCVault
+        p.debtAsset = debtAsset; // mockUSDC
+        p.btc = btc; // mockCbBTC
+        p.swapAdapterWrapper = address(mockSwapAdapter);
+        p.zQuoter = address(0); // zQuoter is allowed to be zero
+        p.premiumCollector = premiumCollector;
+        p.preClosureFeeBps = config.getPreClosureFee();
+        p.gracePeriod = config.getGracePeriod();
+    }
+
     /// @notice Reverts on zero-address inputs for all Loan view functions that accept a user/LSA address.
     function test_loan_viewFunctions_zeroAddress_reverts() public {
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -98,57 +133,40 @@ contract LoanContract is BaseLoanTest {
 
     /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
     function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAssetAddr,
-            address debtAssetAddr,
-            address btc,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = config.networkConfig();
+        ConstructorParams memory p = _loadConstructorParams();
+        uint256 preClosureFeeBps = config.getPreClosureFee();
+        uint256 gracePeriod = config.getGracePeriod();
 
-        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=swapAdapter, 6=premiumCollector
-        for (uint256 i = 0; i < 7; i++) {
+        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc, 6=swapAdapter, 7=premiumCollector
+        for (uint256 i = 0; i < 8; i++) {
             address[8] memory params = [
-                aaveV3Pool,
-                bitmorPool,
-                oracle,
-                collateralAssetAddr,
-                debtAssetAddr,
-                btc,
-                swapAdapterWrapper,
-                premiumCollector
+                p.aaveV3Pool,
+                p.bitmorPool,
+                p.oracle,
+                p.collateralAsset,
+                p.debtAsset,
+                p.btc,
+                p.swapAdapterWrapper,
+                p.premiumCollector
             ];
 
             params[i] = address(0);
 
             vm.expectRevert(Errors.ZeroAddress.selector);
             new Loan(
-                accessManager,
+                p.accessManager,
                 params[0], // aaveV3Pool
-                aaveAddressesProvider,
+                p.aaveAddressesProvider,
                 params[1], // bitmorPool
                 params[2], // oracle
                 params[3], // collateralAsset
                 params[4], // debtAsset
                 params[5], // btc
-                zQuoter, // swapAdapterWrapper
-                params[6], // allowed to be zero
+                params[6], // swapAdapterWrapper
+                p.zQuoter, // zQuoter (allowed to be zero)
                 params[7], // premiumCollector
                 preClosureFeeBps,
-                gracePeriod,
-                liquidationBuffer
+                gracePeriod
             );
         }
     }
@@ -156,24 +174,19 @@ contract LoanContract is BaseLoanTest {
     /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).
     /// @dev This was previously a known bug (accepted zero address), now fixed.
     function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,,
-            address oracle,
-            address collateralAssetAddr,
-            address debtAssetAddr,
-            address btc,
-            address swapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = config.networkConfig();
+        // Use individual getters to avoid stack depth issues with full struct destructuring
+        address accessManager = config.getAccessManager();
+        address bitmorPool = config.getBitmorPool();
+        address aaveV3Pool = config.getAaveV3Pool();
+        address oracle = config.getOracle();
+        address collateralAssetAddr = config.getCollateralAsset();
+        address debtAssetAddr = config.getDebtAsset();
+        address btc = config.getCbBTC();
+        address swapAdapterWrapper = config.getSwapAdapterWrapper();
+        address zQuoter = config.getZQuoter();
+        address premiumCollector = config.getPremiumCollector();
+        uint256 preClosureFeeBps = config.getPreClosureFee();
+        uint256 gracePeriod = config.getGracePeriod();
 
         // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -190,8 +203,7 @@ contract LoanContract is BaseLoanTest {
             zQuoter,
             premiumCollector,
             preClosureFeeBps,
-            gracePeriod,
-            liquidationBuffer
+            gracePeriod
         );
     }
 }

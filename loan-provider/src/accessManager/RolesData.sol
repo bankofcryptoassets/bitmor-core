@@ -402,18 +402,19 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](10);
+        selectors = new bytes4[](12);
         selectors[0] = ILoan.setLoanVaultFactory.selector;
-        selectors[1] = ILoan.setLiquidationBuffer.selector;
-        selectors[2] = ILoan.setPremiumCollector.selector;
-        selectors[3] = ILoan.setGracePeriod.selector;
-        selectors[4] = ILoan.setPreClosureFee.selector;
-        selectors[5] = bytes4(keccak256("unpause()"));
-        // New selectors for test configuration (replaces vm.store)
-        selectors[6] = ILoan.setMaxBTCAmount.selector;
-        selectors[7] = ILoan.setMinBTCAmount.selector;
-        selectors[8] = ILoan.setSlippageForSwap.selector;
-        selectors[9] = ILoan.setSlippageForSharesToAsset.selector;
+        selectors[1] = ILoan.setPremiumCollector.selector;
+        selectors[2] = ILoan.setGracePeriod.selector;
+        selectors[3] = ILoan.setPreClosureFee.selector;
+        selectors[4] = bytes4(keccak256("unpause()"));
+        selectors[5] = ILoan.setMaxBTCAmount.selector;
+        selectors[6] = ILoan.setMinBTCAmount.selector;
+        selectors[7] = ILoan.setSlippageForSwap.selector;
+        selectors[8] = ILoan.setSlippageForSharesToAsset.selector;
+        selectors[9] = ILoan.setMinDepositBps.selector;
+        selectors[10] = ILoan.setLiquidationFeeBps.selector;
+        selectors[11] = ILoan.setLiquidationFeeCollector.selector;
     }
 
     /// @notice Returns function selectors for ARE role
@@ -473,8 +474,9 @@ contract RolesData {
     /// @dev Selectors for deposit function on BTCVault (ERC4626 standard)
     /// @return selectors Array of function selectors
     function getBVD_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
+        selectors = new bytes4[](2);
         selectors[0] = BTCVault.deposit.selector;
+        selectors[1] = BTCVault.mint.selector;
     }
 
     /// @notice Returns function selectors for UVM_FAST role

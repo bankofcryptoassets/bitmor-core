@@ -12,6 +12,13 @@ import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 
 /**
  * @title USDCVault
+ * @author Bitmor Protocol
+ * @notice ERC-4626 compliant vault for USDC deposits with single-strategy yield generation
+ * @dev Extends Solady's ERC4626 with role-based access control and pause functionality.
+ * Delegates asset management to a single `ISimpleStrategy` implementation that splits
+ * deposits between Aave and the Bitmor Lending Pool.
+ *
+ * @custom:security Uses AccessManaged for role-based permissions and Pausable for emergency stops
  */
 contract USDCVault is ERC4626, AccessManaged, Pausable {
     using FixedPointMathLib for uint256;
@@ -28,6 +35,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      */
     address internal immutable i_asset;
 
+    /// @notice The Bitmor Lending Pool address used for authorized reallocation calls
     address internal immutable i_blp;
 
     /**
@@ -59,6 +67,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @notice Updates the strategy contract used for yield generation
      * @dev Withdraws funds from current strategy before switching to new one
      * @param newStrategy The address of the new strategy contract (cannot be zero address)
+     * @custom:access Requires UVC role (1-day delay)
      */
     function setStrategy(address newStrategy) external restricted whenNotPaused {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
@@ -77,27 +86,51 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         emit SimpleVault__StrategyUpdated(newStrategy);
     }
 
+    /**
+     * @notice Triggers reallocation of assets between Aave and BLP to match target ratios
+     * @custom:access Requires UVA role
+     */
     function reallocateAssets() external restricted whenNotPaused {
         s_strategy.reallocateAssets();
     }
 
+    /**
+     * @notice Reallocates assets by withdrawing `amountToWithdraw` from Aave to BLP
+     * @dev Only callable by the Bitmor Lending Pool to maintain liquidity reserves
+     * @param amountToWithdraw The amount of assets to move from Aave into BLP
+     * @custom:access Requires UVA role and caller must be `i_blp`
+     */
     function reallocateAssets(uint256 amountToWithdraw) external restricted whenNotPaused {
         if (msg.sender != i_blp) revert Errors.UnauthorizedCaller();
         s_strategy.reallocateAssets(amountToWithdraw);
     }
 
+    /**
+     * @notice Updates the minimum delta threshold for triggering asset reallocation
+     * @param newMinimumDeltaRequired The new minimum delta in basis points
+     * @custom:access Requires UVC role
+     */
     function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external restricted whenNotPaused {
         s_strategy.updateMinimumDeltaRequired(newMinimumDeltaRequired);
     }
 
+    /**
+     * @notice Pauses all vault operations in case of emergency
+     * @custom:access Requires UVM_FAST role
+     */
     function pause() external restricted whenNotPaused {
         _pause();
     }
 
+    /**
+     * @notice Resumes vault operations after an emergency pause
+     * @custom:access Requires UVM_SLOW role (1-day delay)
+     */
     function unpause() external restricted whenPaused {
         _unpause();
     }
 
+    /// @notice Returns the address of the current strategy contract.
     function getStrategy() external view returns (address) {
         return address(s_strategy);
     }
@@ -116,7 +149,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return The vault token name
      */
     function name() public pure override returns (string memory) {
-        return "Simple Vault";
+        return "Bitmor USDC Vault";
     }
 
     /**
@@ -125,7 +158,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return The vault token symbol
      */
     function symbol() public pure override returns (string memory) {
-        return "SV";
+        return "bvUSDC";
     }
 
     /**
@@ -144,18 +177,40 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
-        assets = s_strategy.totalAssets();
+        assets = s_strategy.totalAssets() + ERC20(i_asset).balanceOf(address(this));
     }
 
+    /**
+     * @notice Deposits `assets` into the vault and mints shares to `to`
+     * @inheritdoc ERC4626
+     * @param assets The amount of underlying assets to deposit (must be non-zero)
+     * @param to The address to receive the minted shares
+     * @return shares The amount of shares minted
+     */
     function deposit(uint256 assets, address to) public override whenNotPaused returns (uint256 shares) {
         if (assets == 0) revert Errors.ZeroAmount();
         return super.deposit(assets, to);
     }
 
+    /**
+     * @notice Mints exact `shares` to `to` by depositing the required amount of assets
+     * @inheritdoc ERC4626
+     * @param shares The exact amount of shares to mint
+     * @param to The address to receive the minted shares
+     * @return assets The amount of assets deposited
+     */
     function mint(uint256 shares, address to) public override whenNotPaused returns (uint256 assets) {
         return super.mint(shares, to);
     }
 
+    /**
+     * @notice Withdraws exact `assets` from the vault by burning shares from `owner`
+     * @inheritdoc ERC4626
+     * @param assets The exact amount of assets to withdraw
+     * @param to The address to receive the withdrawn assets
+     * @param owner The address whose shares will be burned
+     * @return shares The amount of shares burned
+     */
     function withdraw(uint256 assets, address to, address owner)
         public
         override
@@ -165,6 +220,14 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         return super.withdraw(assets, to, owner);
     }
 
+    /**
+     * @notice Redeems `shares` for the corresponding amount of assets
+     * @inheritdoc ERC4626
+     * @param shares The amount of shares to redeem
+     * @param to The address to receive the underlying assets
+     * @param owner The address whose shares will be burned
+     * @return assets The amount of assets received
+     */
     function redeem(uint256 shares, address to, address owner) public override whenNotPaused returns (uint256 assets) {
         return super.redeem(shares, to, owner);
     }
@@ -187,10 +250,20 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         return ERC20(i_asset).decimals();
     }
 
+    /**
+     * @notice Hook called after a deposit to deploy assets into the strategy
+     * @param assets The amount of assets deposited
+     * @param shares The amount of shares minted (unused)
+     */
     function _afterDeposit(uint256 assets, uint256 shares) internal override {
         s_strategy.supply(assets);
     }
 
+    /**
+     * @notice Hook called before a withdrawal to retrieve assets from the strategy
+     * @param assets The amount of assets to withdraw
+     * @param shares The amount of shares being burned (unused)
+     */
     function _beforeWithdraw(uint256 assets, uint256 shares) internal override {
         // Withdraw assets from strategy
         s_strategy.withdraw(assets);

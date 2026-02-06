@@ -27,7 +27,7 @@ contract LoanStorage {
     address public immutable i_AAVE_V3_POOL;
 
     /**
-     * @notice Adddress provider required for flash loan compatibility
+     * @notice Address provider required for flash loan compatibility
      */
     address public immutable i_AAVE_ADDRESSES_PROVIDER;
 
@@ -73,8 +73,11 @@ contract LoanStorage {
      */
     address internal s_premiumCollector;
 
+    /// @notice Collects fee on liquidation from Liquidation Bonus.
+    address internal s_liquidationFeeCollector;
+
     /**
-     * @notice Grace period for monthly installments in `days`
+     * @notice Grace period for monthly installments in `seconds`.
      */
     uint256 internal s_gracePeriod;
 
@@ -83,10 +86,8 @@ contract LoanStorage {
      */
     uint256 internal s_preClosureFeeBps;
 
-    /**
-     * @notice Buffer while liquidation
-     */
-    uint256 internal s_liquidationBuffer;
+    /// @notice Fee on liquidation. This is implemented on liquidation bonus.
+    uint256 internal s_liquidationFee;
 
     /// @notice Slippage in BPS while convert `bvBTC` shares to btc.
     uint256 internal s_slippage_sharesToAsset;
@@ -99,6 +100,9 @@ contract LoanStorage {
 
     /// @notice Min. amount of BTC require to use as collateral.
     uint256 internal s_minBTCAmt;
+
+    /// @notice Min % of deposit user need to make of the BTC amount.
+    uint256 internal s_minDeposit;
 
     // ============ Storage Mappings ============
 
@@ -130,17 +134,22 @@ contract LoanStorage {
     /**
      * @notice Initial Insurance ID
      */
-    uint256 public constant INITIAL_INSURANCE_ID = 0;
+    uint256 internal constant INITIAL_INSURANCE_ID = 0;
+
+    /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
+    uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
     // ============ Constructor ============
 
     /**
      * @notice Initializes the storage contract with immutable protocol addresses
      * @param _aaveV3Pool Aave V3 pool address (for flash loans)
+     * @param _aaveAddressesProvider Aave V3 addresses provider (for flash loan compatibility)
      * @param _bitmorPool Bitmor Lending Pool
      * @param _oracle Price Oracle
-     * @param _collateralAsset Collateral asset address (cbBTC)
+     * @param _collateralAsset Collateral asset address (bvBTC)
      * @param _debtAsset Debt asset address (USDC)
+     * @param _btc Wrapped Bitcoin address (cbBTC)
      */
     constructor(
         address _aaveV3Pool,

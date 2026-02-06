@@ -76,7 +76,6 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         // LPM_SLOW Operations (Loan config) - use HelperConfig getters
         manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setLiquidationBuffer, (helperConfig.getLiquidationBuffer())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
 

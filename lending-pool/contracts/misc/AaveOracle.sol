@@ -60,7 +60,10 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @notice External function called by the Aave governance to set or replace sources of assets
     /// @param assets The addresses of the assets
     /// @param sources The address of the source of each asset
-    function setAssetSources(address[] calldata assets, address[] calldata sources) external onlyOwner {
+    function setAssetSources(
+        address[] calldata assets,
+        address[] calldata sources
+    ) external onlyOwner {
         _setAssetsSources(assets, sources);
     }
 
@@ -112,7 +115,8 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     function getAssetPrice(address asset) public view override returns (uint256) {
         if (asset == s_bvBTC) {
             uint256 btcPrice = _getAssetPrice(s_btc);
-            uint256 assetPerShare = IERC4626(s_bvBTC).convertToAssets(1);
+            uint256 oneShare = 10 ** IERC20Detailed(s_bvBTC).decimals();
+            uint256 assetPerShare = IERC4626(s_bvBTC).convertToAssets(oneShare);
 
             return btcPrice.mul(assetPerShare).div(10 ** IERC20Detailed(s_btc).decimals());
         }
@@ -122,9 +126,7 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     function _getAssetPrice(address asset) internal view returns (uint256) {
         IChainlinkAggregator source = assetsSources[asset];
 
-        if (asset == BASE_CURRENCY) {
-            return BASE_CURRENCY_UNIT;
-        } else if (address(source) == address(0)) {
+        if (address(source) == address(0)) {
             return _fallbackOracle.getAssetPrice(asset);
         } else {
             int256 price = IChainlinkAggregator(source).latestAnswer();

@@ -14,9 +14,10 @@ import {MockVariableDebtToken} from "./MockVariableDebtToken.sol";
 
 /// @title MockBitmorLendingPool
 /// @author Bitmor Protocol
-/// @notice Mock Bitmor lending pool for unit testing
-/// @dev Implements core ILendingPool functions (deposit, withdraw, borrow, repay)
-///      Liquidation and stub methods will be added in Task 6
+/// @notice Mock Bitmor lending pool for unit testing loan lifecycle and liquidation flows
+/// @dev Implements core ILendingPool functions (deposit, withdraw, borrow, repay, liquidation).
+///      Provides test helpers for controlling liquidation type, health factor, overdue state,
+///      repayment shortfall, and withdrawal failure simulation.
 contract MockBitmorLendingPool is ILendingPool {
     /// @notice The addresses provider for this lending pool
     ILendingPoolAddressesProvider private _addressesProvider;
@@ -38,6 +39,9 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @notice Tracks whether a user's loan is overdue (for micro liquidation)
     mapping(address => bool) private _isOverdue;
+
+    /// @notice Tracks reserves marked as invalid (for testing invalid debt token scenarios)
+    mapping(address => bool) private _invalidReserves;
 
     /// @notice Tracks user health factors (for full liquidation)
     mapping(address => uint256) private _healthFactors;
@@ -88,7 +92,11 @@ contract MockBitmorLendingPool is ILendingPool {
         _initReserveInternal(asset, aToken, variableDebtToken, interestRateStrategy);
     }
 
-    /// @dev Internal function to initialize a reserve
+    /// @dev Internal function to initialize a reserve with default configuration values
+    /// @param asset The underlying asset address
+    /// @param aToken The aToken address for this reserve
+    /// @param variableDebtToken The variable debt token address
+    /// @param interestRateStrategy The interest rate strategy address (can be address(0))
     function _initReserveInternal(
         address asset,
         address aToken,
@@ -125,6 +133,11 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @inheritdoc ILendingPool
     function withdraw(address asset, uint256 amount, address to) external override returns (uint256) {
+        // Simulate withdrawal failure for testing
+        if (_withdrawalFailure[to]) {
+            return 0;
+        }
+
         DataTypes.ReserveData storage reserve = _reserves[asset];
         require(reserve.aTokenAddress != address(0), "Reserve not initialized");
 
@@ -172,6 +185,11 @@ contract MockBitmorLendingPool is ILendingPool {
             amountToRepay = currentDebt;
         }
 
+        // Apply shortfall for testing refund logic (simulates pool returning less)
+        if (_repaymentShortfall > 0 && amountToRepay > _repaymentShortfall) {
+            amountToRepay = amountToRepay - _repaymentShortfall;
+        }
+
         IERC20(asset).transferFrom(msg.sender, address(this), amountToRepay);
         debtToken.burn(onBehalfOf, amountToRepay);
 
@@ -188,6 +206,11 @@ contract MockBitmorLendingPool is ILendingPool {
 
     /// @inheritdoc ILendingPool
     function getReserveData(address asset) external view override returns (DataTypes.ReserveData memory) {
+        // If reserve is marked invalid, return empty reserve with zero addresses
+        if (_invalidReserves[asset]) {
+            DataTypes.ReserveData memory emptyReserve;
+            return emptyReserve;
+        }
         return _reserves[asset];
     }
 
@@ -221,7 +244,7 @@ contract MockBitmorLendingPool is ILendingPool {
         return _paused;
     }
 
-    // ============ Stub Functions (to be completed in Task 6) ============
+    // ============ Stub Functions ============
 
     /// @inheritdoc ILendingPool
     function swapBorrowRateMode(address, uint256) external override {
@@ -249,7 +272,6 @@ contract MockBitmorLendingPool is ILendingPool {
         // Validate liquidation type (like real lending pool)
         uint256 liquidationType = this.checkTypeOfLiquidation(user);
         require(liquidationType == 1, "LiquidationCall requires full liquidation type (1)");
-        require(debtToCover == type(uint256).max, "Full liquidation requires max debt coverage");
 
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
@@ -337,7 +359,12 @@ contract MockBitmorLendingPool is ILendingPool {
         _executeMicroLiquidation(collateralAsset, debtAsset, user, debtToCover);
     }
 
-    /// @dev Internal micro liquidation - doesn't call full liquidation update
+    /// @dev Internal micro liquidation execution - seizes collateral and burns debt without
+    ///      triggering full liquidation loan status update. Calls `updateLoanDataForMicroLiquidation` instead.
+    /// @param collateralAsset The collateral asset to seize
+    /// @param debtAsset The debt asset being repaid by the liquidator
+    /// @param user The borrower being liquidated
+    /// @param debtToCover The amount of debt to cover in this micro liquidation
     function _executeMicroLiquidation(address collateralAsset, address debtAsset, address user, uint256 debtToCover)
         internal
     {
@@ -460,6 +487,49 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @param rate The new variable borrow rate (in RAY, e.g., 0.12e27 for 12%)
     function setVariableBorrowRate(address asset, uint256 rate) external {
         _reserves[asset].currentVariableBorrowRate = uint128(rate);
+    }
+
+    /// @notice Simulated repayment shortfall for testing refund logic
+    uint256 private _repaymentShortfall;
+
+    /// @notice Set a repayment shortfall (test helper)
+    /// @dev When set > 0, repay() will return (requestedAmount - shortfall)
+    /// @param shortfall The amount to subtract from actual repayment
+    function setRepaymentShortfall(uint256 shortfall) external {
+        _repaymentShortfall = shortfall;
+    }
+
+    /// @notice Get current repayment shortfall
+    function getRepaymentShortfall() external view returns (uint256) {
+        return _repaymentShortfall;
+    }
+
+    /// @notice Simulates withdrawal failure for testing
+    mapping(address => bool) private _withdrawalFailure;
+
+    /// @notice Set withdrawal to fail for a specific user (test helper)
+    /// @param onBehalfOf The user address whose withdrawals should fail
+    /// @param shouldFail Whether withdrawals should fail
+    function setWithdrawalFailure(address onBehalfOf, bool shouldFail) external {
+        _withdrawalFailure[onBehalfOf] = shouldFail;
+    }
+
+    /// @notice Check if withdrawal is set to fail for user
+    function isWithdrawalFailure(address onBehalfOf) external view returns (bool) {
+        return _withdrawalFailure[onBehalfOf];
+    }
+
+    /// @notice Mark a reserve as having invalid debt token (for error testing)
+    /// @dev When set, getReserveData() returns empty reserve with zero addresses
+    /// @param asset The asset to mark as invalid
+    function setInvalidReserve(address asset) external {
+        _invalidReserves[asset] = true;
+    }
+
+    /// @notice Reset reserve to valid state
+    /// @param asset The asset to reset
+    function resetInvalidReserve(address asset) external {
+        _invalidReserves[asset] = false;
     }
 
     /// @inheritdoc ILendingPool

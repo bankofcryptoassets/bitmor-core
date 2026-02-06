@@ -8,8 +8,11 @@ import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
 /// @title AccessControlsTest
-/// @notice Test suite for verifying access control mechanisms in the Bitmor Protocol
-/// @dev Updated to use AccessManaged pattern instead of Ownable
+/// @author Bitmor Protocol
+/// @notice Test suite for verifying AccessManaged role-based access control mechanisms
+/// @dev Focuses on: unauthorized access reverts, role assignments, and cross-cutting access control.
+///      For comprehensive testing of individual setter functions (values, bounds, events),
+///      see `AdminSetters.t.sol` which provides dedicated setter coverage.
 contract AccessControlsTest is BaseLoanTest {
     address internal attacker;
 
@@ -50,9 +53,6 @@ contract AccessControlsTest is BaseLoanTest {
         loan.setZQuoter(NEW_ZQUOTER);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.setLiquidationBuffer(NEW_LIQUIDATION_BUFFER);
-
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
@@ -74,9 +74,7 @@ contract AccessControlsTest is BaseLoanTest {
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapAdapter, (NEW_SWAP_ADAPTER))
         );
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setZQuoter, (NEW_ZQUOTER)));
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLiquidationBuffer, (NEW_LIQUIDATION_BUFFER))
-        );
+
         _scheduleAndExecute(
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
         );
@@ -90,7 +88,6 @@ contract AccessControlsTest is BaseLoanTest {
         assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
         assertEq(loan.s_swapAdapter(), NEW_SWAP_ADAPTER);
         assertEq(loan.s_zQuoter(), NEW_ZQUOTER);
-        assertEq(loan.getLiquidationBuffer(), NEW_LIQUIDATION_BUFFER);
         assertEq(loan.getPremiumCollector(), NEW_PREMIUM_COLLECTOR);
         assertEq(loan.getGracePeriod(), NEW_GRACE_PERIOD);
         assertEq(loan.getPreClosureFee(), NEW_PRE_CLOSURE_FEE);
@@ -131,13 +128,13 @@ contract AccessControlsTest is BaseLoanTest {
         );
     }
 
-    /// @notice Unauthorized callers cannot update loan status.
+    /// @notice Unauthorized callers cannot update loan data for micro liquidation.
     function test_protocolMutators_updateLoanDataForMicroLiquidation_revertForUnauthorized() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.updateLoanDataForFullLiquidation(lsa);
+        loan.updateLoanDataForMicroLiquidation(lsa);
     }
 
     /// @notice Unauthorized callers cannot update stored loan data.

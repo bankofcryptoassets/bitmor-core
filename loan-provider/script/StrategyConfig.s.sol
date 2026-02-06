@@ -65,14 +65,15 @@ contract StrategyConfig is Script {
 
     /// @notice Returns strategy config for local Anvil deployment
     function _getLocalStrategyConfig() internal view returns (StrategyDeploymentConfig memory) {
-        HelperConfig.NetworkConfig memory networkConfig = _cachedHelperConfig.getNetworkConfig();
+        address aaveV3Pool = _cachedHelperConfig.getAaveV3Pool();
+        address bitmorPool = _cachedHelperConfig.getBitmorPool();
 
         return StrategyDeploymentConfig({
-            btcVault: BTCVaultStrategyConfig({deployAaveStrategy: true, yieldSource: networkConfig.aaveV3Pool}),
+            btcVault: BTCVaultStrategyConfig({deployAaveStrategy: true, yieldSource: aaveV3Pool}),
             usdcVault: USDCVaultStrategyConfig({
                 deployUSDCStrategy: true,
-                aavePool: networkConfig.aaveV3Pool,
-                blpPool: networkConfig.bitmorPool,
+                aavePool: aaveV3Pool,
+                blpPool: bitmorPool,
                 aaveAllocation: _cachedHelperConfig.getAaveAllocation(),
                 minimumDeltaRequired: _cachedHelperConfig.getMinimumDeltaRequired()
             })
@@ -81,14 +82,15 @@ contract StrategyConfig is Script {
 
     /// @notice Returns strategy config for Base Sepolia deployment
     function _getBaseSepoliaStrategyConfig() internal view returns (StrategyDeploymentConfig memory) {
-        HelperConfig.NetworkConfig memory networkConfig = _cachedHelperConfig.getNetworkConfig();
+        address aaveV3Pool = _cachedHelperConfig.getAaveV3Pool();
+        address bitmorPool = _cachedHelperConfig.getBitmorPool();
 
         return StrategyDeploymentConfig({
-            btcVault: BTCVaultStrategyConfig({deployAaveStrategy: true, yieldSource: networkConfig.aaveV3Pool}),
+            btcVault: BTCVaultStrategyConfig({deployAaveStrategy: true, yieldSource: aaveV3Pool}),
             usdcVault: USDCVaultStrategyConfig({
                 deployUSDCStrategy: true,
-                aavePool: networkConfig.aaveV3Pool,
-                blpPool: networkConfig.bitmorPool,
+                aavePool: aaveV3Pool,
+                blpPool: bitmorPool,
                 aaveAllocation: _cachedHelperConfig.getAaveAllocation(),
                 minimumDeltaRequired: _cachedHelperConfig.getMinimumDeltaRequired()
             })

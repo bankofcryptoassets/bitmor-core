@@ -12,8 +12,10 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 /// @dev Configures the complete role-based access control system for Bitmor Protocol
 /// @custom:security This script grants significant permissions - should only be run by authorized deployer
 contract InitialSetup is Script {
-    /// @dev Configuration helper instance for retrieving deployment addresses and role data
+    /// @dev Configuration helper instance for retrieving deployment addresses
     HelperConfig config;
+    /// @dev RolesData instance for retrieving role definitions
+    RolesData rolesData;
     /// @dev AccessManager contract instance to configure
     BitmorAccessManager manager;
 
@@ -91,9 +93,10 @@ contract InitialSetup is Script {
     /// @custom:security This function grants extensive permissions - validate all role configurations
     function _initialSetup() internal {
         config = new HelperConfig();
+        rolesData = new RolesData();
         manager = BitmorAccessManager(config.getAccessManager());
 
-        HelperConfig.RoleData[] memory roles = config.getAllRoles();
+        RolesData.RoleData[] memory roles = rolesData.getAllRoles();
 
         uint256 rolesLength = roles.length;
 
@@ -101,7 +104,7 @@ contract InitialSetup is Script {
 
         uint256 i = 0;
         for (i; i < rolesLength; i++) {
-            HelperConfig.RoleData memory role = roles[i];
+            RolesData.RoleData memory role = roles[i];
 
             // Skip ADMIN role (ID 0) - it's locked and cannot be modified
             if (role.id == 0) continue;

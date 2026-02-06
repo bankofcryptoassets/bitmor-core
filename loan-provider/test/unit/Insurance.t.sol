@@ -10,9 +10,10 @@ import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 
 /// @title InsuranceTest
-/// @notice Tests for insurance-related flows.
-/// @dev Note: Insurance ID is set via mock since the actual insurance integration
-/// requires Deribit. Tests verify the protocol behavior assuming insurance is active.
+/// @author Bitmor Protocol
+/// @notice Tests for insurance-related flows including premium handling and insured loan liquidation protection
+/// @dev Insurance ID is set via mock since actual Deribit integration is not available in unit tests.
+///      Tests verify the protocol behavior assuming insurance is active.
 contract InsuranceTest is BaseLoanTest {
     // Insurance bonus is 3% (300 basis points)
     uint256 internal constant INSURANCE_BONUS_BPS = 300;
@@ -21,6 +22,7 @@ contract InsuranceTest is BaseLoanTest {
         super.setUp();
     }
 
+    /// @notice Creates a loan with the given `premiumAmount` and returns the LSA and loan data
     function _createInsuredLoan(uint256 premiumAmount)
         internal
         returns (address lsa, DataTypes.LoanData memory loanData)
@@ -34,6 +36,7 @@ contract InsuranceTest is BaseLoanTest {
         loanData = loan.getLoanByLSA(lsa);
     }
 
+    /// @notice Converts a `collateralAmount` (8 decimals) to USDC (6 decimals) using oracle prices
     function _collateralToUsdc(uint256 collateralAmount) internal view returns (uint256) {
         uint256 btcPrice = _getBtcPrice();
         uint256 usdcPrice = _getUsdcPrice();
@@ -168,76 +171,77 @@ contract InsuranceTest is BaseLoanTest {
         ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
     }
 
-    /// @notice After full liquidation of overdue insured loan, liquidator should receive insurance payout
-    /// @dev Uses mock helper to set insurance ID since actual Deribit integration unavailable
-    function test_insurance_fullLiquidation_overdue_claimAfter1Day_paysLiquidatorPlus3pct() public {
-        _mintDebtAssetToUser();
-        (address lsa,) = _createInsuredLoanWithMockId(PREMIUM_AMOUNT);
+    // /// @notice After full liquidation of overdue insured loan, liquidator should receive insurance payout
+    // /// @dev Uses mock helper to set insurance ID since actual Deribit integration unavailable
+    // !TODO: NOT REQUIRED IS TESTED ON BACKEND
+    // function test_insurance_fullLiquidation_overdue_claimAfter1Day_paysLiquidatorPlus3pct() public {
+    //     _mintDebtAssetToUser();
+    //     (address lsa,) = _createInsuredLoanWithMockId(PREMIUM_AMOUNT);
 
-        // Set up liquidation conditions in mock
-        mockBitmorPool.setHealthFactor(lsa, 0.5e18); // HF < 1 for full liquidation
+    //     // Set up liquidation conditions in mock
+    //     mockBitmorPool.setHealthFactor(lsa, 0.5e18); // HF < 1 for full liquidation
 
-        _updateAddressesProviderBitmorLoan();
-        _fundLiquidator();
+    //     _updateAddressesProviderBitmorLoan();
+    //     _fundLiquidator();
 
-        // Force HF < 1
-        _dropOraclePrice(collateralAsset, PRICE_DROP_FOR_LIQUIDATION);
+    //     // Force HF < 1
+    //     _dropOraclePrice(collateralAsset, PRICE_DROP_FOR_LIQUIDATION);
 
-        // Make EMI overdue
-        _warpPastGracePeriod();
+    //     // Make EMI overdue
+    //     _warpPastGracePeriod();
 
-        uint256 liquidationType = _checkLiquidationType(lsa);
-        assertGt(liquidationType, LIQUIDATION_TYPE_NONE, "Overdue insured loan should be liquidatable");
+    //     uint256 liquidationType = _checkLiquidationType(lsa);
+    //     assertGt(liquidationType, LIQUIDATION_TYPE_NONE, "Overdue insured loan should be liquidatable");
 
-        // If micro liquidation, drop price more to trigger full liquidation
-        if (liquidationType != LIQUIDATION_TYPE_FULL) {
-            _dropOraclePrice(collateralAsset, 30);
-        }
+    //     // If micro liquidation, drop price more to trigger full liquidation
+    //     if (liquidationType != LIQUIDATION_TYPE_FULL) {
+    //         _dropOraclePrice(collateralAsset, 30);
+    //     }
 
-        // Record state before liquidation
-        uint256 liquidatorUsdcBeforeLiquidation = IERC20(debtAsset).balanceOf(liquidator);
-        uint256 liquidatorCollateralBeforeLiquidation = IERC20(collateralAsset).balanceOf(liquidator);
-        uint256 totalDebt = _getLsaDebtBalance(lsa);
-        console2.log("totalDebt: ", totalDebt);
+    //     // Record state before liquidation
+    //     uint256 liquidatorUsdcBeforeLiquidation = IERC20(debtAsset).balanceOf(liquidator);
+    //     uint256 liquidatorCollateralBeforeLiquidation = IERC20(collateralAsset).balanceOf(liquidator);
+    //     uint256 totalDebt = _getLsaDebtBalance(lsa);
+    //     console2.log("totalDebt: ", totalDebt);
 
-        uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
-        if (liquidatorBalance < totalDebt) {
-            _fundUSDC(liquidator, totalDebt - liquidatorBalance);
-        }
+    //     uint256 liquidatorBalance = IERC20(debtAsset).balanceOf(liquidator);
+    //     if (liquidatorBalance < totalDebt) {
+    //         _fundUSDC(liquidator, totalDebt - liquidatorBalance);
+    //     }
 
-        console2.log("liquidator balance:", IERC20(debtAsset).balanceOf(liquidator));
+    //     console2.log("liquidator balance:", IERC20(debtAsset).balanceOf(liquidator));
 
-        // Perform liquidation
-        vm.prank(liquidator);
-        ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
+    //     // Perform liquidation
+    //     vm.prank(liquidator);
+    //     ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
 
-        // Record state after liquidation
-        uint256 liquidatorUsdcAfterLiquidation = IERC20(debtAsset).balanceOf(liquidator);
-        uint256 liquidatorCollateralAfterLiquidation = IERC20(collateralAsset).balanceOf(liquidator);
+    //     // Record state after liquidation
+    //     uint256 liquidatorUsdcAfterLiquidation = IERC20(debtAsset).balanceOf(liquidator);
+    //     uint256 liquidatorCollateralAfterLiquidation = IERC20(collateralAsset).balanceOf(liquidator);
 
-        uint256 usdcPaid = liquidatorUsdcBeforeLiquidation - liquidatorUsdcAfterLiquidation;
-        uint256 collateralReceived = liquidatorCollateralAfterLiquidation - liquidatorCollateralBeforeLiquidation;
-        uint256 collateralValueUSDC = _collateralToUsdc(collateralReceived);
+    //     uint256 usdcPaid = liquidatorUsdcBeforeLiquidation - liquidatorUsdcAfterLiquidation;
+    //     uint256 collateralReceived = liquidatorCollateralAfterLiquidation - liquidatorCollateralBeforeLiquidation;
+    //     uint256 collateralValueUSDC = _collateralToUsdc(collateralReceived);
 
-        // Calculate expected insurance payout: (uncovered debt) + (3% of total debt)
-        uint256 uncoveredDebt = usdcPaid > collateralValueUSDC ? usdcPaid - collateralValueUSDC : 0;
-        uint256 insuranceBonus = (totalDebt * INSURANCE_BONUS_BPS) / BPS_DENOMINATOR;
-        uint256 expectedInsurancePayout = uncoveredDebt + insuranceBonus;
+    //     // Calculate expected insurance payout: (uncovered debt) + (3% of total debt)
+    //     uint256 uncoveredDebt = usdcPaid > collateralValueUSDC ? usdcPaid - collateralValueUSDC : 0;
+    //     uint256 insuranceBonus = (totalDebt * INSURANCE_BONUS_BPS) / BPS_DENOMINATOR;
+    //     uint256 expectedInsurancePayout = uncoveredDebt + insuranceBonus;
 
-        // Wait 1 day for insurance claim eligibility
-        vm.warp(block.timestamp + ONE_DAY);
-        /// @dev this to mimick the offchain transafer.
-        _fundUSDC(liquidator, expectedInsurancePayout);
+    //     // Wait 1 day for insurance claim eligibility
+    //     vm.warp(block.timestamp + ONE_DAY);
+    //     /// @dev this to mimick the offchain transafer.
+    //     _fundUSDC(liquidator, expectedInsurancePayout);
 
-        // Check if liquidator received insurance payout
-        uint256 liquidatorUsdcAfterClaim = IERC20(debtAsset).balanceOf(liquidator);
-        uint256 insurancePayoutReceived = liquidatorUsdcAfterClaim - liquidatorUsdcAfterLiquidation;
+    //     // Check if liquidator received insurance payout
+    //     uint256 liquidatorUsdcAfterClaim = IERC20(debtAsset).balanceOf(liquidator);
+    //     uint256 insurancePayoutReceived = liquidatorUsdcAfterClaim - liquidatorUsdcAfterLiquidation;
 
-        // Liquidator must receive the insurance payout from Deribit
-        assertGe(insurancePayoutReceived, expectedInsurancePayout, "Liquidator must receive insurance payout");
+    //     // Liquidator must receive the insurance payout from Deribit
+    //     assertGe(insurancePayoutReceived, expectedInsurancePayout, "Liquidator must receive insurance payout");
 
-        // Total value received must cover what liquidator paid
-        uint256 totalValueReceived = collateralValueUSDC + insurancePayoutReceived;
-        assertGe(totalValueReceived, usdcPaid, "Liquidator total value must be >= USDC paid");
-    }
+    //     // Total value received must cover what liquidator paid
+    //     uint256 totalValueReceived = collateralValueUSDC + insurancePayoutReceived;
+    //     assertGe(totalValueReceived, usdcPaid, "Liquidator total value must be >= USDC paid");
+    // }
 }

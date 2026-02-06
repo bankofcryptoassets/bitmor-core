@@ -5,6 +5,10 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockTokenizedStrategy, BaseTestForBTCVault} from "../BaseTestForBTCVault.t.sol";
 
+/// @title SupplyQueueTest__BTCVaultHarness
+/// @author Bitmor Protocol
+/// @notice Tests for BTCVault supply queue update and validation
+/// @dev Verifies queue ordering, length constraints, and revert on exceeding `maxStrategies`
 contract SupplyQueueTest__BTCVaultHarness is BaseTestForBTCVault {
     modifier addStrategies() {
         _addStrategies();
@@ -38,6 +42,7 @@ contract SupplyQueueTest__BTCVaultHarness is BaseTestForBTCVault {
         );
     }
 
+    /// @notice Deploys and adds 5 strategies with `STANDARD_STRATEGY_CAP` to the vault
     function _addStrategies() public {
         for (uint256 i = 0; i < 5; i++) {
             MockTokenizedStrategy newStrategy = new MockTokenizedStrategy(address(yieldSource), address(vault));

@@ -13,11 +13,17 @@ interface ILoan {
     // ============ Events ============
 
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
+        address indexed borrower,
+        address indexed lsa,
+        uint256 loanAmount,
+        uint256 collateralAmount,
+        bytes data
     );
 
     event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
+        address indexed lsa,
+        DataTypes.LoanStatus indexed oldStatus,
+        DataTypes.LoanStatus indexed newStatus
     );
 
     event Loan__MaxLoanAmountUpdated(uint256 indexed newAmount);
@@ -34,9 +40,12 @@ interface ILoan {
 
     event Loan__LoanRepaid(address indexed lsa, uint256 indexed amountRepaid);
 
-    event Loan__LoanDataMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
+    event Loan__LoanDataForMicroLiquidationUpdated(
+        address indexed lsa,
+        uint256 indexed newDuration
+    );
 
-    event Loan__LoanDataFullLiquidationUpdated(address indexed lsa);
+    event Loan__LoanDataForFullLiquidationUpdated(address indexed lsa);
 
     event Loan__InsuranceIDUpdated(address indexed lsa, uint256 indexed insuranceID);
 
@@ -47,6 +56,20 @@ interface ILoan {
     event Loan__PreClosureFeeUpdated(uint256 indexed newPreClosureFee);
 
     event Loan__LiquidationBufferUpdated(uint256 indexed newBuffer);
+
+    event Loan__SlippageForSharesToAssetUpdated(uint256 indexed newSlippage);
+
+    event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
+
+    event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
+
+    event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
+
+    event Loan__MinDepositUpdated(uint256 indexed newMinDepositBps);
+
+    event Loan__LiquidationFeeUpdated(uint256 indexed newLiquidationFee);
+
+    event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
 
     // ============ Main Functions ============
 
@@ -142,7 +165,10 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    ) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -159,9 +185,9 @@ interface ILoan {
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
      * @dev Withdraws from escrow where excess collateral is locked
      * @param lsa The Loan Specific Address
-     * @param withdrawInCollateralAsset If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
-    function closeLoan(address lsa, bool withdrawInCollateralAsset) external;
+    function closeLoan(address lsa, bool withdrawInBTC) external;
 
     // ============ Admin Functions ============
 
@@ -246,8 +272,39 @@ interface ILoan {
      * @return monthlyPayment estimated monthly payment amount in debt asset
      * @return minDepositRequired Minimum deposit required in debt asset to initialize loan
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 collateralAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
+
+    function setSlippageForSharesToAsset(uint256 newSlippage) external;
+
+    function getSlippageForSharesToAsset() external view returns (uint256);
+
+    function setSlippageForSwap(uint256 newSlippage) external;
+
+    function getSlippageForSwap() external view returns (uint256);
+
+    function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
+
+    function getMaxBTCAmount() external view returns (uint256);
+
+    function setMinBTCAmount(uint256 newMinBTCAmt) external;
+
+    function getMinBTCAmount() external view returns (uint256);
+
+    function getMinDepositBps() external view returns (uint256);
+
+    function setMinDepositBps(uint256 newMinDepositBps) external;
+
+    function setLiquidationFeeBps(uint256 newLiquidationFee) external;
+
+    function getLiquidationFeeBps() external view returns (uint256);
+
+    function getLiquidationFeeCollector() external view returns (address);
+
+    function setLiquidationFeeCollector(address newFeeCollector) external;
 }

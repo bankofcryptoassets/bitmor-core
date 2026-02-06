@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {TestConstants} from "../helpers/TestConstants.sol";
 
 /// @title BitmorTestBase
 /// @author Bitmor Protocol
@@ -25,20 +26,21 @@ abstract contract BitmorTestBase is Test {
 
     /// @notice Standard time delay of 1 day for sensitive operations
     uint32 internal constant ONE_DAY_DELAY = 1 days;
+    /// @notice Zero delay for non-sensitive operations
     uint32 internal constant NO_DELAY = 0;
 
     // ============ Role Addresses (created with makeAddr) ============
 
-    // Loan Provider roles
+    /// @dev Loan Provider role actors
     address internal executor;
     address internal lpcm;
     address internal lpm_fast;
     address internal lpm_slow;
 
-    // Auto Repayment roles
+    /// @dev Auto Repayment role actor
     address internal are;
 
-    // BTC Vault roles
+    /// @dev BTC Vault role actors
     address internal bvm_fast;
     address internal bvm_slow;
     address internal bvc;
@@ -46,7 +48,7 @@ abstract contract BitmorTestBase is Test {
     address internal bva_slow;
     address internal bvd;
 
-    // USDC Vault roles
+    /// @dev USDC Vault role actors
     address internal uvm_fast;
     address internal uvm_slow;
     address internal uvc;
@@ -462,12 +464,19 @@ abstract contract BitmorTestBase is Test {
 
     // ============ Loan Configuration Helpers ============
 
-    /// @notice Configure loan parameters using proper setters (replaces vm.store)
+    /// @notice Configure loan parameters using proper setters via AccessManager delayed operations
     /// @param loanContract The Loan contract address
     /// @param maxBTC Maximum BTC amount (in 8 decimals)
     /// @param minBTC Minimum BTC amount (in 8 decimals)
-    /// @param slippage Slippage in basis points
-    function _configureLoanParameters(address loanContract, uint256 maxBTC, uint256 minBTC, uint256 slippage) internal {
+    /// @param slippage Slippage in basis points for swaps
+    /// @param minDepositBps Minimum deposit in basis points
+    function _configureLoanParameters(
+        address loanContract,
+        uint256 maxBTC,
+        uint256 minBTC,
+        uint256 slippage,
+        uint256 minDepositBps
+    ) internal {
         _scheduleAndExecute(
             loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
         );
@@ -476,6 +485,15 @@ abstract contract BitmorTestBase is Test {
         );
         _scheduleAndExecute(
             loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
+        );
+        _scheduleAndExecute(
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinDepositBps(uint256)", minDepositBps)
+        );
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setSlippageForSharesToAsset(uint256)", TestConstants.SLIPPAGE_SHARES_TO_ASSET)
         );
     }
 }

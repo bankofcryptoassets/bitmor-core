@@ -229,6 +229,10 @@ library DataTypes {
          * @dev Repayment interval in seconds (30 days)
          */
         uint256 loanRepaymentInterval;
+        /**
+         * @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
+         */
+        uint256 minDepositBps;
     }
 
     /**
@@ -256,8 +260,9 @@ library DataTypes {
          * @dev Encoded operation-specific parameters
          */
         bytes params;
-
-        /// @dev Acceptable slippage while converting shares to asset.
+        /**
+         * @dev Acceptable slippage in basis points for shares-to-asset conversion
+         */
         uint256 slippage_sharesToAsset;
     }
 
@@ -286,7 +291,9 @@ library DataTypes {
          * @dev Collateral asset address (bvBTC)
          */
         address collateralAsset;
-        /// @dev BTC address
+        /**
+         * @dev Underlying BTC token address (cbBTC)
+         */
         address btc;
         /**
          * @dev Swap adapter for token swaps
@@ -318,7 +325,9 @@ library DataTypes {
          * @dev Amount to repay in debt asset
          */
         uint256 amount;
-        /// @dev Acceptable slippage while converting shares to asset.
+        /**
+         * @dev Acceptable slippage in basis points for shares-to-asset conversion
+         */
         uint256 slippage_sharesToAsset;
     }
 
@@ -346,7 +355,9 @@ library DataTypes {
          * @dev Collateral asset address (cbBTC)
          */
         address collateralAsset;
-
+        /**
+         * @dev Underlying BTC token address (cbBTC)
+         */
         address btc;
         /**
          * @dev Pre-closure fee in basis points
@@ -367,9 +378,22 @@ library DataTypes {
          */
         address lsa;
         /**
-         * @dev If true, withdraw remaining as collateral; if false, as debt asset
+         * @dev If true, withdraw remaining, after debt+fee, as btc; if false, as debt asset
          */
-        bool withdrawInCollateralAsset;
+        bool withdrawInBTC;
+    }
+
+    /**
+     * @notice Context for previewing loan details (collateral bounds and deposit requirements)
+     * @dev Used by `Loan.getLoanDetails()` to pass vault configuration parameters
+     */
+    struct CalculateLoanDetailsContext {
+        /// @dev Minimum collateral amount allowed (e.g., 0.01 BTC in 8 decimals)
+        uint256 minBTCAmt;
+        /// @dev Maximum collateral amount allowed (e.g., 1 BTC in 8 decimals)
+        uint256 maxBTCAmt;
+        /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
+        uint256 minDepositBps;
     }
 
     /**
@@ -413,6 +437,8 @@ library DataTypes {
          * @dev Loan duration in months
          */
         uint256 duration;
+        /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
+        uint256 minDepositBps;
     }
 
     /**
@@ -452,6 +478,8 @@ library DataTypes {
          * @dev Loan duration in months
          */
         uint256 duration;
+        /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
+        uint256 minDepositBps;
     }
 
     // ============ Loan Data Structure ============
@@ -467,6 +495,7 @@ library DataTypes {
      * @param createdAt Unix timestamp when loan was created
      * @param insuranceID Insurance/Order ID for tracking this loan
      * @param lastPaymentTimestamp Timestamp at which last payment was made.
+     * @param amountRepaidInCurrentPeriod Accumulated partial repayments within the current billing period (6 decimals)
      * @param status Current lifecycle status of the loan
      */
     struct LoanData {
@@ -479,6 +508,7 @@ library DataTypes {
         uint256 createdAt;
         uint256 insuranceID;
         uint256 lastPaymentTimestamp;
+        uint256 amountRepaidInCurrentPeriod;
         LoanStatus status;
     }
 
@@ -581,7 +611,6 @@ library DataTypes {
          * @notice Address that receives collected entry and exit fees
          */
         address feeRecipient;
-
         /**
          * @notice Maximum number of strategies that can be added to the vault
          */

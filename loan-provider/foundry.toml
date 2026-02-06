@@ -16,6 +16,8 @@ fs_permissions = [
 ]
 cbor_metadata = true
 ffi = true
+dynamic_test_linking = true
+
 [etherscan]
 base_sepolia = { key = "${ETHERSCAN_KEY}", chain = 84532 }
 
@@ -67,6 +69,7 @@ optimizer = true
 optimizer_runs = 1
 via_ir = true
 ffi = true
+dynamic_test_linking = true
 fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
@@ -155,6 +158,25 @@ fs_permissions = [
 [profile.invariant.invariant]
 runs = 256
 depth = 50
+
+# Coverage profile - excludes scripts to avoid stack depth issues
+[profile.coverage]
+src = "src"
+out = "forge-out"
+test = "test/unit"
+script = ".coverage-disabled"  # Non-existent path to exclude scripts
+libs = ["node_modules", "lib"]
+optimizer = false  # Coverage needs optimizer disabled for accurate reports
+via_ir = false
+ffi = true
+dynamic_test_linking = true
+fs_permissions = [
+    { access = "read", path = "./broadcast" },
+    { access = "read", path = "./reports" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../lending-pool" }
+]
 
 # Network configurations
 [rpc_endpoints]

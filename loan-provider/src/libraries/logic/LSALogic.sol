@@ -36,6 +36,7 @@ library LSALogic {
     /// @dev Maximum uint256 value used for max withdrawal amounts
     uint256 internal constant MAX_U256 = type(uint256).max;
 
+    /// @dev Basis points denominator (10,000 = 100%) for slippage calculations
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
     /**
@@ -98,6 +99,17 @@ library LSALogic {
         amountWithdrawn = abi.decode(result, (uint256));
     }
 
+    /**
+     * @notice Redeems bvBTC shares from the BTC Vault via the LSA, returning cbBTC to `recipient`
+     * @dev Executes the ERC-4626 `redeem` call through the LSA's `execute()` function.
+     * Validates received assets against a minimum receivable computed from `slippage_sharesToAsset`.
+     * @param lsa The Loan Specific Address holding the bvBTC shares
+     * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param sharesAmount Amount of bvBTC shares to redeem
+     * @param recipient Address to receive the underlying cbBTC assets
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     * @return assetsReceived Actual amount of cbBTC assets received from the redemption
+     */
     function redeemBTC(
         address lsa,
         address collateralAsset,

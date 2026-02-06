@@ -4,6 +4,12 @@ pragma solidity 0.8.30;
 import {ILendingPoolAddressesProvider} from "./ILendingPoolAddressesProvider.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 
+/**
+ * @title ILendingPool
+ * @author Aave / Bitmor Protocol
+ * @notice Interface for the Bitmor Lending Pool (Aave V2-based) used for collateral deposits and debt management
+ * @dev Extended from Aave V2 LendingPool with Bitmor-specific functions for micro-liquidation and loan integration
+ */
 interface ILendingPool {
     /**
      * @dev Emitted on deposit()
@@ -349,6 +355,14 @@ interface ILendingPool {
             uint256 healthFactor
         );
 
+    /**
+     * @notice Initializes a reserve with its associated token addresses and interest rate strategy
+     * @param reserve The address of the underlying asset
+     * @param aTokenAddress The address of the aToken for this reserve
+     * @param stableDebtAddress The address of the stable debt token
+     * @param variableDebtAddress The address of the variable debt token
+     * @param interestRateStrategyAddress The address of the interest rate strategy
+     */
     function initReserve(
         address reserve,
         address aTokenAddress,
@@ -357,8 +371,18 @@ interface ILendingPool {
         address interestRateStrategyAddress
     ) external;
 
+    /**
+     * @notice Updates the interest rate strategy for a reserve
+     * @param reserve The address of the underlying asset
+     * @param rateStrategyAddress The new interest rate strategy address
+     */
     function setReserveInterestRateStrategyAddress(address reserve, address rateStrategyAddress) external;
 
+    /**
+     * @notice Sets the configuration bitmap for a reserve
+     * @param reserve The address of the underlying asset
+     * @param configuration The configuration bitmap value
+     */
     function setConfiguration(address reserve, uint256 configuration) external;
 
     /**
@@ -399,6 +423,15 @@ interface ILendingPool {
      */
     function getReserveData(address asset) external view returns (DataTypes.ReserveData memory);
 
+    /**
+     * @notice Validates and finalizes an aToken transfer
+     * @param asset The address of the underlying asset
+     * @param from The sender address
+     * @param to The recipient address
+     * @param amount The transfer amount
+     * @param balanceFromAfter The sender's balance after the transfer
+     * @param balanceToBefore The recipient's balance before the transfer
+     */
     function finalizeTransfer(
         address asset,
         address from,
@@ -408,11 +441,18 @@ interface ILendingPool {
         uint256 balanceToBefore
     ) external;
 
+    /// @notice Returns the list of initialized reserve asset addresses.
     function getReservesList() external view returns (address[] memory);
 
+    /// @notice Returns the LendingPoolAddressesProvider connected to this contract.
     function getAddressesProvider() external view returns (ILendingPoolAddressesProvider);
 
+    /**
+     * @notice Pauses or unpauses the lending pool
+     * @param val True to pause, false to unpause
+     */
     function setPause(bool val) external;
 
+    /// @notice Returns whether the lending pool is paused.
     function paused() external view returns (bool);
 }

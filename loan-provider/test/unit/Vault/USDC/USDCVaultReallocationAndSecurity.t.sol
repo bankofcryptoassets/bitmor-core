@@ -11,8 +11,9 @@ import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
 
 /// @title USDCVaultReallocationAndSecurityTest
-/// @notice Test suite for vault security measures and access control
-/// @dev Tests security against attacks and access control with AccessManager pattern
+/// @author Bitmor Protocol
+/// @notice Test suite for USDCVault reallocation logic, security measures, and access control
+/// @dev Tests reallocation between Aave and Bitmor Lending Pool, inflation attack protection, share price monotonicity, and role-based access control
 contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
     address internal unauthorized;
 
@@ -92,9 +93,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         // Set a very high minimum delta required (50% = 5000 bps)
         uint256 highMinDelta = 5000;
         _scheduleAndExecute(
-            uvm_slow,
-            UVM_SLOW_ID(),
-            abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta))
+            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta))
         );
 
         // Capture initial state

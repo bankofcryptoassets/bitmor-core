@@ -3,7 +3,8 @@ pragma solidity 0.8.30;
 
 /**
  * @title IzQuoter
- * @notice Interface for zQuoter - price quotation helper for zRouter
+ * @author Zamm DeFi
+ * @notice Interface for zQuoter - price quotation helper for zRouter on Base network
  * @dev Repository: https://github.com/zammdefi/zRouter
  * @dev Deployed on Base: 0x772E2810A471dB2CC7ADA0d37D6395476535889a
  */

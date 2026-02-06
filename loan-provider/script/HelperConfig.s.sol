@@ -4,9 +4,8 @@ pragma solidity 0.8.30;
 import {stdJson} from "forge-std/StdJson.sol";
 import {Script} from "forge-std/Script.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
 
-contract HelperConfig is Script, RolesData {
+contract HelperConfig is Script {
     using stdJson for string;
 
     struct NetworkConfig {
@@ -23,7 +22,6 @@ contract HelperConfig is Script, RolesData {
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
-        uint256 liquidationBuffer;
         // Vault test config
         address usdc;
         address usdc_holder;
@@ -31,7 +29,7 @@ contract HelperConfig is Script, RolesData {
         uint256 exitFee;
     }
 
-    NetworkConfig public networkConfig;
+    NetworkConfig internal s_networkConfig;
 
     uint256 public constant CHAIN_ID_LOCAL = 31337;
     uint256 public constant CHAIN_ID_BASE_SEPOLIA = 84532;
@@ -47,7 +45,6 @@ contract HelperConfig is Script, RolesData {
     uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
-    uint256 constant LIQUIDATION_BUFFER = 50; // in bps = 0.5%
     // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
@@ -87,75 +84,63 @@ contract HelperConfig is Script, RolesData {
         return getNetworkName(block.chainid);
     }
 
-    constructor() {
+    /// @notice Lazy initialization - call this to populate s_networkConfig if needed
+    /// @dev Avoids stack depth issues by not auto-initializing in constructor
+    function initNetworkConfig() public {
         if (block.chainid == CHAIN_ID_LOCAL) {
-            networkConfig = getLocalNetworkConfig();
+            _initLocalConfig();
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            networkConfig = getBaseSepoliaNetworkConfig();
+            _initBaseSepoliaConfig();
         }
     }
 
-    function getBaseSepoliaNetworkConfig() public view returns (NetworkConfig memory config) {
-        config = NetworkConfig({
-            accessManager: getAccessManager(),
-            bitmorPool: getBitmorPool(),
-            aaveV3Pool: getAaveV3Pool(),
-            aaveAddressesProvider: getAaveAddressesProvider(),
-            oracle: getOracle(),
-            collateralAsset: getCollateralAsset(),
-            debtAsset: getDebtAsset(),
-            btc: getCbBTC(),
-            getSwapAdapterWrapper: getSwapAdapterWrapper(),
-            zQuoter: getZQuoter(),
-            premiumCollector: getPremiumCollector(),
-            preClosureFeeBps: getPreClosureFee(),
-            gracePeriod: getGracePeriod(),
-            liquidationBuffer: getLiquidationBuffer(),
-            usdc: getUSDC(),
-            usdc_holder: getUSDCHolder(),
-            entryFee: DEFAULT_ENTRY_FEE,
-            exitFee: DEFAULT_EXIT_FEE
-        });
+    /// @dev Internal helper to initialize Base Sepolia config incrementally
+    function _initBaseSepoliaConfig() internal {
+        s_networkConfig.accessManager = getAccessManager();
+        s_networkConfig.bitmorPool = getBitmorPool();
+        s_networkConfig.aaveV3Pool = getAaveV3Pool();
+        s_networkConfig.aaveAddressesProvider = getAaveAddressesProvider();
+        s_networkConfig.oracle = getOracle();
+        s_networkConfig.collateralAsset = getCollateralAsset();
+        s_networkConfig.debtAsset = getDebtAsset();
+        s_networkConfig.btc = getCbBTC();
+        s_networkConfig.getSwapAdapterWrapper = getSwapAdapterWrapper();
+        s_networkConfig.zQuoter = getZQuoter();
+        s_networkConfig.premiumCollector = getPremiumCollector();
+        s_networkConfig.preClosureFeeBps = getPreClosureFee();
+        s_networkConfig.gracePeriod = getGracePeriod();
+        s_networkConfig.usdc = getUSDC();
+        s_networkConfig.usdc_holder = getUSDCHolder();
+        s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
+        s_networkConfig.exitFee = DEFAULT_EXIT_FEE;
     }
 
-    /// @notice Returns network config for local Anvil (chainId 31337)
-    /// @dev Reads from loan-provider/deployments.json and lending-pool/deployed-contracts.json
-    function getLocalNetworkConfig() public view returns (NetworkConfig memory config) {
-        // Read from deployments.json (Phase 1 addresses from loan-provider)
+    /// @dev Internal helper to initialize local config incrementally
+    function _initLocalConfig() internal {
         address mockUsdc = _readDeployment("debtAsset");
         address mockCbBTC = _readDeployment("cbBTC");
-        address localAccessManager = _readDeployment("accessManager");
 
-        // Get Bitmor Pool from lending-pool deployment
-        address bitmorPool = getBitmorPool();
-        config = NetworkConfig({
-            accessManager: localAccessManager,
-            bitmorPool: bitmorPool,
-            aaveV3Pool: _readDeployment("aaveV3Pool"),
-            aaveAddressesProvider: _readDeployment("aaveAddressesProvider"),
-            oracle: getOracle(),
-            collateralAsset: _readDeployment("collateralAsset"), // bvBTC
-            debtAsset: mockUsdc,
-            btc: mockCbBTC,
-            getSwapAdapterWrapper: getSwapAdapterWrapper(),
-            zQuoter: address(0), // Not used for local
-            premiumCollector: BITMOR_OWNER,
-            preClosureFeeBps: getPreClosureFee(),
-            gracePeriod: getGracePeriod(),
-            liquidationBuffer: getLiquidationBuffer(),
-            usdc: mockUsdc,
-            usdc_holder: BITMOR_OWNER, // Use owner as USDC holder for local testing
-            entryFee: DEFAULT_ENTRY_FEE,
-            exitFee: DEFAULT_EXIT_FEE
-        });
+        s_networkConfig.accessManager = _readDeployment("accessManager");
+        s_networkConfig.bitmorPool = getBitmorPool();
+        s_networkConfig.aaveV3Pool = _readDeployment("aaveV3Pool");
+        s_networkConfig.aaveAddressesProvider = _readDeployment("aaveAddressesProvider");
+        s_networkConfig.oracle = getOracle();
+        s_networkConfig.collateralAsset = _readDeployment("collateralAsset"); // bvBTC
+        s_networkConfig.debtAsset = mockUsdc;
+        s_networkConfig.btc = mockCbBTC;
+        s_networkConfig.getSwapAdapterWrapper = getSwapAdapterWrapper();
+        s_networkConfig.zQuoter = address(0); // Not used for local
+        s_networkConfig.premiumCollector = BITMOR_OWNER;
+        s_networkConfig.preClosureFeeBps = getPreClosureFee();
+        s_networkConfig.gracePeriod = getGracePeriod();
+        s_networkConfig.usdc = mockUsdc;
+        s_networkConfig.usdc_holder = BITMOR_OWNER;
+        s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
+        s_networkConfig.exitFee = DEFAULT_EXIT_FEE;
     }
 
     function getInitialAdmin() public pure returns (address) {
         return BITMOR_OWNER;
-    }
-
-    function getNetworkConfig() public view returns (NetworkConfig memory) {
-        return networkConfig;
     }
 
     function getAccessManager() public view returns (address) {
@@ -164,10 +149,6 @@ contract HelperConfig is Script, RolesData {
 
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
-    }
-
-    function getLiquidationBuffer() public pure returns (uint256) {
-        return LIQUIDATION_BUFFER;
     }
 
     function getPremiumCollector() public pure returns (address) {
@@ -388,8 +369,8 @@ contract HelperConfig is Script, RolesData {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
 
         try vm.readFile(path) returns (string memory json) {
-            // Build jsonpath: .deployments.<chainId>.networkConfig.<key>
-            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.", key);
+            // Build jsonpath: .deployments.<chainId>.s_networkConfig.<key>
+            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".s_networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

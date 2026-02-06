@@ -15,16 +15,24 @@ import {IPool as IAave} from "../../interfaces/IPool.sol";
 
 /**
  * @title USDCStrategy
- * @notice A yield strategy that splits deposited assets in 4:1 ratio between Aave and BLP protocols
- * @dev Implements ISimpleStrategy interface and manages asset allocation across DeFi protocols
+ * @author Bitmor Protocol
+ * @notice A yield strategy that splits deposited USDC between Aave and Bitmor Lending Pool
+ * @dev Implements ISimpleStrategy interface. The allocation ratio is configurable via
+ * `s_aaveAllocation` (in basis points). The remainder goes to BLP.
+ * @custom:security Only callable by the owning vault via the `onlyVault` modifier
  */
 contract USDCStrategy is ISimpleStrategy {
     using Address for address;
     using FixedPointMathLib for uint256;
     using SafeTransferLib for address;
 
+    /// @notice Thrown when a function restricted to the vault is called by another address
     error USDCStrategy__NotVault();
 
+    /**
+     * @notice Emitted when the Aave allocation percentage is updated
+     * @param newAaveAllocation The new Aave allocation in basis points
+     */
     event USDCStrategy__AAVEAllocationUpdated(uint256 indexed newAaveAllocation);
 
     /**
@@ -96,6 +104,7 @@ contract USDCStrategy is ISimpleStrategy {
         i_asset.safeApprove(address(i_blp), type(uint256).max);
     }
 
+    /// @notice Restricts function access to the owning vault contract
     modifier onlyVault() {
         if (msg.sender != i_vault) revert USDCStrategy__NotVault();
         _;
@@ -144,8 +153,9 @@ contract USDCStrategy is ISimpleStrategy {
     */
 
     /**
-     * @notice Updates the allocation to Aave.
-     * @param newAaveAllocation New allocation amount in bps, which will be deposited in Aave.
+     * @notice Updates the percentage of deposited assets allocated to Aave
+     * @param newAaveAllocation New allocation in basis points (e.g., 8000 = 80% to Aave)
+     * @custom:access Only callable by the vault
      */
     function setAaveAllocation(uint256 newAaveAllocation) external onlyVault {
         s_aaveAllocation = newAaveAllocation;
@@ -153,8 +163,9 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Supply the amount between AAVE and BLP.
-     * @param amount Amount of assets supplied.
+     * @notice Transfers `amount` from the vault and splits it between Aave and BLP per `s_aaveAllocation`
+     * @param amount Amount of assets to supply
+     * @custom:access Only callable by the vault
      */
     function supply(uint256 amount) external onlyVault {
         // Transfer assets from vault to strategy
@@ -172,8 +183,9 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Withdraws assets from pools and transfers to vault for LP withdrawal.
-     * @param amount The amount of assets to withdraw and send to vault.
+     * @notice Withdraws `amount` from Aave and BLP while maintaining the allocation ratio, then transfers to the vault
+     * @param amount The amount of assets to withdraw and send to the vault
+     * @custom:access Only callable by the vault
      */
     function withdraw(uint256 amount) external onlyVault {
         _withdrawFunds(amount);
@@ -181,10 +193,17 @@ contract USDCStrategy is ISimpleStrategy {
         i_asset.safeTransfer(msg.sender, amount);
     }
 
+    /// @notice Rebalances assets between Aave and BLP to match the configured `s_aaveAllocation` ratio.
+    /// @custom:access Only callable by the vault
     function reallocateAssets() external onlyVault {
         _reallocateAssets();
     }
 
+    /**
+     * @notice Withdraws assets from Aave and deposits them into BLP to prepare for a user withdrawal
+     * @param amountToWithdraw The amount the user intends to withdraw from BLP
+     * @custom:access Only callable by the vault
+     */
     function reallocateAssets(uint256 amountToWithdraw) external onlyVault {
         _withdrawFundsToBLP(amountToWithdraw);
     }
@@ -197,6 +216,11 @@ contract USDCStrategy is ISimpleStrategy {
         _withdrawAllFunds();
     }
 
+    /**
+     * @notice Updates the minimum delta threshold required before triggering a reallocation
+     * @param newMinimumDeltaRequired The new minimum delta in basis points
+     * @custom:access Only callable by the vault
+     */
     function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external onlyVault {
         s_minimumDeltaRequired = newMinimumDeltaRequired;
 
@@ -212,8 +236,7 @@ contract USDCStrategy is ISimpleStrategy {
     */
 
     /**
-     * @notice Returns the total balance deployed across external protocols
-     * @dev Sums balances in Aave and BLP
+     * @dev Returns the total balance deployed across Aave and BLP
      * @return balance The total amount deployed in external protocols
      */
     function _getTotalBalanceInMarkets() internal view returns (uint256 balance) {
@@ -221,8 +244,7 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Gets the balance of assets deposited in Aave
-     * @dev Queries the aToken balance which represents deposits in Aave
+     * @dev Returns the balance of assets deposited in Aave by querying the aToken balance
      * @return balance The amount of assets deposited in Aave
      */
     function _getBalanceInAave() internal view returns (uint256 balance) {
@@ -231,21 +253,24 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Gets the balance of assets deposited in BLP
-     * @dev Queries the aToken balance from BLP reserve data
-     * @return balance The amount of assets deposited in BLP
+     * @dev Calculates the total assets deposited into BLP by summing available liquidity
+     * and total variable borrow debt (which includes accrued interest).
+     * THIS FUNCTION ASSUMES THERE IS NO STABLE BORROW DEBT.
+     * @return balance The total amount of assets attributable to this strategy in BLP
      */
     function _getBalanceInBLP() internal view returns (uint256 balance) {
-        //! TODO: This get's the balance of aToken not the underlying assets meaning the total assets can be wrong.
-        //! get the i_asset.balanceOf(aToken)
-        // Implemented the fix. This should work right.
+        //! TODO: Validate that available liquidity + borrowed(+accrued interest) accurately reflects strategy's share
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
-        address aToken = reserveData.aTokenAddress;
-        balance = ERC20(i_asset).balanceOf(aToken);
+
+        uint256 availableLiquidity = ERC20(i_asset).balanceOf(reserveData.aTokenAddress);
+        uint256 totalVariableDebt = ERC20(reserveData.variableDebtTokenAddress).totalSupply();
+
+        balance = availableLiquidity + totalVariableDebt;
     }
 
     /**
-     * @notice Reallocates assets between Aave and BLP.
+     * @dev Rebalances assets between Aave and BLP to match `s_aaveAllocation`.
+     * Only rebalances when the delta exceeds `s_minimumDeltaRequired` to avoid unnecessary gas costs.
      */
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
@@ -274,7 +299,7 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Withdraw all funds in the vault.
+     * @dev Withdraws all funds from both Aave and BLP back to the strategy contract.
      */
     function _withdrawAllFunds() internal {
         i_aave.withdraw(i_asset, _getBalanceInAave(), address(this));
@@ -282,8 +307,9 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice Calculates, withdraws and deposit the amount required to be present in BLP from AAVE to meet the standard ratio.
-     * @param amountToTransfer Amount to transfer to the user from the BLP.
+     * @dev Calculates and withdraws the required amount from Aave into BLP so that the
+     * BLP has enough liquidity to cover `amountToTransfer` while maintaining the allocation ratio.
+     * @param amountToTransfer Amount to be withdrawn from BLP by the user
      */
     function _withdrawFundsToBLP(uint256 amountToTransfer) internal {
         uint256 totalBalance = _getTotalBalanceInMarkets();
@@ -300,9 +326,10 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * @notice When Liquidity Provider (LP) wants to withdraw their assets(burn their shares), the `i_vault` calls the withdraw function to send `assets` to the LP.
-     * @dev This calculates and withdraw the funds from both BLP and AAVE such that the remaining funds in both the protocols maintains the allocation ratio.
-     * @param amountToTransfer Amount of assets to transfer to LP.
+     * @dev Withdraws `amountToTransfer` from Aave and BLP while maintaining the allocation ratio.
+     * Processes Aave withdrawals first, then BLP. Excess withdrawals from one pool are
+     * redeposited into the other to preserve the target ratio.
+     * @param amountToTransfer Amount of assets to withdraw to this contract
      */
     function _withdrawFunds(uint256 amountToTransfer) internal {
         uint256 currentAaveBalance = _getBalanceInAave();
@@ -353,7 +380,7 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * Withdraws `amountToWithdrawFromAave` assets from Aave and deposit them in BLP.
+     * @dev Withdraws `amountToWithdrawFromAave` assets from Aave and deposits them into BLP.
      * @param amountToWithdrawFromAave Amount of assets to withdraw from Aave
      */
     function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
@@ -363,7 +390,7 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
-     * Withdraws `amountToWithdrawFromBLP` assets from BLP and deposit them in Aave.
+     * @dev Withdraws `amountToWithdrawFromBLP` assets from BLP and deposits them into Aave.
      * @param amountToWithdrawFromBLP Amount of assets to withdraw from BLP
      */
     function _withdrawFomBLPAndDepositInAAVE(uint256 amountToWithdrawFromBLP) internal {

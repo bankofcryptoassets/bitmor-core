@@ -26,49 +26,88 @@ import {MockDefaultInterestRateStrategy} from "../mock/MockDefaultInterestRateSt
 import {MockUSDCInterestRateStrategy} from "../mock/MockUSDCInterestRateStrategy.sol";
 
 /// @title LoanUnitTestBase
-/// @notice Base for Loan contract unit tests with comprehensive mock dependencies
-/// @dev Deploys real Loan contract with full mock infrastructure for lending pool
+/// @author Bitmor Protocol
+/// @notice Tier 2 test base providing a fully deployed Loan contract with mock lending pool infrastructure
+/// @dev Inherits UnitTestBase (Tier 1) and adds 20+ mock contracts for complete loan lifecycle testing
 abstract contract LoanUnitTestBase is UnitTestBase {
     // ============ Loan Infrastructure ============
+
+    /// @notice The real Loan contract under test
     Loan public loan;
+
+    /// @notice Factory for deploying LoanVault proxies
     LoanVaultFactory public loanVaultFactory;
+
+    /// @notice LoanVault implementation address used by the factory
     address public loanVaultImplementation;
 
     // ============ Test Actors ============
+
+    /// @notice Primary test user (borrower) for loan operations
     address public user;
+
+    /// @notice Test liquidator for liquidation scenarios
     address public liquidator;
 
     // ============ Protocol Addresses ============
+
+    /// @notice Address that receives loan premiums
     address public premiumCollector;
 
     // ============ Mock Infrastructure ============
+
+    /// @notice Mock Bitmor lending pool with controllable liquidation and health factor state
     MockBitmorLendingPool public mockBitmorPool;
+
+    /// @notice Mock price oracle with configurable asset prices and price drop helper
     MockPriceOracle public mockOracle;
+
+    /// @notice Mock addresses provider linking pool, oracle, and loan addresses
     MockAddressesProvider public mockAddressesProvider;
+
+    /// @notice Mock swap adapter using oracle-based pricing for USDC/cbBTC swaps
     MockSwapAdapter public mockSwapAdapter;
 
-    // Mock tokens for lending pool
+    /// @dev Mock aToken and debt token for cbBTC reserve (backward compatibility)
     MockAToken public mockATokenCbBTC;
+
+    /// @notice Mock aToken for USDC reserve
     MockAToken public mockATokenUSDC;
+
+    /// @dev Mock variable debt token for cbBTC
     MockVariableDebtToken public mockDebtTokenCbBTC;
+
+    /// @notice Mock variable debt token for USDC (tracks user debt)
     MockVariableDebtToken public mockDebtTokenUSDC;
+
+    /// @dev Legacy mock interest rate strategy
     MockInterestRateStrategy public mockInterestRateStrategy;
 
-    // New vault mocks for proper collateral handling
+    /// @notice Mock BTC vault wrapping cbBTC into bvBTC shares
     MockBTCVault public mockBTCVault;
+
+    /// @notice Mock USDC vault for interest rate strategy liquidity
     MockUSDCVault public mockUSDCVault;
 
-    // New interest rate strategy mocks
+    /// @notice Mock BTC interest rate strategy for the lending pool
     MockDefaultInterestRateStrategy public mockBTCInterestRateStrategy;
+
+    /// @notice Mock USDC interest rate strategy backed by `mockUSDCVault`
     MockUSDCInterestRateStrategy public mockUSDCInterestRateStrategy;
+
+    /// @notice Mock lending rate oracle for interest rate strategies
     MockLendingRateOracle public mockLendingRateOracle;
 
-    // Renamed: aToken for bvBTC shares (was cbBTC)
+    /// @notice Mock aToken for bvBTC vault shares (the actual collateral in the lending pool)
     MockAToken public mockATokenBvBTC;
 
     // ============ Price Constants ============
-    uint256 public constant BTC_PRICE = 100_000e8; // $100,000 per BTC
-    uint256 public constant USDC_PRICE = 1e8; // $1 per USDC
+
+    /// @notice Default BTC price for tests: $100,000 (8 decimals)
+    uint256 public constant BTC_PRICE = 100_000e8;
+
+    /// @notice Default USDC price for tests: $1 (8 decimals)
+    uint256 public constant USDC_PRICE = 1e8;
 
     function setUp() public virtual override {
         super.setUp();
@@ -95,7 +134,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockLendingRateOracle = new MockLendingRateOracle();
 
         // Deploy price oracle
-        mockOracle = new MockPriceOracle();
+        mockOracle = new MockPriceOracle(address(mockBTCVault), address(mockCbBTC));
         mockOracle.setAssetPrice(address(mockCbBTC), BTC_PRICE);
         mockOracle.setAssetPrice(address(mockUSDC), USDC_PRICE);
 
@@ -219,12 +258,13 @@ abstract contract LoanUnitTestBase is UnitTestBase {
             address(0), // zQuoter (allowed to be zero)
             premiumCollector, // premiumCollector
             config.getPreClosureFee(), // preClosureFeeBps
-            config.getGracePeriod(), // gracePeriod
-            config.getLiquidationBuffer() // liquidationBuffer
+            config.getGracePeriod() // gracePeriod
         );
 
         loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
         loan.setLoanVaultFactory(address(loanVaultFactory));
+
+        loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
 
         // Register loan in addresses provider
         mockAddressesProvider.setBitmorLoan(address(loan));
@@ -242,7 +282,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);
 
         // Configure loan parameters using proper setters (replaces vm.store)
-        _configureLoanParameters(address(loan), 10e8, 0.001e8, 50);
+        _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP, TC.MIN_DEPOSIT);
     }
 
     /// @notice Funds test accounts with tokens
@@ -266,19 +306,29 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     // ============ Loan Creation Helpers ============
 
-    /// @notice Creates a standard loan (1 BTC, 12 months)
+    /// @notice Creates a standard loan with `TC.STANDARD_COLLATERAL` (1 BTC) and `TC.STANDARD_DURATION` (12 months)
+    /// @return lsa The deployed LoanVault (Loan Smart Account) address
     function _createStandardLoan() internal returns (address lsa) {
         lsa = _createLoan(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
     }
 
-    /// @notice Creates a loan with custom parameters
+    /// @notice Creates a loan with custom parameters using the minimum required deposit
+    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param duration Loan duration in months
+    /// @param premium Premium amount in USDC (6 decimals)
+    /// @return lsa The deployed LoanVault (Loan Smart Account) address
     function _createLoan(uint256 collateral, uint256 duration, uint256 premium) internal returns (address lsa) {
         (,, uint256 minDeposit) = loan.getLoanDetails(collateral, duration);
         vm.prank(user);
         lsa = loan.initializeLoan(minDeposit, premium, collateral, duration, "");
     }
 
-    /// @notice Creates a loan and returns both LSA and loan data
+    /// @notice Creates a loan and returns both the LSA address and the stored `LoanData` struct
+    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param duration Loan duration in months
+    /// @param premium Premium amount in USDC (6 decimals)
+    /// @return lsa The deployed LoanVault address
+    /// @return loanData The stored loan data struct
     function _createLoanWithData(uint256 collateral, uint256 duration, uint256 premium)
         internal
         returns (address lsa, DataTypes.LoanData memory loanData)
@@ -289,22 +339,28 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     // ============ Balance Helpers ============
 
-    /// @notice Gets user's USDC balance
+    /// @notice Returns the `user` address USDC balance
+    /// @return The USDC balance (6 decimals)
     function _getUserUsdcBalance() internal view returns (uint256) {
         return mockUSDC.balanceOf(user);
     }
 
-    /// @notice Gets user's cbBTC balance
+    /// @notice Returns the `user` address cbBTC balance
+    /// @return The cbBTC balance (8 decimals)
     function _getUserCbBtcBalance() internal view returns (uint256) {
         return mockCbBTC.balanceOf(user);
     }
 
-    /// @notice Gets user's debt balance from the lending pool
+    /// @notice Returns the USDC variable debt token balance for a given LSA
+    /// @param lsa The LoanVault address to query
+    /// @return The outstanding debt balance (6 decimals)
     function _getDebtBalance(address lsa) internal view returns (uint256) {
         return mockDebtTokenUSDC.balanceOf(lsa);
     }
 
-    /// @notice Gets user's collateral balance from the lending pool
+    /// @notice Returns the bvBTC aToken (collateral) balance for a given LSA
+    /// @param lsa The LoanVault address to query
+    /// @return The collateral balance in bvBTC shares (8 decimals)
     function _getCollateralBalance(address lsa) internal view returns (uint256) {
         return mockATokenBvBTC.balanceOf(lsa);
     }
@@ -326,21 +382,24 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     // ============ Liquidation Helpers ============
 
-    /// @notice Sets up a user for liquidation testing
-    /// @param lsa The loan smart account address
-    /// @param liquidationType 0=none, 1=full, 2=micro
+    /// @notice Sets the liquidation type for a given LSA on the mock lending pool
+    /// @param lsa The LoanVault address
+    /// @param liquidationType 0 = none, 1 = full, 2 = micro
     function _setLiquidationType(address lsa, uint256 liquidationType) internal {
         mockBitmorPool.setLiquidationType(lsa, liquidationType);
     }
 
-    /// @notice Gets the current liquidation type for a user
+    /// @notice Returns the current liquidation type for a given LSA
+    /// @param lsa The LoanVault address to query
+    /// @return 0 = none, 1 = full, 2 = micro
     function _getLiquidationType(address lsa) internal view returns (uint256) {
         return mockBitmorPool.checkTypeOfLiquidation(lsa);
     }
 
     // ============ Time Helpers ============
 
-    /// @notice Advances time by a number of days
+    /// @notice Warps `block.timestamp` forward by `days_` days
+    /// @param days_ Number of days to advance
     function _advanceDays(uint256 days_) internal {
         vm.warp(block.timestamp + days_ * 1 days);
     }

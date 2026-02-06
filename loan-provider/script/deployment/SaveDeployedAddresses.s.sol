@@ -131,77 +131,55 @@ contract SaveDeployedAddresses is Script {
     }
 
     function _buildNetworkConfig() internal view returns (string memory) {
-        (
-            address accessManager,
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAsset,
-            address debtAsset,
-            address btc,
-            address getSwapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer,, // usdc
-            , // usdc_holder
-            , // entryFee
-            // exitFee
-        ) = helperConfig.networkConfig();
-
+        // Use individual getters to avoid stack depth issues
         string memory json = string.concat(
             ',"networkConfig":{',
             '"accessManager":"',
-            vm.toString(accessManager),
+            vm.toString(helperConfig.getAccessManager()),
             '",',
             '"bitmorPool":"',
-            vm.toString(bitmorPool),
+            vm.toString(helperConfig.getBitmorPool()),
             '",',
             '"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
+            vm.toString(helperConfig.getAaveV3Pool()),
             '",',
             '"aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
+            vm.toString(helperConfig.getAaveAddressesProvider()),
             '",',
             '"oracle":"',
-            vm.toString(oracle),
+            vm.toString(helperConfig.getOracle()),
             '",'
         );
 
         json = string.concat(
             json,
             '"collateralAsset":"',
-            vm.toString(collateralAsset),
+            vm.toString(helperConfig.getCollateralAsset()),
             '",',
             '"debtAsset":"',
-            vm.toString(debtAsset),
+            vm.toString(helperConfig.getDebtAsset()),
             '",',
             '"btc":"',
-            vm.toString(btc),
+            vm.toString(helperConfig.getCbBTC()),
             '",',
             '"swapAdapterWrapper":"',
-            vm.toString(getSwapAdapterWrapper),
+            vm.toString(helperConfig.getSwapAdapterWrapper()),
             '",',
             '"zQuoter":"',
-            vm.toString(zQuoter),
+            vm.toString(helperConfig.getZQuoter()),
             '",'
         );
 
         return string.concat(
             json,
             '"premiumCollector":"',
-            vm.toString(premiumCollector),
+            vm.toString(helperConfig.getPremiumCollector()),
             '",',
             '"preClosureFeeBps":"',
-            vm.toString(preClosureFeeBps),
+            vm.toString(helperConfig.getPreClosureFee()),
             '",',
             '"gracePeriod":"',
-            vm.toString(gracePeriod),
-            '",',
-            '"liquidationBuffer":"',
-            vm.toString(liquidationBuffer),
+            vm.toString(helperConfig.getGracePeriod()),
             '"}'
         );
     }

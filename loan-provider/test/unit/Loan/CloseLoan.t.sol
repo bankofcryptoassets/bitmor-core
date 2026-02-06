@@ -8,26 +8,28 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
+import {ERC4626} from "@solady/tokens/ERC4626.sol";
 
 /// @title CloseLoanTest
-/// @notice Tests for loan closure functionality
+/// @author Bitmor Protocol
+/// @notice Tests for `Loan.closeLoan` covering withdrawal modes, pre-closure fees, flash loan security, and edge cases
 contract CloseLoanTest is BaseLoanTest {
     // ============ Constants ============
 
-    /// @dev ERC20 Transfer event signature for log parsing
+    /// @dev ERC20 `Transfer` event signature hash used for log parsing in transfer verification
     bytes32 private constant TRANSFER_EVENT_SIG = keccak256("Transfer(address,address,uint256)");
 
     // ============ Local Structs ============
     // Note: Uses TestSnapshot + UserBalanceSnapshot from BaseLoanTest
     // Extended with close-loan-specific fields
 
-    /// @dev Struct to hold close loan specific state (combines TestSnapshot + UserBalanceSnapshot)
+    /// @notice Close loan state combining `TestSnapshot` and `UserBalanceSnapshot` for before/after comparison
     struct CloseLoanExtension {
         TestSnapshot loanState;
         UserBalanceSnapshot userBalances;
     }
 
-    /// @dev Struct to hold parsed transfer info
+    /// @notice Parsed ERC20 transfer event data
     struct TransferInfo {
         address from;
         address to;
@@ -36,13 +38,13 @@ contract CloseLoanTest is BaseLoanTest {
 
     // ============ Local Helpers ============
 
-    /// @dev Capture initial state before close loan using generic helpers
+    /// @notice Captures loan and user balance state before `closeLoan` into a `CloseLoanExtension`
     function _captureCloseLoanStateBefore(address lsa) internal view returns (CloseLoanExtension memory state) {
         state.loanState = _captureTestSnapshot(lsa);
         state.userBalances = _captureUserBalanceSnapshot();
     }
 
-    /// @dev Update state after close loan
+    /// @notice Populates "after" fields in `CloseLoanExtension` with current state
     function _updateCloseLoanStateAfter(CloseLoanExtension memory state, address lsa) internal view {
         _updateTestSnapshotAfter(state.loanState, lsa);
         _updateUserBalanceSnapshotAfter(state.userBalances);
@@ -75,14 +77,14 @@ contract CloseLoanTest is BaseLoanTest {
         }
     }
 
-    /// @dev Get pre-closure fee in basis points
+    /// @notice Returns the pre-closure fee in basis points from the loan contract
     function _getPreClosureFeeBps() internal view returns (uint256) {
         return loan.getPreClosureFee();
     }
 
-    /// @dev Calculate expected pre-closure fee
+    /// @notice Calculates the expected pre-closure fee in BTC for a given `collateralAmount` of vault shares
     function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
-        return (collateralAmount * _getPreClosureFeeBps()) / 10_000;
+        return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
     }
 
     // ============ Close Loan Tests ============
@@ -90,7 +92,7 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test closing loan and withdrawing in collateral asset (BTC)
     function test_closeLoan_withWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
@@ -103,7 +105,7 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         _updateCloseLoanStateAfter(state, lsa);
 
@@ -114,7 +116,7 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(state.loanState.debtAfter, 0, "LSA debt should be 0 after close");
         assertEq(state.loanState.collateralAfter, 0, "LSA collateral (aToken) should be 0 after close");
 
-        // User should receive BTC (underlying) when withdrawInCollateralAsset=true
+        // User should receive BTC (underlying) when withdrawInBTC=true
         uint256 btcReceived = IERC20(btc).balanceOf(user) - state.userBalances.userCollateralBefore;
         assertGt(btcReceived, 0, "User should receive BTC collateral");
 
@@ -133,12 +135,9 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test closing loan and withdrawing in debt asset (USDC)
-    /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
-    ///      the token flow assertions are relaxed. In production, collateral = bvBTC vault shares,
-    ///      btc = cbBTC underlying, so redeems work correctly.
     function test_closeLoan_withoutWithdrawingAssetInCollateralAsset() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = false;
+        bool withdrawInBTC = false;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
@@ -150,7 +149,7 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
         _updateCloseLoanStateAfter(state, lsa);
 
@@ -168,24 +167,19 @@ contract CloseLoanTest is BaseLoanTest {
         // Parse transfer logs to get exact amount transferred from Loan to user
         uint256 transferredUsdc = _parseTransferLogs(logs, debtAsset, address(loan), user);
         assertEq(usdcReceived, transferredUsdc, "USDC received should match transfer log");
-
-        // Note: Mock limitation - collateralAsset == btc (same token), so cbBTC received
-        // doesn't behave as expected. In production with separate vault shares, this would be dust.
-        // Skipping strict assertion due to mock setup.
     }
 
     // ============ Pre-Closure Fee Tests ============
 
-    /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = true)
+    /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = true)
     /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
     ///      token flow accounting is not 1:1 with production. Fee transfer to collector is verified.
     function test_closeLoan_preClosureFee_deducted_withdrawCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
-        uint256 preClosureFeeBps = _getPreClosureFeeBps();
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
@@ -198,43 +192,30 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Parse BTC transfers to premium collector (fee sink)
         uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
         uint256 userCollateralReceived = _parseTransferLogs(logs, btc, address(loan), user);
 
-        // Verify fee calculation is correct
-        assertEq(
-            expectedFee,
-            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
-            "Fee calculation should be correct"
-        );
-
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         uint256 collectorBalanceAfter = IERC20(btc).balanceOf(premiumCollector);
         uint256 collectorReceived = collectorBalanceAfter - collectorBalanceBefore;
-        assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
-        assertApproxEqAbs(collectorReceived, expectedFee, 1, "Premium collector should receive expected fee");
+        assertEq(feeTransferred, expectedFee, "Fee transferred should match expected fee");
+        assertEq(collectorReceived, expectedFee, "Premium collector should receive expected fee");
 
         // Verify user received collateral
         assertGt(userCollateralReceived, 0, "User should receive collateral");
-
-        // Note: Mock limitation - collateralAsset == btc (same token), so the total accounting
-        // doesn't match production where collateral = bvBTC vault shares.
-        // The swap mock returns different amounts affecting the token flow.
-        // Fee deduction and transfer to collector is verified above.
     }
 
-    /// @notice Test that pre-closure fee is correctly deducted (withdrawInCollateralAsset = false)
+    /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = false)
     function test_closeLoan_preClosureFee_deducted_withdrawDebt() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = false;
+        bool withdrawInBTC = false;
 
         // Capture state before using generic helpers
         CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa);
-        uint256 preClosureFeeBps = _getPreClosureFeeBps();
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
@@ -246,18 +227,11 @@ contract CloseLoanTest is BaseLoanTest {
         vm.recordLogs();
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Parse BTC transfers to premium collector (fee is in BTC)
         uint256 feeTransferred = _parseTransferLogs(logs, btc, address(loan), premiumCollector);
-
-        // Verify fee calculation is correct
-        assertEq(
-            expectedFee,
-            (state.loanState.collateralBefore * preClosureFeeBps) / 10_000,
-            "Fee calculation should be correct"
-        );
 
         // Verify fee was transferred to premium collector (allow +-1 for rounding)
         assertApproxEqAbs(feeTransferred, expectedFee, 1, "Fee transferred should match expected fee");
@@ -266,7 +240,7 @@ contract CloseLoanTest is BaseLoanTest {
     /// @notice Test that flash loan is called with the correct debt amount
     function test_closeLoan_flashLoanCalledWithDebtAmount() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
-        bool withdrawInCollateralAsset = true;
+        bool withdrawInBTC = true;
 
         // Get debt amount before close
         uint256 debtAmt = _getDebtBalance(lsa);
@@ -286,7 +260,7 @@ contract CloseLoanTest is BaseLoanTest {
         );
 
         vm.prank(user);
-        loan.closeLoan(lsa, withdrawInCollateralAsset);
+        loan.closeLoan(lsa, withdrawInBTC);
 
         // Verify loan closed successfully
         uint256 debtAfter = _getDebtBalance(lsa);
@@ -294,14 +268,14 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that closing with zero LSA address reverts
-    function test_closeLoan_zeroLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ZeroLsaAddress() public setUpLoanForUser {
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAddress.selector);
         loan.closeLoan(address(0), true);
     }
 
     /// @notice Test that closing a non-existent LSA reverts
-    function test_closeLoan_nonExistentLsa_reverts() public setUpLoanForUser {
+    function test_RevertWhen_LoanDoesNotExist() public setUpLoanForUser {
         address randomAddress = makeAddr("nonExistentLsa");
 
         vm.prank(user);
@@ -311,7 +285,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing with insufficient collateral reverts
     /// @dev Drop BTC price so totalCollateralUSD <= totalDebtUSD + fees
-    function test_closeLoan_insufficientCollateral_reverts() public setUpLoanForUser {
+    function test_RevertWhen_InsufficientCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Drop collateral price significantly (e.g., 80% drop)
@@ -325,7 +299,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that closing a loan after full repayment reverts
     /// @dev Once debt is fully repaid via repay(), loan status is Completed
-    function test_closeLoan_afterFullRepayment_reverts() public setUpLoanForUser {
+    function test_RevertWhen_ClosingAfterFullRepayment() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
 
@@ -350,7 +324,7 @@ contract CloseLoanTest is BaseLoanTest {
     }
 
     /// @notice Test that double-closing a loan reverts
-    function test_closeLoan_doubleClose_reverts() public setUpLoanForUser {
+    function test_RevertWhen_DoubleClose() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // First close should succeed
@@ -368,7 +342,7 @@ contract CloseLoanTest is BaseLoanTest {
 
     /// @notice Test that non-borrower cannot close someone else's loan
     /// @dev Security test - should revert with access control error
-    function test_closeLoan_nonBorrower_reverts() public setUpLoanForUser {
+    function test_RevertWhen_CallerNotBorrower() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
         address attacker = makeAddr("attacker");
 
@@ -383,30 +357,125 @@ contract CloseLoanTest is BaseLoanTest {
         loan.closeLoan(lsa, true);
     }
 
+    // ============ Flash Loan Callback Security Tests ============
+
+    /// @notice Test that close loan callback reverts when initiator is not the Loan contract
+    /// @dev Covers FlashLoanLogic.sol:182 WrongFLInitiator error
+    function test_RevertWhen_CloseLoanWrongFlashLoanInitiator() public {
+        // Arrange - prepare flash loan params for close loan with wrong initiator
+        address wrongInitiator = makeAddr("wrongInitiator");
+        address mockLsa = makeAddr("mockLsa");
+        // flData for close: (lsa, withdrawInBTC, totalBTCAmtToSwap, preClosureFeeAmtInBTC)
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
+        vm.prank(address(mockAavePool));
+        vm.expectRevert(Errors.WrongFLInitiator.selector);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, wrongInitiator, params);
+    }
+
+    /// @notice Test that close loan callback reverts when caller is not Aave pool
+    /// @dev Covers FlashLoanLogic.sol:179-180 CallerIsNotAAVEPool error
+    /// @dev Note: Init path tested in AccessControls.t.sol, this tests close path
+    function test_RevertWhen_CloseLoanCallerNotAavePool() public {
+        // Arrange
+        address attacker = makeAddr("attacker");
+        address mockLsa = makeAddr("mockLsa");
+        bytes memory flData = abi.encode(mockLsa, true, TEST_BTC_SWAP_AMOUNT, TEST_PRECLOSURE_FEE);
+        bytes memory params = abi.encode(false, flData); // false = closing loan
+
+        // Act & Assert
+        vm.prank(attacker);
+        vm.expectRevert(Errors.CallerIsNotAAVEPool.selector);
+        loan.executeOperation(debtAsset, FLASH_LOAN_AMOUNT, FLASH_LOAN_PREMIUM, address(loan), params);
+    }
+
+    /// @notice Test that close loan reverts when collateral withdrawal returns zero
+    /// @dev Covers FlashLoanLogic.sol:212 CollateralWithdrawFailed error
+    function test_RevertWhen_CloseLoanCollateralWithdrawFails() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Set mock to simulate withdrawal failure for the LSA
+        mockBitmorPool.setWithdrawalFailure(lsa, true);
+
+        // Act & Assert - close loan should fail when collateral withdrawal fails
+        vm.prank(user);
+        vm.expectRevert(Errors.CollateralWithdrawFailed.selector);
+        loan.closeLoan(lsa, true);
+
+        // Reset for other tests
+        mockBitmorPool.setWithdrawalFailure(lsa, false);
+    }
+
     // ============ Edge Case Tests ============
 
     /// @notice Test close loan with both withdrawal modes produce different results
     function test_closeLoan_withdrawModes_differ() public {
-        // Setup two loans to compare
+        // Setup two loans to compare both withdrawal modes
         _mintDebtAssetToUser();
 
-        // Create first loan
+        // Create first loan (will close with withdrawInBTC=true)
         (,, uint256 minDeposit1) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
         vm.prank(user);
         address lsa1 =
             loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
 
-        // Capture state using generic helpers
-        CloseLoanExtension memory state = _captureCloseLoanStateBefore(lsa1);
+        // Capture state before first close
+        uint256 userCollateralBefore1 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetBefore1 = IERC20(debtAsset).balanceOf(user);
 
-        // Close withdrawing in collateral
+        // Close first loan withdrawing in BTC (collateral)
         vm.prank(user);
         loan.closeLoan(lsa1, true);
 
-        uint256 userCollateralAfterFirst = IERC20(btc).balanceOf(user);
+        uint256 userCollateralAfter1 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetAfter1 = IERC20(debtAsset).balanceOf(user);
 
-        // The user should have received BTC primarily
-        assertGt(userCollateralAfterFirst - state.userBalances.userCollateralBefore, 0, "Should receive BTC in mode 1");
+        // Calculate deltas for mode 1 (withdrawInBTC=true)
+        uint256 btcReceived1 = userCollateralAfter1 - userCollateralBefore1;
+        uint256 usdcReceived1 = userDebtAssetAfter1 - userDebtAssetBefore1;
+
+        // Mode 1 should primarily receive BTC
+        assertGt(btcReceived1, 0, "Mode 1 should receive BTC");
+
+        // Warp time to avoid CREATE2 collision (factory uses block.timestamp in salt)
+        vm.warp(block.timestamp + 1);
+
+        // Mint more funds for second loan
+        _mintDebtAssetToUser();
+
+        // Create second loan (will close with withdrawInBTC=false)
+        (,, uint256 minDeposit2) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        vm.prank(user);
+        address lsa2 =
+            loan.initializeLoan(minDeposit2, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, DATA);
+
+        // Capture state before second close
+        uint256 userCollateralBefore2 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetBefore2 = IERC20(debtAsset).balanceOf(user);
+
+        // Close second loan withdrawing in USDC (debt asset)
+        vm.prank(user);
+        loan.closeLoan(lsa2, false);
+
+        uint256 userCollateralAfter2 = IERC20(btc).balanceOf(user);
+        uint256 userDebtAssetAfter2 = IERC20(debtAsset).balanceOf(user);
+
+        // Calculate deltas for mode 2 (withdrawInBTC=false)
+        uint256 btcReceived2 = userCollateralAfter2 - userCollateralBefore2;
+        uint256 usdcReceived2 = userDebtAssetAfter2 - userDebtAssetBefore2;
+
+        // Mode 2 should primarily receive USDC (collateral swapped to debt asset)
+        assertGt(usdcReceived2, 0, "Mode 2 should receive USDC");
+
+        // The two modes should produce different token distribution
+        // Mode 1: more BTC, less USDC. Mode 2: less BTC, more USDC.
+        assertTrue(
+            btcReceived1 > btcReceived2 || usdcReceived2 > usdcReceived1,
+            "Withdrawal modes should produce different token distributions"
+        );
     }
 
     /// @notice Test close immediately after loan creation

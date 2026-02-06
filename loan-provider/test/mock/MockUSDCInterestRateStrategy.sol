@@ -5,36 +5,61 @@ import {IReserveInterestRateStrategy} from "@bitmor/interfaces/IReserveInterestR
 import {IERC4626} from "@openzeppelin/interfaces/IERC4626.sol";
 
 /// @title MockUSDCInterestRateStrategy
-/// @notice Interest rate strategy for USDC using USDCVault.totalAssets() as liquidity
-/// @dev Key difference: uses vault's totalAssets instead of aToken balance
+/// @author Bitmor Protocol
+/// @notice Interest rate strategy for USDC using USDCVault.totalAssets() as liquidity source
+/// @dev Unlike the default strategy that uses aToken balance, this strategy queries
+///      the USDCVault's `totalAssets()` for available liquidity. Uses a two-slope
+///      utilization model with configurable parameters for testing.
 contract MockUSDCInterestRateStrategy is IReserveInterestRateStrategy {
+    /// @notice RAY precision constant (1e27) for rate calculations
     uint256 public constant RAY = 1e27;
 
+    /// @notice Optimal utilization rate (default: 80% in RAY)
     uint256 public OPTIMAL_UTILIZATION_RATE = 0.8e27;
+
+    /// @notice Excess utilization rate above optimal (default: 20% in RAY)
     uint256 public EXCESS_UTILIZATION_RATE = 0.2e27;
 
+    /// @dev Base variable borrow rate (default: 2% in RAY)
     uint256 internal _baseVariableBorrowRate = 0.02e27;
+
+    /// @dev Variable rate slope below optimal utilization (default: 4% in RAY)
     uint256 internal _variableRateSlope1 = 0.04e27;
+
+    /// @dev Variable rate slope above optimal utilization (default: 75% in RAY)
     uint256 internal _variableRateSlope2 = 0.75e27;
+
+    /// @dev Stable rate slope below optimal utilization
     uint256 internal _stableRateSlope1 = 0.02e27;
+
+    /// @dev Stable rate slope above optimal utilization
     uint256 internal _stableRateSlope2 = 0.6e27;
 
+    /// @notice Address of the lending pool addresses provider
     address public addressesProvider;
+
+    /// @notice Address of the USDC vault used as liquidity source
     address public usdcVault;
 
+    /// @notice Creates a new MockUSDCInterestRateStrategy
+    /// @param _addressesProvider Address of the lending pool addresses provider
+    /// @param _usdcVault Address of the USDC vault for liquidity queries
     constructor(address _addressesProvider, address _usdcVault) {
         addressesProvider = _addressesProvider;
         usdcVault = _usdcVault;
     }
 
+    /// @inheritdoc IReserveInterestRateStrategy
     function baseVariableBorrowRate() external view override returns (uint256) {
         return _baseVariableBorrowRate;
     }
 
+    /// @inheritdoc IReserveInterestRateStrategy
     function getMaxVariableBorrowRate() external view override returns (uint256) {
         return _baseVariableBorrowRate + _variableRateSlope1 + _variableRateSlope2;
     }
 
+    /// @inheritdoc IReserveInterestRateStrategy
     function calculateInterestRates(
         address,
         uint256 availableLiquidity,
@@ -46,6 +71,8 @@ contract MockUSDCInterestRateStrategy is IReserveInterestRateStrategy {
         return _calculateRates(availableLiquidity, totalStableDebt, totalVariableDebt);
     }
 
+    /// @inheritdoc IReserveInterestRateStrategy
+    /// @dev Uses `USDCVault.totalAssets()` as the liquidity source instead of aToken balance
     function calculateInterestRates(
         address,
         address,
@@ -63,6 +90,13 @@ contract MockUSDCInterestRateStrategy is IReserveInterestRateStrategy {
         return _calculateRates(availableLiquidity, totalStableDebt, totalVariableDebt);
     }
 
+    /// @dev Calculates interest rates using a two-slope utilization model
+    /// @param availableLiquidity Total available liquidity
+    /// @param totalStableDebt Total stable debt outstanding
+    /// @param totalVariableDebt Total variable debt outstanding
+    /// @return liquidityRate The liquidity rate in RAY
+    /// @return stableBorrowRate The stable borrow rate in RAY
+    /// @return variableBorrowRate The variable borrow rate in RAY
     function _calculateRates(uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt)
         internal
         view
@@ -95,14 +129,20 @@ contract MockUSDCInterestRateStrategy is IReserveInterestRateStrategy {
 
     // ============ Test Helpers ============
 
+    /// @notice Set the USDC vault address (test helper)
+    /// @param _vault New USDC vault address
     function setUSDCVault(address _vault) external {
         usdcVault = _vault;
     }
 
+    /// @notice Set the base variable borrow rate (test helper)
+    /// @param rate New base rate in RAY (e.g., 0.02e27 for 2%)
     function setBaseVariableBorrowRate(uint256 rate) external {
         _baseVariableBorrowRate = rate;
     }
 
+    /// @notice Set the optimal utilization rate and auto-update excess rate (test helper)
+    /// @param rate New optimal utilization rate in RAY (e.g., 0.8e27 for 80%)
     function setOptimalUtilizationRate(uint256 rate) external {
         OPTIMAL_UTILIZATION_RATE = rate;
         EXCESS_UTILIZATION_RATE = RAY - rate;

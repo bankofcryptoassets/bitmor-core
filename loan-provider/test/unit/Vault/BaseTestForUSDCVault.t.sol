@@ -43,13 +43,29 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
     address internal attacker;
 
     // ============ Mock Infrastructure ============
+
+    /// @notice Mock USDC token (6 decimals)
     MockERC20 internal mockUSDC;
+
+    /// @notice Mock Bitmor Lending Pool for supply/borrow/repay
     MockBitmorLendingPool internal mockBitmorPool;
+
+    /// @notice Mock addresses provider for oracle and pool resolution
     MockAddressesProvider internal mockAddressesProvider;
+
+    /// @notice Mock price oracle for asset pricing
     MockPriceOracle internal mockOracle;
+
+    /// @notice Mock Aave V3 pool for flash loans and supply/withdraw
     MockAaveV3Pool internal mockAavePool;
+
+    /// @notice Mock aToken representing Aave USDC deposits
     MockAToken internal mockAaveAToken;
+
+    /// @notice Mock aToken representing Bitmor Lending Pool USDC deposits
     MockAToken internal mockBitmorAToken;
+
+    /// @notice Mock variable debt token for Bitmor Lending Pool borrowing
     MockVariableDebtToken internal mockBitmorDebtToken;
 
     /// @notice Compatibility struct for tests that reference networkConfig
@@ -151,7 +167,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         mockUSDC = new MockERC20("USD Coin", "USDC", 6);
 
         // Deploy mock oracle
-        mockOracle = new MockPriceOracle();
+        mockOracle = new MockPriceOracle(address(0), address(0));
         mockOracle.setAssetPrice(address(mockUSDC), 1e8);
 
         // Deploy mock addresses provider
