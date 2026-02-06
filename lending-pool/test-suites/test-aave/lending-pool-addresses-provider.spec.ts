@@ -156,4 +156,45 @@ makeSuite('LendingPoolAddressesProvider', (testEnv: TestEnv) => {
      * as it adds no additional validation value beyond what the event provides.
      */
   });
+
+  it('Tests getMarketId returns the correct market id', async () => {
+    const { addressesProvider } = testEnv;
+
+    const marketId = await addressesProvider.getMarketId();
+    expect(marketId).to.be.a('string');
+    expect(marketId.length).to.be.greaterThan(0);
+  });
+
+  it('Tests setMarketId updates the market id', async () => {
+    const { addressesProvider, users } = testEnv;
+
+    const currentAddressesProviderOwner = users[1];
+    const newMarketId = 'NewTestMarket';
+
+    await waitForTx(
+      await addressesProvider
+        .connect(currentAddressesProviderOwner.signer)
+        .setMarketId(newMarketId)
+    );
+
+    const marketId = await addressesProvider.getMarketId();
+    expect(marketId).to.be.equal(newMarketId);
+  });
+
+  it('Tests getBTCVault returns the correct address', async () => {
+    const { addressesProvider, users } = testEnv;
+
+    const currentAddressesProviderOwner = users[1];
+    const mockBTCVaultAddress = createRandomAddress();
+
+    // Set BTC vault address
+    await waitForTx(
+      await addressesProvider
+        .connect(currentAddressesProviderOwner.signer)
+        .setBTCVault(mockBTCVaultAddress)
+    );
+
+    const btcVaultAddress = await addressesProvider.getBTCVault();
+    expect(btcVaultAddress.toLowerCase()).to.be.equal(mockBTCVaultAddress.toLowerCase());
+  });
 });

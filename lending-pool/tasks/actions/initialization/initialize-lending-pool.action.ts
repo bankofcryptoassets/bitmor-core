@@ -2,11 +2,11 @@ import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import { getParamPerNetwork, getContractAddress } from '../../../helpers/contracts-helpers.js';
 import {
   deployLendingPoolCollateralManager,
-  deployWalletBalancerProvider,
-  authorizeWETHGateway,
+  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
+  // authorizeWETHGateway,  // Not used in Bitmor protocol
 } from '../../../helpers/contracts-deployments.js';
 import { loadPoolConfig, ConfigNames, getTreasuryAddress, getBvBTCAddress } from '../../../helpers/configuration.js';
-import { getWETHGateway } from '../../../helpers/contracts-getters.js';
+// import { getWETHGateway } from '../../../helpers/contracts-getters.js';  // Not used in Bitmor protocol
 import { eNetwork, ICommonConfiguration } from '../../../helpers/types.js';
 import { notFalsyOrZeroAddress, waitForTx } from '../../../helpers/misc-utils.js';
 import { initReservesByHelper, configureReservesByHelper } from '../../../helpers/init-helpers.js';
@@ -120,24 +120,26 @@ export default async function initializeLendingPoolAction(
       )
     );
 
-    await deployWalletBalancerProvider(verify);
+    // WalletBalanceProvider not used in Bitmor protocol
+    // await deployWalletBalancerProvider(verify);
 
-    const lendingPoolAddress = await addressesProvider.getLendingPool();
+    // WETHGateway not used in Bitmor protocol
+    // const lendingPoolAddress = await addressesProvider.getLendingPool();
 
-    let gateWay = getParamPerNetwork(WethGateway, network);
-    if (!notFalsyOrZeroAddress(gateWay)) {
-      try {
-        const wethGateway = await getWETHGateway();
-        if (wethGateway) {
-          gateWay = getContractAddress(wethGateway);
-        }
-      } catch (e) {
-        console.log('No WETH Gateway found, skipping authorization');
-      }
-    }
-    if (notFalsyOrZeroAddress(gateWay)) {
-      await authorizeWETHGateway(gateWay, lendingPoolAddress);
-    }
+    // let gateWay = getParamPerNetwork(WethGateway, network);
+    // if (!notFalsyOrZeroAddress(gateWay)) {
+    //   try {
+    //     const wethGateway = await getWETHGateway();
+    //     if (wethGateway) {
+    //       gateWay = getContractAddress(wethGateway);
+    //     }
+    //   } catch (e) {
+    //     console.log('No WETH Gateway found, skipping authorization');
+    //   }
+    // }
+    // if (notFalsyOrZeroAddress(gateWay)) {
+    //   await authorizeWETHGateway(gateWay, lendingPoolAddress);
+    // }
   } catch (err) {
     console.error(err);
     throw err;

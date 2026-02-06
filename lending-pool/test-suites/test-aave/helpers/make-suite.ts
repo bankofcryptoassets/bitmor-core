@@ -21,11 +21,6 @@ import {
   getPriceOracle,
   getLendingPoolAddressesProviderRegistry,
   getWETHMocked,
-  getWETHGateway,
-  getUniswapLiquiditySwapAdapter,
-  getUniswapRepayAdapter,
-  getFlashLiquidationAdapter,
-  getParaSwapLiquiditySwapAdapter,
   getMockBTCVault,
   getMockLoan,
 } from '../../../helpers/contracts-getters.js';
@@ -44,14 +39,9 @@ import type { PriceOracle } from '../../../types/ethers-contracts/mocks/oracle/P
 import type { LendingPoolAddressesProvider } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProvider.js';
 import type { LendingPoolAddressesProviderRegistry } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProviderRegistry.js';
 import { getEthersSigners } from '../../../helpers/contracts-helpers.js';
-import type { UniswapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/UniswapLiquiditySwapAdapter.js';
-import type { UniswapRepayAdapter } from '../../../types/ethers-contracts/adapters/UniswapRepayAdapter.js';
-import type { ParaSwapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/ParaSwapLiquiditySwapAdapter.js';
 import { getParamPerNetwork } from '../../../helpers/contracts-helpers.js';
 import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/WETH9Mocked.js';
-import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
 import { AaveConfig } from '../../../markets/aave/index.js';
-import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
 import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
 import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
@@ -77,12 +67,7 @@ export interface TestEnv {
   aUSDC: AToken;
   aave: MintableERC20;
   addressesProvider: LendingPoolAddressesProvider;
-  uniswapLiquiditySwapAdapter: UniswapLiquiditySwapAdapter;
-  uniswapRepayAdapter: UniswapRepayAdapter;
   registry: LendingPoolAddressesProviderRegistry;
-  wethGateway: WETHGateway;
-  flashLiquidationAdapter: FlashLiquidationAdapter;
-  paraswapLiquiditySwapAdapter: ParaSwapLiquiditySwapAdapter;
   // Bitmor mock callers
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
@@ -114,12 +99,7 @@ const testEnv: TestEnv = {
   aUSDC: {} as AToken,
   aave: {} as MintableERC20,
   addressesProvider: {} as LendingPoolAddressesProvider,
-  uniswapLiquiditySwapAdapter: {} as UniswapLiquiditySwapAdapter,
-  uniswapRepayAdapter: {} as UniswapRepayAdapter,
-  flashLiquidationAdapter: {} as FlashLiquidationAdapter,
-  paraswapLiquiditySwapAdapter: {} as ParaSwapLiquiditySwapAdapter,
   registry: {} as LendingPoolAddressesProviderRegistry,
-  wethGateway: {} as WETHGateway,
   mockLoanProvider: {} as MockLoanProvider,
   mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
   cbBTC: {} as MintableERC20,
@@ -192,13 +172,6 @@ export async function initializeMakeSuite() {
   testEnv.usdc = await getMintableERC20(usdcAddress);
   testEnv.aave = await getMintableERC20(aaveAddress);
   testEnv.weth = await getWETHMocked(wethAddress);
-  testEnv.wethGateway = await getWETHGateway();
-
-  testEnv.uniswapLiquiditySwapAdapter = await getUniswapLiquiditySwapAdapter();
-  testEnv.uniswapRepayAdapter = await getUniswapRepayAdapter();
-  testEnv.flashLiquidationAdapter = await getFlashLiquidationAdapter();
-
-  testEnv.paraswapLiquiditySwapAdapter = await getParaSwapLiquiditySwapAdapter();
 
   // Deploy Bitmor mock callers
   const bitmorMocks = await deployMockBitmorCallers(usdcAddress);

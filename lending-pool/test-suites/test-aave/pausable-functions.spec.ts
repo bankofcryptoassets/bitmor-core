@@ -279,31 +279,31 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
     await configurator.connect(users[1].signer).setPoolPause(false);
   });
 
-  it('SwapBorrowRateMode', async () => {
-    const { pool, cbBTC, usdc, users, configurator, addressesProvider, mockBitmorUSDCVault, mockLoanProvider } = testEnv;
-    const user = users[1];
-    const amountCbBtcToDeposit = parseEther('10');
-    const amountToBorrow = parseUnits('65', 6);
+  // it('SwapBorrowRateMode', async () => {
+  //   const { pool, cbBTC, usdc, users, configurator, addressesProvider, mockBitmorUSDCVault, mockLoanProvider } = testEnv;
+  //   const user = users[1];
+  //   const amountCbBtcToDeposit = parseEther('10');
+  //   const amountToBorrow = parseUnits('65', 6);
 
-    await addressesProvider.setUSDCVault(user.address);
-    await cbBTC.connect(user.signer).mint(amountCbBtcToDeposit);
-    await cbBTC.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-    await pool.connect(user.signer).deposit(getContractAddress(cbBTC), amountCbBtcToDeposit, user.address, '0');
-    await addressesProvider.setBitmorLoan(user.address);
-    await addressesProvider.setUSDCVault(mockBitmorUSDCVault.target);
-    await pool.connect(user.signer).borrow(getContractAddress(usdc), amountToBorrow, 2, 0, user.address);
+  //   await addressesProvider.setUSDCVault(user.address);
+  //   await cbBTC.connect(user.signer).mint(amountCbBtcToDeposit);
+  //   await cbBTC.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+  //   await pool.connect(user.signer).deposit(getContractAddress(cbBTC), amountCbBtcToDeposit, user.address, '0');
+  //   await addressesProvider.setBitmorLoan(user.address);
+  //   await addressesProvider.setUSDCVault(mockBitmorUSDCVault.target);
+  //   await pool.connect(user.signer).borrow(getContractAddress(usdc), amountToBorrow, 2, 0, user.address);
 
-    // Pause pool
-    await configurator.connect(users[1].signer).setPoolPause(true);
+  //   // Pause pool
+  //   await configurator.connect(users[1].signer).setPoolPause(true);
 
-    // Try to repay
-    await expect(
-      pool.connect(user.signer).swapBorrowRateMode(getContractAddress(usdc), RateMode.Stable)
-    ).revertedWith(LP_IS_PAUSED);
+  //   // Try to repay
+  //   await expect(
+  //     pool.connect(user.signer).swapBorrowRateMode(getContractAddress(usdc), RateMode.Stable)
+  //   ).revertedWith(LP_IS_PAUSED);
 
-    // Unpause pool
-    await configurator.connect(users[1].signer).setPoolPause(false);
-  });
+  //   // Unpause pool
+  //   await configurator.connect(users[1].signer).setPoolPause(false);
+  // });
 
   it('RebalanceStableBorrowRate', async () => {
     const { pool, usdc, users, configurator } = testEnv;

@@ -177,15 +177,16 @@ library ReserveConfiguration {
       (uint256(frozen ? 1 : 0) << IS_FROZEN_START_BIT_POSITION);
   }
 
-  /**
-   * @dev Gets the frozen state of the reserve
-   * @param self The reserve configuration
-   * @return The frozen state
-   *
-   */
-  function getFrozen(DataTypes.ReserveConfigurationMap storage self) internal view returns (bool) {
-    return (self.data & ~FROZEN_MASK) != 0;
-  }
+  // todo: not being used and unreachabe for coverage.
+  // /**
+  //  * @dev Gets the frozen state of the reserve
+  //  * @param self The reserve configuration
+  //  * @return The frozen state
+  //  *
+  //  */
+  // function getFrozen(DataTypes.ReserveConfigurationMap storage self) internal view returns (bool) {
+  //   return (self.data & ~FROZEN_MASK) != 0;
+  // }
 
   /**
    * @dev Enables or disables borrowing on the reserve
@@ -202,17 +203,18 @@ library ReserveConfiguration {
       (uint256(enabled ? 1 : 0) << BORROWING_ENABLED_START_BIT_POSITION);
   }
 
-  /**
-   * @dev Gets the borrowing state of the reserve
-   * @param self The reserve configuration
-   * @return The borrowing state
-   *
-   */
-  function getBorrowingEnabled(
-    DataTypes.ReserveConfigurationMap storage self
-  ) internal view returns (bool) {
-    return (self.data & ~BORROWING_MASK) != 0;
-  }
+  // todo: not reachable
+  // /**
+  //  * @dev Gets the borrowing state of the reserve
+  //  * @param self The reserve configuration
+  //  * @return The borrowing state
+  //  *
+  //  */
+  // function getBorrowingEnabled(
+  //   DataTypes.ReserveConfigurationMap storage self
+  // ) internal view returns (bool) {
+  //   return (self.data & ~BORROWING_MASK) != 0;
+  // }
 
   /**
    * @dev Enables or disables stable rate borrowing on the reserve
@@ -229,17 +231,18 @@ library ReserveConfiguration {
       (uint256(enabled ? 1 : 0) << STABLE_BORROWING_ENABLED_START_BIT_POSITION);
   }
 
-  /**
-   * @dev Gets the stable rate borrowing state of the reserve
-   * @param self The reserve configuration
-   * @return The stable rate borrowing state
-   *
-   */
-  function getStableRateBorrowingEnabled(
-    DataTypes.ReserveConfigurationMap storage self
-  ) internal view returns (bool) {
-    return (self.data & ~STABLE_BORROWING_MASK) != 0;
-  }
+  // todo: not reachable
+  // /**
+  //  * @dev Gets the stable rate borrowing state of the reserve
+  //  * @param self The reserve configuration
+  //  * @return The stable rate borrowing state
+  //  *
+  //  */
+  // function getStableRateBorrowingEnabled(
+  //   DataTypes.ReserveConfigurationMap storage self
+  // ) internal view returns (bool) {
+  //   return (self.data & ~STABLE_BORROWING_MASK) != 0;
+  // }
 
   /**
    * @dev Sets the reserve factor of the reserve
