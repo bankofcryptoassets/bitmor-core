@@ -195,7 +195,14 @@ contract LoanMathFuzzTest is Test {
         uint256 duration = bound(durationSeed, FC.MIN_DURATION, FC.MAX_DURATION);
 
         (uint256 loanAmount, uint256 monthlyPayment,) = harness.exposed_calculateLoanDetails(
-            collateral, btcPrice, CBBTC_DECIMALS, FC.USDC_PRICE, USDC_DECIMALS, interestRate, duration, FC.MIN_DEPOSIT_BPS
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            interestRate,
+            duration,
+            FC.MIN_DEPOSIT_BPS
         );
 
         // Total payments should cover at least the loan amount
@@ -272,11 +279,25 @@ contract LoanMathFuzzTest is Test {
         uint256 duration2 = bound(duration2Seed, duration1 + 1, FC.MAX_DURATION);
 
         (, uint256 payment1,) = harness.exposed_calculateLoanDetails(
-            collateral, btcPrice, CBBTC_DECIMALS, FC.USDC_PRICE, USDC_DECIMALS, interestRate, duration1, FC.MIN_DEPOSIT_BPS
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            interestRate,
+            duration1,
+            FC.MIN_DEPOSIT_BPS
         );
 
         (, uint256 payment2,) = harness.exposed_calculateLoanDetails(
-            collateral, btcPrice, CBBTC_DECIMALS, FC.USDC_PRICE, USDC_DECIMALS, interestRate, duration2, FC.MIN_DEPOSIT_BPS
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            interestRate,
+            duration2,
+            FC.MIN_DEPOSIT_BPS
         );
 
         assertGe(payment1, payment2, "longer duration should result in lower monthly payment");

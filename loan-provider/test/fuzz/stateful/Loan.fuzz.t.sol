@@ -40,11 +40,9 @@ contract LoanFuzzTest is LoanUnitTestBase {
      * @custom:audit-category Core Functionality
      * @custom:audit-severity Critical
      */
-    function testFuzz_InitializeLoan_CreatesValidLSA(
-        uint256 collateralSeed,
-        uint256 depositSeed,
-        uint256 durationSeed
-    ) public {
+    function testFuzz_InitializeLoan_CreatesValidLSA(uint256 collateralSeed, uint256 depositSeed, uint256 durationSeed)
+        public
+    {
         // Bound inputs to valid ranges
         uint256 collateral = _boundCollateral(collateralSeed);
         uint256 duration = _boundDuration(durationSeed);
@@ -173,11 +171,9 @@ contract LoanFuzzTest is LoanUnitTestBase {
      * @custom:audit-category Core Functionality
      * @custom:audit-severity High
      */
-    function testFuzz_Repay_MultipleRepayments(
-        uint256 collateralSeed,
-        uint256 repayment1Seed,
-        uint256 repayment2Seed
-    ) public {
+    function testFuzz_Repay_MultipleRepayments(uint256 collateralSeed, uint256 repayment1Seed, uint256 repayment2Seed)
+        public
+    {
         // Create loan
         uint256 collateral = _boundCollateral(collateralSeed);
         address lsa = _createLoanWithCollateral(collateral);

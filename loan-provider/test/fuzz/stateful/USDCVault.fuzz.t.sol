@@ -20,7 +20,7 @@ contract USDCVaultFuzzTest is FuzzTestBase {
         user = makeAddr("user");
 
         // Deploy MockUSDCVault with mockUSDC as underlying
-        mockUSDCVault = new MockUSDCVault(address(mockUSDC), "Bitmor USDC Vault", "bvUSDC", 6);
+        mockUSDCVault = new MockUSDCVault(address(mockUSDC), "Bitmor USDC Vault", "bvUSDC", mockUSDC.decimals());
     }
 
     // ============ Deposit/Withdraw Roundtrip Tests ============
@@ -47,6 +47,8 @@ contract USDCVaultFuzzTest is FuzzTestBase {
 
         assertGt(shares, 0, "should receive shares");
 
+        uint256 assetsExpected = mockUSDCVault.previewRedeem(shares);
+
         // Withdraw all shares
         vm.prank(user);
         uint256 assetsReceived = mockUSDCVault.redeem(shares, user, user);
@@ -55,7 +57,18 @@ contract USDCVaultFuzzTest is FuzzTestBase {
 
         // Assert roundtrip within slippage
         assertApproxEqRel(
-            balanceAfter, balanceBefore, FC.MAX_ROUNDTRIP_SLIPPAGE, "USDC roundtrip should preserve value within slippage"
+            balanceAfter,
+            balanceBefore,
+            FC.MAX_ROUNDTRIP_SLIPPAGE,
+            "USDC roundtrip should preserve value within slippage"
+        );
+
+        // Assert roundtrip within slippage
+        assertApproxEqRel(
+            assetsExpected,
+            assetsReceived,
+            FC.MAX_ROUNDTRIP_SLIPPAGE,
+            "USDC roundtrip should preserve value within slippage"
         );
     }
 

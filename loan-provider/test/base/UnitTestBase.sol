@@ -59,7 +59,7 @@ abstract contract UnitTestBase is BitmorTestBase {
         _deployMockExternals();
         vm.stopPrank();
 
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 
     /// @notice Deploys mock external protocols (Aave V3, tokens)
@@ -113,6 +113,6 @@ abstract contract UnitTestBase is BitmorTestBase {
     /// @notice Reverts to base snapshot and re-snapshots for test isolation
     function _resetState() internal {
         vm.revertTo(_baseSnapshotId);
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 }
