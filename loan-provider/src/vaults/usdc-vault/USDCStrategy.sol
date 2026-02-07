@@ -144,6 +144,15 @@ contract USDCStrategy is ISimpleStrategy {
         balance = _getTotalBalanceInMarkets();
     }
 
+    /**
+     * @notice Returns the total amount of assets that can actually be withdrawn right now
+     * @dev Sums Aave balance (fully liquid) and BLP available liquidity (excludes lent-out funds)
+     * @return withdrawable The total withdrawable amount across all positions
+     */
+    function withdrawableAssets() public view returns (uint256 withdrawable) {
+        withdrawable = _getBalanceInAave() + _getWithdrawableBalanceInBLP();
+    }
+
     /*
        _______  _______ _____ ____  _   _    _    _       _____ _   _ _   _  ____ _____ ___ ___  _   _ ____
       | ____\ \/ /_   _| ____|  _ \| \ | |  / \  | |     |  ___| | | | \ | |/ ___|_   _|_ _/ _ \| \ | / ___|
@@ -269,6 +278,15 @@ contract USDCStrategy is ISimpleStrategy {
     }
 
     /**
+     * @dev Returns only the available (withdrawable) liquidity in BLP, excluding lent-out funds
+     * @return withdrawable The amount of assets that can actually be withdrawn from BLP
+     */
+    function _getWithdrawableBalanceInBLP() internal view returns (uint256 withdrawable) {
+        DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
+        withdrawable = ERC20(i_asset).balanceOf(reserveData.aTokenAddress);
+    }
+
+    /**
      * @dev Rebalances assets between Aave and BLP to match `s_aaveAllocation`.
      * Only rebalances when the delta exceeds `s_minimumDeltaRequired` to avoid unnecessary gas costs.
      */
@@ -334,34 +352,50 @@ contract USDCStrategy is ISimpleStrategy {
     function _withdrawFunds(uint256 amountToTransfer) internal {
         uint256 currentAaveBalance = _getBalanceInAave();
         uint256 currentBLPBalance = _getBalanceInBLP();
+        uint256 withdrawableBLPBalance = _getWithdrawableBalanceInBLP();
 
         uint256 totalBalance = currentAaveBalance.rawAdd(currentBLPBalance);
 
         uint256 totalBalanceAfter = totalBalance.rawSub(amountToTransfer);
 
         uint256 targetAaveBalance = totalBalanceAfter.mulDivUp(s_aaveAllocation, BASIS_POINT_SCALE);
-        uint256 targetBLPBalance = totalBalanceAfter.rawSub(targetAaveBalance);
 
         uint256 remaining = amountToTransfer;
+
+        // Withdraw from Aave first
         if (currentAaveBalance > targetAaveBalance) {
             uint256 amountToWithdrawFromAave = currentAaveBalance.rawSub(targetAaveBalance);
+
+            // If BLP can't cover its share due to lent-out funds, pull extra from Aave
+            uint256 neededFromBLP = amountToTransfer > (currentAaveBalance.rawSub(targetAaveBalance))
+                ? amountToTransfer.rawSub(currentAaveBalance.rawSub(targetAaveBalance))
+                : 0;
+
+            if (neededFromBLP > withdrawableBLPBalance) {
+                uint256 blpShortfall = neededFromBLP.rawSub(withdrawableBLPBalance);
+                amountToWithdrawFromAave = amountToWithdrawFromAave.rawAdd(blpShortfall);
+                if (amountToWithdrawFromAave > currentAaveBalance) {
+                    amountToWithdrawFromAave = currentAaveBalance;
+                }
+            }
 
             uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
             //!  TODO: Implement slippage check in case when AAVE don't have enough funds to provide to the user while withdrawing.
 
-            if (finalAmountWithdrawn > amountToTransfer) {
+            if (finalAmountWithdrawn >= amountToTransfer) {
                 uint256 excess = finalAmountWithdrawn.rawSub(amountToTransfer);
-
-                i_blp.deposit(i_asset, excess, address(this), REFERRAL_CODE);
-
+                if (excess > 0) {
+                    i_blp.deposit(i_asset, excess, address(this), REFERRAL_CODE);
+                }
                 return;
             }
 
             remaining = remaining.zeroFloorSub(finalAmountWithdrawn);
         }
 
-        if (currentBLPBalance > targetBLPBalance) {
-            uint256 amountToWithdrawFromBLP = currentBLPBalance.rawSub(targetBLPBalance);
+        // Withdraw remaining from BLP, capped at actual available liquidity
+        if (remaining > 0 && withdrawableBLPBalance > 0) {
+            uint256 amountToWithdrawFromBLP = remaining < withdrawableBLPBalance ? remaining : withdrawableBLPBalance;
 
             uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
 
