@@ -1,44 +1,65 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 /**
  * @title ISwapAdaptor
- * @author Bitmor Protocol
- * @notice Interface for swap adapter contracts used by the protocol for USDC <-> cbBTC token swaps
- * @dev Implemented by SwapAdaptor (Aerodrome on Base mainnet) and UniswapV4SwapAdapterWrapper (testnet)
+ * @notice Interface for UniswapV4Swapper with simplified function signatures
+ * @dev Pool config (fee, tickSpacing, hooks) stored as immutables in the contract
  */
 interface ISwapAdaptor {
     /**
-     * @notice Swap exact input tokens for output tokens via Aerodrome standard pool
+     * @notice Get maximum input tokens needed for exact output tokens
      * @param tokenIn Input token address
      * @param tokenOut Output token address
-     * @param amountIn Amount of input tokens to swap
-     * @param minAmountOut Minimum output tokens to receive
-     * @param stable True for stable pools, false for volatile pools
+     * @param exactAmountOut Exact amount of output tokens desired
+     * @return maxAmountIn Maximum input tokens required (includes slippage buffer)
+     */
+    function getMaxTokenInAmount(address tokenIn, address tokenOut, uint256 exactAmountOut)
+        external
+        returns (uint256 maxAmountIn);
+
+    /**
+     * @notice Get minimum output tokens for exact input tokens
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param exactAmountIn Exact amount of input tokens to swap
+     * @return minAmountOut Minimum output tokens expected (includes slippage buffer)
+     */
+    function getMinTokenOutAmount(address tokenIn, address tokenOut, uint256 exactAmountIn)
+        external
+        returns (uint256 minAmountOut);
+
+    /**
+     * @notice Swap exact input tokens for minimum output tokens
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param exactAmountIn Exact amount of input tokens to swap
+     * @param minAmountOut Minimum output tokens to receive (slippage protection)
+     * @param recipient Address to receive the output tokens
      * @return amountOut Actual output tokens received
      */
-    function swapExactTokensForTokens(
+    function swapExactInput(
         address tokenIn,
         address tokenOut,
-        uint256 amountIn,
+        uint256 exactAmountIn,
         uint256 minAmountOut,
-        bool stable
+        address recipient
     ) external returns (uint256 amountOut);
 
     /**
-     * @notice Swap via Aerodrome concentrated liquidity pool
+     * @notice Swap maximum input tokens for exact output tokens
      * @param tokenIn Input token address
      * @param tokenOut Output token address
-     * @param amountIn Amount of input tokens to swap
-     * @param minAmountOut Minimum output tokens to receive
-     * @param tickSpacing Tick spacing for CL pool (50, 100, 200)
-     * @return amountOut Actual output tokens received
+     * @param exactAmountOut Exact amount of output tokens to receive
+     * @param maxAmountIn Maximum input tokens willing to spend
+     * @param recipient Address to receive the output tokens
+     * @return amountIn Actual input tokens spent
      */
-    function swapExactTokensForTokensCL(
+    function swapExactOutput(
         address tokenIn,
         address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        int24 tickSpacing
-    ) external returns (uint256 amountOut);
+        uint256 exactAmountOut,
+        uint256 maxAmountIn,
+        address recipient
+    ) external returns (uint256 amountIn);
 }
