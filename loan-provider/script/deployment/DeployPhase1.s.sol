@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {MockUSDC, MockCbBTC} from "@bitmor/mocks/MintableERC20.sol";
+import {MockUSDC, MockCbBTC} from "../../test/mock/MintableERC20.sol";
 import {MockChainlinkOracle} from "../../test/mock/MockChainlinkOracle.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {MockAaveV3Pool} from "../../test/mock/MockAaveV3Pool.sol";

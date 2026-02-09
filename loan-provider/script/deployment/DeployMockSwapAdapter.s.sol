@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
-import {MockUniswapV4SwapAdapter} from "../../src/mocks/MockUniswapV4SwapAdapter.sol";
+import {MockUniswapV4SwapAdapter} from "../../test/mock/MockUniswapV4SwapAdapter.sol";
 
 /**
  * @title DeployMockSwapAdapter

@@ -21,7 +21,11 @@ interface ILoan {
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
+        address indexed borrower,
+        address indexed lsa,
+        uint256 loanAmount,
+        uint256 collateralAmount,
+        bytes data
     );
 
     /**
@@ -31,7 +35,9 @@ interface ILoan {
      * @param newStatus New loan status
      */
     event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
+        address indexed lsa,
+        DataTypes.LoanStatus indexed oldStatus,
+        DataTypes.LoanStatus indexed newStatus
     );
 
     /**
@@ -59,16 +65,10 @@ interface ILoan {
     event Loan__EscrowUpdated(address indexed newEscrow);
 
     /**
-     * @notice Emitted when the swap adapter address is updated
-     * @param newSwapAdapter Address of the new swap adapter contract
+     * @notice Emitted when the swapper address is updated
+     * @param newSwapper Address of the new swapper contract
      */
-    event Loan__SwapAdapterUpdated(address indexed newSwapAdapter);
-
-    /**
-     * @notice Emitted when the zQuoter address is updated
-     * @param newZQuoter Address of the new zQuoter contract
-     */
-    event Loan__ZQuoterUpdated(address indexed newZQuoter);
+    event Loan__SwapperUpdated(address indexed newSwapper);
 
     /**
      * @notice Emitted when a loan repayment is made
@@ -82,7 +82,10 @@ interface ILoan {
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
      */
-    event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
+    event Loan__LoanDataForMicroLiquidationUpdated(
+        address indexed lsa,
+        uint256 indexed newDuration
+    );
 
     /**
      * @notice Emitted when loan data is updated after a full liquidation
@@ -252,7 +255,10 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    ) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -283,18 +289,11 @@ interface ILoan {
     function setLoanVaultFactory(address newFactory) external;
 
     /**
-     * @notice Updates the swap adapter contract address
-     * @param newSwapAdapter New swap adapter address
+     * @notice Updates the swapper contract address
+     * @param newSwapper New swapper address
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setSwapAdapter(address newSwapAdapter) external;
-
-    /**
-     * @notice Updates the zQuoter contract address
-     * @param newZQuoter New zQuoter address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setZQuoter(address newZQuoter) external;
+    function setSwapper(address newSwapper) external;
 
     /**
      * @notice Updates the premium collector address
@@ -341,7 +340,10 @@ interface ILoan {
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 collateralAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);

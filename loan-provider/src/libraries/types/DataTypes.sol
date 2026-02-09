@@ -280,9 +280,9 @@ library DataTypes {
          */
         address bitmorPool;
         /**
-         * @dev zQuoter for Aerodrome price quotes (address(0) on testnet)
+         * @dev Swapper for swapping tokens
          */
-        address zQuoter;
+        address swapper;
         /**
          * @dev Debt asset address (USDC)
          */
@@ -295,10 +295,6 @@ library DataTypes {
          * @dev Underlying BTC token address (cbBTC)
          */
         address btc;
-        /**
-         * @dev Swap adapter for token swaps
-         */
-        address swapAdapter;
         /**
          * @dev Address that receives fees
          */

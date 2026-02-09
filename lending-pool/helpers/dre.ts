@@ -1,6 +1,6 @@
 import type { HardhatRuntimeEnvironment } from "hardhat/types/hre";
 import type { NetworkConnection } from "hardhat/types/network";
-import type { HardhatEthersHelpers } from "@nomicfoundation/hardhat-ethers/types";
+import type { HardhatEthers } from "@nomicfoundation/hardhat-ethers/types";
 
 /**
  * DRE (Domain Runtime Environment)
@@ -12,7 +12,7 @@ import type { HardhatEthersHelpers } from "@nomicfoundation/hardhat-ethers/types
  */
 export type DREType = Omit<HardhatRuntimeEnvironment, "network" | "ethers"> & {
   network: NetworkConnection;
-  ethers: HardhatEthersHelpers;
+  ethers: HardhatEthers;
 
   // Optional Tenderly helpers (only present when Tenderly plugin is enabled)
   tenderlyNetwork?: {

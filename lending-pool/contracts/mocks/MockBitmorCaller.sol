@@ -39,6 +39,7 @@ contract MockLoanProvider {
     /// @param interestRateMode The interest rate mode (1 = stable, 2 = variable)
     /// @param referralCode Referral code (unused)
     /// @param onBehalfOf The user receiving the debt
+    /// @dev Pool sends borrowed tokens to this contract, we immediately forward to caller
     function borrow(
         address asset,
         uint256 amount,
@@ -47,6 +48,8 @@ contract MockLoanProvider {
         address onBehalfOf
     ) external {
         pool.borrow(asset, amount, interestRateMode, referralCode, onBehalfOf);
+        // Forward borrowed tokens to the caller so they can repay
+        IERC20(asset).safeTransfer(msg.sender, amount);
     }
 
     /// @notice Repays debt to the lending pool
@@ -62,36 +65,9 @@ contract MockLoanProvider {
         address onBehalfOf
     ) external returns (uint256) {
         IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        // Reset approval to 0 first to handle existing allowances
+        IERC20(asset).safeApprove(address(pool), 0);
         IERC20(asset).safeApprove(address(pool), amount);
         return pool.repay(asset, amount, rateMode, onBehalfOf);
-    }
-}
-
-/// @title MockUSDCVault
-/// @notice Mock contract simulating the USDCVault for lending-pool tests
-/// @dev Allows deposit operations through the lending pool
-contract MockUSDCVault {
-    using SafeERC20 for IERC20;
-
-    ILendingPool public pool;
-
-    constructor(address _pool) public {
-        pool = ILendingPool(_pool);
-    }
-
-    /// @notice Deposits USDC into the lending pool
-    /// @param asset The asset to deposit (should be USDC)
-    /// @param amount The amount to deposit
-    /// @param onBehalfOf The user receiving the aTokens
-    /// @param referralCode Referral code (unused)
-    function deposit(
-        address asset,
-        uint256 amount,
-        address onBehalfOf,
-        uint16 referralCode
-    ) external {
-        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20(asset).safeApprove(address(pool), amount);
-        pool.deposit(asset, amount, onBehalfOf, referralCode);
     }
 }

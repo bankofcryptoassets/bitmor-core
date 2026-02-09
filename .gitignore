@@ -20,9 +20,15 @@ broadcast
 
 loan-provider/lcov.info
 loan-provider/lcov.filtered.info
-loan-provider/coverage-html
 docs
+lending-pool/types
+loan-provider/coverage-html
 lending-pool/types
 
 # Git worktrees
 .worktrees/
+
+
+swap-routers/out
+swap-routeres/lib
+swap-routers/cache

@@ -15,8 +15,7 @@ contract DeployLoan is Script {
         address collateralAsset,
         address debtAsset,
         address btc,
-        address swapAdapterWrapper,
-        address zQuoter,
+        address swapper,
         address premiumCollector,
         uint256 preClosureFee,
         uint256 gracePeriod
@@ -31,8 +30,7 @@ contract DeployLoan is Script {
             collateralAsset,
             debtAsset,
             btc,
-            swapAdapterWrapper,
-            zQuoter,
+            swapper,
             premiumCollector,
             preClosureFee,
             gracePeriod
@@ -51,8 +49,7 @@ contract DeployLoan is Script {
             config.getCollateralAsset(),
             config.getDebtAsset(),
             config.getCbBTC(),
-            config.getSwapAdapterWrapper(),
-            config.getZQuoter(),
+            config.getSwapper(),
             config.getPremiumCollector(),
             config.getPreClosureFee(),
             config.getGracePeriod()

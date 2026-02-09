@@ -2,9 +2,9 @@ import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import {
   deployLendingPoolCollateralManager,
   deployMockFlashLoanReceiver,
-  deployWalletBalancerProvider,
+  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   deployAaveProtocolDataProvider,
-  authorizeWETHGateway,
+  // authorizeWETHGateway,  // Not used in Bitmor protocol
 } from '../../../helpers/contracts-deployments.js';
 import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../../helpers/contracts-helpers.js';
 import { eNetwork } from '../../../helpers/types.js';
@@ -26,7 +26,7 @@ import {
   getAllMockedTokens,
   getLendingPoolAddressesProvider,
   getLendingPoolConfiguratorProxy,
-  getWETHGateway,
+  // getWETHGateway,  // Not used in Bitmor protocol
 } from '../../../helpers/contracts-getters.js';
 
 type Args = {
@@ -128,15 +128,17 @@ export default async function devInitializeLendingPoolAction(
     getContractAddress(mockFlashLoanReceiver)
   );
 
-  await deployWalletBalancerProvider(verify);
+  // WalletBalanceProvider not used in Bitmor protocol
+  // await deployWalletBalancerProvider(verify);
 
-  const lendingPoolAddress = await addressesProvider.getLendingPool();
+  // WETHGateway not used in Bitmor protocol
+  // const lendingPoolAddress = await addressesProvider.getLendingPool();
 
-  let gateway = getParamPerNetwork(WethGateway, network);
-  if (!notFalsyOrZeroAddress(gateway)) {
-    gateway = getContractAddress(await getWETHGateway());
-  }
-  await authorizeWETHGateway(gateway, lendingPoolAddress);
+  // let gateway = getParamPerNetwork(WethGateway, network);
+  // if (!notFalsyOrZeroAddress(gateway)) {
+  //   gateway = getContractAddress(await getWETHGateway());
+  // }
+  // await authorizeWETHGateway(gateway, lendingPoolAddress);
 
   // Unpause protocol using emergency admin signer (required by onlyEmergencyAdmin modifier)
   const emergencyAdminAddress = await getEmergencyAdmin(poolConfig);
