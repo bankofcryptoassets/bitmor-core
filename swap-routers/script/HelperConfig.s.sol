@@ -23,6 +23,13 @@ contract HelperConfig is Script {
     address constant UNIVERSAL_ROUTER_BASE_SEPOLIA = 0x95273d871c8156636e114b63797d78D7E1720d81;
     address constant V4_QUOTER_BASE_SEPOLIA = 0x4A6513c898fe1B2d0E78d3b0e0A4a151589B1cBa;
 
+    // ============ Pool Configuration ============
+    // Default pool parameters for USDC/cbBTC pair
+
+    uint24 constant DEFAULT_FEE = 3000; // 0.3%
+    int24 constant DEFAULT_TICK_SPACING = 60;
+    address constant DEFAULT_HOOKS = address(0); // No hooks
+
     // ============ Public Getters ============
 
     /// @notice Returns network name for current chain
@@ -47,6 +54,21 @@ contract HelperConfig is Script {
         return _readDeployment("v4Quoter");
     }
 
+    /// @notice Returns pool fee for current chain
+    function getPoolFee() public pure returns (uint24) {
+        return DEFAULT_FEE;
+    }
+
+    /// @notice Returns pool tick spacing for current chain
+    function getPoolTickSpacing() public pure returns (int24) {
+        return DEFAULT_TICK_SPACING;
+    }
+
+    /// @notice Returns pool hooks address for current chain
+    function getPoolHooks() public pure returns (address) {
+        return DEFAULT_HOOKS;
+    }
+
     // ============ Internal ============
 
     /// @notice Reads address from deployments.json for local chain
@@ -54,12 +76,7 @@ contract HelperConfig is Script {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
 
         try vm.readFile(path) returns (string memory json) {
-            string memory jsonKey = string.concat(
-                ".deployments.",
-                vm.toString(block.chainid),
-                ".contracts.",
-                key
-            );
+            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".contracts.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

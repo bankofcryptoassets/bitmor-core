@@ -15,7 +15,7 @@
     "8453": {
       "networkName": "base-mainnet",
       "contracts": {
-        "uniswapV4Swapper": "0x88C4C2C7D505378182b8E22BF05CD7aFcaBA6183"
+        "uniswapV4Swapper": "0xC5B6D7E0A75b3521cbb3c2B66A9C96f9B2a09336"
       }
     }
   }

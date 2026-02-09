@@ -40,13 +40,29 @@ contract FindPoolParams is Script {
 
         // Exhaustive search of all reasonable fee/tickSpacing combinations
         uint24[10] memory fees = [
-            uint24(100), uint24(500), uint24(450), uint24(3000), uint24(10000),
-            DYNAMIC_FEE_FLAG, uint24(400), uint24(2000), uint24(5000), uint24(1000)
+            uint24(100),
+            uint24(500),
+            uint24(450),
+            uint24(3000),
+            uint24(10000),
+            DYNAMIC_FEE_FLAG,
+            uint24(400),
+            uint24(2000),
+            uint24(5000),
+            uint24(1000)
         ];
 
         int24[10] memory tickSpacings = [
-            int24(1), int24(2), int24(5), int24(10), int24(15),
-            int24(20), int24(50), int24(60), int24(100), int24(200)
+            int24(1),
+            int24(2),
+            int24(5),
+            int24(10),
+            int24(15),
+            int24(20),
+            int24(50),
+            int24(60),
+            int24(100),
+            int24(200)
         ];
 
         console.log("Exhaustive search (100 combinations):");

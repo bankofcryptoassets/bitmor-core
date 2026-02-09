@@ -36,9 +36,14 @@ contract UniswapV4SwapperTest is Test {
     // ============ Setup ============
 
     function setUp() public {
-        // Deploy a fresh swapper with mock addresses
-        // This allows tests to run locally without forking
-        swapper = new UniswapV4Swapper(MOCK_ROUTER, MOCK_QUOTER);
+        // Deploy a fresh swapper with mock addresses and pool config
+        swapper = new UniswapV4Swapper(
+            MOCK_ROUTER,
+            MOCK_QUOTER,
+            FEE_TIER_MEDIUM,
+            TICK_SPACING_MEDIUM,
+            NO_HOOKS
+        );
 
         // Create test user
         user = makeAddr("user");
@@ -51,8 +56,11 @@ contract UniswapV4SwapperTest is Test {
 
     function test_DeployedCorrectly() public view {
         // Verify the swapper has correct immutables
-        assertEq(address(swapper.universalRouter()), MOCK_ROUTER, "Universal router mismatch");
-        assertEq(address(swapper.i_quoter()), MOCK_QUOTER, "V4 quoter mismatch");
+        assertEq(address(swapper.i_UNIVERSAL_ROUTER()), MOCK_ROUTER, "Universal router mismatch");
+        assertEq(address(swapper.i_QUOTER()), MOCK_QUOTER, "V4 quoter mismatch");
+        assertEq(swapper.i_FEE(), FEE_TIER_MEDIUM, "Fee mismatch");
+        assertEq(swapper.i_TICK_SPACING(), TICK_SPACING_MEDIUM, "Tick spacing mismatch");
+        assertEq(swapper.i_HOOKS(), NO_HOOKS, "Hooks mismatch");
     }
 
     function test_SwapperCodeExists() public view {
@@ -74,9 +82,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactInput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             0, // zero amount
             1,
             user
@@ -92,9 +97,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactInput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             1000e6, // 1000 USDC
             0, // zero min output
             user
@@ -110,9 +112,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactInput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             1000e6,
             1,
             address(0) // zero recipient
@@ -128,9 +127,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactOutput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             0, // zero amount
             1000e6,
             user
@@ -146,9 +142,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactOutput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             0.01e8, // 0.01 CBBTC
             0, // zero max input
             user
@@ -164,9 +157,6 @@ contract UniswapV4SwapperTest is Test {
         swapper.swapExactOutput(
             USDC_MAINNET,
             CBBTC_MAINNET,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS,
             0.01e8,
             1000e6,
             address(0) // zero recipient
@@ -198,14 +188,8 @@ contract UniswapV4SwapperMainnetForkTest is Test {
     uint8 constant CBBTC_DECIMALS = 8;
 
     // Pool parameters - verified for USDC/CBBTC pool on Base
-    uint24 constant FEE_500 = 500; // 0.05%
     uint24 constant FEE_3000 = 3000; // 0.3%
-    uint24 constant FEE_10000 = 10000; // 1%
-
-    int24 constant TICK_SPACING_10 = 10;
     int24 constant TICK_SPACING_60 = 60;
-    int24 constant TICK_SPACING_200 = 200;
-
     address constant NO_HOOKS = address(0);
 
     function setUp() public {
@@ -214,8 +198,14 @@ contract UniswapV4SwapperMainnetForkTest is Test {
             return;
         }
 
-        // Deploy a fresh instance of the fixed contract
-        swapper = new UniswapV4Swapper(UNIVERSAL_ROUTER, V4_QUOTER);
+        // Deploy a fresh instance with pool config baked in
+        swapper = new UniswapV4Swapper(
+            UNIVERSAL_ROUTER,
+            V4_QUOTER,
+            FEE_3000,
+            TICK_SPACING_60,
+            NO_HOOKS
+        );
 
         user = makeAddr("user");
         vm.deal(user, 100 ether);
@@ -242,15 +232,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         // Get quote: how much USDC do I need to get 0.01 CBBTC?
         uint256 cbbtcAmount = 0.01e8; // 0.01 CBBTC (8 decimals)
 
-        // Try with different pool configurations
-        try swapper.getMaxTokenInAmount(
-            USDC, // tokenIn
-            CBBTC, // tokenOut
-            FEE_3000, // 0.3% fee
-            TICK_SPACING_60,
-            NO_HOOKS,
-            cbbtcAmount
-        ) returns (uint256 maxAmountIn) {
+        try swapper.getMaxTokenInAmount(USDC, CBBTC, cbbtcAmount) returns (uint256 maxAmountIn) {
             console.log("Max USDC needed for 0.01 CBBTC:", maxAmountIn);
             assertGt(maxAmountIn, 0, "Quote should be non-zero");
 
@@ -269,14 +251,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         // Get quote: how much CBBTC will I get for 1000 USDC?
         uint256 usdcAmount = 1000e6; // 1000 USDC
 
-        try swapper.getMinTokenOutAmount(
-            USDC, // tokenIn
-            CBBTC, // tokenOut
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            usdcAmount
-        ) returns (uint256 minAmountOut) {
+        try swapper.getMinTokenOutAmount(USDC, CBBTC, usdcAmount) returns (uint256 minAmountOut) {
             console.log("Min CBBTC for 1000 USDC:", minAmountOut);
             assertGt(minAmountOut, 0, "Quote should be non-zero");
 
@@ -297,14 +272,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         // Get quote: how much CBBTC do I need to get 1000 USDC?
         uint256 usdcAmount = 1000e6; // 1000 USDC
 
-        try swapper.getMaxTokenInAmount(
-            CBBTC, // tokenIn
-            USDC, // tokenOut
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            usdcAmount
-        ) returns (uint256 maxAmountIn) {
+        try swapper.getMaxTokenInAmount(CBBTC, USDC, usdcAmount) returns (uint256 maxAmountIn) {
             console.log("Max CBBTC needed for 1000 USDC:", maxAmountIn);
             assertGt(maxAmountIn, 0, "Quote should be non-zero");
 
@@ -323,14 +291,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         // Get quote: how much USDC will I get for 0.01 CBBTC?
         uint256 cbbtcAmount = 0.01e8; // 0.01 CBBTC
 
-        try swapper.getMinTokenOutAmount(
-            CBBTC, // tokenIn
-            USDC, // tokenOut
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            cbbtcAmount
-        ) returns (uint256 minAmountOut) {
+        try swapper.getMinTokenOutAmount(CBBTC, USDC, cbbtcAmount) returns (uint256 minAmountOut) {
             console.log("Min USDC for 0.01 CBBTC:", minAmountOut);
             assertGt(minAmountOut, 0, "Quote should be non-zero");
 
@@ -359,14 +320,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         // Get quote first
         uint256 minAmountOut;
-        try swapper.getMinTokenOutAmount(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount
-        ) returns (uint256 quoted) {
+        try swapper.getMinTokenOutAmount(USDC, CBBTC, swapAmount) returns (uint256 quoted) {
             minAmountOut = quoted;
             console.log("Expected min CBBTC out:", minAmountOut);
         } catch {
@@ -382,16 +336,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         uint256 userCbbtcBefore = IERC20(CBBTC).balanceOf(user);
 
         // Execute swap
-        try swapper.swapExactInput(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount,
-            minAmountOut,
-            user
-        ) returns (uint256 amountOut) {
+        try swapper.swapExactInput(USDC, CBBTC, swapAmount, minAmountOut, user) returns (uint256 amountOut) {
             console.log("Swap successful! CBBTC received:", amountOut);
 
             // Verify balances changed correctly
@@ -419,14 +364,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         // Get quote for max USDC input
         uint256 maxAmountIn;
-        try swapper.getMaxTokenInAmount(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            exactCbbtcOut
-        ) returns (uint256 quoted) {
+        try swapper.getMaxTokenInAmount(USDC, CBBTC, exactCbbtcOut) returns (uint256 quoted) {
             maxAmountIn = quoted;
             console.log("Max USDC needed:", maxAmountIn);
         } catch {
@@ -442,16 +380,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         uint256 userCbbtcBefore = IERC20(CBBTC).balanceOf(user);
 
         // Execute swap
-        try swapper.swapExactOutput(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            exactCbbtcOut,
-            maxAmountIn,
-            user
-        ) returns (uint256 amountIn) {
+        try swapper.swapExactOutput(USDC, CBBTC, exactCbbtcOut, maxAmountIn, user) returns (uint256 amountIn) {
             console.log("Swap successful! USDC spent:", amountIn);
 
             // Verify balances
@@ -491,14 +420,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         // Get quote first
         uint256 minAmountOut;
-        try swapper.getMinTokenOutAmount(
-            CBBTC,
-            USDC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount
-        ) returns (uint256 quoted) {
+        try swapper.getMinTokenOutAmount(CBBTC, USDC, swapAmount) returns (uint256 quoted) {
             minAmountOut = quoted;
             console.log("Expected min USDC out:", minAmountOut);
         } catch {
@@ -514,16 +436,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         uint256 userUsdcBefore = IERC20(USDC).balanceOf(user);
 
         // Execute swap
-        try swapper.swapExactInput(
-            CBBTC,
-            USDC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount,
-            minAmountOut,
-            user
-        ) returns (uint256 amountOut) {
+        try swapper.swapExactInput(CBBTC, USDC, swapAmount, minAmountOut, user) returns (uint256 amountOut) {
             console.log("Swap successful! USDC received:", amountOut);
 
             // Verify balances changed correctly
@@ -551,14 +464,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         // Get quote for max CBBTC input
         uint256 maxAmountIn;
-        try swapper.getMaxTokenInAmount(
-            CBBTC,
-            USDC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            exactUsdcOut
-        ) returns (uint256 quoted) {
+        try swapper.getMaxTokenInAmount(CBBTC, USDC, exactUsdcOut) returns (uint256 quoted) {
             maxAmountIn = quoted;
             console.log("Max CBBTC needed:", maxAmountIn);
         } catch {
@@ -574,16 +480,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         uint256 userUsdcBefore = IERC20(USDC).balanceOf(user);
 
         // Execute swap
-        try swapper.swapExactOutput(
-            CBBTC,
-            USDC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            exactUsdcOut,
-            maxAmountIn,
-            user
-        ) returns (uint256 amountIn) {
+        try swapper.swapExactOutput(CBBTC, USDC, exactUsdcOut, maxAmountIn, user) returns (uint256 amountIn) {
             console.log("Swap successful! CBBTC spent:", amountIn);
 
             // Verify balances
@@ -621,22 +518,9 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         uint256 recipientCbbtcBefore = IERC20(CBBTC).balanceOf(recipient);
 
-        try swapper.swapExactInput(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount,
-            1, // min 1 satoshi
-            recipient // different recipient
-        ) returns (uint256 amountOut) {
+        try swapper.swapExactInput(USDC, CBBTC, swapAmount, 1, recipient) returns (uint256 amountOut) {
             uint256 recipientCbbtcAfter = IERC20(CBBTC).balanceOf(recipient);
-            assertEq(
-                recipientCbbtcAfter - recipientCbbtcBefore,
-                amountOut,
-                "Recipient should receive tokens"
-            );
+            assertEq(recipientCbbtcAfter - recipientCbbtcBefore, amountOut, "Recipient should receive tokens");
             console.log("Recipient received CBBTC:", amountOut);
         } catch {
             console.log("Swap failed - pool may not exist");
@@ -656,16 +540,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         uint256 userUsdcBefore = IERC20(USDC).balanceOf(user);
 
-        try swapper.swapExactOutput(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            exactCbbtcOut,
-            maxAmountIn,
-            user
-        ) returns (uint256 amountIn) {
+        try swapper.swapExactOutput(USDC, CBBTC, exactCbbtcOut, maxAmountIn, user) returns (uint256 amountIn) {
             uint256 userUsdcAfter = IERC20(USDC).balanceOf(user);
 
             // User should have been refunded the excess
@@ -694,16 +569,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
 
         // This should revert because we can't get 100 BTC for 100 USDC
         vm.expectRevert(); // Could be "Insufficient output amount" or pool error
-        swapper.swapExactInput(
-            USDC,
-            CBBTC,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS,
-            swapAmount,
-            unrealisticMinOut,
-            user
-        );
+        swapper.swapExactInput(USDC, CBBTC, swapAmount, unrealisticMinOut, user);
 
         vm.stopPrank();
     }
@@ -719,6 +585,9 @@ contract UniswapV4SwapperLocalTest is Test {
 
     address constant MOCK_ROUTER = address(0x1);
     address constant MOCK_QUOTER = address(0x2);
+    uint24 constant FEE = 3000;
+    int24 constant TICK_SPACING = 60;
+    address constant NO_HOOKS = address(0);
 
     function setUp() public {
         // Skip fork tests
@@ -726,8 +595,8 @@ contract UniswapV4SwapperLocalTest is Test {
             return;
         }
 
-        // Deploy a new swapper for local testing
-        swapper = new UniswapV4Swapper(MOCK_ROUTER, MOCK_QUOTER);
+        // Deploy a new swapper for local testing with pool config
+        swapper = new UniswapV4Swapper(MOCK_ROUTER, MOCK_QUOTER, FEE, TICK_SPACING, NO_HOOKS);
     }
 
     modifier onlyLocal() {
@@ -738,13 +607,16 @@ contract UniswapV4SwapperLocalTest is Test {
     }
 
     function test_Constructor_SetsImmutables() public onlyLocal {
-        assertEq(address(swapper.universalRouter()), MOCK_ROUTER);
-        assertEq(address(swapper.i_quoter()), MOCK_QUOTER);
+        assertEq(address(swapper.i_UNIVERSAL_ROUTER()), MOCK_ROUTER);
+        assertEq(address(swapper.i_QUOTER()), MOCK_QUOTER);
+        assertEq(swapper.i_FEE(), FEE);
+        assertEq(swapper.i_TICK_SPACING(), TICK_SPACING);
+        assertEq(swapper.i_HOOKS(), NO_HOOKS);
     }
 
     function test_Constructor_WithZeroRouter() public onlyLocal {
         // Should not revert on construction with zero addresses
-        UniswapV4Swapper zeroSwapper = new UniswapV4Swapper(address(0), address(0));
-        assertEq(address(zeroSwapper.universalRouter()), address(0));
+        UniswapV4Swapper zeroSwapper = new UniswapV4Swapper(address(0), address(0), FEE, TICK_SPACING, NO_HOOKS);
+        assertEq(address(zeroSwapper.i_UNIVERSAL_ROUTER()), address(0));
     }
 }

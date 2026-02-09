@@ -18,6 +18,11 @@ contract DeployUniswapV4Swapper is Script {
         address universalRouter = config.getUniversalRouter();
         address v4Quoter = config.getV4Quoter();
 
+        // Get pool configuration
+        uint24 fee = config.getPoolFee();
+        int24 tickSpacing = config.getPoolTickSpacing();
+        address hooks = config.getPoolHooks();
+
         // Validate addresses
         require(universalRouter != address(0), "Universal Router address is zero");
 
@@ -26,10 +31,13 @@ contract DeployUniswapV4Swapper is Script {
         console.log("Chain ID:", block.chainid);
         console.log("Universal Router:", universalRouter);
         console.log("V4 Quoter:", v4Quoter);
+        console.log("Pool Fee:", fee);
+        console.log("Tick Spacing:", uint24(tickSpacing));
+        console.log("Hooks:", hooks);
 
         vm.startBroadcast();
 
-        swapper = new UniswapV4Swapper(universalRouter, v4Quoter);
+        swapper = new UniswapV4Swapper(universalRouter, v4Quoter, fee, tickSpacing, hooks);
 
         vm.stopBroadcast();
 
@@ -45,29 +53,34 @@ contract DeployUniswapV4Swapper is Script {
     /// @notice Saves deployed address to deployments.json
     function _saveDeployedAddress(address swapperAddress) internal {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
-        string memory jsonPath = string.concat(".deployments.", vm.toString(block.chainid), ".contracts.uniswapV4Swapper");
+        string memory jsonPath =
+            string.concat(".deployments.", vm.toString(block.chainid), ".contracts.uniswapV4Swapper");
 
         vm.writeJson(vm.toString(swapperAddress), path, jsonPath);
 
         console.log("=== Address Saved to deployments.json ===");
     }
 
-    /// @notice Deploy with custom addresses (for testing or override)
-    /// @param universalRouter Universal Router address
-    /// @param v4Quoter V4 Quoter address
+    /// @notice Deploy with custom addresses and pool config (for testing or override)
     function deployWithAddresses(
         address universalRouter,
-        address v4Quoter
+        address v4Quoter,
+        uint24 fee,
+        int24 tickSpacing,
+        address hooks
     ) public returns (UniswapV4Swapper swapper) {
         require(universalRouter != address(0), "Universal Router address is zero");
 
         console.log("=== Deploying UniswapV4Swapper (custom addresses) ===");
         console.log("Universal Router:", universalRouter);
         console.log("V4 Quoter:", v4Quoter);
+        console.log("Pool Fee:", fee);
+        console.log("Tick Spacing:", uint24(tickSpacing));
+        console.log("Hooks:", hooks);
 
         vm.startBroadcast();
 
-        swapper = new UniswapV4Swapper(universalRouter, v4Quoter);
+        swapper = new UniswapV4Swapper(universalRouter, v4Quoter, fee, tickSpacing, hooks);
 
         vm.stopBroadcast();
 
