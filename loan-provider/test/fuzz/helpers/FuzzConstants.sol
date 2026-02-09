@@ -80,4 +80,34 @@ library FuzzConstants {
 
     /// @dev Maximum base for rayPow (prevents overflow)
     uint256 constant MAX_RAY_BASE = type(uint128).max;
+
+    // ============ Allocation Bounds (basis points) ============
+
+    /// @dev Minimum allocation to Aave: 0%
+    uint256 constant MIN_ALLOCATION_BPS = 0;
+
+    /// @dev Maximum allocation to Aave: 100%
+    uint256 constant MAX_ALLOCATION_BPS = 10_000;
+
+    /// @dev Default Aave allocation: 80%
+    uint256 constant DEFAULT_AAVE_ALLOCATION_BPS = 8_000;
+
+    /// @dev Tolerance for allocation ratio checks: 2%
+    uint256 constant ALLOCATION_TOLERANCE_BPS = 200;
+
+    // ============ Delta Threshold Bounds ============
+
+    /// @dev Minimum delta threshold for reallocation: 0%
+    uint256 constant MIN_DELTA_THRESHOLD_BPS = 0;
+
+    /// @dev Maximum delta threshold for reallocation: 50%
+    uint256 constant MAX_DELTA_THRESHOLD_BPS = 5_000;
+
+    /// @dev Default minimum delta for reallocation: 5%
+    uint256 constant DEFAULT_MIN_DELTA_BPS = 500;
+
+    // ============ Pool Liquidity ============
+
+    /// @dev Pool liquidity for mock pools: 100M USDC
+    uint256 constant POOL_LIQUIDITY = 100_000_000e6;
 }

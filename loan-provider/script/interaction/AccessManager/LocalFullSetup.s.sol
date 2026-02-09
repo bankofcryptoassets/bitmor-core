@@ -181,10 +181,10 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         address usdcStrategy = config.getUSDCStrategy();
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
-            manager.schedule(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy), when);
+            manager.schedule(usdcVault, abi.encodeWithSignature("setStrategy(address)", usdcStrategy), when);
             manager.schedule(
                 usdcVault,
-                abi.encodeWithSignature("setYieldSourceAllocation(uint256)", stratConfig.usdcVault.aaveAllocation),
+                abi.encodeWithSignature("updateExternalAllocation(uint256)", stratConfig.usdcVault.aaveAllocation),
                 when
             );
         }
@@ -215,10 +215,10 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         address usdcStrategy = config.getUSDCStrategy();
         if (usdcStrategy != address(0)) {
             StrategyConfig.StrategyDeploymentConfig memory stratConfig = strategyConfig.getStrategyConfig();
-            manager.execute(usdcVault, abi.encodeWithSignature("setNewStrategy(address)", usdcStrategy));
+            manager.execute(usdcVault, abi.encodeWithSignature("setStrategy(address)", usdcStrategy));
             manager.execute(
                 usdcVault,
-                abi.encodeWithSignature("setYieldSourceAllocation(uint256)", stratConfig.usdcVault.aaveAllocation)
+                abi.encodeWithSignature("updateExternalAllocation(uint256)", stratConfig.usdcVault.aaveAllocation)
             );
         }
 

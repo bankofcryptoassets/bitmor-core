@@ -63,10 +63,7 @@ contract BTCVaultFuzzTest is FuzzTestBase {
 
         // Assert roundtrip within slippage
         assertApproxEqRel(
-            balanceAfter,
-            balanceBefore,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "roundtrip should preserve value within slippage"
+            balanceAfter, balanceBefore, FC.MAX_ROUNDTRIP_SLIPPAGE, "roundtrip should preserve value within slippage"
         );
     }
 
@@ -97,10 +94,7 @@ contract BTCVaultFuzzTest is FuzzTestBase {
 
         // Assert roundtrip within slippage
         assertApproxEqRel(
-            balanceAfter,
-            balanceBefore,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "mint/redeem roundtrip should preserve value"
+            balanceAfter, balanceBefore, FC.MAX_ROUNDTRIP_SLIPPAGE, "mint/redeem roundtrip should preserve value"
         );
     }
 
@@ -109,10 +103,7 @@ contract BTCVaultFuzzTest is FuzzTestBase {
     /// @custom:audit-property BTC-03: Shares minted proportional to deposit amount
     /// @custom:audit-category ERC-4626 Compliance
     /// @custom:audit-severity High
-    function testFuzz_Deposit_SharesProportional(
-        uint256 amount1Seed,
-        uint256 amount2Seed
-    ) public {
+    function testFuzz_Deposit_SharesProportional(uint256 amount1Seed, uint256 amount2Seed) public {
         uint256 amount1 = _boundBtcAmount(amount1Seed);
         uint256 amount2 = _boundBtcAmount(amount2Seed);
 
@@ -137,12 +128,7 @@ contract BTCVaultFuzzTest is FuzzTestBase {
         uint256 cross1 = shares1 * amount2;
         uint256 cross2 = shares2 * amount1;
 
-        assertApproxEqRel(
-            cross1,
-            cross2,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "shares should be proportional to deposit"
-        );
+        assertApproxEqRel(cross1, cross2, FC.MAX_ROUNDTRIP_SLIPPAGE, "shares should be proportional to deposit");
     }
 
     // ============ ERC-4626 Invariant Tests ============

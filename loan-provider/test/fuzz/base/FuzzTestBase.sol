@@ -164,6 +164,7 @@ abstract contract FuzzTestBase is UnitTestBase {
     }
 
     /**
+     * !TODO: Need to have a USDC price variable instead of using the constant 1 USDC = 1 USD
      * @notice Gets minimum deposit for a collateral amount at a given BTC price
      * @param collateralAmount BTC amount (8 decimals)
      * @param btcPrice BTC price in USD (8 decimals)

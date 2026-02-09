@@ -102,10 +102,14 @@ test\:strategy\:unit:
 	@echo "Running Strategy unit tests..."
 	@FOUNDRY_PROFILE=unit forge test --match-path "test/unit/Strategy/**/*.sol" -vvv
 
-# ============ Placeholder Tests ============
-
 test\:fuzz:
-	@echo "No fuzz tests yet. Add tests to test/fuzz/ to enable."
+	@echo "Running Fuzz tests..."
+	@FOUNDRY_PROFILE=fuzz forge test --match-path "test/fuzz/**/*.sol" -vvv
+
+test\:fuzz\:usdcVault:
+	@echo "Running Fuzz USDC Vault tests..."
+	@FOUNDRY_PROFILE=fuzz forge test --match-path "test/fuzz/**/USDCVault.fuzz.t.sol" -vvv
+
 
 test\:invariant:
 	@echo "No invariant tests yet. Add tests to test/invariant/ to enable."
