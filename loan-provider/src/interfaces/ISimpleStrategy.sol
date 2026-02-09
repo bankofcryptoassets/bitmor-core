@@ -16,6 +16,12 @@ interface ISimpleStrategy {
     event SimpleStrategy__MinimumDeltaUpdated(uint256 newMinimumDeltaRequired);
 
     /**
+     * @notice Emitted when the Aave allocation percentage is updated
+     * @param newExternalAllocation The new Aave allocation in basis points
+     */
+    event SimpleStrategy__ExternalAllocationUpdated(uint256 indexed newExternalAllocation);
+
+    /**
      * @notice Returns the address of the underlying asset
      * @return The address of the ERC20 token managed by this strategy
      */
@@ -74,4 +80,16 @@ interface ISimpleStrategy {
      * @param newMinimumDeltarRequired The new minimum delta in basis points
      */
     function updateMinimumDeltaRequired(uint256 newMinimumDeltarRequired) external;
+
+    /**
+     * @notice Updates the percentage of assets allocated to the external protocol (Aave)
+     * @param newExternalAllocation The new allocation in basis points (e.g., 8000 = 80%)
+     */
+    function updateExternalAllocation(uint256 newExternalAllocation) external;
+
+    /**
+     * @notice Returns the current external protocol allocation percentage
+     * @return externalAllocation The allocation in basis points (e.g., 8000 = 80%)
+     */
+    function getExternalAllocation() external view returns (uint256 externalAllocation);
 }
