@@ -129,12 +129,13 @@ makeSuite('Variable debt token tests', (testEnv: TestEnv) => {
       ).to.be.revertedWith('SafeMath: division by zero');
     });
 
-    it('getAssetPrice returns BASE_CURRENCY_UNIT for base currency', async () => {
+    it('getAssetPrice returns correct price for WETH', async () => {
       const { weth } = testEnv;
       const aaveOracle = await getAaveOracle();
 
+      // With USD denomination, WETH price should be $2500 (250000000000 = 2500 * 1e8)
       const price = await aaveOracle.getAssetPrice(getContractAddress(weth));
-      expect(price).to.equal(parseEther('1'));
+      expect(price).to.equal(250000000000n);
     });
 
     it('getAssetPrice uses Chainlink source when price > 0', async () => {

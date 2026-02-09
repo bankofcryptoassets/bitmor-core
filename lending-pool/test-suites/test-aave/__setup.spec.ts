@@ -56,7 +56,7 @@ import {
 import { DRE, waitForTx, setDRE } from '../../helpers/misc-utils.js';
 import { initReservesByHelper, configureReservesByHelper } from '../../helpers/init-helpers.js';
 import AaveConfig from '../../markets/aave/index.js';
-import { oneEther, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { oneUsd, ZERO_ADDRESS } from '../../helpers/constants.js';
 import {
   getLendingPool,
   getLendingPoolConfiguratorProxy,
@@ -110,7 +110,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
 
   console.log('cbBTC mock token deployed:: ', cbBTC.target);
 
-    const mockTokens: {
+  const mockTokens: {
     [symbol: string]: MintableERC20 | WETH9Mocked;
   } = {
     ...(await deployAllMockTokens(deployer)),
@@ -219,10 +219,9 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     fallbackOracle
   );
 
-  // Set cbBTC price ($100,000 in ETH terms - similar to WBTC pricing)
-  // Using same format as other prices: oneEther.multipliedBy(price_in_ETH)
+  // Set cbBTC price ($100,000 in USD terms with 8 decimals)
   await waitForTx(
-    await fallbackOracle.setAssetPrice(getContractAddress(cbBTC), oneEther.multipliedBy('47.332685').toFixed())
+    await fallbackOracle.setAssetPrice(getContractAddress(cbBTC), oneUsd.multipliedBy('100000').toFixed())
   );
   console.log('cbBTC price set in fallback oracle');
 
@@ -236,7 +235,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
 
   // Set bvBTC price (same as cbBTC for 1:1 share ratio)
   await waitForTx(
-    await fallbackOracle.setAssetPrice(getContractAddress(mockBTCVault), oneEther.multipliedBy('47.332685').toFixed())
+    await fallbackOracle.setAssetPrice(getContractAddress(mockBTCVault), oneUsd.multipliedBy('100000').toFixed())
   );
 
   const mockAggregators = await deployAllMockAggregators(ALL_ASSETS_INITIAL_PRICES);
@@ -267,8 +266,8 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     getContractAddress(cbBTC), // btc - cbBTC token
     getContractAddress(mockBTCVault), // bvBTC - vault shares
     getContractAddress(fallbackOracle),
-    getContractAddress(mockTokens.WETH),
-    oneEther.toString(),
+    USD_ADDRESS,
+    oneUsd.toString(),
   ]);
   await waitForTx(await addressesProvider.setPriceOracle(getContractAddress(fallbackOracle)));
 

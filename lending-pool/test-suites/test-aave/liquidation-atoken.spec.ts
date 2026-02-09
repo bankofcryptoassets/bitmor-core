@@ -437,8 +437,8 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       .deposit(getContractAddress(btcVault), amountBtcToDeposit, user.address, '0');
     
     
-    const amountUsdcToBorrow = await convertToCurrencyDecimals(getContractAddress(usdc), '5000');
-    
+    const amountUsdcToBorrow = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
+
     await mockLoan.createActiveLoan(
       user.address,
       user.address,

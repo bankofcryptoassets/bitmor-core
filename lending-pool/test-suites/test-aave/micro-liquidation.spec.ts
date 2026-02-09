@@ -431,7 +431,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       const user = users[1];
 
       // Set up user[1] with small bvBTC collateral (0.05 bvBTC) and USDC debt
-      await setupUserWithVaultDebt(testEnv, 1, '0.05', '4000');
+      await setupUserWithVaultDebt(testEnv, 1, '0.05', '3000');
 
       // Get the bvBTC aToken for balance checks
       const { aTokenAddress: abvBTCAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(btcVault));
