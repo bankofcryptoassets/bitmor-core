@@ -83,6 +83,13 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
         manager.grantRole(BVD_ID(), depositor3, 0);
         _setBTCVaultTargetSelectors(address(vault));
 
+        // Patch: RolesData.getBVM_SLOW_SELECTORS() omits setEntryFee/setExitFee,
+        // so we register them manually under BVM_SLOW (matching BaseTestForBTCVault pattern).
+        bytes4[] memory feeSelectors = new bytes4[](2);
+        feeSelectors[0] = BTCVault.setEntryFee.selector;
+        feeSelectors[1] = BTCVault.setExitFee.selector;
+        manager.setTargetFunctionRole(address(vault), feeSelectors, BVM_SLOW_ID());
+
         // Configure vault parameters (fees, max strategies)
         _configureVault();
 
