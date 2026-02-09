@@ -102,10 +102,11 @@ contract BTCVaultInvariantTest is Test {
 
         uint256 expected = netIn > netOut ? netIn - netOut : 0;
 
-        // All operations (deposits, withdrawals, reallocations, yield) track actual
-        // totalAssets deltas. Tolerance only needed for potential rounding in the
-        // totalAssets() computation itself (virtual share offset in strategies).
-        uint256 tolerance = FC.MAX_ROUNDING_ERROR;
+        // Each operation can introduce rounding through double-layer ERC-4626 share
+        // conversion (vault shares -> strategy shares -> aToken). Scale tolerance
+        // proportionally to total operations, matching INV-BTC-05's approach.
+        uint256 allOps = totalOps + handler.ghost_reallocateCount() + handler.ghost_yieldCount();
+        uint256 tolerance = allOps * FC.MAX_ROUNDING_ERROR;
 
         assertApproxEqAbs(
             totalAssets,

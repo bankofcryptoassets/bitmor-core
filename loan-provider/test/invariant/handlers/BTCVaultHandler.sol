@@ -247,29 +247,37 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
     /**
      * @notice Handler for fund reallocation between strategies
-     * @dev Moves a fraction of strategy1 assets to strategy2. Skips if no assets.
-     * @param amountSeed Seed for bounded reallocation amount
+     * @dev Moves a fraction of assets between strategies. Direction chosen by seed parity.
+     *      Skips if source strategy has no assets.
+     * @param amountSeed Seed for bounded reallocation amount and direction selection
      * @custom:audit-invariant INV-BTC-03
      */
     function handler_reallocate(uint256 amountSeed) external {
         uint256 total = vault.totalAssets();
         if (total == 0) return;
 
-        // Get current strategy1 balance
         uint256 s1Balance = vault.getAssetInStrategy(address(strategy1));
-        if (s1Balance == 0) return;
-
-        // Move a fraction from strategy1 to strategy2
-        uint256 moveAmount = bound(amountSeed, 1, s1Balance);
         uint256 s2Balance = vault.getAssetInStrategy(address(strategy2));
 
+        // Pick direction based on seed parity
+        bool s1ToS2 = (amountSeed % 2 == 0);
+        uint256 srcBalance = s1ToS2 ? s1Balance : s2Balance;
+        if (srcBalance == 0) return;
+
+        uint256 moveAmount = bound(amountSeed, 1, srcBalance);
+
         DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
-        allocations[0] = DataTypes.Allocation({index: 0, amount: s1Balance - moveAmount});
-        allocations[1] = DataTypes.Allocation({index: 1, amount: s2Balance + moveAmount});
+        if (s1ToS2) {
+            allocations[0] = DataTypes.Allocation({index: 0, amount: s1Balance - moveAmount});
+            allocations[1] = DataTypes.Allocation({index: 1, amount: s2Balance + moveAmount});
+        } else {
+            allocations[0] = DataTypes.Allocation({index: 0, amount: s1Balance + moveAmount});
+            allocations[1] = DataTypes.Allocation({index: 1, amount: s2Balance - moveAmount});
+        }
 
         uint256 assetsBefore = vault.totalAssets();
 
-        try this._doReallocate(allocations) {
+        try this.doReallocate(allocations) {
             uint256 assetsAfter = vault.totalAssets();
             // Reallocations can lose assets through strategy share rounding
             if (assetsBefore > assetsAfter) {
@@ -285,9 +293,11 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
     /**
      * @notice External wrapper for reallocation to use with try/catch
+     * @dev Must be `external` so `try this.doReallocate(...)` compiles. Not targeted by the fuzzer
+     *      since `targetSelector` only lists `handler_*` functions.
      * @param allocations The reallocation instructions
      */
-    function _doReallocate(DataTypes.Allocation[] memory allocations) external {
+    function doReallocate(DataTypes.Allocation[] memory allocations) external {
         _reallocate(allocations);
     }
 
