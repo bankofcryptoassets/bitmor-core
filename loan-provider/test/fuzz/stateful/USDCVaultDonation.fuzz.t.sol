@@ -46,10 +46,7 @@ contract USDCVaultDonationFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-41: Victim loss bounded by donation/deposit ratio
     /// @custom:audit-category ERC-4626 Security
     /// @custom:audit-severity Critical
-    function testFuzz_DonationAttack_VictimRecovery(
-        uint256 donationSeed,
-        uint256 victimDepositSeed
-    ) public {
+    function testFuzz_DonationAttack_VictimRecovery(uint256 donationSeed, uint256 victimDepositSeed) public {
         uint256 donationAmount = bound(donationSeed, 1e6, 100_000e6);
         // Deposit > donation ensures shares > 0 (Solady offset=0: shares = deposit / (donation+1))
         uint256 victimDeposit = bound(victimDepositSeed, donationAmount + 1, FC.MAX_USDC_AMOUNT);
@@ -127,10 +124,7 @@ contract USDCVaultDonationFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-43: No free money from conversion roundtrip after donation
     /// @custom:audit-category ERC-4626 Security
     /// @custom:audit-severity Critical
-    function testFuzz_DonationAttack_ConversionInvariant(
-        uint256 donationSeed,
-        uint256 assetsSeed
-    ) public {
+    function testFuzz_DonationAttack_ConversionInvariant(uint256 donationSeed, uint256 assetsSeed) public {
         uint256 donationAmount = bound(donationSeed, 1e6, 100_000e6);
         uint256 assets = _boundUsdcAmount(assetsSeed);
 
@@ -156,10 +150,7 @@ contract USDCVaultDonationFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-44: First depositor after large donation is protected
     /// @custom:audit-category ERC-4626 Security
     /// @custom:audit-severity Critical
-    function testFuzz_DonationAttack_FirstDepositorProtected(
-        uint256 donationSeed,
-        uint256 firstDepositSeed
-    ) public {
+    function testFuzz_DonationAttack_FirstDepositorProtected(uint256 donationSeed, uint256 firstDepositSeed) public {
         uint256 donationAmount = bound(donationSeed, 1_000e6, 1_000_000e6);
         // Deposit > donation to receive non-zero shares with offset=0
         uint256 firstDeposit = bound(firstDepositSeed, donationAmount + 1, FC.MAX_USDC_AMOUNT);

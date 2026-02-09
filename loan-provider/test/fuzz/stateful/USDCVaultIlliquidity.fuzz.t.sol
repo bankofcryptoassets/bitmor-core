@@ -22,7 +22,6 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 ///
 /// @custom:audit-category Liquidity Management, BLP Illiquidity
 contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
-
     function setUp() public override {
         super.setUp();
     }
@@ -51,10 +50,7 @@ contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-45: maxWithdraw caps at available liquidity
     /// @custom:audit-category Liquidity Management
     /// @custom:audit-severity Critical
-    function testFuzz_MaxWithdraw_CapsAtAvailableLiquidity(
-        uint256 depositSeed,
-        uint256 utilizationSeed
-    ) public {
+    function testFuzz_MaxWithdraw_CapsAtAvailableLiquidity(uint256 depositSeed, uint256 utilizationSeed) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         uint256 utilizationBps = bound(utilizationSeed, 1000, 9500); // 10% to 95%
 
@@ -67,19 +63,11 @@ contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
         uint256 available = strategy.withdrawableAssets() + mockUSDC.balanceOf(address(vault));
 
         // maxWithdraw must not exceed actual available liquidity
-        assertLe(
-            maxWithdraw,
-            available,
-            "maxWithdraw must not exceed available liquidity during illiquidity"
-        );
+        assertLe(maxWithdraw, available, "maxWithdraw must not exceed available liquidity during illiquidity");
 
         // maxWithdraw must not exceed owner's entitled assets
         uint256 ownerAssets = vault.convertToAssets(vault.balanceOf(depositor));
-        assertLe(
-            maxWithdraw,
-            ownerAssets,
-            "maxWithdraw must not exceed owner's entitled assets"
-        );
+        assertLe(maxWithdraw, ownerAssets, "maxWithdraw must not exceed owner's entitled assets");
     }
 
     /// @notice Withdrawing exactly maxWithdraw should succeed even during illiquidity
@@ -88,10 +76,9 @@ contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-46: Withdrawal at maxWithdraw succeeds during illiquidity
     /// @custom:audit-category Liquidity Management
     /// @custom:audit-severity Critical
-    function testFuzz_Withdraw_SucceedsAtMaxWithdraw_DuringIlliquidity(
-        uint256 depositSeed,
-        uint256 utilizationSeed
-    ) public {
+    function testFuzz_Withdraw_SucceedsAtMaxWithdraw_DuringIlliquidity(uint256 depositSeed, uint256 utilizationSeed)
+        public
+    {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         uint256 utilizationBps = bound(utilizationSeed, 1000, 9000);
 
@@ -107,11 +94,7 @@ contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
         vault.withdraw(maxWithdraw, depositor, depositor);
 
         uint256 balanceAfter = mockUSDC.balanceOf(depositor);
-        assertEq(
-            balanceAfter - balanceBefore,
-            maxWithdraw,
-            "depositor should receive exactly maxWithdraw"
-        );
+        assertEq(balanceAfter - balanceBefore, maxWithdraw, "depositor should receive exactly maxWithdraw");
     }
 
     /// @notice Withdrawing more than maxWithdraw should revert during illiquidity
@@ -153,10 +136,7 @@ contract USDCVaultIlliquidityFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-48: totalAssets includes illiquid BLP funds
     /// @custom:audit-category Vault Accounting
     /// @custom:audit-severity High
-    function testFuzz_TotalAssets_IncludesIlliquidFunds(
-        uint256 depositSeed,
-        uint256 utilizationSeed
-    ) public {
+    function testFuzz_TotalAssets_IncludesIlliquidFunds(uint256 depositSeed, uint256 utilizationSeed) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         uint256 utilizationBps = bound(utilizationSeed, 1000, 9500);
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { Address } from "@openzeppelin/utils/Address.sol";
-import { ERC4626, ERC20 } from "@solady/tokens/ERC4626.sol";
+import {Address} from "@openzeppelin/utils/Address.sol";
+import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
 
 /**
  * @title SimpleTokenizedStrategy

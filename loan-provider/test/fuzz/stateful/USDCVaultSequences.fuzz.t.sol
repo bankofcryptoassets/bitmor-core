@@ -21,7 +21,6 @@ import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 ///
 /// @custom:audit-category Multi-Step Sequences, State Consistency
 contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
-
     function setUp() public override {
         super.setUp();
     }
@@ -85,10 +84,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-51: Allocation change mid-lifecycle preserves accounting
     /// @custom:audit-category Multi-Step Sequences
     /// @custom:audit-severity High
-    function testFuzz_Sequence_AllocationChangePreservesAccounting(
-        uint256 depositSeed,
-        uint256 newAllocSeed
-    ) public {
+    function testFuzz_Sequence_AllocationChangePreservesAccounting(uint256 depositSeed, uint256 newAllocSeed) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         uint256 newAllocationBps = bound(newAllocSeed, 1, FC.MAX_ALLOCATION_BPS);
 
@@ -112,9 +108,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
         // Step 4: Verify totalAssets unchanged (rebalance moves funds, doesn't create/destroy)
         uint256 totalAssetsAfter = vault.totalAssets();
         assertEq(
-            totalAssetsAfter,
-            totalAssetsBefore,
-            "totalAssets should be unchanged after allocation change + rebalance"
+            totalAssetsAfter, totalAssetsBefore, "totalAssets should be unchanged after allocation change + rebalance"
         );
 
         // Step 5: Withdraw all and verify solvency
@@ -125,10 +119,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
         vault.withdraw(maxWithdraw, depositor, depositor);
 
         assertApproxEqRel(
-            maxWithdraw,
-            depositAmount,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "should recover full deposit after allocation change"
+            maxWithdraw, depositAmount, FC.MAX_ROUNDTRIP_SLIPPAGE, "should recover full deposit after allocation change"
         );
     }
 
@@ -139,10 +130,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
     /// @custom:audit-property USDC-52: Cumulative rounding loss bounded across cycles
     /// @custom:audit-category Multi-Step Sequences
     /// @custom:audit-severity High
-    function testFuzz_Sequence_CumulativeRoundingBounded(
-        uint256 amountSeed,
-        uint256 cyclesSeed
-    ) public {
+    function testFuzz_Sequence_CumulativeRoundingBounded(uint256 amountSeed, uint256 cyclesSeed) public {
         uint256 amount = bound(amountSeed, 100e6, 1_000_000e6);
         uint256 cycles = bound(cyclesSeed, 2, 5);
 
@@ -164,11 +152,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
 
         // Total loss across all cycles should be bounded
         uint256 maxTotalLoss = (amount * cycles * 10) / 10_000; // 0.1% per cycle
-        assertLe(
-            totalLoss,
-            maxTotalLoss,
-            "cumulative rounding loss should be bounded across multiple cycles"
-        );
+        assertLe(totalLoss, maxTotalLoss, "cumulative rounding loss should be bounded across multiple cycles");
     }
 
     /// @notice Pause between deposit and withdraw should not corrupt share pricing
@@ -192,11 +176,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
         assertEq(vault.maxRedeem(depositor), 0, "maxRedeem should be 0 when paused");
 
         // Step 3: Unpause via UVM_SLOW (delayed)
-        _scheduleAndExecuteLocal(
-            uvm_slow,
-            UVM_SLOW_ID(),
-            abi.encodeCall(USDCVault.unpause, ())
-        );
+        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.unpause, ()));
 
         // Step 4: Verify share price is unchanged
         uint256 sharePriceAfter = vault.convertToAssets(1e6);
@@ -207,10 +187,7 @@ contract USDCVaultSequencesFuzzTest is USDCVaultFuzzTestBase {
         uint256 returned = vault.redeem(shares, depositor, depositor);
 
         assertApproxEqRel(
-            returned,
-            depositAmount,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "should recover deposit after pause/unpause cycle"
+            returned, depositAmount, FC.MAX_ROUNDTRIP_SLIPPAGE, "should recover deposit after pause/unpause cycle"
         );
     }
 

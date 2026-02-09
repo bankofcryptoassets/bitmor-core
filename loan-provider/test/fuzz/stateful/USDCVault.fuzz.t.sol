@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { USDCVaultFuzzTestBase } from "../base/USDCVaultFuzzTestBase.sol";
-import { FuzzConstants as FC } from "../helpers/FuzzConstants.sol";
-import { USDCVault } from "@bitmor/vaults/usdc-vault/USDCVault.sol";
-import { USDCStrategy } from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import { Errors } from "@bitmor/libraries/helpers/Errors.sol";
-import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
+import {USDCVaultFuzzTestBase} from "../base/USDCVaultFuzzTestBase.sol";
+import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
+import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
 /**
  * @title USDCVaultFuzzTest
@@ -90,10 +90,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         uint256 assetsReturned = vault.redeem(shares, depositor, depositor);
 
         assertApproxEqRel(
-            assetsReturned,
-            depositAmount,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "roundtrip should preserve value within slippage"
+            assetsReturned, depositAmount, FC.MAX_ROUNDTRIP_SLIPPAGE, "roundtrip should preserve value within slippage"
         );
     }
 
@@ -121,12 +118,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         uint256 cross1 = shares1 * amount2;
         uint256 cross2 = shares2 * amount1;
 
-        assertApproxEqRel(
-            cross1,
-            cross2,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "shares should be proportional to deposit"
-        );
+        assertApproxEqRel(cross1, cross2, FC.MAX_ROUNDTRIP_SLIPPAGE, "shares should be proportional to deposit");
     }
 
     /**
@@ -215,11 +207,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         vm.prank(depositor);
         vault.withdraw(maxWithdraw, depositor, depositor);
 
-        assertGe(
-            mockUSDC.balanceOf(depositor),
-            maxWithdraw,
-            "depositor should receive at least maxWithdraw assets"
-        );
+        assertGe(mockUSDC.balanceOf(depositor), maxWithdraw, "depositor should receive at least maxWithdraw assets");
     }
 
     /**
@@ -233,11 +221,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Multi-User
      * @custom:audit-severity High
      */
-    function testFuzz_MultiUser_DepositWithdraw(
-        uint256 amount1Seed,
-        uint256 amount2Seed,
-        uint256 amount3Seed
-    ) public {
+    function testFuzz_MultiUser_DepositWithdraw(uint256 amount1Seed, uint256 amount2Seed, uint256 amount3Seed) public {
         uint256 amount1 = _boundUsdcAmount(amount1Seed);
         uint256 amount2 = _boundUsdcAmount(amount2Seed);
         uint256 amount3 = _boundUsdcAmount(amount3Seed);
@@ -246,11 +230,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         uint256 shares2 = _depositToVault(depositor2, amount2);
         uint256 shares3 = _depositToVault(depositor3, amount3);
 
-        assertEq(
-            vault.totalSupply(),
-            shares1 + shares2 + shares3,
-            "totalSupply should equal sum of all minted shares"
-        );
+        assertEq(vault.totalSupply(), shares1 + shares2 + shares3, "totalSupply should equal sum of all minted shares");
 
         vm.prank(depositor);
         uint256 returned1 = vault.redeem(shares1, depositor, depositor);
@@ -261,24 +241,9 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         vm.prank(depositor3);
         uint256 returned3 = vault.redeem(shares3, depositor3, depositor3);
 
-        assertApproxEqRel(
-            returned1,
-            amount1,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "depositor1 should receive back ~deposit"
-        );
-        assertApproxEqRel(
-            returned2,
-            amount2,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "depositor2 should receive back ~deposit"
-        );
-        assertApproxEqRel(
-            returned3,
-            amount3,
-            FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "depositor3 should receive back ~deposit"
-        );
+        assertApproxEqRel(returned1, amount1, FC.MAX_ROUNDTRIP_SLIPPAGE, "depositor1 should receive back ~deposit");
+        assertApproxEqRel(returned2, amount2, FC.MAX_ROUNDTRIP_SLIPPAGE, "depositor2 should receive back ~deposit");
+        assertApproxEqRel(returned3, amount3, FC.MAX_ROUNDTRIP_SLIPPAGE, "depositor3 should receive back ~deposit");
 
         assertEq(vault.totalSupply(), 0, "vault should be empty after all withdrawals");
     }
@@ -358,10 +323,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Vault-Strategy Integration
      * @custom:audit-severity Critical
      */
-    function testFuzz_Withdraw_FlowsThroughStrategy(
-        uint256 depositSeed,
-        uint256 withdrawFractionSeed
-    ) public {
+    function testFuzz_Withdraw_FlowsThroughStrategy(uint256 depositSeed, uint256 withdrawFractionSeed) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
 
         _depositToVault(depositor, depositAmount);
@@ -380,15 +342,9 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         uint256 strategyAssetsAfter = strategy.totalAssets();
         uint256 userBalanceAfter = mockUSDC.balanceOf(depositor);
 
-        assertLt(
-            strategyAssetsAfter,
-            strategyAssetsBefore,
-            "strategy totalAssets should decrease after withdraw"
-        );
+        assertLt(strategyAssetsAfter, strategyAssetsBefore, "strategy totalAssets should decrease after withdraw");
         assertEq(
-            userBalanceAfter,
-            userBalanceBefore + withdrawAmount,
-            "user should receive exact withdraw amount in USDC"
+            userBalanceAfter, userBalanceBefore + withdrawAmount, "user should receive exact withdraw amount in USDC"
         );
     }
 
@@ -407,11 +363,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
 
         uint256 expected = strategy.totalAssets() + mockUSDC.balanceOf(address(vault));
 
-        assertEq(
-            vault.totalAssets(),
-            expected,
-            "totalAssets should equal strategy assets plus vault idle balance"
-        );
+        assertEq(vault.totalAssets(), expected, "totalAssets should equal strategy assets plus vault idle balance");
     }
 
     /**
@@ -431,33 +383,17 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         USDCStrategy oldStrategy = strategy;
 
         uint256 oldStrategyMarketsBefore = oldStrategy.getTotalBalanceInMarkets();
-        assertGt(
-            oldStrategyMarketsBefore,
-            0,
-            "old strategy should have funds in markets before migration"
-        );
+        assertGt(oldStrategyMarketsBefore, 0, "old strategy should have funds in markets before migration");
 
         // Deploy a new strategy
-        USDCStrategy newStrategy = new USDCStrategy(
-            address(vault),
-            address(mockAavePool),
-            address(mockBitmorPool)
-        );
+        USDCStrategy newStrategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));
 
         // Migrate to new strategy via UVM_SLOW role
-        _scheduleAndExecuteLocal(
-            uvm_slow,
-            UVM_SLOW_ID(),
-            abi.encodeCall(USDCVault.setStrategy, (address(newStrategy)))
-        );
+        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         uint256 oldStrategyMarketsAfter = oldStrategy.getTotalBalanceInMarkets();
 
-        assertEq(
-            oldStrategyMarketsAfter,
-            0,
-            "old strategy markets should be empty after migration"
-        );
+        assertEq(oldStrategyMarketsAfter, 0, "old strategy markets should be empty after migration");
 
         // Funds were withdrawn from markets to the old strategy contract
         uint256 oldStrategyIdleBalance = mockUSDC.balanceOf(address(oldStrategy));
@@ -498,10 +434,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Input Validation
      * @custom:audit-severity High
      */
-    function testFuzz_Withdraw_RevertsWhenExceedsBalance(
-        uint256 depositSeed,
-        uint256 excessSeed
-    ) public {
+    function testFuzz_Withdraw_RevertsWhenExceedsBalance(uint256 depositSeed, uint256 excessSeed) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         uint256 excess = bound(excessSeed, 1, FC.MAX_USDC_AMOUNT);
 
@@ -676,10 +609,7 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Allocation Robustness
      * @custom:audit-severity High
      */
-    function testFuzz_Supply_WorksAtAnyAllocation(
-        uint256 amountSeed,
-        uint256 allocationSeed
-    ) public {
+    function testFuzz_Supply_WorksAtAnyAllocation(uint256 amountSeed, uint256 allocationSeed) public {
         uint256 amount = _boundUsdcAmount(amountSeed);
         uint256 allocationBps = _boundAllocationBps(allocationSeed);
 
@@ -707,10 +637,6 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         uint256 shares = _depositToVault(depositor, depositAmount);
 
         uint256 assetsFromShares = vault.convertToAssets(shares);
-        assertLe(
-            assetsFromShares,
-            depositAmount,
-            "convertToAssets(shares) should never exceed original deposit amount"
-        );
+        assertLe(assetsFromShares, depositAmount, "convertToAssets(shares) should never exceed original deposit amount");
     }
 }
