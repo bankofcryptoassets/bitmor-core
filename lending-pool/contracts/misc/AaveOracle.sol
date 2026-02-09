@@ -115,10 +115,11 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     function getAssetPrice(address asset) public view override returns (uint256) {
         if (asset == s_bvBTC) {
             uint256 btcPrice = _getAssetPrice(s_btc);
-            uint256 oneShare = 10 ** IERC20Detailed(s_bvBTC).decimals();
+            uint256 decimals = uint256(IERC20Detailed(s_bvBTC).decimals());
+            uint256 oneShare = 10 ** decimals;
             uint256 assetPerShare = IERC4626(s_bvBTC).convertToAssets(oneShare);
 
-            return btcPrice.mul(assetPerShare).div(10 ** IERC20Detailed(s_btc).decimals());
+            return btcPrice.mul(assetPerShare).div(10 ** decimals);
         }
         return _getAssetPrice(asset);
     }
