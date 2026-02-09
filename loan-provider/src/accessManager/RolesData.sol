@@ -500,10 +500,10 @@ contract RolesData {
     /// @dev Selectors for strategy management functions on USDCVault
     /// @return selectors Array of function selectors
     function getUVC_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](3);
         selectors[0] = USDCVault.setStrategy.selector;
         selectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
-        // Note: setYieldSourceAllocation(uint256) is not implemented on USDCVault
+        selectors[2] = USDCVault.updateExternalAllocation.selector;
     }
 
     /// @notice Returns function selectors for UVA role
