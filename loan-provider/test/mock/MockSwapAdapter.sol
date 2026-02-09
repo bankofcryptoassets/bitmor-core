@@ -41,29 +41,34 @@ contract MockSwapAdapter is ISwapAdaptor {
     }
 
     /// @inheritdoc ISwapAdaptor
-    function swapExactTokensForTokens(
+    function getMaxTokenInAmount(
         address tokenIn,
         address tokenOut,
-        uint256 amountIn,
+        uint256 exactAmountOut
+    ) external view override returns (uint256 maxAmountIn) {
+        maxAmountIn = _calculateInput(tokenIn, tokenOut, exactAmountOut);
+    }
+
+    /// @inheritdoc ISwapAdaptor
+    function getMinTokenOutAmount(
+        address tokenIn,
+        address tokenOut,
+        uint256 exactAmountIn
+    ) external view override returns (uint256 minAmountOut) {
+        minAmountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
+    }
+
+    /// @inheritdoc ISwapAdaptor
+    function swapExactInput(
+        address tokenIn,
+        address tokenOut,
+        uint256 exactAmountIn,
         uint256 minAmountOut,
-        bool /* stable */
-    )
-        external
-        override
-        returns (uint256 amountOut)
-    {
+        address recipient
+    ) external override returns (uint256 amountOut) {
         require(!shouldRevert, "Swap reverted");
 
-        uint256 priceIn = oracle.getAssetPrice(tokenIn);
-        uint256 priceOut = oracle.getAssetPrice(tokenOut);
-
-        require(priceIn > 0 && priceOut > 0, "Invalid prices");
-
-        uint8 decimalsIn = _getDecimals(tokenIn);
-        uint8 decimalsOut = _getDecimals(tokenOut);
-
-        // Calculate output: amountIn * priceIn / priceOut, adjusted for decimals
-        amountOut = (amountIn * priceIn * (10 ** decimalsOut)) / (priceOut * (10 ** decimalsIn));
+        amountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
 
         // Apply slippage
         if (slippageBps > 0) {
@@ -73,10 +78,36 @@ contract MockSwapAdapter is ISwapAdaptor {
         require(amountOut >= minAmountOut, "Slippage exceeded");
 
         // Execute transfer
-        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
-        IERC20(tokenOut).transfer(msg.sender, amountOut);
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), exactAmountIn);
+        IERC20(tokenOut).transfer(recipient, amountOut);
 
-        emit Swap(tokenIn, tokenOut, amountIn, amountOut);
+        emit Swap(tokenIn, tokenOut, exactAmountIn, amountOut);
+    }
+
+    /// @inheritdoc ISwapAdaptor
+    function swapExactOutput(
+        address tokenIn,
+        address tokenOut,
+        uint256 exactAmountOut,
+        uint256 maxAmountIn,
+        address recipient
+    ) external override returns (uint256 amountIn) {
+        require(!shouldRevert, "Swap reverted");
+
+        amountIn = _calculateInput(tokenIn, tokenOut, exactAmountOut);
+
+        // Apply slippage (input increases)
+        if (slippageBps > 0) {
+            amountIn = (amountIn * (10000 + slippageBps)) / 10000;
+        }
+
+        require(amountIn <= maxAmountIn, "Slippage exceeded");
+
+        // Execute transfer
+        IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
+        IERC20(tokenOut).transfer(recipient, exactAmountOut);
+
+        emit Swap(tokenIn, tokenOut, amountIn, exactAmountOut);
     }
 
     /// @notice Fund the adapter with tokens for swaps
@@ -86,16 +117,56 @@ contract MockSwapAdapter is ISwapAdaptor {
         IERC20(token).transferFrom(msg.sender, address(this), amount);
     }
 
-    /// @inheritdoc ISwapAdaptor
-    function swapExactTokensForTokensCL(
+    /// @notice Calculate output amount given input
+    /// @param tokenIn Input token
+    /// @param tokenOut Output token
+    /// @param amountIn Input amount
+    /// @return amountOut Output amount
+    function _calculateOutput(
         address tokenIn,
         address tokenOut,
-        uint256 amountIn,
-        uint256 minAmountOut,
-        int24 /* tickSpacing */
-    ) external override returns (uint256 amountOut) {
-        // Delegate to standard swap (mock doesn't distinguish CL pools)
-        return this.swapExactTokensForTokens(tokenIn, tokenOut, amountIn, minAmountOut, false);
+        uint256 amountIn
+    ) internal view returns (uint256 amountOut) {
+        uint256 priceIn = oracle.getAssetPrice(tokenIn);
+        uint256 priceOut = oracle.getAssetPrice(tokenOut);
+
+        require(priceIn > 0 && priceOut > 0, "Invalid prices");
+
+        uint8 decimalsIn = _getDecimals(tokenIn);
+        uint8 decimalsOut = _getDecimals(tokenOut);
+
+        // amountOut = amountIn * priceIn / priceOut, adjusted for decimals
+        amountOut = (amountIn * priceIn * (10 ** decimalsOut)) / (priceOut * (10 ** decimalsIn));
+    }
+
+    /// @notice Calculate input amount needed for exact output
+    /// @dev Applies a 0.5% pool-rate discount to simulate AMM pricing dynamics.
+    ///      Real AMM pools quote slightly different from oracle mid-price due to
+    ///      pool state, fees, and price impact. This discount ensures the
+    ///      protocol's slippage buffer (applied externally in SwapLogic) doesn't
+    ///      push the required amount above available funds.
+    /// @param tokenIn Input token
+    /// @param tokenOut Output token
+    /// @param amountOut Desired output amount
+    /// @return amountIn Required input amount
+    function _calculateInput(
+        address tokenIn,
+        address tokenOut,
+        uint256 amountOut
+    ) internal view returns (uint256 amountIn) {
+        uint256 priceIn = oracle.getAssetPrice(tokenIn);
+        uint256 priceOut = oracle.getAssetPrice(tokenOut);
+
+        require(priceIn > 0 && priceOut > 0, "Invalid prices");
+
+        uint8 decimalsIn = _getDecimals(tokenIn);
+        uint8 decimalsOut = _getDecimals(tokenOut);
+
+        // amountIn = amountOut * priceOut / priceIn, adjusted for decimals (floor division)
+        amountIn = (amountOut * priceOut * (10 ** decimalsIn)) / (priceIn * (10 ** decimalsOut));
+
+        // Apply 0.5% pool-rate discount (simulates favorable AMM execution vs oracle mid-price)
+        amountIn = (amountIn * 9950) / 10000;
     }
 
     /// @notice Get token decimals with fallback to 18

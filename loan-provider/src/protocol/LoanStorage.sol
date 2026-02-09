@@ -58,15 +58,9 @@ contract LoanStorage {
      */
     address public s_loanVaultFactory;
 
-    /**
-     * @notice Swap adapter contract for executing token swaps
-     */
-    address public s_swapAdapter;
+    /// @notice Swapper contract for executing token swaps
 
-    /**
-     * @notice zQuoter contract for price quotation (Aerodrome DEX)
-     */
-    address public s_zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
+    address public s_swapper;
 
     /**
      * @notice Collects insurance premium amount.
@@ -161,8 +155,12 @@ contract LoanStorage {
         address _btc
     ) {
         if (
-            _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
-                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
+            _aaveV3Pool == address(0) ||
+            _bitmorPool == address(0) ||
+            _oracle == address(0) ||
+            _collateralAsset == address(0) ||
+            _debtAsset == address(0) ||
+            _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;

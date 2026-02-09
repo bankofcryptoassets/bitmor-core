@@ -92,7 +92,7 @@ contract UniswapV4Swapper is ISwapAdaptor {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Use Quoter to simulate exact output swap
-        (uint256 quotedInput,) = i_QUOTER.quoteExactOutputSingle(
+        (maxAmountIn, ) = i_QUOTER.quoteExactOutputSingle(
             IV4Quoter.QuoteExactSingleParams({
                 poolKey: poolKey,
                 zeroForOne: zeroForOne,
@@ -100,9 +100,6 @@ contract UniswapV4Swapper is ISwapAdaptor {
                 hookData: bytes("")
             })
         );
-
-        // Add 0.5% slippage buffer
-        return (quotedInput * 10050) / 10000;
     }
 
     /**
@@ -121,7 +118,7 @@ contract UniswapV4Swapper is ISwapAdaptor {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Use Quoter to simulate exact input swap
-        (uint256 quotedOutput,) = i_QUOTER.quoteExactInputSingle(
+        (minAmountOut, ) = i_QUOTER.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
                 poolKey: poolKey,
                 zeroForOne: zeroForOne,
@@ -129,9 +126,6 @@ contract UniswapV4Swapper is ISwapAdaptor {
                 hookData: bytes("")
             })
         );
-
-        // Subtract 0.5% slippage buffer (get minimum acceptable)
-        return (quotedOutput * 9950) / 10000;
     }
 
     /**
@@ -220,8 +214,11 @@ contract UniswapV4Swapper is ISwapAdaptor {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Build the actions sequence: SWAP -> SETTLE -> TAKE
-        bytes memory actions =
-            abi.encodePacked(uint8(Actions.SWAP_EXACT_IN_SINGLE), uint8(Actions.SETTLE), uint8(Actions.TAKE_ALL));
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.SWAP_EXACT_IN_SINGLE),
+            uint8(Actions.SETTLE),
+            uint8(Actions.TAKE_ALL)
+        );
 
         // Build params for each action
         bytes[] memory params = new bytes[](3);
@@ -250,7 +247,11 @@ contract UniswapV4Swapper is ISwapAdaptor {
         inputs[0] = abi.encode(actions, params);
 
         // Execute via UniversalRouter with 1 hour deadline
-        i_UNIVERSAL_ROUTER.execute(abi.encodePacked(uint8(Commands.V4_SWAP)), inputs, block.timestamp + 3600);
+        i_UNIVERSAL_ROUTER.execute(
+            abi.encodePacked(uint8(Commands.V4_SWAP)),
+            inputs,
+            block.timestamp + 3600
+        );
     }
 
     /**
@@ -269,8 +270,11 @@ contract UniswapV4Swapper is ISwapAdaptor {
         Currency outputCurrency = zeroForOne ? poolKey.currency1 : poolKey.currency0;
 
         // Build V4 actions: SWAP -> SETTLE -> TAKE
-        bytes memory actions =
-            abi.encodePacked(uint8(Actions.SWAP_EXACT_OUT_SINGLE), uint8(Actions.SETTLE), uint8(Actions.TAKE_ALL));
+        bytes memory actions = abi.encodePacked(
+            uint8(Actions.SWAP_EXACT_OUT_SINGLE),
+            uint8(Actions.SETTLE),
+            uint8(Actions.TAKE_ALL)
+        );
 
         // Build params for each V4 action
         bytes[] memory v4Params = new bytes[](3);
@@ -308,7 +312,10 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @notice Internal function to handle refund of unused input tokens
      * @return amountIn Actual amount of input tokens used
      */
-    function _handleRefund(address tokenIn, uint256 maxAmountIn) internal returns (uint256 amountIn) {
+    function _handleRefund(
+        address tokenIn,
+        uint256 maxAmountIn
+    ) internal returns (uint256 amountIn) {
         uint256 remainingBalance = IERC20(tokenIn).balanceOf(address(this));
         amountIn = maxAmountIn - remainingBalance;
 

@@ -8,8 +8,7 @@ import {HelperConfig} from "../HelperConfig.s.sol";
 import {RolesData} from "@bitmor/accessManager/RolesData.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
-import {MockUniswapV4SwapAdapter} from "@bitmor/mocks/MockUniswapV4SwapAdapter.sol";
-import {UniswapV4SwapAdapterWrapper} from "@bitmor/adapters/UniswapV4SwapAdapterWrapper.sol";
+import {MockUniswapV4SwapAdapter} from "../../test/mock/MockUniswapV4SwapAdapter.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
@@ -53,7 +52,6 @@ contract DeployPhase3 is InitialSetup {
 
     address public usdcVault;
     address public mockSwapAdapter;
-    address public swapAdapterWrapper;
     address public loanVaultImpl;
     address public loan;
     address public loanVaultFactory;
@@ -80,15 +78,11 @@ contract DeployPhase3 is InitialSetup {
         mockSwapAdapter = address(new MockUniswapV4SwapAdapter(aaveOracle, mockCbBTC, mockUsdc));
         console2.log("MockSwapAdapter:", mockSwapAdapter);
 
-        // 3. SwapAdapterWrapper
-        swapAdapterWrapper = address(new UniswapV4SwapAdapterWrapper(mockSwapAdapter));
-        console2.log("SwapAdapterWrapper:", swapAdapterWrapper);
-
-        // 4. LoanVault implementation
+        // 3. LoanVault implementation
         loanVaultImpl = address(new LoanVault());
         console2.log("LoanVault impl:", loanVaultImpl);
 
-        // 5. Loan
+        // 4. Loan
         loan = address(
             new Loan(
                 accessManager,
@@ -99,8 +93,7 @@ contract DeployPhase3 is InitialSetup {
                 btcVault, // collateralAsset (bvBTC)
                 mockUsdc, // debtAsset
                 mockCbBTC, // btc
-                swapAdapterWrapper,
-                address(0), // zQuoter (not used locally)
+                mockSwapAdapter, // swapper (direct, no wrapper)
                 msg.sender, // premiumCollector
                 PRE_CLOSURE_FEE,
                 GRACE_PERIOD
@@ -108,22 +101,22 @@ contract DeployPhase3 is InitialSetup {
         );
         console2.log("Loan:", loan);
 
-        // 6. LoanVaultFactory
+        // 5. LoanVaultFactory
         loanVaultFactory = address(new LoanVaultFactory(loanVaultImpl, loan));
         console2.log("LoanVaultFactory:", loanVaultFactory);
 
-        // 7. Strategies
+        // 6. Strategies
         aaveStrategy = address(new AaveTokenizedStrategy(bitmorPool, btcVault));
         usdcStrategy = address(new USDCStrategy(usdcVault, bitmorPool, bitmorPool));
         console2.log("AaveStrategy:", aaveStrategy);
         console2.log("USDCStrategy:", usdcStrategy);
 
-        // 8. AccessManager setup (roles, grants, schedule)
+        // 7. AccessManager setup (roles, grants, schedule)
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 9. Save addresses (execution happens in separate script after time advance)
+        // 8. Save addresses (execution happens in separate script after time advance)
         _saveDeployments();
 
         console2.log("=== Phase 3a Deploy Complete ===");
@@ -321,8 +314,8 @@ contract DeployPhase3 is InitialSetup {
             '"loanVaultImpl":"',
             vm.toString(loanVaultImpl),
             '",',
-            '"swapAdapterWrapper":"',
-            vm.toString(swapAdapterWrapper),
+            '"swapper":"',
+            vm.toString(mockSwapAdapter),
             '",',
             '"aaveStrategy":"',
             vm.toString(aaveStrategy),

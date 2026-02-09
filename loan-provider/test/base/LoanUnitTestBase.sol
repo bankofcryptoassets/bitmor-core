@@ -254,8 +254,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
             address(mockBTCVault), // collateralAsset = bvBTC (vault shares)
             address(mockUSDC), // debtAsset
             address(mockCbBTC), // btc token (underlying)
-            address(mockSwapAdapter), // Our mock swap adapter
-            address(0), // zQuoter (allowed to be zero)
+            address(mockSwapAdapter), // Our mock swap adapter (swapper)
             premiumCollector, // premiumCollector
             config.getPreClosureFee(), // preClosureFeeBps
             config.getGracePeriod() // gracePeriod

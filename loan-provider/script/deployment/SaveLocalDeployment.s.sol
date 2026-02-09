@@ -102,9 +102,6 @@ contract SaveLocalDeployment is DeploymentHelper {
             '"aaveAddressesProvider":"',
             vm.toString(bitmorPool),
             '",', // Use Bitmor pool as placeholder for local
-            '"zQuoter":"',
-            vm.toString(address(0)),
-            '",',
             '"premiumCollector":"',
             vm.toString(helperConfig.getPremiumCollector()),
             '",',
