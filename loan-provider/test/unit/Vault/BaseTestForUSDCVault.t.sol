@@ -208,10 +208,11 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         address target = address(vault);
 
         // UVM_SLOW functions (require 1 day delay)
-        bytes4[] memory uvmSlowSelectors = new bytes4[](3);
+        bytes4[] memory uvmSlowSelectors = new bytes4[](4);
         uvmSlowSelectors[0] = USDCVault.setStrategy.selector;
         uvmSlowSelectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
         uvmSlowSelectors[2] = USDCVault.unpause.selector;
+        uvmSlowSelectors[3] = USDCVault.updateExternalAllocation.selector;
         manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID());
 
         // UVM_FAST functions (no delay)
@@ -236,7 +237,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
         // Initialize the default Aave allocation to 80%
         vm.prank(address(vault));
-        strategy.setAaveAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
+        strategy.updateExternalAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
     }
 
     // ============ Helper Functions ============
@@ -358,12 +359,12 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     // ============ Allocation and Rebalance Helpers ============
 
-    /// @notice Sets the Aave allocation on the strategy
+    /// @notice Sets the external allocation on the strategy
     /// @param allocationBps The new allocation in basis points (e.g., 8000 = 80%)
-    /// @dev Pranks as the vault since only the vault can call setAaveAllocation
+    /// @dev Pranks as the vault since only the vault can call updateExternalAllocation
     function _setAllocation(uint256 allocationBps) internal {
         vm.prank(address(vault));
-        strategy.setAaveAllocation(allocationBps);
+        strategy.updateExternalAllocation(allocationBps);
     }
 
     /// @notice Triggers reallocation via the vault

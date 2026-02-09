@@ -221,7 +221,7 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     }
 
     /// @notice Test that changing allocation to 50/50 affects new deposits
-    /// @dev Verifies custom allocation is respected after setAaveAllocation
+    /// @dev Verifies custom allocation is respected after updateExternalAllocation
     function test_deposit_customAllocation() public {
         // Change allocation to 50/50
         _setAllocation(HALF_ALLOCATION_BPS);
@@ -461,13 +461,26 @@ contract USDCVaultTest is BaseTestForUSDCVault {
         uint256 oldStrategyMarketBalanceAfter = strategy.getTotalBalanceInMarkets();
         assertEq(oldStrategyMarketBalanceAfter, 0, "Old strategy markets should be emptied after migration");
 
-        // Verify the old strategy withdrew from external protocols
-        // The assets are now sitting in the old strategy contract (not in markets)
+        // Old strategy should hold no USDC (funds sent to vault, then deployed to new strategy)
         uint256 oldStrategyUsdcBalance = IERC20(networkConfig.usdc).balanceOf(address(strategy));
-        assertGt(oldStrategyUsdcBalance, 0, "Old strategy should hold withdrawn USDC");
+        assertEq(oldStrategyUsdcBalance, 0, "Old strategy should hold no USDC after migration");
 
-        // Note: Current implementation does not transfer to vault - assets remain in old strategy
-        // This test documents actual behavior; consider this a known limitation
+        // New strategy should have received approximately all the funds
+        uint256 newStrategyMarketBalance = newStrategy.getTotalBalanceInMarkets();
+        assertApproxEqRel(
+            newStrategyMarketBalance,
+            STANDARD_DEPOSIT,
+            0.01e18,
+            "New strategy should hold approximately all migrated funds"
+        );
+
+        // Total assets should be preserved
+        assertApproxEqRel(
+            vault.totalAssets(),
+            STANDARD_DEPOSIT,
+            0.01e18,
+            "Total vault assets should be preserved after strategy migration"
+        );
     }
 
     // ============================================
