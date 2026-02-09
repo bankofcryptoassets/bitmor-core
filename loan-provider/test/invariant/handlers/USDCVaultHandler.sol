@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {USDCStrategyFuzzTestBase} from "../../fuzz/base/USDCStrategyFuzzTestBase.sol";
+import {USDCVaultFuzzTestBase} from "../../fuzz/base/USDCVaultFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../../fuzz/helpers/FuzzConstants.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
@@ -11,13 +11,13 @@ import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
  * @author Bitmor Protocol
  * @notice Handler contract for invariant testing of USDCVault with real vault + strategy
  * @dev Provides 4 handler functions (deposit, redeem, withdraw, mint) with ghost state tracking.
- *      Extends `USDCStrategyFuzzTestBase` to get real `USDCVault` and `USDCStrategy` backed by mocks.
+ *      Extends `USDCVaultFuzzTestBase` to get real `USDCVault` and `USDCStrategy` backed by mocks.
  *      Multi-actor: rotates through `depositor`/`depositor2`/`depositor3`.
  *      All operations use `try/catch` for graceful failure on boundary conditions.
  *
  * @custom:audit-category Invariant Testing, ERC-4626 Compliance
  */
-contract USDCVaultHandler is USDCStrategyFuzzTestBase {
+contract USDCVaultHandler is USDCVaultFuzzTestBase {
     // ============ Ghost State ============
 
     /// @dev Total USDC deposited across all handler operations

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { USDCVaultFuzzTestBase } from "../base/USDCVaultFuzzTestBase.sol";
-import { FuzzConstants as FC } from "../helpers/FuzzConstants.sol";
+import {USDCVaultFuzzTestBase} from "../base/USDCVaultFuzzTestBase.sol";
+import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 
 /**
  * @title USDCStrategyFuzzTest
@@ -46,10 +46,7 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Strategy Operations
      * @custom:audit-severity Critical
      */
-    function testFuzz_Supply_SplitsPerAllocation(
-        uint256 amountSeed,
-        uint256 allocationSeed
-    ) public {
+    function testFuzz_Supply_SplitsPerAllocation(uint256 amountSeed, uint256 allocationSeed) public {
         uint256 amount = _boundUsdcAmount(amountSeed);
         uint256 allocationBps = _boundAllocationBps(allocationSeed);
 
@@ -73,19 +70,11 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
 
         // Assert Aave received the correct portion
         uint256 aaveAfter = _getAaveBalance();
-        assertEq(
-            aaveAfter - aaveBefore,
-            expectedAaveIncrease,
-            "Aave should receive amount * allocation / 10000"
-        );
+        assertEq(aaveAfter - aaveBefore, expectedAaveIncrease, "Aave should receive amount * allocation / 10000");
 
         // Assert BLP received the remainder
         uint256 blpAfter = _getBLPBalance();
-        assertEq(
-            blpAfter - blpBefore,
-            expectedBlpIncrease,
-            "BLP should receive the remainder after Aave allocation"
-        );
+        assertEq(blpAfter - blpBefore, expectedBlpIncrease, "BLP should receive the remainder after Aave allocation");
     }
 
     /**
@@ -110,9 +99,7 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
         // Assert totalAssets increased by exactly `amount`
         uint256 totalAssetsAfter = strategy.totalAssets();
         assertEq(
-            totalAssetsAfter - totalAssetsBefore,
-            amount,
-            "totalAssets should increase by exactly the supplied amount"
+            totalAssetsAfter - totalAssetsBefore, amount, "totalAssets should increase by exactly the supplied amount"
         );
     }
 
@@ -128,27 +115,16 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Strategy Operations
      * @custom:audit-severity High
      */
-    function testFuzz_Withdraw_MaintainsAllocationRatio(
-        uint256 depositSeed,
-        uint256 withdrawFractionSeed
-    ) public {
+    function testFuzz_Withdraw_MaintainsAllocationRatio(uint256 depositSeed, uint256 withdrawFractionSeed) public {
         // Ensure deposit is large enough to allow a partial withdrawal with meaningful remainder
         uint256 minDepositForPartialWithdraw = FC.MIN_USDC_AMOUNT * 3;
-        uint256 depositAmount = bound(
-            depositSeed,
-            minDepositForPartialWithdraw,
-            FC.MAX_USDC_AMOUNT
-        );
+        uint256 depositAmount = bound(depositSeed, minDepositForPartialWithdraw, FC.MAX_USDC_AMOUNT);
 
         // Deposit to vault (auto-supplies to strategy via _afterDeposit)
         _depositToVault(depositor, depositAmount);
 
         // Bound withdraw to a partial amount: [MIN_USDC, depositAmount - MIN_USDC]
-        uint256 withdrawAmount = bound(
-            withdrawFractionSeed,
-            FC.MIN_USDC_AMOUNT,
-            depositAmount - FC.MIN_USDC_AMOUNT
-        );
+        uint256 withdrawAmount = bound(withdrawFractionSeed, FC.MIN_USDC_AMOUNT, depositAmount - FC.MIN_USDC_AMOUNT);
 
         // Withdraw directly from strategy (onlyVault)
         vm.prank(address(vault));
@@ -167,17 +143,10 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Strategy Operations
      * @custom:audit-severity Critical
      */
-    function testFuzz_Withdraw_TotalAssetsDecreasesByAmount(
-        uint256 depositSeed,
-        uint256 withdrawFractionSeed
-    ) public {
+    function testFuzz_Withdraw_TotalAssetsDecreasesByAmount(uint256 depositSeed, uint256 withdrawFractionSeed) public {
         // Ensure deposit is large enough for a meaningful partial withdrawal
         uint256 minDepositForPartialWithdraw = FC.MIN_USDC_AMOUNT * 3;
-        uint256 depositAmount = bound(
-            depositSeed,
-            minDepositForPartialWithdraw,
-            FC.MAX_USDC_AMOUNT
-        );
+        uint256 depositAmount = bound(depositSeed, minDepositForPartialWithdraw, FC.MAX_USDC_AMOUNT);
 
         // Deposit to vault (auto-supplies)
         _depositToVault(depositor, depositAmount);
@@ -186,11 +155,7 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
         uint256 totalAssetsBefore = strategy.totalAssets();
 
         // Bound withdraw amount: [MIN_USDC, depositAmount - MIN_USDC]
-        uint256 withdrawAmount = bound(
-            withdrawFractionSeed,
-            FC.MIN_USDC_AMOUNT,
-            depositAmount - FC.MIN_USDC_AMOUNT
-        );
+        uint256 withdrawAmount = bound(withdrawFractionSeed, FC.MIN_USDC_AMOUNT, depositAmount - FC.MIN_USDC_AMOUNT);
 
         // Withdraw directly from strategy (onlyVault)
         vm.prank(address(vault));
@@ -215,17 +180,10 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Strategy Operations
      * @custom:audit-severity Critical
      */
-    function testFuzz_Withdraw_TransfersExactAmountToVault(
-        uint256 depositSeed,
-        uint256 withdrawFractionSeed
-    ) public {
+    function testFuzz_Withdraw_TransfersExactAmountToVault(uint256 depositSeed, uint256 withdrawFractionSeed) public {
         // Ensure deposit is large enough for a meaningful partial withdrawal
         uint256 minDepositForPartialWithdraw = FC.MIN_USDC_AMOUNT * 3;
-        uint256 depositAmount = bound(
-            depositSeed,
-            minDepositForPartialWithdraw,
-            FC.MAX_USDC_AMOUNT
-        );
+        uint256 depositAmount = bound(depositSeed, minDepositForPartialWithdraw, FC.MAX_USDC_AMOUNT);
 
         // Deposit to vault (auto-supplies to strategy)
         _depositToVault(depositor, depositAmount);
@@ -234,11 +192,7 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
         uint256 vaultUsdcBefore = mockUSDC.balanceOf(address(vault));
 
         // Bound withdraw amount: [MIN_USDC, depositAmount - MIN_USDC]
-        uint256 withdrawAmount = bound(
-            withdrawFractionSeed,
-            FC.MIN_USDC_AMOUNT,
-            depositAmount - FC.MIN_USDC_AMOUNT
-        );
+        uint256 withdrawAmount = bound(withdrawFractionSeed, FC.MIN_USDC_AMOUNT, depositAmount - FC.MIN_USDC_AMOUNT);
 
         // Withdraw directly from strategy (onlyVault)
         vm.prank(address(vault));
@@ -282,11 +236,11 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
     }
 
     /**
-     * @notice Verifies that `withdrawAllFunds` preserves the total value on the strategy contract
-     * @dev The withdrawn funds should be held as USDC on the strategy contract itself,
-     *      matching the original total deployed across both markets.
+     * @notice Verifies that `withdrawAllFunds` preserves the total value by sending to vault
+     * @dev The withdrawn funds are transferred directly to `i_vault` (not held on strategy),
+     *      so the vault's USDC balance should increase by the total previously deployed.
      * @param depositSeed Seed for bounded deposit amount
-     * @custom:audit-property USDC-14: WithdrawAllFunds preserves total value on strategy contract
+     * @custom:audit-property USDC-14: WithdrawAllFunds preserves total value (sent to vault)
      * @custom:audit-category Strategy Operations
      * @custom:audit-severity High
      */
@@ -298,18 +252,22 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
 
         // Record total balance across both markets
         uint256 totalBefore = _getTotalBalance();
+        uint256 vaultUsdcBefore = mockUSDC.balanceOf(address(vault));
 
         // WithdrawAllFunds (onlyVault)
         vm.prank(address(vault));
         strategy.withdrawAllFunds();
 
-        // Assert strategy's USDC balance equals the original total deployed
-        uint256 strategyUsdcBalance = mockUSDC.balanceOf(address(strategy));
+        // Assert vault's USDC balance increased by the original total deployed
+        uint256 vaultUsdcAfter = mockUSDC.balanceOf(address(vault));
         assertEq(
-            strategyUsdcBalance,
+            vaultUsdcAfter - vaultUsdcBefore,
             totalBefore,
-            "strategy USDC balance should equal original total deployed after withdrawAllFunds"
+            "vault USDC balance should increase by original total deployed after withdrawAllFunds"
         );
+
+        // Assert strategy holds no funds
+        assertEq(mockUSDC.balanceOf(address(strategy)), 0, "strategy should hold no USDC after withdrawAllFunds");
     }
 
     // ============ Reallocation Tests ============
@@ -325,11 +283,9 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Allocation Management
      * @custom:audit-severity High
      */
-    function testFuzz_Reallocation_MovesToTargetRatio(
-        uint256 depositSeed,
-        uint256 initialAlloc,
-        uint256 newAlloc
-    ) public {
+    function testFuzz_Reallocation_MovesToTargetRatio(uint256 depositSeed, uint256 initialAlloc, uint256 newAlloc)
+        public
+    {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
         // Bound allocations to [1, 10000] since _reallocateAssets skips when targetAave == 0
         uint256 initialAllocationBps = bound(initialAlloc, 1, FC.MAX_ALLOCATION_BPS);
@@ -366,27 +322,18 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
      * @custom:audit-category Allocation Management
      * @custom:audit-severity Medium
      */
-    function testFuzz_Reallocation_SkipsWhenBelowMinDelta(
-        uint256 depositSeed,
-        uint256 deltaThreshold
-    ) public {
+    function testFuzz_Reallocation_SkipsWhenBelowMinDelta(uint256 depositSeed, uint256 deltaThreshold) public {
         uint256 depositAmount = _boundUsdcAmount(depositSeed);
 
         // Use the default allocation (80%) for initial deposit
         _depositToVault(depositor, depositAmount);
 
         // Set a high minimum delta threshold (50-100% of target balance)
-        uint256 highThreshold = bound(
-            deltaThreshold,
-            FC.MAX_DELTA_THRESHOLD_BPS,
-            FC.MAX_ALLOCATION_BPS
-        );
+        uint256 highThreshold = bound(deltaThreshold, FC.MAX_DELTA_THRESHOLD_BPS, FC.MAX_ALLOCATION_BPS);
 
         // Update minimum delta required via UVM_SLOW role (delayed operation)
         _scheduleAndExecuteLocal(
-            uvm_slow,
-            UVM_SLOW_ID(),
-            abi.encodeCall(vault.updateMinimumDeltaRequired, (highThreshold))
+            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(vault.updateMinimumDeltaRequired, (highThreshold))
         );
 
         // Record balances before reallocation attempt
@@ -401,16 +348,8 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
         _rebalance();
 
         // Assert balances unchanged (reallocation was skipped)
-        assertEq(
-            _getAaveBalance(),
-            aaveBefore,
-            "Aave balance should be unchanged when delta is below threshold"
-        );
-        assertEq(
-            _getBLPBalance(),
-            blpBefore,
-            "BLP balance should be unchanged when delta is below threshold"
-        );
+        assertEq(_getAaveBalance(), aaveBefore, "Aave balance should be unchanged when delta is below threshold");
+        assertEq(_getBLPBalance(), blpBefore, "BLP balance should be unchanged when delta is below threshold");
     }
 
     // ============ Edge Case: Zero Allocation ============
@@ -443,11 +382,7 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
 
         // Assert BLP received the full amount
         uint256 blpAfter = _getBLPBalance();
-        assertEq(
-            blpAfter - blpBefore,
-            amount,
-            "BLP should receive the full amount with 0% allocation"
-        );
+        assertEq(blpAfter - blpBefore, amount, "BLP should receive the full amount with 0% allocation");
     }
 
     // ============ Edge Case: Full Allocation ============
@@ -480,10 +415,6 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
 
         // Assert Aave received the full amount
         uint256 aaveAfter = _getAaveBalance();
-        assertEq(
-            aaveAfter - aaveBefore,
-            amount,
-            "Aave should receive the full amount with 100% allocation"
-        );
+        assertEq(aaveAfter - aaveBefore, amount, "Aave should receive the full amount with 100% allocation");
     }
 }
