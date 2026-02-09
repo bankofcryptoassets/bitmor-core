@@ -6,6 +6,8 @@ import {convertToCurrencyDecimals,
 import { ProtocolErrors } from '../../helpers/types.js';
 import { strategyWETH } from '../../markets/aave/reservesConfigs.js';
 import { depositViaVault } from './helpers/vault-helpers.js';
+import { deployDefaultReserveInterestRateStrategy } from '../../helpers/contracts-deployments.js';
+import { rateStrategyStableTwo } from '../../markets/aave/rateStrategies.js';
 
 import chai from 'chai';
 const { expect } = chai;
@@ -404,5 +406,69 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
       configurator.deactivateReserve(getContractAddress(dai)),
       LPC_RESERVE_LIQUIDITY_NOT_0
     ).to.be.revertedWith(LPC_RESERVE_LIQUIDITY_NOT_0);
+  });
+
+  it('Changes the interest rate strategy of CBBTC', async () => {
+    const { configurator, pool, cbBTC, addressesProvider } = testEnv;
+
+    // Deploy a new interest rate strategy
+    const newStrategy = await deployDefaultReserveInterestRateStrategy(
+      [
+        getContractAddress(addressesProvider),
+        rateStrategyStableTwo.optimalUtilizationRate,
+        rateStrategyStableTwo.baseVariableBorrowRate,
+        rateStrategyStableTwo.variableRateSlope1,
+        rateStrategyStableTwo.variableRateSlope2,
+        rateStrategyStableTwo.stableRateSlope1,
+        rateStrategyStableTwo.stableRateSlope2,
+      ],
+      false
+    );
+
+    // Get the old strategy address
+    const reserveDataBefore = await pool.getReserveData(getContractAddress(cbBTC));
+    const oldStrategyAddress = reserveDataBefore.interestRateStrategyAddress;
+
+    // Set the new strategy
+    await configurator.setReserveInterestRateStrategyAddress(
+      getContractAddress(cbBTC),
+      getContractAddress(newStrategy)
+    );
+
+    // Verify the strategy was changed
+    const reserveDataAfter = await pool.getReserveData(getContractAddress(cbBTC));
+    expect(reserveDataAfter.interestRateStrategyAddress).to.be.equal(
+      getContractAddress(newStrategy),
+      'Interest rate strategy was not updated'
+    );
+    expect(reserveDataAfter.interestRateStrategyAddress).to.not.equal(
+      oldStrategyAddress,
+      'Interest rate strategy should have changed'
+    );
+  });
+
+  it('Check the onlyPoolAdmin on setReserveInterestRateStrategyAddress', async () => {
+    const { configurator, users, cbBTC, addressesProvider } = testEnv;
+
+    // Deploy a new strategy for the test
+    const newStrategy = await deployDefaultReserveInterestRateStrategy(
+      [
+        getContractAddress(addressesProvider),
+        rateStrategyStableTwo.optimalUtilizationRate,
+        rateStrategyStableTwo.baseVariableBorrowRate,
+        rateStrategyStableTwo.variableRateSlope1,
+        rateStrategyStableTwo.variableRateSlope2,
+        rateStrategyStableTwo.stableRateSlope1,
+        rateStrategyStableTwo.stableRateSlope2,
+      ],
+      false
+    );
+
+    await expect(
+      configurator
+        .connect(users[2].signer)
+        .setReserveInterestRateStrategyAddress(getContractAddress(cbBTC), getContractAddress(newStrategy)),
+      CALLER_NOT_POOL_ADMIN
+    ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
 });

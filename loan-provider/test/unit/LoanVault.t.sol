@@ -6,7 +6,7 @@ import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
 import {ILoanVaultFactory} from "@bitmor/interfaces/ILoanVaultFactory.sol";
-import {MintableERC20} from "@bitmor/mocks/MintableERC20.sol";
+import {MintableERC20} from "../../test/mock/MintableERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 

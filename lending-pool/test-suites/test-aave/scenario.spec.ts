@@ -36,9 +36,8 @@ fs.readdirSync(scenarioFolder).forEach((file) => {
     });
 
     for (const story of scenario.stories) {
-      it(story.description, async function () {
-        // Retry the test scenarios up to 4 times if an error happens, due erratic HEVM network errors 
-        this.retries(4);
+      it(story.description, async function () { 
+        this.retries(0);
         await executeStory(story, testEnv);
       });
     }

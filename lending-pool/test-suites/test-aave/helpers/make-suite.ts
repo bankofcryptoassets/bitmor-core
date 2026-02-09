@@ -21,14 +21,6 @@ import {
   getPriceOracle,
   getLendingPoolAddressesProviderRegistry,
   getWETHMocked,
-  getWETHGateway,
-  getUniswapLiquiditySwapAdapter,
-  getUniswapRepayAdapter,
-  getFlashLiquidationAdapter,
-  getParaSwapLiquiditySwapAdapter,
-  getMockUSDCVault,
-  getMockActualUSDCVault,
-  getMockWETHVault,
   getMockBTCVault,
   getMockLoan,
 } from '../../../helpers/contracts-getters.js';
@@ -47,21 +39,15 @@ import type { PriceOracle } from '../../../types/ethers-contracts/mocks/oracle/P
 import type { LendingPoolAddressesProvider } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProvider.js';
 import type { LendingPoolAddressesProviderRegistry } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProviderRegistry.js';
 import { getEthersSigners } from '../../../helpers/contracts-helpers.js';
-import type { UniswapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/UniswapLiquiditySwapAdapter.js';
-import type { UniswapRepayAdapter } from '../../../types/ethers-contracts/adapters/UniswapRepayAdapter.js';
-import type { ParaSwapLiquiditySwapAdapter } from '../../../types/ethers-contracts/adapters/ParaSwapLiquiditySwapAdapter.js';
 import { getParamPerNetwork } from '../../../helpers/contracts-helpers.js';
 import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/WETH9Mocked.js';
-import type { WETHGateway } from '../../../types/ethers-contracts/misc/WETHGateway.js';
 import { AaveConfig } from '../../../markets/aave/index.js';
-import type { FlashLiquidationAdapter } from '../../../types/ethers-contracts/adapters/FlashLiquidationAdapter.js';
-import type { MockUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
 import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
-import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockUSDCVault.js';
+import type { MockUSDCVault as MockBitmorUSDCVault } from '../../../types/ethers-contracts/mocks/vault/MockUSDCVault.js';
 
 chai.use(bignumberChai());
 chai.use(almostEqual());
@@ -78,22 +64,16 @@ export interface TestEnv {
   dai: MintableERC20;
   aDai: AToken;
   usdc: MintableERC20;
+  aUSDC: AToken;
   aave: MintableERC20;
   addressesProvider: LendingPoolAddressesProvider;
-  uniswapLiquiditySwapAdapter: UniswapLiquiditySwapAdapter;
-  uniswapRepayAdapter: UniswapRepayAdapter;
   registry: LendingPoolAddressesProviderRegistry;
-  wethGateway: WETHGateway;
-  flashLiquidationAdapter: FlashLiquidationAdapter;
-  paraswapLiquiditySwapAdapter: ParaSwapLiquiditySwapAdapter;
-  usdcVault: MockUSDCVault;
-  actualUSDCVault: MockUSDCVault;
-  wethVault: MockUSDCVault;
   // Bitmor mock callers
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
   // BTC Vault infrastructure
   cbBTC: MintableERC20;
+  acbBTC: AToken;
   btcVault: MockBTCVault;
   // Loan infrastructure
   mockLoan: MockLoan;
@@ -116,14 +96,10 @@ const testEnv: TestEnv = {
   dai: {} as MintableERC20,
   aDai: {} as AToken,
   usdc: {} as MintableERC20,
+  aUSDC: {} as AToken,
   aave: {} as MintableERC20,
   addressesProvider: {} as LendingPoolAddressesProvider,
-  uniswapLiquiditySwapAdapter: {} as UniswapLiquiditySwapAdapter,
-  uniswapRepayAdapter: {} as UniswapRepayAdapter,
-  flashLiquidationAdapter: {} as FlashLiquidationAdapter,
-  paraswapLiquiditySwapAdapter: {} as ParaSwapLiquiditySwapAdapter,
   registry: {} as LendingPoolAddressesProviderRegistry,
-  wethGateway: {} as WETHGateway,
   mockLoanProvider: {} as MockLoanProvider,
   mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
   cbBTC: {} as MintableERC20,
@@ -163,7 +139,12 @@ export async function initializeMakeSuite() {
   testEnv.helpersContract = await getAaveProtocolDataProvider();
 
   const allTokens = await testEnv.helpersContract.getAllATokens();
+
   const aDaiAddress = allTokens.find((aToken) => aToken.symbol === 'aDAI')?.tokenAddress;
+
+  const acbBTCAddress = allTokens.find((aToken) => aToken.symbol === 'acbBTC')?.tokenAddress;
+
+  const aUSDCAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
 
   const aWEthAddress = allTokens.find((aToken) => aToken.symbol === 'aWETH')?.tokenAddress;
 
@@ -174,7 +155,7 @@ export async function initializeMakeSuite() {
   const aaveAddress = reservesTokens.find((token) => token.symbol === 'AAVE')?.tokenAddress;
   const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
 
-  if (!aDaiAddress || !aWEthAddress) {
+  if (!aDaiAddress || !aUSDCAddress || !aWEthAddress) {
     process.exit(1);
   }
   if (!daiAddress || !usdcAddress || !aaveAddress || !wethAddress) {
@@ -182,26 +163,18 @@ export async function initializeMakeSuite() {
   }
 
   testEnv.aDai = await getAToken(aDaiAddress);
+  testEnv.aUSDC = await getAToken(aUSDCAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
+  testEnv.acbBTC = await getAToken(acbBTCAddress);
+  testEnv.aUSDC = await getAToken(aUSDCAddress);
 
   testEnv.dai = await getMintableERC20(daiAddress);
   testEnv.usdc = await getMintableERC20(usdcAddress);
   testEnv.aave = await getMintableERC20(aaveAddress);
   testEnv.weth = await getWETHMocked(wethAddress);
-  testEnv.wethGateway = await getWETHGateway();
-
-  testEnv.uniswapLiquiditySwapAdapter = await getUniswapLiquiditySwapAdapter();
-  testEnv.uniswapRepayAdapter = await getUniswapRepayAdapter();
-  testEnv.flashLiquidationAdapter = await getFlashLiquidationAdapter();
-
-  testEnv.paraswapLiquiditySwapAdapter = await getParaSwapLiquiditySwapAdapter();
-
-  testEnv.usdcVault = await getMockUSDCVault();
-  testEnv.actualUSDCVault = await getMockActualUSDCVault();
-  testEnv.wethVault = await getMockWETHVault();
 
   // Deploy Bitmor mock callers
-  const bitmorMocks = await deployMockBitmorCallers();
+  const bitmorMocks = await deployMockBitmorCallers(usdcAddress);
   testEnv.mockLoanProvider = bitmorMocks.mockLoanProvider;
   testEnv.mockBitmorUSDCVault = bitmorMocks.mockUSDCVault;
 
