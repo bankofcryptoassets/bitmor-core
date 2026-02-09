@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {MintableERC20} from "@bitmor/mocks/MintableERC20.sol";
+import {MintableERC20} from "../../test/mock/MintableERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 

@@ -1,4 +1,5 @@
-import {network, artifacts} from 'hardhat';
+import hre from 'hardhat';
+const { network, artifacts } = hre;
 import {
   insertContractAddressInDb,
   getEthersSigners,
@@ -15,26 +16,23 @@ import {
   deployPriceOracle,
   deployLendingPoolCollateralManager,
   deployMockFlashLoanReceiver,
-  deployWalletBalancerProvider,
+  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   deployAaveProtocolDataProvider,
   deployLendingRateOracle,
   deployStableAndVariableTokensHelper,
   deployATokensAndRatesHelper,
-  deployWETHGateway,
+  // deployWETHGateway,  // Not used in Bitmor protocol
   deployWETHMocked,
   deployMockUniswapRouter,
-  deployUniswapLiquiditySwapAdapter,
-  deployUniswapRepayAdapter,
-  deployFlashLiquidationAdapter,
+  // deployUniswapLiquiditySwapAdapter,  // Not used in Bitmor protocol
+  // deployUniswapRepayAdapter,  // Not used in Bitmor protocol
+  // deployFlashLiquidationAdapter,  // Not used in Bitmor protocol
   deployMockParaSwapAugustus,
   deployMockParaSwapAugustusRegistry,
-  deployParaSwapLiquiditySwapAdapter,
-  authorizeWETHGateway,
+  // deployParaSwapLiquiditySwapAdapter,  // Not used in Bitmor protocol
+  // authorizeWETHGateway,  // Not used in Bitmor protocol
   deployATokenImplementations,
   deployAaveOracle,
-  deployMockUSDCVault,
-  deployMockActualUSDCVault,
-  deployMockWETHVault,
   deployMockBTCVault,
   deployMockLoan,
 } from '../../helpers/contracts-deployments.js';
@@ -105,16 +103,19 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const aaveAdmin = await deployer.getAddress();
   const config = loadPoolConfig(ConfigNames.Aave);
 
-  const mockTokens: {
-    [symbol: string]: MintableERC20 | WETH9Mocked;
-  } = {
-    ...(await deployAllMockTokens(deployer)),
-  };
-
   // Deploy cbBTC mock token (8 decimals like real cbBTC)
   console.log('Deploying cbBTC mock token...');
   const cbBTC = await deployMintableERC20(['cbBTC', 'cbBTC', '8']);
   await registerContractInJsonDb('cbBTC', cbBTC);
+
+  console.log('cbBTC mock token deployed:: ', cbBTC.target);
+
+    const mockTokens: {
+    [symbol: string]: MintableERC20 | WETH9Mocked;
+  } = {
+    ...(await deployAllMockTokens(deployer)),
+    "cbBTC": cbBTC,
+  };
 
   const addressesProvider = await deployLendingPoolAddressesProvider(AaveConfig.MarketId);
   await waitForTx(await addressesProvider.setPoolAdmin(aaveAdmin));
@@ -134,7 +135,10 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await waitForTx(await addressesProvider.setLendingPoolImpl(getContractAddress(lendingPoolImpl)));
 
   const lendingPoolAddress = await addressesProvider.getLendingPool();
+  console.log('LendingPool address:: ', lendingPoolAddress);
   const lendingPoolProxy = await getLendingPool(lendingPoolAddress);
+
+  console.log('LendingPool proxy address:: ', getContractAddress(lendingPoolProxy));
 
   await insertContractAddressInDb(eContractid.LendingPool, getContractAddress(lendingPoolProxy));
 
@@ -210,6 +214,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
       STAKE: getContractAddress(mockTokens.STAKE),
       xSUSHI: getContractAddress(mockTokens.xSUSHI),
       WAVAX: getContractAddress(mockTokens.WAVAX),
+      cbBTC: getContractAddress(cbBTC),
     },
     fallbackOracle
   );
@@ -275,8 +280,12 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   await waitForTx(await addressesProvider.setLendingRateOracle(getContractAddress(lendingRateOracle)));
 
   const { USD, ...tokensAddressesWithoutUsd } = allTokenAddresses;
+  console.log("\n\n\n");
+  console.log("tokensAddressesWithoutUsd:: ", tokensAddressesWithoutUsd);
+  console.log("\n\n\n");
   const allReservesAddresses = {
     ...tokensAddressesWithoutUsd,
+    bvBTC: getContractAddress(mockBTCVault),
   };
   await setInitialMarketRatesInRatesOracleByHelper(
     LENDING_RATE_ORACLE_RATES_COMMON,
@@ -321,28 +330,6 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     await addressesProvider.setLendingPoolCollateralManager(getContractAddress(collateralManager))
   );
 
-  // Deploy vault for DAI
-  const mockUSDCVault = await deployMockUSDCVault([
-    getContractAddress(addressesProvider),
-    getContractAddress(mockTokens.DAI),
-  ]);
-  await waitForTx(await addressesProvider.setUSDCVault(getContractAddress(mockUSDCVault)));
-  console.log('MockUSDCVault (DAI) deployed and configured');
-
-  // Deploy vault for actual USDC
-  const mockActualUSDCVault = await deployMockActualUSDCVault([
-    getContractAddress(addressesProvider),
-    getContractAddress(mockTokens.USDC),
-  ]);
-  console.log('MockActualUSDCVault (USDC) deployed');
-
-  // Deploy vault for WETH
-  const mockWETHVault = await deployMockWETHVault([
-    getContractAddress(addressesProvider),
-    getContractAddress(mockTokens.WETH),
-  ]);
-  console.log('MockWETHVault deployed');
-
   // Deploy MockLoan for liquidation testing
   console.log('Deploying MockLoan...');
   const mockLoan = await deployMockLoan(
@@ -364,20 +351,22 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     getContractAddress(mockTokens.WETH),
   ];
 
-  await deployUniswapLiquiditySwapAdapter(adapterParams);
-  await deployUniswapRepayAdapter(adapterParams);
-  await deployFlashLiquidationAdapter(adapterParams);
+  // Adapters not used in Bitmor protocol
+  // await deployUniswapLiquiditySwapAdapter(adapterParams);
+  // await deployUniswapRepayAdapter(adapterParams);
+  // await deployFlashLiquidationAdapter(adapterParams);
 
   const augustus = await deployMockParaSwapAugustus();
 
   const augustusRegistry = await deployMockParaSwapAugustusRegistry([getContractAddress(augustus)]);
 
-  await deployParaSwapLiquiditySwapAdapter([getContractAddress(addressesProvider), getContractAddress(augustusRegistry)]);
+  // await deployParaSwapLiquiditySwapAdapter([getContractAddress(addressesProvider), getContractAddress(augustusRegistry)]);
 
-  await deployWalletBalancerProvider();
+  // await deployWalletBalancerProvider();
 
-  const gateWay = await deployWETHGateway([getContractAddress(mockTokens.WETH)]);
-  await authorizeWETHGateway(getContractAddress(gateWay), lendingPoolAddress);
+  // WETHGateway not used in Bitmor protocol
+  // const gateWay = await deployWETHGateway([getContractAddress(mockTokens.WETH)]);
+  // await authorizeWETHGateway(getContractAddress(gateWay), lendingPoolAddress);
 
   console.timeEnd('setup');
 };
@@ -387,14 +376,14 @@ before(async () => {
   const connectedNetwork = await network.connect();
   const { ethers } = connectedNetwork;
 
-  // Create hre object with ethers, network, and artifacts attached
-  const hre = {
-    ethers,
+  // Build the merged DRE object
+  const dreObject = {
+    ...hre,
     network: connectedNetwork,
-    artifacts,
+    ethers,
   };
 
-  setDRE(hre);
+  setDRE(dreObject);
   console.log('  - Network:', connectedNetwork.networkName);
 
   const [deployer, secondaryWallet] = await getEthersSigners();

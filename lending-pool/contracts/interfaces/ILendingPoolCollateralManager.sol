@@ -81,36 +81,9 @@ interface ILendingPoolCollateralManager {
     event ReserveUsedAsCollateralEnabled(address indexed reserve, address indexed user);
 
     /**
-     * @dev Users can invoke this function to liquidate an undercollateralized position.
-     * @param collateral The address of the collateral to liquidated
-     * @param principal The address of the principal reserve
-     * @param user The address of the borrower
-     * @param debtToCover The amount of principal that the liquidator wants to repay
-     * @param receiveAToken true if the liquidators wants to receive the aTokens, false if
-     * he wants to receive the underlying asset directly
-     *
-     */
-    function liquidationCall(
-        address collateral,
-        address principal,
-        address user,
-        uint256 debtToCover,
-        bool receiveAToken
-    ) external returns (uint256, string memory);
-
-    /**
      * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
      * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
      * @param data Microliquidation call data
      */
     function microLiquidationCall(bytes calldata data) external returns (uint256, string memory);
-
-    /**
-     * Returns the type of Liquidation
-     * 0 => No Liquidation
-     * 1 => Full Liquidation
-     * 2 => MicroLiquidation
-     * @param user Address of the borrower
-     */
-    function checkTypeOfLiquidation(address user) external view returns (uint256);
 }

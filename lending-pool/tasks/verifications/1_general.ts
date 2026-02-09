@@ -18,8 +18,8 @@ import {
   getLendingPoolConfiguratorProxy,
   getLendingPoolImpl,
   getProxy,
-  getWalletProvider,
-  getWETHGateway,
+  // getWalletProvider,  // Not used in Bitmor protocol
+  // getWETHGateway,  // Not used in Bitmor protocol
 } from '../../helpers/contracts-getters';
 import { verifyContract, getParamPerNetwork } from '../../helpers/contracts-helpers';
 import { notFalsyOrZeroAddress } from '../../helpers/misc-utils';
@@ -83,12 +83,14 @@ task('verify:general', 'Verify contracts at Etherscan')
         : await getLendingPoolCollateralManagerImpl();
 
       const dataProvider = await getAaveProtocolDataProvider();
-      const walletProvider = await getWalletProvider();
+      // WalletProvider not used in Bitmor protocol
+      // const walletProvider = await getWalletProvider();
 
-      const wethGatewayAddress = getParamPerNetwork(WethGateway, network);
-      const wethGateway = notFalsyOrZeroAddress(wethGatewayAddress)
-        ? await getWETHGateway(wethGatewayAddress)
-        : await getWETHGateway();
+      // WETHGateway not used in Bitmor protocol
+      // const wethGatewayAddress = getParamPerNetwork(WethGateway, network);
+      // const wethGateway = notFalsyOrZeroAddress(wethGatewayAddress)
+      //   ? await getWETHGateway(wethGatewayAddress)
+      //   : await getWETHGateway();
 
       // Address Provider
       console.log('\n- Verifying address provider...\n');
@@ -124,15 +126,15 @@ task('verify:general', 'Verify contracts at Etherscan')
         addressesProvider.address,
       ]);
 
-      // Wallet balance provider
-      console.log('\n- Verifying  Wallet Balance Provider...\n');
-      await verifyContract(eContractid.WalletBalanceProvider, walletProvider, []);
+      // Wallet balance provider - not used in Bitmor protocol
+      // console.log('\n- Verifying  Wallet Balance Provider...\n');
+      // await verifyContract(eContractid.WalletBalanceProvider, walletProvider, []);
 
-      // WETHGateway
-      console.log('\n- Verifying  WETHGateway...\n');
-      await verifyContract(eContractid.WETHGateway, wethGateway, [
-        await getWrappedNativeTokenAddress(poolConfig),
-      ]);
+      // WETHGateway - not used in Bitmor protocol
+      // console.log('\n- Verifying  WETHGateway...\n');
+      // await verifyContract(eContractid.WETHGateway, wethGateway, [
+      //   await getWrappedNativeTokenAddress(poolConfig),
+      // ]);
     }
     // Lending Pool proxy
     console.log('\n- Verifying  Lending Pool Proxy...\n');

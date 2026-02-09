@@ -46,7 +46,7 @@ export const MOCK_CHAINLINK_AGGREGATORS_PRICES = {
   SUSD: oneEther.multipliedBy('0.00364714136416').toFixed(),
   TUSD: oneEther.multipliedBy('0.00364714136416').toFixed(),
   UNI: oneEther.multipliedBy('0.00536479').toFixed(),
-  USDC: oneEther.multipliedBy('0.00367714136416').toFixed(),
+  USDC: oneEther.multipliedBy('0.0004').toFixed(),
   USDT: oneEther.multipliedBy('0.00369068412860').toFixed(),
   WETH: oneEther.toFixed(),
   WBTC: oneEther.multipliedBy('47.332685').toFixed(),
@@ -72,7 +72,7 @@ export const MOCK_CHAINLINK_AGGREGATORS_PRICES = {
   STAKE: oneEther.multipliedBy('0.003620948469').toFixed(),
   xSUSHI: oneEther.multipliedBy('0.00913428586').toFixed(),
   WAVAX: oneEther.multipliedBy('0.006051936629').toFixed(),
-  cbBTC: oneEther.multipliedBy('47.332685').toFixed(),
+  cbBTC: oneEther.multipliedBy('40').toFixed(),
   USD: '5848466240000000',
 };
 

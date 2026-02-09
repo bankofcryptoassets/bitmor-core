@@ -157,7 +157,6 @@ library GenericLogic {
     address oracle
   ) internal view returns (uint256, uint256, uint256, uint256, uint256) {
     CalculateUserAccountDataVars memory vars;
-
     if (userConfig.isEmpty()) {
       return (0, 0, 0, 0, uint256(-1));
     }
@@ -210,7 +209,7 @@ library GenericLogic {
     vars.avgLiquidationThreshold = vars.totalCollateralInETH > 0
       ? vars.avgLiquidationThreshold.div(vars.totalCollateralInETH)
       : 0;
-
+    
     vars.healthFactor = calculateHealthFactorFromBalances(
       vars.totalCollateralInETH,
       vars.totalDebtInETH,

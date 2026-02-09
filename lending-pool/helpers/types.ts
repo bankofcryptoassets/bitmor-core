@@ -213,6 +213,7 @@ export enum ProtocolErrors {
   RC_INVALID_DECIMALS = '70',
   RC_INVALID_RESERVE_FACTOR = '71',
   LPAPR_INVALID_ADDRESSES_PROVIDER_ID = '72',
+  LPCM_CANNOT_FULL_LIQUIDATE = '83',
   LP_FLASHLOAN_DISABLED = '86', // Flash loans are disabled in Bitmor
 
   // old
@@ -278,6 +279,7 @@ export interface iAssetBase<T> {
   WAVAX: T;
   bvBTC: T;
   bUSDC: T;
+  cbBTC: T;
 }
 
 export type iAssetsWithoutETH<T> = Omit<iAssetBase<T>, 'ETH'>;
@@ -307,6 +309,7 @@ export type iAavePoolAssets<T> = Pick<
   | 'REN'
   | 'ENJ'
   | 'xSUSHI'
+  | 'cbBTC'
 >;
 
 export type iLpPoolAssets<T> = Pick<
@@ -349,7 +352,7 @@ export type iAvalanchePoolAssets<T> = Pick<
   'WETH' | 'DAI' | 'USDT' | 'AAVE' | 'WBTC' | 'WAVAX' | 'USDC'
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bvBTC'>;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, 'bUSDC' | 'bvBTC' | 'cbBTC'>;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 

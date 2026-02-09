@@ -40,7 +40,14 @@ import {LoanStorage} from "./LoanStorage.sol";
  * @custom:security Uses reentrancy guards, access control, and pausability for secure operations
  * @custom:security Flash loan callback validates caller is Aave V3 pool and initiator is this contract
  */
-contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, AccessManaged, Pausable {
+contract Loan is
+    LoanStorage,
+    ILoan,
+    ReentrancyGuard,
+    IFlashLoanSimpleReceiver,
+    AccessManaged,
+    Pausable
+{
     using LoanLogic for mapping(address => DataTypes.LoanData);
 
     // ============ Constructor ============
@@ -55,8 +62,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _collateralAsset `bvBTC` address
      * @param _debtAsset USDC address
      * @param _btc Wrapped BTC address
-     * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
-     * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
+     * @param _swapper Swapper contract address for token swaps
      * @param _premiumCollector Address that collects insurance premiums
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
      * @param _gracePeriod Grace period for monthly payment in seconds
@@ -70,21 +76,27 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         address _collateralAsset,
         address _debtAsset,
         address _btc,
-        address _swapAdapterWrapper,
-        address _zQuoter,
+        address _swapper,
         address _premiumCollector,
         uint256 _preClosureFeeBps,
         uint256 _gracePeriod
     )
-        LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
+        LoanStorage(
+            _aaveV3Pool,
+            _aaveAddressesProvider,
+            _bitmorPool,
+            _oracle,
+            _collateralAsset,
+            _debtAsset,
+            _btc
+        )
         AccessManaged(_manager)
     {
-        if (_swapAdapterWrapper == address(0) || _premiumCollector == address(0)) {
+        if (_swapper == address(0) || _premiumCollector == address(0)) {
             revert Errors.ZeroAddress();
         }
 
-        s_swapAdapter = _swapAdapterWrapper;
-        s_zQuoter = _zQuoter;
+        s_swapper = _swapper;
         s_premiumCollector = _premiumCollector;
         s_preClosureFeeBps = _preClosureFeeBps;
         s_gracePeriod = _gracePeriod;
@@ -148,7 +160,13 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_userLoanAtIndex,
             ctx,
             DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, collateralAmount, duration, INITIAL_INSURANCE_ID, data
+                msg.sender,
+                depositAmount,
+                premiumAmount,
+                collateralAmount,
+                duration,
+                INITIAL_INSURANCE_ID,
+                data
             )
         );
     }
@@ -156,12 +174,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function repay(address lsa, uint256 amount)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint256 finalAmountRepaid)
-    {
+    function repay(
+        address lsa,
+        uint256 amount
+    ) external whenNotPaused nonReentrant returns (uint256 finalAmountRepaid) {
         finalAmountRepaid = RepayLogic.executeRepay(
             i_BITMOR_POOL,
             i_DEBT_ASSET,
@@ -187,7 +203,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_preClosureFeeBps,
             s_slippage_swap
         );
-        DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
+        DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(
+            lsa,
+            withdrawInBTC
+        );
         CloseLoanLogic.executeCloseLoan(ctx, params, s_loansByLSA);
     }
 
@@ -196,12 +215,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function updateInsuranceId(address lsa, uint256 insuranceID)
-        external
-        whenNotPaused
-        restricted
-        checkIfLoanExists(lsa)
-    {
+    function updateInsuranceId(
+        address lsa,
+        uint256 insuranceID
+    ) external whenNotPaused restricted checkIfLoanExists(lsa) {
         s_loansByLSA.updateInsuranceId(lsa, insuranceID);
         emit Loan__InsuranceIDUpdated(lsa, insuranceID);
     }
@@ -209,7 +226,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForMicroLiquidation(
+        address _lsa
+    ) external whenNotPaused restricted checkZeroAddress(_lsa) {
         uint256 newDuration = s_loansByLSA.updateLoanDataForMicroLiquidation(_lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }
@@ -217,7 +236,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForFullLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForFullLiquidation(
+        address _lsa
+    ) external whenNotPaused restricted checkZeroAddress(_lsa) {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
@@ -227,27 +248,35 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc IFlashLoanSimpleReceiver
      */
-    function executeOperation(address asset, uint256 amount, uint256 premium, address initiator, bytes calldata params)
-        external
-        returns (bool)
-    {
+    function executeOperation(
+        address asset,
+        uint256 amount,
+        uint256 premium,
+        address initiator,
+        bytes calldata params
+    ) external returns (bool) {
         (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext(
             i_AAVE_V3_POOL,
             i_BITMOR_POOL,
-            s_zQuoter,
+            s_swapper,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
             i_BTC,
-            s_swapAdapter,
             s_premiumCollector,
             i_ORACLE,
             s_slippage_swap
         );
 
-        DataTypes.ExecuteFLOperationParams memory flOpParams =
-            DataTypes.ExecuteFLOperationParams(asset, amount, premium, initiator, flData, s_slippage_sharesToAsset);
+        DataTypes.ExecuteFLOperationParams memory flOpParams = DataTypes.ExecuteFLOperationParams(
+            asset,
+            amount,
+            premium,
+            initiator,
+            flData,
+            s_slippage_sharesToAsset
+        );
 
         if (initializingLoan) {
             FlashLoanLogic.executeFLOperationInitiailizingLoan(ctx, flOpParams, s_loansByLSA);
@@ -263,7 +292,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function getLoanByLSA(address lsa)
+    function getLoanByLSA(
+        address lsa
+    )
         external
         view
         checkZeroAddress(lsa)
@@ -283,7 +314,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function getUserLoanAtIndex(address user, uint256 index) external view checkZeroAddress(user) returns (address) {
+    function getUserLoanAtIndex(
+        address user,
+        uint256 index
+    ) external view checkZeroAddress(user) returns (address) {
         if (index >= s_userLoanCount[user]) revert Errors.IndexOutOfBounds();
         return s_userLoanAtIndex[user][index];
     }
@@ -291,7 +325,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function getUserAllLoans(address user) external view checkZeroAddress(user) returns (DataTypes.LoanData[] memory) {
+    function getUserAllLoans(
+        address user
+    ) external view checkZeroAddress(user) returns (DataTypes.LoanData[] memory) {
         uint256 count = s_userLoanCount[user];
         DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
@@ -320,7 +356,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit)
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    )
         external
         view
         checkZeroAmount(loanAmount)
@@ -338,7 +377,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 collateralAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
@@ -436,7 +478,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function setLoanVaultFactory(address newFactory) external whenNotPaused restricted checkZeroAddress(newFactory) {
+    function setLoanVaultFactory(
+        address newFactory
+    ) external whenNotPaused restricted checkZeroAddress(newFactory) {
         s_loanVaultFactory = newFactory;
         emit Loan__LoanVaultFactoryUpdated(newFactory);
     }
@@ -444,28 +488,19 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function setSwapAdapter(address newSwapAdapter) external whenNotPaused restricted checkZeroAddress(newSwapAdapter) {
-        s_swapAdapter = newSwapAdapter;
-        emit Loan__SwapAdapterUpdated(newSwapAdapter);
+    function setSwapper(
+        address newSwapper
+    ) external whenNotPaused restricted checkZeroAddress(newSwapper) {
+        s_swapper = newSwapper;
+        emit Loan__SwapperUpdated(newSwapper);
     }
 
     /**
      * @inheritdoc ILoan
      */
-    function setZQuoter(address newZQuoter) external whenNotPaused restricted checkZeroAddress(newZQuoter) {
-        s_zQuoter = newZQuoter;
-        emit Loan__ZQuoterUpdated(newZQuoter);
-    }
-
-    /**
-     * @inheritdoc ILoan
-     */
-    function setPremiumCollector(address newPremiumCollector)
-        external
-        whenNotPaused
-        restricted
-        checkZeroAddress(newPremiumCollector)
-    {
+    function setPremiumCollector(
+        address newPremiumCollector
+    ) external whenNotPaused restricted checkZeroAddress(newPremiumCollector) {
         s_premiumCollector = newPremiumCollector;
         emit Loan__PremiumCollectorUpdated(s_premiumCollector);
     }
@@ -525,12 +560,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     /// @inheritdoc ILoan
-    function setLiquidationFeeCollector(address newLiquidationFeeCollector)
-        external
-        whenNotPaused
-        restricted
-        checkZeroAddress(newLiquidationFeeCollector)
-    {
+    function setLiquidationFeeCollector(
+        address newLiquidationFeeCollector
+    ) external whenNotPaused restricted checkZeroAddress(newLiquidationFeeCollector) {
         s_liquidationFeeCollector = newLiquidationFeeCollector;
         emit Loan__LiquidationFeeCollectorUpdated(newLiquidationFeeCollector);
     }

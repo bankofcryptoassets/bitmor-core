@@ -27,47 +27,47 @@ library WadRayMath {
     return RAY;
   }
 
-  /**
-   * @return One wad, 1e18
-   *
-   */
+  // /**
+  //  * @return One wad, 1e18
+  //  *
+  //  */
 
-  function wad() internal pure returns (uint256) {
-    return WAD;
-  }
+  // function wad() internal pure returns (uint256) {
+  //   return WAD;
+  // }
 
-  /**
-   * @return Half ray, 1e27/2
-   *
-   */
-  function halfRay() internal pure returns (uint256) {
-    return halfRAY;
-  }
+  // /**
+  //  * @return Half ray, 1e27/2
+  //  *
+  //  */
+  // function halfRay() internal pure returns (uint256) {
+  //   return halfRAY;
+  // }
 
-  /**
-   * @return Half ray, 1e18/2
-   *
-   */
-  function halfWad() internal pure returns (uint256) {
-    return halfWAD;
-  }
+  // /**
+  //  * @return Half ray, 1e18/2
+  //  *
+  //  */
+  // function halfWad() internal pure returns (uint256) {
+  //   return halfWAD;
+  // }
 
-  /**
-   * @dev Multiplies two wad, rounding half up to the nearest wad
-   * @param a Wad
-   * @param b Wad
-   * @return The result of a*b, in wad
-   *
-   */
-  function wadMul(uint256 a, uint256 b) internal pure returns (uint256) {
-    if (a == 0 || b == 0) {
-      return 0;
-    }
+  // /**
+  //  * @dev Multiplies two wad, rounding half up to the nearest wad
+  //  * @param a Wad
+  //  * @param b Wad
+  //  * @return The result of a*b, in wad
+  //  *
+  //  */
+  // function wadMul(uint256 a, uint256 b) internal pure returns (uint256) {
+  //   if (a == 0 || b == 0) {
+  //     return 0;
+  //   }
 
-    require(a <= (type(uint256).max - halfWAD) / b, Errors.MATH_MULTIPLICATION_OVERFLOW);
+  //   require(a <= (type(uint256).max - halfWAD) / b, Errors.MATH_MULTIPLICATION_OVERFLOW);
 
-    return (a * b + halfWAD) / WAD;
-  }
+  //   return (a * b + halfWAD) / WAD;
+  // }
 
   /**
    * @dev Divides two wad, rounding half up to the nearest wad
@@ -118,19 +118,19 @@ library WadRayMath {
     return (a * RAY + halfB) / b;
   }
 
-  /**
-   * @dev Casts ray down to wad
-   * @param a Ray
-   * @return a casted to wad, rounded half up to the nearest wad
-   *
-   */
-  function rayToWad(uint256 a) internal pure returns (uint256) {
-    uint256 halfRatio = WAD_RAY_RATIO / 2;
-    uint256 result = halfRatio + a;
-    require(result >= halfRatio, Errors.MATH_ADDITION_OVERFLOW);
+  // /**
+  //  * @dev Casts ray down to wad
+  //  * @param a Ray
+  //  * @return a casted to wad, rounded half up to the nearest wad
+  //  *
+  //  */
+  // function rayToWad(uint256 a) internal pure returns (uint256) {
+  //   uint256 halfRatio = WAD_RAY_RATIO / 2;
+  //   uint256 result = halfRatio + a;
+  //   require(result >= halfRatio, Errors.MATH_ADDITION_OVERFLOW);
 
-    return result / WAD_RAY_RATIO;
-  }
+  //   return result / WAD_RAY_RATIO;
+  // }
 
   /**
    * @dev Converts wad up to ray
