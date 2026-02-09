@@ -104,7 +104,7 @@ contract LendingPoolCollateralManager is
         address user,
         uint256 debtToCover,
         bool receiveAToken
-    ) external override returns (uint256, string memory) {
+    ) external returns (uint256, string memory) {
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
 
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
@@ -233,7 +233,6 @@ contract LendingPoolCollateralManager is
             vars.liquidationBonus,
             ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeBps()
         );
-
         if (receiveAToken) {
             /// @dev Liquidator SHOULD NOT be able to create a collateral position in the protocol.
             return (uint256(Errors.CollateralManagerErrors.CANNOT_RECEIVE_ATOKEN), Errors.LPCM_CANNOT_RECEIVE_ATOKEN);

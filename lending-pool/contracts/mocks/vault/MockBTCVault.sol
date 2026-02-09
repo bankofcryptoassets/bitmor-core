@@ -135,18 +135,24 @@ contract MockBTCVault is ERC20 {
             }
         }
 
-        ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
-
         // 1. Burn shares from owner
         _burn(owner, shares);
 
-        // 2. Withdraw from BLP (vault owns the aTokens)
-        uint256 withdrawn = pool.withdraw(ASSET, assets, address(this));
+        // 2. Transfer underlying to receiver
+        // Check vault balance first (used during liquidation to avoid reentrancy)
+        uint256 vaultBalance = IERC20(ASSET).balanceOf(address(this));
+        uint256 sent;
+        if (vaultBalance >= assets) {
+            IERC20(ASSET).safeTransfer(receiver, assets);
+            sent = assets;
+        } else {
+            ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
+            uint256 withdrawn = pool.withdraw(ASSET, assets, address(this));
+            IERC20(ASSET).safeTransfer(receiver, withdrawn);
+            sent = withdrawn;
+        }
 
-        // 3. Transfer underlying to receiver
-        IERC20(ASSET).safeTransfer(receiver, withdrawn);
-
-        emit Withdraw(msg.sender, receiver, owner, withdrawn, shares);
+        emit Withdraw(msg.sender, receiver, owner, sent, shares);
 
         return shares;
     }
@@ -174,13 +180,23 @@ contract MockBTCVault is ERC20 {
             }
         }
 
-        ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
-
         _burn(owner, shares);
-        uint256 withdrawn = pool.withdraw(ASSET, assets, address(this));
-        IERC20(ASSET).safeTransfer(receiver, withdrawn);
 
-        emit Withdraw(msg.sender, receiver, owner, withdrawn, shares);
+        // Check if vault has enough underlying balance (used during liquidation
+        // when vault is pre-funded with cbBTC to avoid reentrancy into pool)
+        uint256 vaultBalance = IERC20(ASSET).balanceOf(address(this));
+        uint256 sent;
+        if (vaultBalance >= assets) {
+            IERC20(ASSET).safeTransfer(receiver, assets);
+            sent = assets;
+        } else {
+            ILendingPool pool = ILendingPool(ADDRESSES_PROVIDER.getLendingPool());
+            uint256 withdrawn = pool.withdraw(ASSET, assets, address(this));
+            IERC20(ASSET).safeTransfer(receiver, withdrawn);
+            sent = withdrawn;
+        }
+
+        emit Withdraw(msg.sender, receiver, owner, sent, shares);
 
         return assets;
     }

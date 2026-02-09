@@ -22,8 +22,8 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     LPCM_CANNOT_FULL_LIQUIDATE
   } = ProtocolErrors;
 
-  it('Deposits cbBTC, borrows USDC/Check liquidation fails because type of liquidation is not 1', async () => {
-    const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, mockLoan, addressesProvider, helpersContract } = testEnv;
+  it('Deposits bvBTC, borrows USDC/Check liquidation fails because type of liquidation is not 1', async () => {
+    const { users, pool, oracle, usdc, mockLoanProvider, cbBTC, btcVault, mockLoan, addressesProvider, helpersContract } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
 
@@ -35,13 +35,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       .connect(depositor.signer)
       .deposit(getContractAddress(usdc), amountDAItoDeposit, depositor.address, '0');
 
-    //user 2 deposits 1 cbBTC
-    const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
-    await cbBTC.connect(borrower.signer).mint(amountETHtoDeposit);
-    await cbBTC.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    //user 2 deposits 1 bvBTC (vault shares)
+    const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountETHtoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(borrower.signer)
-      .deposit(getContractAddress(cbBTC), amountETHtoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountETHtoDeposit, borrower.address, '0');
 
     //user 2 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -87,7 +87,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
 
     //someone tries to liquidate user 2
     await expect(
-      pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(usdc), borrower.address, 1, true)
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, 1, false)
     ).to.be.revertedWith(LPCM_CANNOT_FULL_LIQUIDATE);
   });
 
@@ -111,11 +111,11 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
   });
 
   it('Tries to liquidate a different currency than the loan principal', async () => {
-    const { pool, users, cbBTC } = testEnv;
+    const { pool, users, cbBTC, btcVault } = testEnv;
     const borrower = users[1];
-    //user 2 tries to borrow
+    //user 2 tries to liquidate with wrong debt asset (cbBTC instead of USDC)
     await expect(
-      pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(cbBTC), borrower.address, oneEther.toString(), true)
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(cbBTC), borrower.address, oneEther.toString(), false)
     ).revertedWith(LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER);
   });
 
@@ -137,6 +137,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       deployer,
       usdc,
       cbBTC,
+      btcVault,
       mockLoan
     } = testEnv;
     const borrower = users[1];
@@ -148,7 +149,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     await usdc.approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     const daiReserveDataBefore = await getReserveData(helpersContract, getContractAddress(usdc));
-    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(cbBTC));
+    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(btcVault));
 
     const userReserveDataBefore = await getUserData(
       pool,
@@ -164,20 +165,28 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     await mockLoan.createActiveLoan(
       borrower.address,
       borrower.address,
-      await convertToCurrencyDecimals(getContractAddress(cbBTC), '1'),
+      await convertToCurrencyDecimals(getContractAddress(btcVault), '1'),
       0,
       12,
       5000
     );
     await mockLoan.makeLoanOverdue(borrower.address, 30);
-    const cbbtcPrice = await oracle.getAssetPrice(cbBTC.target);
-    await oracle.setAssetPrice(cbBTC.target, (cbbtcPrice * 80n)/100n);
+
+    // Drop bvBTC price (collateral in pool is bvBTC vault shares)
+    const bvBtcPrice = await oracle.getAssetPrice(btcVault.target);
+    await oracle.setAssetPrice(btcVault.target, (bvBtcPrice * 80n)/100n);
+
+    // Fund vault with cbBTC for redemption during liquidation
+    const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
+    await cbBTC.mint(fundAmount);
+    await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
+
     const tx = await pool.liquidationCall(
-      getContractAddress(cbBTC),
+      getContractAddress(btcVault),
       getContractAddress(usdc),
       borrower.address,
       amountToLiquidate,
-      true
+      false
     );
 
     const userReserveDataAfter = await helpersContract.getUserReserveData(
@@ -188,13 +197,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
 
     const daiReserveDataAfter = await helpersContract.getReserveData(getContractAddress(usdc));
-    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(cbBTC));
+    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(btcVault));
 
-    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(cbBTC))).toString();
+    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(btcVault))).toString();
     const principalPrice = (await oracle.getAssetPrice(getContractAddress(usdc))).toString();
 
     const collateralDecimals = (
-      await helpersContract.getReserveConfigurationData(getContractAddress(cbBTC))
+      await helpersContract.getReserveConfigurationData(getContractAddress(btcVault))
     ).decimals.toString();
     const principalDecimals = (
       await helpersContract.getReserveConfigurationData(getContractAddress(usdc))
@@ -244,19 +253,20 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       'Invalid liquidity APY'
     );
 
-    expect(ethReserveDataAfter.availableLiquidity.toString()).to.be.almostEqual(
-      new BigNumber(ethReserveDataBefore.availableLiquidity.toString()).toFixed(0),
-      'Invalid collateral available liquidity'
-    );
-
+    // Collateral liquidity decreases when receiveAToken=false (aTokens burned, vault redeemed)
     expect(
-      (await helpersContract.getUserReserveData(getContractAddress(cbBTC), deployer.address))
-        .usageAsCollateralEnabled
+      new BigNumber(ethReserveDataAfter.availableLiquidity.toString()).isLessThan(
+        new BigNumber(ethReserveDataBefore.availableLiquidity.toString())
+      )
     ).to.be.true;
+
+    // Liquidator should have received cbBTC from vault redemption
+    const liquidatorCbBtcBalance = await cbBTC.balanceOf(deployer.address);
+    expect(liquidatorCbBtcBalance.toString()).to.not.equal('0', 'liquidator should receive cbBTC');
   });
 
-  it('User 3 deposits 1000 USDC, user 4 deposits 1 cbBTC, user 4 borrows - drops HF, liquidates the borrow', async () => {
-    const { users, pool, usdc, oracle, cbBTC, helpersContract, mockLoanProvider, addressesProvider, mockLoan } = testEnv;
+  it('User 3 deposits 1000 USDC, user 4 deposits 1 bvBTC, user 4 borrows - drops HF, liquidates the borrow', async () => {
+    const { users, pool, usdc, oracle, cbBTC, btcVault, helpersContract, mockLoanProvider, addressesProvider, mockLoan } = testEnv;
     const depositor = users[3];
     const borrower = users[4];
 
@@ -269,13 +279,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       .connect(depositor.signer)
       .deposit(getContractAddress(usdc), amountUsdctoDeposit, depositor.address, '0');
 
-    //user 4 deposits 1 WETH via vault
-    const amountCbBtctoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
-    await cbBTC.connect(borrower.signer).mint(amountCbBtctoDeposit);
-    await cbBTC.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    //user 4 deposits 1 bvBTC (vault shares)
+    const amountCbBtctoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountCbBtctoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(borrower.signer)
-      .deposit(getContractAddress(cbBTC), amountCbBtctoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountCbBtctoDeposit, borrower.address, '0');
 
 
     //user 4 borrows
@@ -291,16 +301,16 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
         .toFixed(0)
     );
 
-    const {stableDebtTokenAddress} = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
-    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", stableDebtTokenAddress);
+    const {variableDebtTokenAddress} = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", variableDebtTokenAddress);
     await Vdt.connect(borrower.signer).approveDelegation(
       mockLoanProvider.target,
       "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
-    ); 
+    );
 
     await mockLoanProvider
       .connect(borrower.signer)
-      .borrow(getContractAddress(usdc), amountUSDCToBorrow, RateMode.Stable, '0', borrower.address);
+      .borrow(getContractAddress(usdc), amountUSDCToBorrow, RateMode.Variable, '0', borrower.address);
 
     //drops HF below 1
     await oracle.setAssetPrice(
@@ -319,31 +329,35 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     );
 
     const usdcReserveDataBefore = await helpersContract.getReserveData(getContractAddress(usdc));
-    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(cbBTC));
+    const ethReserveDataBefore = await helpersContract.getReserveData(getContractAddress(btcVault));
 
-    const amountToLiquidate = new BigNumber(userReserveDataBefore.currentStableDebt.toString())
+    const amountToLiquidate = new BigNumber(userReserveDataBefore.currentVariableDebt.toString())
       .toFixed(0);
 
     await mockLoan.createActiveLoan(
       borrower.address,
       borrower.address,
-      await convertToCurrencyDecimals(getContractAddress(cbBTC), '1'),
+      await convertToCurrencyDecimals(getContractAddress(btcVault), '1'),
       0,
       12,
       5000
     );
-    const cbbtcPrice = await oracle.getAssetPrice(getContractAddress(cbBTC));
+    const bvBtcPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
     await mockLoan.makeLoanOverdue(borrower.address, 30);
-    await oracle.setAssetPrice(cbBTC.target, (cbbtcPrice * 95n)/100n);
+    await oracle.setAssetPrice(btcVault.target, (bvBtcPrice * 95n)/100n);
     await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
 
+    // Fund vault with cbBTC for redemption during liquidation
+    const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
+    await cbBTC.mint(fundAmount);
+    await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
 
     await pool.liquidationCall(
-      getContractAddress(cbBTC),
+      getContractAddress(btcVault),
       getContractAddress(usdc),
       borrower.address,
       amountToLiquidate,
-      true
+      false
     );
 
     const userReserveDataAfter = await helpersContract.getUserReserveData(
@@ -354,13 +368,13 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
 
     const usdcReserveDataAfter = await helpersContract.getReserveData(getContractAddress(usdc));
-    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(cbBTC));
+    const ethReserveDataAfter = await helpersContract.getReserveData(getContractAddress(btcVault));
 
-    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(cbBTC))).toString();
+    const collateralPrice = (await oracle.getAssetPrice(getContractAddress(btcVault))).toString();
     const principalPrice = (await oracle.getAssetPrice(getContractAddress(usdc))).toString();
 
     const collateralDecimals = (
-      await helpersContract.getReserveConfigurationData(getContractAddress(cbBTC))
+      await helpersContract.getReserveConfigurationData(getContractAddress(btcVault))
     ).decimals.toString();
     const principalDecimals = (
       await helpersContract.getReserveConfigurationData(getContractAddress(usdc))
@@ -378,7 +392,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     );
 
     expect(userReserveDataAfter.currentVariableDebt.toString()).to.be.almostEqual(
-      new BigNumber(userReserveDataBefore.currentStableDebt.toString())
+      new BigNumber(userReserveDataBefore.currentVariableDebt.toString())
         .minus(amountToLiquidate)
         .toFixed(0),
       'Invalid user borrow balance after liquidation'
@@ -403,22 +417,24 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       'Invalid liquidity APY'
     );
 
-    expect(ethReserveDataAfter.availableLiquidity.toString()).to.be.almostEqual(
-      new BigNumber(ethReserveDataBefore.availableLiquidity.toString()).toFixed(0),
-      'Invalid collateral available liquidity'
-    );
+    // Collateral liquidity decreases when receiveAToken=false (aTokens burned, vault redeemed)
+    expect(
+      new BigNumber(ethReserveDataAfter.availableLiquidity.toString()).isLessThan(
+        new BigNumber(ethReserveDataBefore.availableLiquidity.toString())
+      )
+    ).to.be.true;
   });
 
   it('Check type of liquidation should return 0 for inactive loans', async() => {
-    const {users, usdc, mockLoanProvider, mockLoan, helpersContract, pool, addressesProvider, cbBTC, oracle} = testEnv;
+    const {users, usdc, mockLoanProvider, mockLoan, helpersContract, pool, addressesProvider, cbBTC, btcVault, oracle} = testEnv;
     const user = users[5];
     await addressesProvider.setBitmorLoan(mockLoanProvider);
-    const amountBtcToDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '0.1');
-    await cbBTC.connect(user.signer).mint(amountBtcToDeposit);
-    await cbBTC.connect(user.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    const amountBtcToDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '0.1');
+    await btcVault.mint(user.address, amountBtcToDeposit);
+    await btcVault.connect(user.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(user.signer)
-      .deposit(getContractAddress(cbBTC), amountBtcToDeposit, user.address, '0');
+      .deposit(getContractAddress(btcVault), amountBtcToDeposit, user.address, '0');
     
     
     const amountUsdcToBorrow = await convertToCurrencyDecimals(getContractAddress(usdc), '5000');

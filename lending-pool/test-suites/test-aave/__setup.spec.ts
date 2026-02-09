@@ -285,6 +285,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   console.log("\n\n\n");
   const allReservesAddresses = {
     ...tokensAddressesWithoutUsd,
+    bvBTC: getContractAddress(mockBTCVault),
   };
   await setInitialMarketRatesInRatesOracleByHelper(
     LENDING_RATE_ORACLE_RATES_COMMON,
