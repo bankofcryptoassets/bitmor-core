@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {FuzzTestBase} from "./FuzzTestBase.sol";
-import {VaultUtilities} from "../../unit/Vault/VaultUtilities.t.sol";
-import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import { FuzzTestBase } from "./FuzzTestBase.sol";
+import { VaultUtilities } from "../../unit/Vault/VaultUtilities.t.sol";
+import { FuzzConstants as FC } from "../helpers/FuzzConstants.sol";
 
-import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
-import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import { USDCVault } from "@bitmor/vaults/usdc-vault/USDCVault.sol";
+import { USDCStrategy } from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
+import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
 
-import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
-import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";
-import {MockPriceOracle} from "../../mock/MockPriceOracle.sol";
-import {MockAToken} from "../../mock/MockAToken.sol";
-import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
+import { MockBitmorLendingPool } from "../../mock/MockBitmorLendingPool.sol";
+import { MockAddressesProvider } from "../../mock/MockAddressesProvider.sol";
+import { MockPriceOracle } from "../../mock/MockPriceOracle.sol";
+import { MockAToken } from "../../mock/MockAToken.sol";
+import { MockVariableDebtToken } from "../../mock/MockVariableDebtToken.sol";
 
 /**
- * @title USDCStrategyFuzzTestBase
+ * @title USDCVaultFuzzTestBase
  * @author Bitmor Protocol
  * @notice Shared base contract for USDC vault+strategy fuzz tests using real contracts with mock pools
  * @dev Deploys real `USDCVault` and `USDCStrategy` backed by `MockAaveV3Pool` and `MockBitmorLendingPool`.
  *      Inherits `FuzzTestBase` for bound helpers and `VaultUtilities` for ERC-4626 operation helpers.
  */
-abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
+abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
     // ============ Core Contracts ============
 
     /// @notice Real USDCVault contract under test
@@ -123,20 +123,45 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
         mockOracle.setAssetPrice(address(mockUSDC), 1e8);
 
         // Deploy mock addresses provider
-        mockAddressesProvider = new MockAddressesProvider(address(0), address(mockOracle), address(this));
+        mockAddressesProvider = new MockAddressesProvider(
+            address(0),
+            address(mockOracle),
+            address(this)
+        );
 
         // Deploy mock Bitmor lending pool
         mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
         mockAddressesProvider.setLendingPool(address(mockBitmorPool));
 
         // Deploy mock aToken and debt token for Bitmor pool
-        mockBitmorAToken = new MockAToken("Bitmor Mock USDC", "bmUSDC", 6, address(mockUSDC), address(mockBitmorPool));
-        mockBitmorDebtToken =
-            new MockVariableDebtToken("Bitmor Mock USDC Debt", "vdUSDC", 6, address(mockUSDC), address(mockBitmorPool));
-        mockBitmorPool.initReserve(address(mockUSDC), address(mockBitmorAToken), address(mockBitmorDebtToken));
+        mockBitmorAToken = new MockAToken(
+            "Bitmor Mock USDC",
+            "bmUSDC",
+            6,
+            address(mockUSDC),
+            address(mockBitmorPool)
+        );
+        mockBitmorDebtToken = new MockVariableDebtToken(
+            "Bitmor Mock USDC Debt",
+            "vdUSDC",
+            6,
+            address(mockUSDC),
+            address(mockBitmorPool)
+        );
+        mockBitmorPool.initReserve(
+            address(mockUSDC),
+            address(mockBitmorAToken),
+            address(mockBitmorDebtToken)
+        );
 
         // Deploy mock aToken for Aave and initialize reserve
-        mockAaveAToken = new MockAToken("Aave Mock USDC", "amUSDC", 6, address(mockUSDC), address(mockAavePool));
+        mockAaveAToken = new MockAToken(
+            "Aave Mock USDC",
+            "amUSDC",
+            6,
+            address(mockUSDC),
+            address(mockAavePool)
+        );
         mockAavePool.initReserve(address(mockUSDC), address(mockAaveAToken));
 
         // Fund pools with liquidity
@@ -172,7 +197,11 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
 
     /// @notice Sets the strategy on the vault and configures default allocation
     function _setStrategyOnVault() internal {
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
+        _scheduleAndExecuteLocal(
+            uvm_slow,
+            UVM_SLOW_ID(),
+            abi.encodeCall(USDCVault.setStrategy, (address(strategy)))
+        );
 
         // Set default 80% Aave allocation
         vm.prank(address(vault));
@@ -238,7 +267,10 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
     /// @notice Asserts allocation is within tolerance of target
     /// @param targetAaveAllocationBps Target Aave allocation in bps
     /// @param toleranceBps Tolerance in basis points
-    function _assertAllocationCorrect(uint256 targetAaveAllocationBps, uint256 toleranceBps) internal view {
+    function _assertAllocationCorrect(
+        uint256 targetAaveAllocationBps,
+        uint256 toleranceBps
+    ) internal view {
         uint256 aaveBalance = _getAaveBalance();
         uint256 totalBalance = _getTotalBalance();
 
@@ -256,7 +288,7 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
 
     /// @notice Schedule and execute a delayed operation targeting the vault
     function _scheduleAndExecuteLocal(address caller, uint64 roleId, bytes memory data) internal {
-        (, uint32 delay,,) = manager.getAccess(roleId, caller);
+        (, uint32 delay, , ) = manager.getAccess(roleId, caller);
         uint48 when = uint48(block.timestamp + delay);
 
         vm.startPrank(caller);
@@ -269,10 +301,13 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
     }
 
     /// @notice Schedule an operation and expect it to revert
-    function _scheduleAndExpectRevertLocal(address caller, uint64 roleId, bytes memory data, bytes memory revertData)
-        internal
-    {
-        (, uint32 delay,,) = manager.getAccess(roleId, caller);
+    function _scheduleAndExpectRevertLocal(
+        address caller,
+        uint64 roleId,
+        bytes memory data,
+        bytes memory revertData
+    ) internal {
+        (, uint32 delay, , ) = manager.getAccess(roleId, caller);
         uint48 when = uint48(block.timestamp + delay);
 
         vm.startPrank(caller);
@@ -291,7 +326,9 @@ abstract contract USDCStrategyFuzzTestBase is FuzzTestBase, VaultUtilities {
     function _captureVaultSnapshot() internal view returns (VaultSnapshot memory snap) {
         snap.totalAssets = vault.totalAssets();
         snap.totalSupply = vault.totalSupply();
-        snap.sharePrice = snap.totalSupply == 0 ? 1e18 : (snap.totalAssets * 1e18) / snap.totalSupply;
+        snap.sharePrice = snap.totalSupply == 0
+            ? 1e18
+            : (snap.totalAssets * 1e18) / snap.totalSupply;
         snap.aaveBalance = _getAaveBalance();
         snap.blpBalance = _getBLPBalance();
     }

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Address} from "@openzeppelin/utils/Address.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
-import {ERC20} from "@solady/tokens/ERC20.sol";
+import { Address } from "@openzeppelin/utils/Address.sol";
+import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import { SafeTransferLib } from "@solady/utils/SafeTransferLib.sol";
+import { ERC20 } from "@solady/tokens/ERC20.sol";
 
-import {Errors} from "../../libraries/helpers/Errors.sol";
-import {DataTypes} from "../../libraries/types/DataTypes.sol";
+import { Errors } from "../../libraries/helpers/Errors.sol";
+import { DataTypes } from "../../libraries/types/DataTypes.sol";
 
-import {ILendingPool as IBLP} from "../../interfaces/ILendingPool.sol";
-import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
-import {IPool as IAave} from "../../interfaces/IPool.sol";
+import { ILendingPool as IBLP } from "../../interfaces/ILendingPool.sol";
+import { ISimpleStrategy } from "../../interfaces/ISimpleStrategy.sol";
+import { IPool as IAave } from "../../interfaces/IPool.sol";
 
 /**
  * @title USDCStrategy
@@ -268,7 +268,6 @@ contract USDCStrategy is ISimpleStrategy {
      * @return balance The total amount of assets attributable to this strategy in BLP
      */
     function _getBalanceInBLP() internal view returns (uint256 balance) {
-        //! TODO: Validate that available liquidity + borrowed(+accrued interest) accurately reflects strategy's share
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
 
         uint256 availableLiquidity = ERC20(i_asset).balanceOf(reserveData.aTokenAddress);
@@ -293,7 +292,10 @@ contract USDCStrategy is ISimpleStrategy {
     function _reallocateAssets() internal {
         uint256 currentBalanceInAave = _getBalanceInAave();
 
-        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
+        uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(
+            s_aaveAllocation,
+            BASIS_POINT_SCALE
+        );
 
         if (targetBalanceInAave == 0) return;
 
@@ -332,11 +334,14 @@ contract USDCStrategy is ISimpleStrategy {
     function _withdrawFundsToBLP(uint256 amountToTransfer) internal {
         uint256 totalBalance = _getTotalBalanceInMarkets();
         uint256 totalBalanceAfter = totalBalance.zeroFloorSub(amountToTransfer);
-        uint256 targetBLPAssetsAfter =
-            totalBalanceAfter.mulDiv(BASIS_POINT_SCALE.rawSub(s_aaveAllocation), BASIS_POINT_SCALE);
+        uint256 targetBLPAssetsAfter = totalBalanceAfter.mulDiv(
+            BASIS_POINT_SCALE.rawSub(s_aaveAllocation),
+            BASIS_POINT_SCALE
+        );
 
-        uint256 amountToWithdrawFromAave =
-            targetBLPAssetsAfter.rawAdd(amountToTransfer).zeroFloorSub(_getBalanceInBLP());
+        uint256 amountToWithdrawFromAave = targetBLPAssetsAfter
+            .rawAdd(amountToTransfer)
+            .zeroFloorSub(_getBalanceInBLP());
 
         if (amountToWithdrawFromAave == 0) return;
 
@@ -357,7 +362,10 @@ contract USDCStrategy is ISimpleStrategy {
 
         if (amountToTransfer > liquidTotal) revert Errors.InsufficientBalance();
 
-        uint256 targetAaveBalance = liquidTotal.rawSub(amountToTransfer).mulDiv(s_aaveAllocation, BASIS_POINT_SCALE);
+        uint256 targetAaveBalance = liquidTotal.rawSub(amountToTransfer).mulDiv(
+            s_aaveAllocation,
+            BASIS_POINT_SCALE
+        );
 
         // Ratio-based split — fromBLP is naturally bounded by withdrawableBLPBalance
         uint256 fromAave = currentAaveBalance.zeroFloorSub(targetAaveBalance);
@@ -380,7 +388,11 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromAave Amount of assets to withdraw from Aave
      */
     function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
-        uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
+        uint256 finalAmountWithdrawn = i_aave.withdraw(
+            i_asset,
+            amountToWithdrawFromAave,
+            address(this)
+        );
 
         i_blp.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }
@@ -390,7 +402,11 @@ contract USDCStrategy is ISimpleStrategy {
      * @param amountToWithdrawFromBLP Amount of assets to withdraw from BLP
      */
     function _withdrawFomBLPAndDepositInAAVE(uint256 amountToWithdrawFromBLP) internal {
-        uint256 finalAmountWithdrawn = i_blp.withdraw(i_asset, amountToWithdrawFromBLP, address(this));
+        uint256 finalAmountWithdrawn = i_blp.withdraw(
+            i_asset,
+            amountToWithdrawFromBLP,
+            address(this)
+        );
 
         i_aave.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
     }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Address} from "@openzeppelin/utils/Address.sol";
-import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
+import { Address } from "@openzeppelin/utils/Address.sol";
+import { ERC4626, ERC20 } from "@solady/tokens/ERC4626.sol";
 
 /**
  * @title SimpleTokenizedStrategy
@@ -68,7 +68,6 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      * @notice Returns the total amount of assets under management by this strategy
      * @inheritdoc ERC4626
      * @dev Must be implemented by derived contracts to return actual deployed assets
-     * //! TODO: This should be implemented by derived contracts with actual balance calculation
      * @return assets The total amount of underlying assets managed by the strategy
      */
     function totalAssets() public view virtual override returns (uint256 assets) {
