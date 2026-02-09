@@ -177,11 +177,15 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
 
     // ============ Yield Simulation ============
 
-    /// @notice Simulates yield by minting additional cbBTC directly to the mock aToken
-    /// @dev This increases the aToken balance of strategy1, simulating Aave yield accrual
+    /// @notice Simulates yield by minting aTokens to strategy1 and backing cbBTC to pool
+    /// @dev Increases strategy1.totalAssets() without new deposits, simulating Aave yield accrual
     /// @param yieldAmount The amount of yield to simulate (in cbBTC, 8 decimals)
     function _simulateYield(uint256 yieldAmount) internal {
-        mockCbBTC.mint(address(mockAToken1), yieldAmount);
+        // Back the yield with real cbBTC in the pool (so withdrawals work later)
+        mockCbBTC.mint(address(mockAavePool), yieldAmount);
+        // Mint aTokens to strategy1 (must come from pool due to MockAToken restriction)
+        vm.prank(address(mockAavePool));
+        mockAToken1.mint(address(strategy1), yieldAmount);
     }
 
     // ============ Queue Helpers ============
@@ -204,7 +208,7 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
     /// @param allocations The reallocation instructions
     function _reallocate(DataTypes.Allocation[] memory allocations) internal {
         vm.prank(bva_fast);
-        vault.reallocateFunds(allocations);
+        manager.execute(address(vault), abi.encodeCall(BTCVault.reallocateFunds, (allocations)));
     }
 
     // ============ Bound Helpers ============
