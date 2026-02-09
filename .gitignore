@@ -27,3 +27,8 @@ lending-pool/types
 
 # Git worktrees
 .worktrees/
+
+
+swap-routers/out
+swap-routeres/lib
+swap-routers/cache
