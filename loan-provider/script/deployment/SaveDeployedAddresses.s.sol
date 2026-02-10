@@ -85,12 +85,11 @@ contract SaveDeployedAddresses is Script {
         return string.concat('{"network":"', _getNetworkName(block.chainid), '"');
     }
 
-    function _buildDeployedContracts(
-        address swapper,
-        address loanVault,
-        address loan,
-        address loanVaultFactory
-    ) internal pure returns (string memory) {
+    function _buildDeployedContracts(address swapper, address loanVault, address loan, address loanVaultFactory)
+        internal
+        pure
+        returns (string memory)
+    {
         return string.concat(
             ',"deployedContracts":{',
             '"swapper":"',

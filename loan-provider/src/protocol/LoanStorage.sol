@@ -133,6 +133,9 @@ contract LoanStorage {
     /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
     uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
+    /// @notice Maximum allowed slippage in basis points to prevent underflow in swap calculations (10000 bps = 100%)
+    uint256 internal constant MAX_SLIPPAGE = 100_00;
+
     // ============ Constructor ============
 
     /**
@@ -155,12 +158,8 @@ contract LoanStorage {
         address _btc
     ) {
         if (
-            _aaveV3Pool == address(0) ||
-            _bitmorPool == address(0) ||
-            _oracle == address(0) ||
-            _collateralAsset == address(0) ||
-            _debtAsset == address(0) ||
-            _btc == address(0)
+            _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
+                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;

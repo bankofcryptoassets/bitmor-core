@@ -110,4 +110,30 @@ library FuzzConstants {
 
     /// @dev Pool liquidity for mock pools: 100M USDC
     uint256 constant POOL_LIQUIDITY = 100_000_000e6;
+
+    // ============ BTC Vault Fee Bounds ============
+
+    /// @dev Minimum fee for fuzz testing: 0 bps (no fee)
+    uint256 constant MIN_FEE_BPS = 0;
+
+    /// @dev Maximum fee for fuzz testing: 1000 bps (10%)
+    uint256 constant MAX_FEE_BPS = 10_00;
+
+    /// @dev Default entry fee for tests: 10 bps (0.1%)
+    uint256 constant DEFAULT_ENTRY_FEE = 10;
+
+    /// @dev Default exit fee for tests: 10 bps (0.1%)
+    uint256 constant DEFAULT_EXIT_FEE = 10;
+
+    /// @dev Default strategy cap: 1000 BTC
+    uint256 constant DEFAULT_STRATEGY_CAP = 1000e8;
+
+    /// @dev Small strategy cap for multi-strategy tests: 50 BTC
+    uint256 constant SMALL_STRATEGY_CAP = 50e8;
+
+    /// @dev Max strategies for testing
+    uint256 constant MAX_STRATEGIES = 10;
+
+    /// @dev Maximum rounding error tolerance (in wei of asset)
+    uint256 constant MAX_ROUNDING_ERROR = 2;
 }

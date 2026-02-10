@@ -36,10 +36,10 @@ abstract contract UnitTestBase is BitmorTestBase {
     address public admin;
 
     /// @notice Standard test user for loan operations
-    address public testUser;
+    address internal testUser;
 
     /// @notice Test liquidator for liquidation scenarios
-    address public testLiquidator;
+    address internal testLiquidator;
 
     // ============ Snapshot ============
 
