@@ -27,3 +27,6 @@ lending-pool/types
 
 # Git worktrees
 .worktrees/
+
+# foundry
+out-foundry
