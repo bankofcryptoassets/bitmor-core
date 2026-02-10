@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
+import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategyHarness} from "../../../harness/USDCStrategyHarness.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -375,6 +376,11 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
     /// @notice Test that exposed_getBalanceInAave returns the Aave aToken balance
     /// @dev Supplies through the harness (acting as strategy) and verifies the internal balance query
     function test_harness_getBalanceInAave() public {
+        // Switch vault's strategy to the harness so depositToBLP allows calls from it
+        _scheduleAndExecuteLocal(
+            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategyHarness)))
+        );
+
         // Fund vault with USDC
         mockUSDC.mint(address(vault), STANDARD_DEPOSIT);
 

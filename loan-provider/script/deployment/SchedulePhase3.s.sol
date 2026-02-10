@@ -79,6 +79,14 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
 
+        // Loan parameter configuration (required for loan creation to work)
+        // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxBTCAmount, (10e8)), when); // 10 BTC max
+        manager.schedule(loan, abi.encodeCall(ILoan.setMinBTCAmount, (0.01e8)), when); // 0.01 BTC min
+        manager.schedule(loan, abi.encodeCall(ILoan.setSlippageForSwap, (50)), when); // 0.5%
+        manager.schedule(loan, abi.encodeCall(ILoan.setSlippageForSharesToAsset, (100)), when); // 1%
+        manager.schedule(loan, abi.encodeCall(ILoan.setMinDepositBps, (30_00)), when); // 30%
+
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
         manager.schedule(

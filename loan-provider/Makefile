@@ -21,7 +21,7 @@ help:
 	@echo "  make test:liquidation:unit  Run liquidation unit tests"
 	@echo "  make test:fuzz           Run fuzz tests (placeholder)"
 	@echo "  make test:invariant      Run invariant tests (placeholder)"
-	@echo "  make test:integration    Run integration tests (placeholder)"
+	@echo "  make test:integration    Run integration tests (requires Anvil + deploy-local)"
 	@echo ""
 	@echo "Single Test:"
 	@echo "  make test:single TEST=test_name    Run single test by name"
@@ -115,7 +115,8 @@ test\:invariant:
 	@echo "No invariant tests yet. Add tests to test/invariant/ to enable."
 
 test\:integration:
-	@echo "No integration tests yet. Add tests to test/integration/ to enable."
+	@echo "Running integration tests (requires running Anvil + make deploy-local)..."
+	@FOUNDRY_PROFILE=integration forge test --fork-url http://127.0.0.1:8545 -vvv
 
 # ============ Single Test Helpers ============
 
