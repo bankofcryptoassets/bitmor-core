@@ -342,8 +342,8 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
     /// @notice Returns the total number of successful handler calls
     function ghost_totalCalls() external view returns (uint256) {
-        return ghost_depositCount + ghost_redeemCount + ghost_withdrawCount + ghost_mintCount
-            + ghost_reallocateCount + ghost_yieldCount;
+        return ghost_depositCount + ghost_redeemCount + ghost_withdrawCount + ghost_mintCount + ghost_reallocateCount
+            + ghost_yieldCount;
     }
 
     /// @notice Returns the total number of deposit/mint/withdraw/redeem operations

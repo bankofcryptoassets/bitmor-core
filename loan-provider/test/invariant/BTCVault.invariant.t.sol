@@ -73,11 +73,7 @@ contract BTCVaultInvariantTest is Test {
 
             uint256 assetsForAllShares = vault.convertToAssets(totalSupply);
             // Allow 1 wei rounding tolerance per share unit
-            assertGe(
-                totalAssets + 1,
-                assetsForAllShares,
-                "INV-BTC-01: totalAssets < convertToAssets(totalSupply)"
-            );
+            assertGe(totalAssets + 1, assetsForAllShares, "INV-BTC-01: totalAssets < convertToAssets(totalSupply)");
         }
     }
 
@@ -108,12 +104,7 @@ contract BTCVaultInvariantTest is Test {
         uint256 allOps = totalOps + handler.ghost_reallocateCount() + handler.ghost_yieldCount();
         uint256 tolerance = allOps * FC.MAX_ROUNDING_ERROR;
 
-        assertApproxEqAbs(
-            totalAssets,
-            expected,
-            tolerance,
-            "INV-BTC-02: ghost accounting mismatch with totalAssets"
-        );
+        assertApproxEqAbs(totalAssets, expected, tolerance, "INV-BTC-02: ghost accounting mismatch with totalAssets");
     }
 
     /**
@@ -130,11 +121,7 @@ contract BTCVaultInvariantTest is Test {
             sumStrategyAssets += vault.getAssetInStrategy(strat.strategy);
         }
 
-        assertEq(
-            vault.totalAssets(),
-            sumStrategyAssets,
-            "INV-BTC-03: totalAssets != sum of strategy balances"
-        );
+        assertEq(vault.totalAssets(), sumStrategyAssets, "INV-BTC-03: totalAssets != sum of strategy balances");
     }
 
     /**
@@ -149,11 +136,7 @@ contract BTCVaultInvariantTest is Test {
         uint256 shares = vault.convertToShares(CONVERSION_TEST_AMOUNT);
         uint256 assetsBack = vault.convertToAssets(shares);
 
-        assertLe(
-            assetsBack,
-            CONVERSION_TEST_AMOUNT,
-            "INV-BTC-04: conversion round-trip created free money"
-        );
+        assertLe(assetsBack, CONVERSION_TEST_AMOUNT, "INV-BTC-04: conversion round-trip created free money");
     }
 
     /**
@@ -192,11 +175,7 @@ contract BTCVaultInvariantTest is Test {
         uint256 expectedSupply = handler.ghost_totalSharesMinted() - handler.ghost_totalSharesRedeemed();
         uint256 actualSupply = vault.totalSupply();
 
-        assertEq(
-            actualSupply,
-            expectedSupply,
-            "INV-BTC-06: totalSupply != ghost_minted - ghost_redeemed"
-        );
+        assertEq(actualSupply, expectedSupply, "INV-BTC-06: totalSupply != ghost_minted - ghost_redeemed");
     }
 
     /**

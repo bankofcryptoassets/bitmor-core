@@ -39,11 +39,7 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
      * @param caller Address that initiated the swap
      */
     event MockSwap(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        address indexed caller
+        address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, address indexed caller
     );
 
     /**
@@ -72,20 +68,22 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
     }
 
     /// @inheritdoc ISwapAdaptor
-    function getMaxTokenInAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountOut
-    ) external view override returns (uint256 maxAmountIn) {
+    function getMaxTokenInAmount(address tokenIn, address tokenOut, uint256 exactAmountOut)
+        external
+        view
+        override
+        returns (uint256 maxAmountIn)
+    {
         maxAmountIn = _calculateInput(tokenIn, tokenOut, exactAmountOut);
     }
 
     /// @inheritdoc ISwapAdaptor
-    function getMinTokenOutAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountIn
-    ) external view override returns (uint256 minAmountOut) {
+    function getMinTokenOutAmount(address tokenIn, address tokenOut, uint256 exactAmountIn)
+        external
+        view
+        override
+        returns (uint256 minAmountOut)
+    {
         minAmountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
     }
 
@@ -146,11 +144,7 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
      * @param amountIn Input amount
      * @return amountOut Output amount
      */
-    function _calculateOutput(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) internal view returns (uint256) {
+    function _calculateOutput(address tokenIn, address tokenOut, uint256 amountIn) internal view returns (uint256) {
         // Get prices
         uint256 priceIn = tokenIn == i_BTC ? btcPrice : usdcPrice;
         uint256 priceOut = tokenOut == i_BTC ? btcPrice : usdcPrice;
@@ -186,11 +180,7 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
      * @param amountOut Desired output amount
      * @return amountIn Required input amount
      */
-    function _calculateInput(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut
-    ) internal view returns (uint256) {
+    function _calculateInput(address tokenIn, address tokenOut, uint256 amountOut) internal view returns (uint256) {
         // Get prices
         uint256 priceIn = tokenIn == i_BTC ? btcPrice : usdcPrice;
         uint256 priceOut = tokenOut == i_BTC ? btcPrice : usdcPrice;
