@@ -270,15 +270,15 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
-    function maxDeposit(address) public view override returns (uint256) {
-        if (paused()) return 0;
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
+   function maxDeposit(address) public view override returns (uint256) {
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
     function maxMint(address) public view override returns (uint256) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 
