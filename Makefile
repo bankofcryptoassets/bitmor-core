@@ -52,6 +52,7 @@ install:
 	@echo "Installing dependencies..."
 	@cd lending-pool && npm install
 	@cd loan-provider && forge install
+	@cd swap-routers && forge install
 	@echo "Configuring git hooks..."
 	@git config core.hooksPath .githooks
 	@echo "Done."
@@ -60,6 +61,7 @@ build:
 	@echo "Building contracts..."
 	@cd lending-pool && npm run compile
 	@cd loan-provider && forge build
+	@cd swap-routers && forge build
 	@echo "Done."
 
 clean:
@@ -67,6 +69,7 @@ clean:
 	@rm -rf deploy/artifacts/*.log
 	@cd lending-pool && rm -rf artifacts cache
 	@cd loan-provider && forge clean
+	@cd swap-routers && forge clean
 	@echo "Done."
 
 # ============ Formatting ============
@@ -76,12 +79,15 @@ format:
 	@cd lending-pool && npm run prettier:write
 	@echo "Formatting loan-provider (Forge)..."
 	@cd loan-provider && forge fmt
+	@echo "Formatting swap-routers (Forge)..."
+	@cd swap-routers && forge fmt
 	@echo "Done."
 
 format-check:
 	@echo "Checking formatting..."
 	@cd lending-pool && npm run prettier:check
 	@cd loan-provider && forge fmt --check
+	@cd swap-routers && forge fmt --check
 	@echo "All files formatted correctly."
 
 # ============ Anvil ============
