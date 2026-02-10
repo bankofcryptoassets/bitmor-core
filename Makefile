@@ -14,9 +14,13 @@ help:
 	@echo "==============="
 	@echo ""
 	@echo "Setup:"
-	@echo "  make install             Install all dependencies"
+	@echo "  make install             Install dependencies + configure git hooks"
 	@echo "  make build               Build all contracts"
 	@echo "  make clean               Clean build artifacts"
+	@echo ""
+	@echo "Formatting:"
+	@echo "  make format              Format all code (Prettier + Forge)"
+	@echo "  make format-check        Check formatting without changes"
 	@echo ""
 	@echo "Local Development:"
 	@echo "  make anvil               Start Anvil (localhost:$(ANVIL_PORT), chainId $(LOCAL_CHAIN_ID))"
@@ -48,6 +52,8 @@ install:
 	@echo "Installing dependencies..."
 	@cd lending-pool && npm install
 	@cd loan-provider && forge install
+	@echo "Configuring git hooks..."
+	@git config core.hooksPath .githooks
 	@echo "Done."
 
 build:
@@ -62,6 +68,21 @@ clean:
 	@cd lending-pool && rm -rf artifacts cache
 	@cd loan-provider && forge clean
 	@echo "Done."
+
+# ============ Formatting ============
+
+format:
+	@echo "Formatting lending-pool (Prettier)..."
+	@cd lending-pool && npm run prettier:write
+	@echo "Formatting loan-provider (Forge)..."
+	@cd loan-provider && forge fmt
+	@echo "Done."
+
+format-check:
+	@echo "Checking formatting..."
+	@cd lending-pool && npm run prettier:check
+	@cd loan-provider && forge fmt --check
+	@echo "All files formatted correctly."
 
 # ============ Anvil ============
 

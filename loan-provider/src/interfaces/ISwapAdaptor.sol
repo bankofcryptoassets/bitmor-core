@@ -14,11 +14,9 @@ interface ISwapAdaptor {
      * @param exactAmountOut Exact amount of output tokens desired
      * @return maxAmountIn Maximum input tokens required (includes slippage buffer)
      */
-    function getMaxTokenInAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountOut
-    ) external returns (uint256 maxAmountIn);
+    function getMaxTokenInAmount(address tokenIn, address tokenOut, uint256 exactAmountOut)
+        external
+        returns (uint256 maxAmountIn);
 
     /**
      * @notice Get minimum output tokens for exact input tokens
@@ -27,11 +25,9 @@ interface ISwapAdaptor {
      * @param exactAmountIn Exact amount of input tokens to swap
      * @return minAmountOut Minimum output tokens expected (includes slippage buffer)
      */
-    function getMinTokenOutAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountIn
-    ) external returns (uint256 minAmountOut);
+    function getMinTokenOutAmount(address tokenIn, address tokenOut, uint256 exactAmountIn)
+        external
+        returns (uint256 minAmountOut);
 
     /**
      * @notice Swap exact input tokens for minimum output tokens

@@ -21,11 +21,7 @@ interface ILoan {
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower,
-        address indexed lsa,
-        uint256 loanAmount,
-        uint256 collateralAmount,
-        bytes data
+        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
     );
 
     /**
@@ -35,9 +31,7 @@ interface ILoan {
      * @param newStatus New loan status
      */
     event Loan__LoanStatusUpdated(
-        address indexed lsa,
-        DataTypes.LoanStatus indexed oldStatus,
-        DataTypes.LoanStatus indexed newStatus
+        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
     );
 
     /**
@@ -82,10 +76,7 @@ interface ILoan {
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
      */
-    event Loan__LoanDataForMicroLiquidationUpdated(
-        address indexed lsa,
-        uint256 indexed newDuration
-    );
+    event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
 
     /**
      * @notice Emitted when loan data is updated after a full liquidation
@@ -255,10 +246,7 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(
-        uint256 loanAmount,
-        uint256 deposit
-    ) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -340,10 +328,7 @@ interface ILoan {
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
-    function getLoanDetails(
-        uint256 collateralAmount,
-        uint256 duration
-    )
+    function getLoanDetails(uint256 collateralAmount, uint256 duration)
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);

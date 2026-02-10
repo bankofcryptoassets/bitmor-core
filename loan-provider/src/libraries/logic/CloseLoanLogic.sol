@@ -43,6 +43,7 @@ library CloseLoanLogic {
     /**
      * @dev Oracle price precision (8 decimals)
      */
+
     uint256 private constant PRICE_PRECISION = 1e8;
 
     /**

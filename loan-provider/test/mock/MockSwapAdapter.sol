@@ -41,20 +41,22 @@ contract MockSwapAdapter is ISwapAdaptor {
     }
 
     /// @inheritdoc ISwapAdaptor
-    function getMaxTokenInAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountOut
-    ) external view override returns (uint256 maxAmountIn) {
+    function getMaxTokenInAmount(address tokenIn, address tokenOut, uint256 exactAmountOut)
+        external
+        view
+        override
+        returns (uint256 maxAmountIn)
+    {
         maxAmountIn = _calculateInput(tokenIn, tokenOut, exactAmountOut);
     }
 
     /// @inheritdoc ISwapAdaptor
-    function getMinTokenOutAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountIn
-    ) external view override returns (uint256 minAmountOut) {
+    function getMinTokenOutAmount(address tokenIn, address tokenOut, uint256 exactAmountIn)
+        external
+        view
+        override
+        returns (uint256 minAmountOut)
+    {
         minAmountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
     }
 
@@ -122,11 +124,11 @@ contract MockSwapAdapter is ISwapAdaptor {
     /// @param tokenOut Output token
     /// @param amountIn Input amount
     /// @return amountOut Output amount
-    function _calculateOutput(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountIn
-    ) internal view returns (uint256 amountOut) {
+    function _calculateOutput(address tokenIn, address tokenOut, uint256 amountIn)
+        internal
+        view
+        returns (uint256 amountOut)
+    {
         uint256 priceIn = oracle.getAssetPrice(tokenIn);
         uint256 priceOut = oracle.getAssetPrice(tokenOut);
 
@@ -149,11 +151,11 @@ contract MockSwapAdapter is ISwapAdaptor {
     /// @param tokenOut Output token
     /// @param amountOut Desired output amount
     /// @return amountIn Required input amount
-    function _calculateInput(
-        address tokenIn,
-        address tokenOut,
-        uint256 amountOut
-    ) internal view returns (uint256 amountIn) {
+    function _calculateInput(address tokenIn, address tokenOut, uint256 amountOut)
+        internal
+        view
+        returns (uint256 amountIn)
+    {
         uint256 priceIn = oracle.getAssetPrice(tokenIn);
         uint256 priceOut = oracle.getAssetPrice(tokenOut);
 
