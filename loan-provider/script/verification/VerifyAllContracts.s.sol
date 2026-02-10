@@ -35,11 +35,9 @@ contract VerifyAllContracts is Script {
     }
 
     function _buildContractList() internal view returns (ContractInfo[] memory contracts) {
-        contracts = new ContractInfo[](4);
+        contracts = new ContractInfo[](3);
 
         // Get addresses from deployments.json
-        address swapAdapterWrapper =
-            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".swapAdapterWrapper")));
         address loanVault = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVault")));
         address loan = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loan")));
         address loanVaultFactory =
@@ -47,18 +45,14 @@ contract VerifyAllContracts is Script {
 
         // Build contract list - Sourcify auto-detects constructor args
         contracts[0] = ContractInfo({
-            name: "UniswapV4SwapAdapterWrapper",
-            contractPath: "src/adapters/UniswapV4SwapAdapterWrapper.sol:UniswapV4SwapAdapterWrapper",
-            deployedAddress: swapAdapterWrapper
+            name: "LoanVault",
+            contractPath: "src/protocol/LoanVault.sol:LoanVault",
+            deployedAddress: loanVault
         });
 
-        contracts[1] = ContractInfo({
-            name: "LoanVault", contractPath: "src/protocol/LoanVault.sol:LoanVault", deployedAddress: loanVault
-        });
+        contracts[1] = ContractInfo({name: "Loan", contractPath: "src/protocol/Loan.sol:Loan", deployedAddress: loan});
 
-        contracts[2] = ContractInfo({name: "Loan", contractPath: "src/protocol/Loan.sol:Loan", deployedAddress: loan});
-
-        contracts[3] = ContractInfo({
+        contracts[2] = ContractInfo({
             name: "LoanVaultFactory",
             contractPath: "src/protocol/LoanVaultFactory.sol:LoanVaultFactory",
             deployedAddress: loanVaultFactory

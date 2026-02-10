@@ -11,18 +11,25 @@ import {HelperConfig} from "./HelperConfig.s.sol";
 contract StrategyConfig is Script {
     /// @notice Configuration for BTCVault strategy deployment
     struct BTCVaultStrategyConfig {
-        bool deployAaveStrategy; /// @dev Whether to deploy AaveTokenizedStrategy
-        address yieldSource; /// @dev Aave pool address for AaveTokenizedStrategy
+        bool deployAaveStrategy;
+        /// @dev Whether to deploy AaveTokenizedStrategy
+        address yieldSource;
     }
+    /// @dev Aave pool address for AaveTokenizedStrategy
 
     /// @notice Configuration for USDCVault strategy deployment
     struct USDCVaultStrategyConfig {
-        bool deployUSDCStrategy; /// @dev Whether to deploy USDCStrategy
-        address aavePool; /// @dev Aave V3 pool address
-        address blpPool; /// @dev Bitmor Lending Pool address
-        uint256 aaveAllocation; /// @dev Basis points for Aave allocation (e.g., 8000 = 80%)
-        uint256 minimumDeltaRequired; /// @dev Basis points threshold for reallocation
+        bool deployUSDCStrategy;
+        /// @dev Whether to deploy USDCStrategy
+        address aavePool;
+        /// @dev Aave V3 pool address
+        address blpPool;
+        /// @dev Bitmor Lending Pool address
+        uint256 aaveAllocation;
+        /// @dev Basis points for Aave allocation (e.g., 8000 = 80%)
+        uint256 minimumDeltaRequired;
     }
+    /// @dev Basis points threshold for reallocation
 
     /// @notice Complete strategy deployment configuration
     struct StrategyDeploymentConfig {

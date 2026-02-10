@@ -55,8 +55,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _collateralAsset `bvBTC` address
      * @param _debtAsset USDC address
      * @param _btc Wrapped BTC address
-     * @param _swapAdapterWrapper SwapAdapterWrapper contract address for token swaps
-     * @param _zQuoter zQuoter contract address (address(0) for Uniswap V4 on Base Sepolia)
+     * @param _swapper Swapper contract address for token swaps
      * @param _premiumCollector Address that collects insurance premiums
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
      * @param _gracePeriod Grace period for monthly payment in seconds
@@ -70,8 +69,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         address _collateralAsset,
         address _debtAsset,
         address _btc,
-        address _swapAdapterWrapper,
-        address _zQuoter,
+        address _swapper,
         address _premiumCollector,
         uint256 _preClosureFeeBps,
         uint256 _gracePeriod
@@ -79,12 +77,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
         AccessManaged(_manager)
     {
-        if (_swapAdapterWrapper == address(0) || _premiumCollector == address(0)) {
+        if (_swapper == address(0) || _premiumCollector == address(0)) {
             revert Errors.ZeroAddress();
         }
 
-        s_swapAdapter = _swapAdapterWrapper;
-        s_zQuoter = _zQuoter;
+        s_swapper = _swapper;
         s_premiumCollector = _premiumCollector;
         s_preClosureFeeBps = _preClosureFeeBps;
         s_gracePeriod = _gracePeriod;
@@ -236,11 +233,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext(
             i_AAVE_V3_POOL,
             i_BITMOR_POOL,
-            s_zQuoter,
+            s_swapper,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
             i_BTC,
-            s_swapAdapter,
             s_premiumCollector,
             i_ORACLE,
             s_slippage_swap
@@ -444,17 +440,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function setSwapAdapter(address newSwapAdapter) external whenNotPaused restricted checkZeroAddress(newSwapAdapter) {
-        s_swapAdapter = newSwapAdapter;
-        emit Loan__SwapAdapterUpdated(newSwapAdapter);
-    }
-
-    /**
-     * @inheritdoc ILoan
-     */
-    function setZQuoter(address newZQuoter) external whenNotPaused restricted checkZeroAddress(newZQuoter) {
-        s_zQuoter = newZQuoter;
-        emit Loan__ZQuoterUpdated(newZQuoter);
+    function setSwapper(address newSwapper) external whenNotPaused restricted checkZeroAddress(newSwapper) {
+        s_swapper = newSwapper;
+        emit Loan__SwapperUpdated(newSwapper);
     }
 
     /**

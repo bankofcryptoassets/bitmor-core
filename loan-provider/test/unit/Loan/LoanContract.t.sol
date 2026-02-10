@@ -21,8 +21,7 @@ contract LoanContract is BaseLoanTest {
         address collateralAsset;
         address debtAsset;
         address btc;
-        address swapAdapterWrapper;
-        address zQuoter;
+        address swapper;
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
@@ -38,8 +37,7 @@ contract LoanContract is BaseLoanTest {
         p.collateralAsset = collateralAsset; // mockBTCVault
         p.debtAsset = debtAsset; // mockUSDC
         p.btc = btc; // mockCbBTC
-        p.swapAdapterWrapper = address(mockSwapAdapter);
-        p.zQuoter = address(0); // zQuoter is allowed to be zero
+        p.swapper = address(mockSwapAdapter);
         p.premiumCollector = premiumCollector;
         p.preClosureFeeBps = config.getPreClosureFee();
         p.gracePeriod = config.getGracePeriod();
@@ -137,7 +135,7 @@ contract LoanContract is BaseLoanTest {
         uint256 preClosureFeeBps = config.getPreClosureFee();
         uint256 gracePeriod = config.getGracePeriod();
 
-        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc, 6=swapAdapter, 7=premiumCollector
+        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc, 6=swapper, 7=premiumCollector
         for (uint256 i = 0; i < 8; i++) {
             address[8] memory params = [
                 p.aaveV3Pool,
@@ -146,7 +144,7 @@ contract LoanContract is BaseLoanTest {
                 p.collateralAsset,
                 p.debtAsset,
                 p.btc,
-                p.swapAdapterWrapper,
+                p.swapper,
                 p.premiumCollector
             ];
 
@@ -162,8 +160,7 @@ contract LoanContract is BaseLoanTest {
                 params[3], // collateralAsset
                 params[4], // debtAsset
                 params[5], // btc
-                params[6], // swapAdapterWrapper
-                p.zQuoter, // zQuoter (allowed to be zero)
+                params[6], // swapper
                 params[7], // premiumCollector
                 preClosureFeeBps,
                 gracePeriod
@@ -182,8 +179,7 @@ contract LoanContract is BaseLoanTest {
         address collateralAssetAddr = config.getCollateralAsset();
         address debtAssetAddr = config.getDebtAsset();
         address btc = config.getCbBTC();
-        address swapAdapterWrapper = config.getSwapAdapterWrapper();
-        address zQuoter = config.getZQuoter();
+        address swapper = config.getSwapAdapterWrapper();
         address premiumCollector = config.getPremiumCollector();
         uint256 preClosureFeeBps = config.getPreClosureFee();
         uint256 gracePeriod = config.getGracePeriod();
@@ -199,8 +195,7 @@ contract LoanContract is BaseLoanTest {
             collateralAssetAddr,
             debtAssetAddr,
             btc,
-            swapAdapterWrapper,
-            zQuoter,
+            swapper,
             premiumCollector,
             preClosureFeeBps,
             gracePeriod
