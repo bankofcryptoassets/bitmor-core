@@ -133,6 +133,9 @@ contract LoanStorage {
     /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
     uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
+    /// @notice Maximum allowed slippage in basis points to prevent underflow in swap calculations (10000 bps = 100%)
+    uint256 internal constant MAX_SLIPPAGE = 100_00;
+
     // ============ Constructor ============
 
     /**

@@ -175,6 +175,7 @@ library FlashLoanLogic {
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
      * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
+     * TODO: to check whether we need to pass uint256 max or this will work through integration testing.
      */
     function executeFLOperationCloseLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,

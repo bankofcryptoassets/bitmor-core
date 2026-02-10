@@ -230,4 +230,7 @@ library Errors {
     error InvalidFee();
 
     error LessAmountForExactOutSwap();
+
+    /// @notice Thrown when slippage exceeds the allowed value.
+    error InvalidSlippage();
 }

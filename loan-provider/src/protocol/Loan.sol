@@ -482,6 +482,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     /// @inheritdoc ILoan
     function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
+        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
         s_slippage_swap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
@@ -495,6 +496,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     /// @inheritdoc ILoan
     function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
+        if (newMinBTCAmt > s_maxBTCAmt) revert Errors.InvalidFee();
         s_minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }
