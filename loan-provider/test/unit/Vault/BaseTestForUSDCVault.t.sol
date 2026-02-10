@@ -139,7 +139,9 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
         // Set up mock network config for compatibility
         networkConfig = MockNetworkConfig({
-            usdc: address(mockUSDC), bitmorPool: address(mockBitmorPool), aaveV3Pool: address(mockAavePool)
+            usdc: address(mockUSDC),
+            bitmorPool: address(mockBitmorPool),
+            aaveV3Pool: address(mockAavePool)
         });
 
         // Deploy vault with mock dependencies
