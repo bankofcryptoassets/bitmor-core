@@ -21,7 +21,14 @@ help:
 	@echo "  make test:liquidation:unit  Run liquidation unit tests"
 	@echo "  make test:fuzz           Run fuzz tests (placeholder)"
 	@echo "  make test:invariant      Run invariant tests (placeholder)"
-	@echo "  make test:integration    Run integration tests (requires Anvil + deploy-local)"
+	@echo "  make test:integration              Run all integration tests"
+	@echo "  make test:integration:setup        SetUpState tests"
+	@echo "  make test:integration:access       AccessControl tests"
+	@echo "  make test:integration:liquidation  Liquidation tests"
+	@echo "  make test:integration:lifecycle    LoanLifecycle tests"
+	@echo "  make test:integration:vault        VaultStrategy tests"
+	@echo "  make test:integration:single TEST=name  Single integration test"
+	@echo "  make test:integration:contract CONTRACT=Name  Integration tests by contract"
 	@echo ""
 	@echo "Single Test:"
 	@echo "  make test:single TEST=test_name    Run single test by name"
@@ -117,6 +124,32 @@ test\:invariant:
 test\:integration:
 	@echo "Running integration tests (requires running Anvil + make deploy-local)..."
 	@FOUNDRY_PROFILE=integration forge test --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:setup:
+	@echo "Running SetUpState integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/SetUpState.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:access:
+	@echo "Running AccessControl integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/AccessControl.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:liquidation:
+	@echo "Running Liquidation integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/Liquidation.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:lifecycle:
+	@echo "Running LoanLifecycle integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/LoanLifecycle.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:vault:
+	@echo "Running VaultStrategy integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/VaultStrategy.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:single:
+	@FOUNDRY_PROFILE=integration forge test --match-test $(TEST) --fork-url http://127.0.0.1:8545 -vvvv
+
+test\:integration\:contract:
+	@FOUNDRY_PROFILE=integration forge test --match-contract $(CONTRACT) --fork-url http://127.0.0.1:8545 -vvv
 
 # ============ Single Test Helpers ============
 

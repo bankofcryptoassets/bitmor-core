@@ -36,6 +36,54 @@ make test:vault:unit          # BTCVault and USDCVault tests
 make test:liquidation:unit    # Micro and full liquidation tests
 ```
 
+### Integration Tests (loan-provider)
+
+Integration tests run against real deployed contracts on a local Anvil node. They require a running Anvil instance with the full system deployed.
+
+**Prerequisites:**
+
+```bash
+# Terminal 1: Start Anvil
+make anvil
+
+# Terminal 2: Deploy the full system
+make deploy-local
+```
+
+**Run all integration tests:**
+
+```bash
+make test:integration
+```
+
+**Run a single test file:**
+
+```bash
+cd loan-provider
+
+# SetUpState tests
+FOUNDRY_PROFILE=integration forge test --match-path "test/integration/SetUpState.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+# Liquidation tests
+FOUNDRY_PROFILE=integration forge test --match-path "test/integration/Liquidation.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+# AccessControl tests
+FOUNDRY_PROFILE=integration forge test --match-path "test/integration/AccessControl.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+# VaultStrategy tests
+FOUNDRY_PROFILE=integration forge test --match-path "test/integration/VaultStrategy.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+# LoanLifecycle tests
+FOUNDRY_PROFILE=integration forge test --match-path "test/integration/LoanLifecycle.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+```
+
+**Run a single test function:**
+
+```bash
+cd loan-provider
+FOUNDRY_PROFILE=integration forge test --match-test test_FullLiquidation_ExecuteViaLendingPool --fork-url http://127.0.0.1:8545 -vvvv
+```
+
 ### Fork Tests (loan-provider)
 
 Fork tests run against Base Sepolia and require `BASE_SEPOLIA_RPC_URL` in your environment.
@@ -107,7 +155,8 @@ test/
 │   ├── BitmorTestBase.sol       # Core: AccessManager, roles, actors
 │   ├── UnitTestBase.sol         # Unit tests with mocks
 │   ├── ForkTestBase.sol         # Fork tests with real protocols
-│   └── LoanUnitTestBase.sol     # Loan-specific unit test base
+│   ├── LoanUnitTestBase.sol     # Loan-specific unit test base
+│   └── IntegrationTestBase.sol  # Integration tests with pre-deployed contracts
 │
 ├── mock/                        # Mock contracts
 │   ├── MockBitmorLendingPool.sol
@@ -120,6 +169,13 @@ test/
 │
 ├── helpers/
 │   └── TestConstants.sol        # Shared test constants
+│
+├── integration/                 # Integration tests (require Anvil + deploy-local)
+│   ├── SetUpState.t.sol         # Deployment validation (15 tests)
+│   ├── AccessControl.t.sol      # Role-path coverage (25 tests)
+│   ├── Liquidation.t.sol        # Real liquidation execution (10 tests)
+│   ├── LoanLifecycle.t.sol      # Init, repay, close flows (10 tests)
+│   └── VaultStrategy.t.sol      # Vault deposit and strategy tests (7 tests)
 │
 └── unit/                        # Unit test files
     ├── Loan/
@@ -207,6 +263,7 @@ The loan-provider uses different profiles for different test types:
 | Profile | Use Case |
 |---------|----------|
 | `unit` | Unit tests with mocks (default for `make test`) |
+| `integration` | Integration tests against local Anvil (`make test:integration`) |
 | `fork` | Fork tests against Base Sepolia |
 | `security` | Analysis builds with extra checks |
 | `local` | Local Anvil deployments |
