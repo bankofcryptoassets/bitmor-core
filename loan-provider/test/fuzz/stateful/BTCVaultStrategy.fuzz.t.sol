@@ -135,6 +135,42 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         assertLe(s2Balance, cap2, "strategy2 balance should not exceed its cap");
     }
 
+    /// @custom:audit-property BTC-STRAT-02b Custom supply queue order changes which strategy fills first
+    function testFuzz_Deposit_RespectsCustomSupplyQueueOrder(uint256 assetsSeed, uint256 cap1Seed, uint256 cap2Seed)
+        public
+    {
+        // Arrange — set caps so deposits can span both strategies
+        uint256 cap1 = bound(cap1Seed, FC.MIN_BTC_AMOUNT, 10e8);
+        uint256 cap2 = bound(cap2Seed, FC.MIN_BTC_AMOUNT, 10e8);
+        _safeChangeStrategyCap(address(strategy1), cap1);
+        _safeChangeStrategyCap(address(strategy2), cap2);
+
+        // Reverse the supply queue: strategy2 (index 1) first, then strategy1 (index 0)
+        uint256[] memory reversedQueue = new uint256[](2);
+        reversedQueue[0] = 1;
+        reversedQueue[1] = 0;
+        _updateSupplyQueue(reversedQueue);
+
+        // Deposit enough so that net > cap2 (strategy2 fills first under reversed queue)
+        uint256 maxDep = vault.maxDeposit(depositor);
+        uint256 grossDeposit = bound(assetsSeed, cap2 + 1, maxDep);
+        vm.assume(grossDeposit > cap2);
+
+        uint256 net = _netAfterEntryFee(grossDeposit);
+        vm.assume(net > cap2); // net must spill from strategy2 into strategy1
+
+        // Act
+        _depositToVault(depositor, grossDeposit);
+
+        // Assert — under reversed queue, strategy2 should fill to its cap first
+        uint256 s1Balance = vault.getAssetInStrategy(address(strategy1));
+        uint256 s2Balance = vault.getAssetInStrategy(address(strategy2));
+
+        assertEq(s2Balance, cap2, "strategy2 should be filled to its cap (first in reversed queue)");
+        assertGt(s1Balance, 0, "strategy1 should receive the overflow (second in reversed queue)");
+        assertLe(s1Balance, cap1, "strategy1 balance should not exceed its cap");
+    }
+
     /// @custom:audit-property BTC-STRAT-03 Deposit reverts when all caps are reached
     /// @dev With entry fees, depositing maxDeposit does not fully fill caps (fee is deducted
     ///      before forwarding to strategies). We set entry fee to 0 for this test so that
