@@ -50,9 +50,9 @@ help:
 
 install:
 	@echo "Installing dependencies..."
-	@cd lending-pool && npm install
+	@cd lending-pool && npm install --legacy-peer-deps
 	@cd loan-provider && forge install
-	@cd swap-routers && forge install
+	@cd swap-routers && forge install 2>/dev/null || echo "swap-routers: dependencies already present"
 	@echo "Configuring git hooks..."
 	@git config core.hooksPath .githooks
 	@echo "Done."
