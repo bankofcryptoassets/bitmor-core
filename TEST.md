@@ -56,32 +56,24 @@ make deploy-local
 make test:integration
 ```
 
-**Run a single test file:**
+**Run a specific test suite:**
 
 ```bash
-cd loan-provider
-
-# SetUpState tests
-FOUNDRY_PROFILE=integration forge test --match-path "test/integration/SetUpState.t.sol" --fork-url http://127.0.0.1:8545 -vvv
-
-# Liquidation tests
-FOUNDRY_PROFILE=integration forge test --match-path "test/integration/Liquidation.t.sol" --fork-url http://127.0.0.1:8545 -vvv
-
-# AccessControl tests
-FOUNDRY_PROFILE=integration forge test --match-path "test/integration/AccessControl.t.sol" --fork-url http://127.0.0.1:8545 -vvv
-
-# VaultStrategy tests
-FOUNDRY_PROFILE=integration forge test --match-path "test/integration/VaultStrategy.t.sol" --fork-url http://127.0.0.1:8545 -vvv
-
-# LoanLifecycle tests
-FOUNDRY_PROFILE=integration forge test --match-path "test/integration/LoanLifecycle.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+make test:integration:setup        # SetUpState (deployment validation)
+make test:integration:access       # AccessControl (role-path coverage)
+make test:integration:liquidation  # Liquidation (full + micro execution)
+make test:integration:lifecycle    # LoanLifecycle (init, repay, close)
+make test:integration:vault        # VaultStrategy (deposits, strategies)
 ```
 
-**Run a single test function:**
+**Run a single test function or contract:**
 
 ```bash
-cd loan-provider
-FOUNDRY_PROFILE=integration forge test --match-test test_FullLiquidation_ExecuteViaLendingPool --fork-url http://127.0.0.1:8545 -vvvv
+# Single test by function name
+make test:integration:single TEST=test_FullLiquidation_ExecuteViaLendingPool
+
+# All tests in a contract
+make test:integration:contract CONTRACT=LiquidationTest
 ```
 
 ### Fork Tests (loan-provider)
