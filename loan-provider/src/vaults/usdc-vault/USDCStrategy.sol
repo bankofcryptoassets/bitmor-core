@@ -287,8 +287,31 @@ contract USDCStrategy is ISimpleStrategy {
 
         uint256 targetBalanceInAave = _getTotalBalanceInMarkets().mulDiv(s_externalAllocation, BASIS_POINT_SCALE);
 
+        if (targetBalanceInAave == 0) {
+            // When target is 0% Aave, move all Aave funds to BLP
+            if (currentBalanceInAave > 0) {
+                _withdrawFomAaveAndDepositInBLP(currentBalanceInAave);
+            }
+            return;
+        }
+
         if (targetBalanceInAave >= currentBalanceInAave) {
             uint256 delta = targetBalanceInAave.zeroFloorSub(currentBalanceInAave);
+
+            uint256 deltaPercentage = delta.mulDivUp(BASIS_POINT_SCALE, targetBalanceInAave);
+
+            if (deltaPercentage >= s_minimumDeltaRequired) {
+                _withdrawFomBLPAndDepositInAAVE(delta);
+            }
+        } else if (targetBalanceInAave < currentBalanceInAave) {
+            uint256 delta = currentBalanceInAave.zeroFloorSub(targetBalanceInAave);
+
+            uint256 deltaPercentage = delta.mulDivUp(BASIS_POINT_SCALE, targetBalanceInAave);
+
+            if (deltaPercentage >= s_minimumDeltaRequired) {
+                _withdrawFomAaveAndDepositInBLP(delta);
+            }
+        }
 
             uint256 deltaPercentage = delta.mulDivUp(BASIS_POINT_SCALE, targetBalanceInAave);
 
