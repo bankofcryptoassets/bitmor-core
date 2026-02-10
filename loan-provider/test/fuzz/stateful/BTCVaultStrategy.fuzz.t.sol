@@ -16,6 +16,28 @@ import {MockAToken} from "../../mock/MockAToken.sol";
  * @dev Tests real BTCVault and AaveTokenizedStrategy contracts with two strategies.
  *      Validates cap enforcement, withdrawal ordering, reallocation invariants,
  *      strategy addition/removal, and queue validation.
+ *
+ *      Property catalogue:
+ *        BTC-STRAT-01  Deposit respects strategy cap
+ *        BTC-STRAT-02  Deposit spans multiple strategies when first is full
+ *        BTC-STRAT-02b Custom supply queue order changes fill priority
+ *        BTC-STRAT-03  Deposit reverts when all caps reached
+ *        BTC-STRAT-04  Withdraw drains strategies in queue order
+ *        BTC-STRAT-05  Withdraw spills to next strategy in queue
+ *        BTC-STRAT-06  Withdraw reverts when insufficient liquidity
+ *        BTC-STRAT-07  Reallocation moves assets between strategies (+ preserves totalAssets)
+ *        BTC-STRAT-08  Reallocation with type(uint256).max allocates remaining
+ *        BTC-STRAT-09  Reallocation reverts when exceeding strategy cap
+ *        BTC-STRAT-10  Reallocation reverts when supplied != withdrawn
+ *        BTC-STRAT-12  New strategy receives deposits after being added
+ *        BTC-STRAT-13  Cannot remove strategy with non-zero balance
+ *        BTC-STRAT-14  Strategy removal succeeds after draining
+ *        BTC-STRAT-15  Strategy with zero cap is skipped on deposit
+ *        BTC-STRAT-16  Supply queue rejects strategy with zero cap (non-fuzz)
+ *        BTC-STRAT-17  Withdraw queue rejects duplicate entries (non-fuzz)
+ *        BTC-STRAT-18  maxDeposit reflects remaining caps
+ *        BTC-STRAT-SEC-01  maxDeposit fee gap — strategies not fully filled
+ *        BTC-STRAT-SEC-02  Vault handles strategy liquidity shortage
  */
 contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     // ============ Constants ============
@@ -44,6 +66,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     // ============ Helpers ============
 
     /// @notice Computes net assets deposited to strategies after entry fee deduction
+    /// @dev WARNING: This is an independent reimplementation of vault fee math.
+    ///      Use ONLY for test setup (bounds, vm.assume conditions), NEVER as an
+    ///      assertion oracle. Using this in assertions creates circular logic.
     /// @param grossAssets The gross deposit amount before fees
     /// @return The net amount that reaches strategies
     function _netAfterEntryFee(uint256 grossAssets) internal view returns (uint256) {
@@ -199,9 +224,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         uint256 extraDeposit = bound(assetsSeed, 1, FC.MAX_BTC_AMOUNT);
         _fundCbBTCAndApprove(depositor2, address(vault), extraDeposit);
 
-        // Act + Assert - ERC4626 reverts with DepositMoreThanMax
+        // Act + Assert - Solady ERC4626 reverts with DepositMoreThanMax()
         vm.prank(depositor2);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("DepositMoreThanMax()"))));
         vault.deposit(extraDeposit, depositor2);
     }
 
@@ -257,15 +282,19 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-STRAT-05 Withdraw spills to next strategy in queue
-    function testFuzz_Withdraw_SpillsToNextStrategy(uint256 depositSeed) public {
-        // Arrange - fill both strategies
-        uint256 cap1 = 2e8; // 2 BTC
-        uint256 cap2 = 2e8; // 2 BTC
+    /// @param depositSeed Seed for deposit amount
+    /// @param cap1Seed Seed for strategy1 cap
+    /// @param cap2Seed Seed for strategy2 cap
+    function testFuzz_Withdraw_SpillsToNextStrategy(uint256 depositSeed, uint256 cap1Seed, uint256 cap2Seed) public {
+        // Arrange - fill both strategies with fuzzed caps
+        uint256 cap1 = bound(cap1Seed, FC.MIN_BTC_AMOUNT, 5e8);
+        uint256 cap2 = bound(cap2Seed, FC.MIN_BTC_AMOUNT, 5e8);
         _safeChangeStrategyCap(address(strategy1), cap1);
         _safeChangeStrategyCap(address(strategy2), cap2);
 
         // Deposit to fill both caps
         uint256 maxDep = vault.maxDeposit(depositor);
+        vm.assume(maxDep > 0);
         _depositToVault(depositor, maxDep);
 
         uint256 s1Before = vault.getAssetInStrategy(address(strategy1));
@@ -301,9 +330,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         // Try to withdraw more than max
         uint256 withdrawAmt = bound(withdrawSeed, maxW + 1, maxW + FC.MAX_BTC_AMOUNT);
 
-        // Act + Assert
+        // Act + Assert - Solady ERC4626 reverts with WithdrawMoreThanMax()
         vm.prank(depositor);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("WithdrawMoreThanMax()"))));
         vault.withdraw(withdrawAmt, depositor, depositor);
     }
 
@@ -311,7 +340,7 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     //                    REALLOCATION TESTS (5)
     // ================================================================
 
-    /// @custom:audit-property BTC-STRAT-07 Reallocation moves assets between strategies
+    /// @custom:audit-property BTC-STRAT-07 Reallocation moves assets between strategies and preserves totalAssets
     function testFuzz_Reallocate_MovesBetweenStrategies(uint256 depositSeed, uint256 reallocateSeed) public {
         // Arrange
         _safeChangeStrategyCap(address(strategy2), FC.DEFAULT_STRATEGY_CAP);
@@ -331,6 +360,8 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         allocs[0] = DataTypes.Allocation({index: 0, amount: newS1Target});
         allocs[1] = DataTypes.Allocation({index: 1, amount: vault.getAssetInStrategy(address(strategy2)) + toMove});
 
+        uint256 totalBefore = vault.totalAssets();
+
         // Act
         _reallocate(allocs);
 
@@ -340,6 +371,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
 
         assertEq(s1After, newS1Target, "strategy1 balance should match target after reallocation");
         assertGe(s2After, toMove, "strategy2 should have received the moved assets");
+
+        uint256 totalAfter = vault.totalAssets();
+        assertEq(totalAfter, totalBefore, "totalAssets should be preserved after reallocation");
     }
 
     /// @custom:audit-property BTC-STRAT-08 Reallocation with type(uint256).max allocates all remaining
@@ -390,7 +424,8 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         allocs[1] = DataTypes.Allocation({index: 1, amount: type(uint256).max});
 
         // Act + Assert
-        vm.expectRevert(abi.encodeWithSelector(Errors.SupplyCapExceeded.selector, 1));
+        uint256 strategy2Index = vault.getStrategyIndex(address(strategy2));
+        vm.expectRevert(abi.encodeWithSelector(Errors.SupplyCapExceeded.selector, strategy2Index));
         _reallocate(allocs);
     }
 
@@ -416,34 +451,6 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         // Act + Assert
         vm.expectRevert(Errors.InvalidReallocation.selector);
         _reallocate(allocs);
-    }
-
-    /// @custom:audit-property BTC-STRAT-11 Reallocation preserves totalAssets
-    function testFuzz_Reallocate_TotalAssetsPreserved(uint256 depositSeed, uint256 reallocateSeed) public {
-        // Arrange
-        _safeChangeStrategyCap(address(strategy2), FC.DEFAULT_STRATEGY_CAP);
-
-        uint256 maxDep = vault.maxDeposit(depositor);
-        uint256 assets = bound(depositSeed, FC.MIN_BTC_AMOUNT, _utilMin(FC.MAX_BTC_AMOUNT, maxDep));
-        _depositToVault(depositor, assets);
-
-        uint256 totalBefore = vault.totalAssets();
-        vm.assume(totalBefore > 1);
-
-        uint256 s1Before = vault.getAssetInStrategy(address(strategy1));
-        uint256 toMove = bound(reallocateSeed, 1, s1Before);
-        uint256 newS1Target = s1Before - toMove;
-
-        DataTypes.Allocation[] memory allocs = new DataTypes.Allocation[](2);
-        allocs[0] = DataTypes.Allocation({index: 0, amount: newS1Target});
-        allocs[1] = DataTypes.Allocation({index: 1, amount: vault.getAssetInStrategy(address(strategy2)) + toMove});
-
-        // Act
-        _reallocate(allocs);
-
-        // Assert
-        uint256 totalAfter = vault.totalAssets();
-        assertEq(totalAfter, totalBefore, "totalAssets should be preserved after reallocation");
     }
 
     // ================================================================
@@ -501,20 +508,26 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-STRAT-13 Cannot remove strategy with non-zero balance
+    /// @param depositSeed Seed for deposit amount
     function testFuzz_RemoveStrategy_RevertsWithNonZeroBalance(uint256 depositSeed) public {
-        // Arrange - deposit enough to fill strategy1 and spill into strategy2
-        uint256 cap1 = 2e8;
+        // Arrange - use small caps so deposits spill into strategy2
+        uint256 cap1 = FC.MIN_BTC_AMOUNT; // 0.01 BTC — fills quickly
         uint256 cap2 = 2e8;
         _safeChangeStrategyCap(address(strategy1), cap1);
         _safeChangeStrategyCap(address(strategy2), cap2);
 
-        // Deposit to fill both caps
+        // Deposit enough to spill into strategy2
         uint256 maxDep = vault.maxDeposit(depositor);
-        vm.assume(maxDep > 0);
-        _depositToVault(depositor, maxDep);
+        uint256 minNeeded = cap1 + FC.MIN_BTC_AMOUNT; // at least cap1 + something for strategy2
+        vm.assume(maxDep >= minNeeded);
+        uint256 grossDeposit = bound(depositSeed, minNeeded, maxDep);
+        uint256 net = _netAfterEntryFee(grossDeposit);
+        vm.assume(net > cap1); // net must exceed strategy1 cap
+
+        _depositToVault(depositor, grossDeposit);
 
         uint256 s2Balance = vault.getAssetInStrategy(address(strategy2));
-        vm.assume(s2Balance > 0);
+        assertGt(s2Balance, 0, "setup must place assets in strategy2");
 
         // Set cap to 0 so removal validation for cap passes
         _changeStrategyCap(address(strategy2), 0);
@@ -571,21 +584,36 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-STRAT-15 Strategy with zero cap is skipped on deposit
+    /// @param depositSeed Seed for first deposit amount
+    /// @param secondDepositSeed Seed for second deposit amount
     function testFuzz_ChangeCapToZero_SkipsOnNextDeposit(uint256 depositSeed, uint256 secondDepositSeed) public {
-        // Arrange - first deposit goes into strategy1
+        // Arrange - use small cap on strategy1 so first deposit spills into strategy2
+        uint256 smallCap1 = FC.MIN_BTC_AMOUNT; // 0.01 BTC
+        _safeChangeStrategyCap(address(strategy1), smallCap1);
+        _safeChangeStrategyCap(address(strategy2), 5e8);
+
         uint256 maxDep1 = vault.maxDeposit(depositor);
-        uint256 firstDeposit = bound(depositSeed, FC.MIN_BTC_AMOUNT, _utilMin(FC.MAX_BTC_AMOUNT, maxDep1));
+        uint256 minNeeded = smallCap1 + FC.MIN_BTC_AMOUNT;
+        vm.assume(maxDep1 >= minNeeded);
+        uint256 firstDeposit = bound(depositSeed, minNeeded, maxDep1);
+        uint256 net = _netAfterEntryFee(firstDeposit);
+        vm.assume(net > smallCap1); // must spill into strategy2
+
         _depositToVault(depositor, firstDeposit);
+
+        uint256 s2Before = vault.getAssetInStrategy(address(strategy2));
+        assertGt(s2Before, 0, "setup must place assets in strategy2");
 
         // Change strategy2 cap to 0
         _changeStrategyCap(address(strategy2), 0);
+
+        // Restore strategy1 cap so second deposit has room
+        _safeChangeStrategyCap(address(strategy1), FC.DEFAULT_STRATEGY_CAP);
 
         // Update supply queue to remove zero-cap strategy
         uint256[] memory newSupplyQ = new uint256[](1);
         newSupplyQ[0] = 0;
         _updateSupplyQueue(newSupplyQ);
-
-        uint256 s2Before = vault.getAssetInStrategy(address(strategy2));
 
         // Second deposit must fit in strategy1 remaining cap
         uint256 maxDep2 = vault.maxDeposit(depositor2);
@@ -605,7 +633,7 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     // ================================================================
 
     /// @custom:audit-property BTC-STRAT-16 Supply queue rejects strategy with zero cap
-    function testFuzz_UpdateSupplyQueue_RejectsZeroCapStrategy() public {
+    function test_UpdateSupplyQueue_RejectsZeroCapStrategy() public {
         // Arrange - set strategy2 cap to 0
         _changeStrategyCap(address(strategy2), 0);
 
@@ -622,7 +650,7 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-STRAT-17 Withdraw queue rejects duplicate entries
-    function testFuzz_UpdateWithdrawQueue_RejectsDuplicates() public {
+    function test_UpdateWithdrawQueue_RejectsDuplicates() public {
         // Try to update withdraw queue with [0, 0] (duplicate position)
         uint256[] memory newWithdrawQ = new uint256[](2);
         newWithdrawQ[0] = 0;
@@ -660,5 +688,79 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
             (cap1 > s1Balance ? cap1 - s1Balance : 0) + (cap2 > s2Balance ? cap2 - s2Balance : 0);
 
         assertEq(maxDepAfter, expectedRemaining, "maxDeposit should equal sum of remaining caps across strategies");
+    }
+
+    // ================================================================
+    //                    SECURITY TESTS
+    // ================================================================
+
+    /// @custom:audit-property BTC-STRAT-SEC-01 maxDeposit does not account for entry fees
+    /// @notice Depositing exactly maxDeposit() should succeed but strategies won't be fully filled
+    /// @param cap1Seed Seed for strategy1 cap
+    /// @param cap2Seed Seed for strategy2 cap
+    function testFuzz_MaxDeposit_FeeGap_StrategiesNotFullyFilled(uint256 cap1Seed, uint256 cap2Seed) public {
+        uint256 cap1 = bound(cap1Seed, 1e8, 10e8);
+        uint256 cap2 = bound(cap2Seed, 1e8, 10e8);
+        _safeChangeStrategyCap(address(strategy1), cap1);
+        _safeChangeStrategyCap(address(strategy2), cap2);
+
+        // Ensure non-zero entry fee
+        uint256 entryFee = vault.getEntryFee();
+        vm.assume(entryFee > 0);
+
+        uint256 maxDep = vault.maxDeposit(depositor);
+        vm.assume(maxDep > 0);
+
+        // Deposit exactly maxDeposit — should succeed
+        _depositToVault(depositor, maxDep);
+
+        // Strategies should NOT be fully filled because fee was deducted
+        uint256 s1Balance = vault.getAssetInStrategy(address(strategy1));
+        uint256 s2Balance = vault.getAssetInStrategy(address(strategy2));
+        uint256 totalInStrategies = s1Balance + s2Balance;
+        uint256 totalCap = cap1 + cap2;
+
+        // There should be a gap equal to the entry fee
+        assertLt(
+            totalInStrategies,
+            totalCap,
+            "with entry fee, depositing maxDeposit should leave a fee-sized gap in strategies"
+        );
+
+        // A second depositor should be able to deposit the gap
+        uint256 maxDepAfter = vault.maxDeposit(depositor2);
+        assertGt(maxDepAfter, 0, "second depositor should still have room due to fee gap");
+    }
+
+    /// @custom:audit-property BTC-STRAT-SEC-02 Vault handles strategy liquidity shortage
+    /// @notice When Aave pool lacks liquidity, withdrawal must fail with a known failure mode
+    /// @param depositSeed Seed for deposit amount
+    function testFuzz_Withdraw_HandlesStrategyLiquidityShortage(uint256 depositSeed) public {
+        uint256 maxDep = vault.maxDeposit(depositor);
+        uint256 assets = bound(depositSeed, FC.MIN_BTC_AMOUNT, _utilMin(5e8, maxDep));
+        _depositToVault(depositor, assets);
+
+        uint256 maxW = vault.maxWithdraw(depositor);
+        vm.assume(maxW > 0);
+
+        // Drain cbBTC from the Aave pool to simulate liquidity shortage
+        uint256 poolBalance = mockCbBTC.balanceOf(address(mockAavePool));
+        if (poolBalance > 0) {
+            vm.prank(address(mockAavePool));
+            mockCbBTC.transfer(address(0xdead), poolBalance - 1);
+        }
+
+        // Attempt to withdraw — should revert
+        vm.prank(depositor);
+        (bool ok, bytes memory ret) =
+            address(vault).call(abi.encodeCall(BTCVault.withdraw, (maxW, depositor, depositor)));
+
+        assertFalse(ok, "withdraw should fail under strategy liquidity shortage");
+
+        bytes4 sel = ret.length >= 4 ? bytes4(ret) : bytes4(0);
+        bool knownSelector = sel == Errors.NotEnoughLiquidity.selector
+            || sel == bytes4(keccak256("WithdrawMoreThanMax()"))
+            || sel == bytes4(keccak256("ERC20InsufficientBalance(address,uint256,uint256)"));
+        assertTrue(knownSelector, "unexpected revert selector under liquidity shortage");
     }
 }
