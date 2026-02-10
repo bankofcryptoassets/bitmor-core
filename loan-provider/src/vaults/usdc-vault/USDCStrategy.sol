@@ -333,8 +333,10 @@ contract USDCStrategy is ISimpleStrategy {
      * @dev Withdraws all funds from both Aave and BLP back to the strategy contract.
      */
     function _withdrawAllFunds() internal {
-        i_aave.withdraw(i_asset, _getBalanceInAave(), i_vault);
-        i_blp.withdraw(i_asset, _getBalanceInBLP(), i_vault);
+        uint256 aaveBal = _getBalanceInAave();
+        if (aaveBal > 0) i_aave.withdraw(i_asset, aaveBal, i_vault);
+        uint256 blpBal = _getBalanceInBLP();
+        if (blpBal > 0) i_blp.withdraw(i_asset, blpBal, i_vault);
     }
 
     /**
