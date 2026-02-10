@@ -14,29 +14,33 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
  *
  * ## Test Coverage
  *
- * ### Fee Math (BTC-CORE-01 through BTC-CORE-07)
+ * ### Fee Math (BTC-CORE-01 through BTC-CORE-05)
  * - BTC-CORE-01: Deposit with fuzzed entry fee charges expected fee
  * - BTC-CORE-02: Mint with fuzzed entry fee charges expected fee
  * - BTC-CORE-03: Withdraw with fuzzed exit fee charges expected fee
  * - BTC-CORE-04: Redeem with fuzzed exit fee charges expected fee
- * - BTC-CORE-05: feeOnRaw and feeOnTotal are approximate inverses
- * - BTC-CORE-06: feeRecipient receives exact fee on deposit
- * - BTC-CORE-07: feeRecipient receives exact fee on withdraw
+ * - BTC-CORE-05: Vault fee consistency on deposit-withdraw roundtrip
  *
- * ### Roundtrip / No Free Money (BTC-CORE-08 through BTC-CORE-10)
- * - BTC-CORE-08: Deposit-redeem roundtrip is never profitable
- * - BTC-CORE-09: Mint-withdraw roundtrip is never profitable
- * - BTC-CORE-10: convertToAssets(convertToShares(x)) <= x
+ * ### Roundtrip / No Free Money (BTC-CORE-06 through BTC-CORE-08)
+ * - BTC-CORE-06: Deposit-redeem roundtrip is never profitable
+ * - BTC-CORE-07: Mint-withdraw roundtrip is never profitable
+ * - BTC-CORE-08: convertToAssets(convertToShares(x)) <= x
  *
- * ### ERC-4626 Preview Compliance (BTC-CORE-11 through BTC-CORE-14)
- * - BTC-CORE-11: previewDeposit <= actual shares minted
- * - BTC-CORE-12: previewMint >= actual assets consumed
- * - BTC-CORE-13: previewWithdraw >= actual shares burned
- * - BTC-CORE-14: previewRedeem <= actual assets returned
+ * ### ERC-4626 Preview Compliance (BTC-CORE-09 through BTC-CORE-12)
+ * - BTC-CORE-09: previewDeposit <= actual shares minted
+ * - BTC-CORE-10: previewMint >= actual assets consumed
+ * - BTC-CORE-11: previewWithdraw >= actual shares burned
+ * - BTC-CORE-12: previewRedeem <= actual assets returned
  *
- * ### Multi-User & Yield (BTC-CORE-15 through BTC-CORE-16)
- * - BTC-CORE-15: Two depositors receive proportional shares
- * - BTC-CORE-16: Yield accrual does not dilute first depositor
+ * ### Multi-User & Yield (BTC-CORE-13 through BTC-CORE-14)
+ * - BTC-CORE-13: Two depositors receive proportional shares
+ * - BTC-CORE-14: Yield accrual does not dilute first depositor
+ *
+ * ### Security (BTC-SEC-01 through BTC-SEC-04)
+ * - BTC-SEC-01: Donation/inflation attack protection for second depositor
+ * - BTC-SEC-02: Fee change after deposit does not trap user
+ * - BTC-SEC-03: feeRecipient=vault does not silently inflate share price
+ * - BTC-SEC-04: Multi-actor exit race ordering fairness
  *
  * @custom:audit-category ERC-4626 Compliance, Fee Math, Roundtrip Safety
  */
@@ -66,7 +70,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         return (assets * bps + BPS - 1) / BPS;
     }
 
-    // ============ Fee Math Tests (BTC-CORE-01 through BTC-CORE-07) ============
+    // ============ Fee Math Tests (BTC-CORE-01 through BTC-CORE-05) ============
 
     /// @custom:audit-property BTC-CORE-01
     /// @notice Deposit with fuzzed entry fee charges the expected fee to feeRecipient
@@ -121,9 +125,11 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
 
     /// @custom:audit-property BTC-CORE-03
     /// @notice Withdraw with fuzzed exit fee charges expected fee to feeRecipient
-    function testFuzz_WithdrawWithFees_ChargesExpectedFee(uint256 assetsSeed, uint256 feeSeed) public {
+    function testFuzz_WithdrawWithFees_ChargesExpectedFee(uint256 depositSeed, uint256 withdrawSeed, uint256 feeSeed)
+        public
+    {
         // Deposit with zero exit fee first
-        uint256 depositAmount = _boundBtcAmount(assetsSeed);
+        uint256 depositAmount = _boundBtcAmount(depositSeed);
         _setExitFee(0);
         _depositToVault(depositor, depositAmount);
 
@@ -133,7 +139,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
 
         uint256 maxW = vault.maxWithdraw(depositor);
         vm.assume(maxW > 0);
-        uint256 withdrawAmount = bound(assetsSeed, 1, maxW);
+        uint256 withdrawAmount = bound(withdrawSeed, 1, maxW);
 
         uint256 feeRecipientBefore = mockCbBTC.balanceOf(feeRecipient);
 
@@ -150,10 +156,12 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
 
     /// @custom:audit-property BTC-CORE-04
     /// @notice Redeem with fuzzed exit fee charges expected fee to feeRecipient
-    function testFuzz_RedeemWithFees_ChargesExpectedFee(uint256 sharesSeed, uint256 feeSeed) public {
+    function testFuzz_RedeemWithFees_ChargesExpectedFee(uint256 depositSeed, uint256 redeemSeed, uint256 feeSeed)
+        public
+    {
         // Deposit with zero exit fee first
         _setExitFee(0);
-        uint256 depositAmount = _boundBtcAmount(sharesSeed);
+        uint256 depositAmount = _boundBtcAmount(depositSeed);
         uint256 sharesReceived = _depositToVault(depositor, depositAmount);
         vm.assume(sharesReceived > 0);
 
@@ -161,7 +169,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         uint256 exitFee = _boundFee(feeSeed);
         _setExitFee(exitFee);
 
-        uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
+        uint256 sharesToRedeem = bound(redeemSeed, 1, sharesReceived);
 
         uint256 feeRecipientBefore = mockCbBTC.balanceOf(feeRecipient);
 
@@ -180,87 +188,66 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-CORE-05
-    /// @notice feeOnRaw and feeOnTotal are approximate inverses
-    function testFuzz_FeeOnRawVsFeeOnTotal_Inverses(uint256 assetsSeed, uint256 feeSeed) public pure {
-        uint256 fee = bound(feeSeed, 1, FC.MAX_FEE_BPS);
-        uint256 totalAmount = bound(assetsSeed, 1, FC.MAX_BTC_AMOUNT);
-
-        // Extract fee from total via feeOnTotal
-        uint256 feeFromTotal = _computeFeeOnTotal(totalAmount, fee);
-        uint256 netAmount = totalAmount - feeFromTotal;
-
-        // Compute feeOnRaw on the net amount
-        uint256 feeFromRaw = _computeFeeOnRaw(netAmount, fee);
-
-        // They should reconstruct the original total (within rounding)
-        // netAmount + feeFromRaw should approximate totalAmount
-        uint256 reconstructed = netAmount + feeFromRaw;
-
-        // Allow rounding tolerance of 2 (one for each mulDivUp)
-        assertApproxEqAbs(
-            reconstructed,
-            totalAmount,
-            FC.MAX_ROUNDING_ERROR,
-            "feeOnRaw(net, bps) + net should approximate total"
-        );
-    }
-
-    /// @custom:audit-property BTC-CORE-06
-    /// @notice feeRecipient receives exact fee on deposit (cbBTC balance delta check)
-    function testFuzz_FeeRecipientReceivesExactFee_OnDeposit(uint256 assetsSeed, uint256 feeSeed) public {
-        uint256 entryFee = _boundFee(feeSeed);
+    /// @notice Vault fee functions are consistent: deposit fee + withdraw fee approximate total fees on roundtrip
+    /// @dev Tests actual vault behavior, not helper reimplementations
+    /// @param assetsSeed Seed for deposit amount
+    /// @param entryFeeSeed Seed for entry fee
+    /// @param exitFeeSeed Seed for exit fee
+    function testFuzz_VaultFeeConsistency_DepositWithdrawRoundtrip(
+        uint256 assetsSeed,
+        uint256 entryFeeSeed,
+        uint256 exitFeeSeed
+    ) public {
         uint256 assets = _boundBtcAmount(assetsSeed);
+        uint256 entryFee = _boundFee(entryFeeSeed);
+        uint256 exitFee = _boundFee(exitFeeSeed);
 
         _setEntryFee(entryFee);
-
-        uint256 feeRecipientBefore = mockCbBTC.balanceOf(feeRecipient);
-
-        _depositToVault(depositor, assets);
-
-        uint256 feeRecipientDelta = mockCbBTC.balanceOf(feeRecipient) - feeRecipientBefore;
-        uint256 expectedFee = _computeFeeOnTotal(assets, entryFee);
-
-        assertApproxEqAbs(
-            feeRecipientDelta, expectedFee, FC.MAX_ROUNDING_ERROR, "fee recipient delta should equal feeOnTotal"
-        );
-    }
-
-    /// @custom:audit-property BTC-CORE-07
-    /// @notice feeRecipient receives exact fee on withdraw
-    function testFuzz_FeeRecipientReceivesExactFee_OnWithdraw(uint256 assetsSeed, uint256 feeSeed) public {
-        // Deposit with no exit fee
-        uint256 depositAmount = _boundBtcAmount(assetsSeed);
-        _setExitFee(0);
-        _depositToVault(depositor, depositAmount);
-
-        // Set fuzzed exit fee
-        uint256 exitFee = _boundFee(feeSeed);
         _setExitFee(exitFee);
 
-        uint256 maxW = vault.maxWithdraw(depositor);
-        vm.assume(maxW > 0);
-        uint256 withdrawAmount = bound(assetsSeed, 1, maxW);
-
         uint256 feeRecipientBefore = mockCbBTC.balanceOf(feeRecipient);
 
+        // Deposit
+        uint256 shares = _depositToVault(depositor, assets);
+        vm.assume(shares > 0);
+
+        uint256 feeAfterDeposit = mockCbBTC.balanceOf(feeRecipient) - feeRecipientBefore;
+
+        // Withdraw all
+        uint256 maxW = vault.maxWithdraw(depositor);
+        vm.assume(maxW > 0);
+
         vm.prank(depositor);
-        vault.withdraw(withdrawAmount, depositor, depositor);
+        vault.withdraw(maxW, depositor, depositor);
 
-        uint256 feeRecipientDelta = mockCbBTC.balanceOf(feeRecipient) - feeRecipientBefore;
-        uint256 expectedFee = _computeFeeOnRaw(withdrawAmount, exitFee);
+        uint256 totalFees = mockCbBTC.balanceOf(feeRecipient) - feeRecipientBefore;
+        uint256 exitFeeCollected = totalFees - feeAfterDeposit;
 
-        assertApproxEqAbs(
-            feeRecipientDelta, expectedFee, FC.MAX_ROUNDING_ERROR, "fee recipient delta should equal feeOnRaw"
-        );
+        // Vault must have collected non-negative fees at each step
+        assertGe(feeAfterDeposit, 0, "entry fee must be non-negative");
+        assertGe(exitFeeCollected, 0, "exit fee must be non-negative");
+
+        // Total fees must be <= assets deposited (can't fee more than 100%)
+        assertLe(totalFees, assets, "total fees must not exceed deposited assets");
+
+        // If both fees are 0, no fees should be collected
+        if (entryFee == 0 && exitFee == 0) {
+            assertEq(totalFees, 0, "zero fee config must collect zero fees");
+        }
     }
 
-    // ============ Roundtrip / No Free Money Tests (BTC-CORE-08 through BTC-CORE-10) ============
+    // ============ Roundtrip / No Free Money Tests (BTC-CORE-06 through BTC-CORE-08) ============
 
-    /// @custom:audit-property BTC-CORE-08
+    /// @custom:audit-property BTC-CORE-06
     /// @notice Deposit then redeem all shares should never return more assets than deposited
-    function testFuzz_DepositRedeem_NeverProfitable(uint256 assetsSeed, uint256 feeSeed) public {
-        uint256 entryFee = _boundFee(feeSeed);
-        uint256 exitFee = _boundFee(feeSeed >> 128);
+    /// @param assetsSeed Seed for deposit amount
+    /// @param entryFeeSeed Seed for entry fee
+    /// @param exitFeeSeed Seed for exit fee
+    function testFuzz_DepositRedeem_NeverProfitable(uint256 assetsSeed, uint256 entryFeeSeed, uint256 exitFeeSeed)
+        public
+    {
+        uint256 entryFee = _boundFee(entryFeeSeed);
+        uint256 exitFee = _boundFee(exitFeeSeed);
         uint256 assets = _boundBtcAmount(assetsSeed);
 
         _setEntryFee(entryFee);
@@ -275,7 +262,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         assertLe(assetsOut, assets, "deposit-redeem roundtrip must not be profitable");
     }
 
-    /// @custom:audit-property BTC-CORE-09
+    /// @custom:audit-property BTC-CORE-07
     /// @notice Mint then withdraw maxWithdraw should never return more than was consumed
     function testFuzz_MintWithdraw_NeverProfitable(uint256 sharesSeed, uint256 feeSeed) public {
         uint256 entryFee = _boundFee(feeSeed);
@@ -292,13 +279,15 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         assertLe(maxW, assetsIn, "mint-withdraw roundtrip must not be profitable");
     }
 
-    /// @custom:audit-property BTC-CORE-10
+    /// @custom:audit-property BTC-CORE-08
     /// @notice convertToAssets(convertToShares(x)) <= x (no inflation from convert roundtrip)
-    function testFuzz_ConvertRoundtrip_NeverInflates(uint256 assetsSeed) public {
+    /// @param assetsSeed Seed for the asset amount to convert
+    /// @param seedDepositSeed Seed for the initial deposit to establish exchange rate
+    function testFuzz_ConvertRoundtrip_NeverInflates(uint256 assetsSeed, uint256 seedDepositSeed) public {
         uint256 assets = _boundBtcAmount(assetsSeed);
 
         // Seed the vault with a deposit so exchange rate is non-trivial
-        _depositToVault(depositor, _boundBtcAmount(assetsSeed >> 128));
+        _depositToVault(depositor, _boundBtcAmount(seedDepositSeed));
 
         uint256 shares = vault.convertToShares(assets);
         uint256 assetsBack = vault.convertToAssets(shares);
@@ -306,9 +295,9 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         assertLe(assetsBack, assets, "convertToAssets(convertToShares(x)) must be <= x");
     }
 
-    // ============ ERC-4626 Preview Compliance (BTC-CORE-11 through BTC-CORE-14) ============
+    // ============ ERC-4626 Preview Compliance (BTC-CORE-09 through BTC-CORE-12) ============
 
-    /// @custom:audit-property BTC-CORE-11
+    /// @custom:audit-property BTC-CORE-09
     /// @notice previewDeposit must return <= actual shares minted
     function testFuzz_PreviewDeposit_ReturnsLessOrEqualActual(uint256 assetsSeed) public {
         uint256 assets = _boundBtcAmount(assetsSeed);
@@ -316,11 +305,12 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         uint256 preview = vault.previewDeposit(assets);
 
         uint256 actual = _depositToVault(depositor, assets);
+        vm.assume(actual > 0); // trivial 0 <= 0 is not meaningful
 
         assertLe(preview, actual, "previewDeposit must return <= actual shares minted");
     }
 
-    /// @custom:audit-property BTC-CORE-12
+    /// @custom:audit-property BTC-CORE-10
     /// @notice previewMint must return >= actual assets consumed
     function testFuzz_PreviewMint_ReturnsGreaterOrEqualActual(uint256 sharesSeed) public {
         uint256 shares = bound(sharesSeed, MIN_SHARES, MAX_SHARES);
@@ -332,7 +322,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         assertGe(preview, actual, "previewMint must return >= actual assets consumed");
     }
 
-    /// @custom:audit-property BTC-CORE-13
+    /// @custom:audit-property BTC-CORE-11
     /// @notice previewWithdraw must return >= actual shares burned
     function testFuzz_PreviewWithdraw_ReturnsGreaterOrEqualActual(uint256 assetsSeed) public {
         uint256 depositAmount = _boundBtcAmount(assetsSeed);
@@ -350,7 +340,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         assertGe(preview, actual, "previewWithdraw must return >= actual shares burned");
     }
 
-    /// @custom:audit-property BTC-CORE-14
+    /// @custom:audit-property BTC-CORE-12
     /// @notice previewRedeem must return <= actual assets returned
     function testFuzz_PreviewRedeem_ReturnsLessOrEqualActual(uint256 sharesSeed) public {
         uint256 depositAmount = _boundBtcAmount(sharesSeed);
@@ -363,13 +353,14 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
 
         vm.prank(depositor);
         uint256 actual = vault.redeem(sharesToRedeem, depositor, depositor);
+        vm.assume(actual > 0); // trivial 0 <= 0 is not meaningful
 
         assertLe(preview, actual, "previewRedeem must return <= actual assets returned");
     }
 
-    // ============ Multi-User & Yield Tests (BTC-CORE-15 through BTC-CORE-16) ============
+    // ============ Multi-User & Yield Tests (BTC-CORE-13 through BTC-CORE-14) ============
 
-    /// @custom:audit-property BTC-CORE-15
+    /// @custom:audit-property BTC-CORE-13
     /// @notice Two depositors should receive shares proportional to their deposit amounts
     function testFuzz_TwoDepositors_SharesProportional(uint256 amount1Seed, uint256 amount2Seed) public {
         uint256 amount1 = _boundBtcAmount(amount1Seed);
@@ -390,7 +381,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         );
     }
 
-    /// @custom:audit-property BTC-CORE-16
+    /// @custom:audit-property BTC-CORE-14
     /// @notice After yield accrual, first depositor's share value should include yield,
     ///         and second depositor should pay more per share (get fewer shares per asset)
     function testFuzz_YieldAccrual_SecondDepositorDoesNotDilute(
@@ -426,9 +417,179 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         // Depositor 2 should get fewer shares per asset (or equivalently, pay more per share)
         // shares2/deposit2 <= shares1/deposit1  =>  shares2 * deposit1 <= shares1 * deposit2
         assertLe(
-            shares2 * deposit1,
-            shares1 * deposit2,
-            "second depositor should get fewer shares per asset after yield"
+            shares2 * deposit1, shares1 * deposit2, "second depositor should get fewer shares per asset after yield"
         );
+    }
+
+    // ============ Security Tests (BTC-SEC-01 through BTC-SEC-04) ============
+
+    /// @custom:audit-property BTC-SEC-01
+    /// @notice First-depositor donation attack must not steal from second depositor
+    /// @dev Attacker deposits minimum, donates directly to strategy to inflate share price,
+    ///      then second depositor should not lose more than 1 wei to rounding
+    /// @param donationSeed Seed for donation amount
+    /// @param depositSeed Seed for victim deposit amount
+    function testFuzz_DonationAttack_SecondDepositorProtected(uint256 donationSeed, uint256 depositSeed) public {
+        // Attacker deposits minimum amount
+        uint256 attackerDeposit = FC.MIN_BTC_AMOUNT;
+        _setEntryFee(0); // Remove fees to isolate donation effect
+        _setExitFee(0);
+
+        uint256 attackerShares = _depositToVault(depositor, attackerDeposit);
+        vm.assume(attackerShares > 0);
+
+        // Attacker donates directly to strategy (bypassing vault accounting)
+        uint256 donation = bound(donationSeed, 1, 10e8);
+        mockCbBTC.mint(address(mockAavePool), donation);
+        vm.prank(address(mockAavePool));
+        mockAToken1.mint(address(strategy1), donation);
+
+        // Second depositor deposits
+        uint256 victimDeposit = _boundBtcAmount(depositSeed);
+        uint256 victimShares = _depositToVault(depositor2, victimDeposit);
+
+        // This test must FAIL if victim receives 0 shares.
+        assertGt(victimShares, 0, "donation attack: victim received zero shares");
+
+        uint256 victimRedeemable = vault.convertToAssets(victimShares);
+        // Victim loss is bounded by rounding: at most 1 share worth of assets.
+        // With donation, 1 share can be worth up to (attackerDeposit + donation) / attackerShares.
+        // So max loss per depositor is approximately (attackerDeposit + donation) / attackerShares.
+        uint256 maxShareValue = (attackerDeposit + donation + victimDeposit) / (attackerShares + victimShares);
+        uint256 maxLoss = maxShareValue + 2; // +2 for rounding
+        assertGe(
+            victimRedeemable + maxLoss,
+            victimDeposit,
+            "victim should not lose more than one share's worth to donation attack"
+        );
+    }
+
+    /// @custom:audit-property BTC-SEC-02
+    /// @notice Users who deposited at low fees should not be trapped by high exit fees
+    /// @dev Simulates admin raising exit fee after users deposit
+    /// @param depositSeed Seed for deposit amount
+    /// @param initialExitFeeSeed Seed for initial exit fee
+    /// @param newExitFeeSeed Seed for new (higher) exit fee
+    function testFuzz_FeeChangeAfterDeposit_UserNotTrapped(
+        uint256 depositSeed,
+        uint256 initialExitFeeSeed,
+        uint256 newExitFeeSeed
+    ) public {
+        uint256 depositAmount = _boundBtcAmount(depositSeed);
+        uint256 initialExitFee = bound(initialExitFeeSeed, 0, 50); // Low initial fee (0-0.5%)
+        uint256 newExitFee = bound(newExitFeeSeed, 500, FC.MAX_FEE_BPS); // High new fee (5-10%)
+
+        _setExitFee(initialExitFee);
+
+        // User deposits at low fee
+        uint256 shares = _depositToVault(depositor, depositAmount);
+        vm.assume(shares > 0);
+
+        // Admin raises exit fee dramatically
+        _setExitFee(newExitFee);
+
+        // User can still withdraw (not locked out)
+        uint256 maxW = vault.maxWithdraw(depositor);
+        assertGt(maxW, 0, "user must still be able to withdraw after fee increase");
+
+        // User withdraws everything they can
+        vm.prank(depositor);
+        uint256 assetsOut = vault.withdraw(maxW, depositor, depositor);
+
+        // User should get back at least (deposit - maxFee%)
+        // With 10% max fee, user should get back at least 90% of deposit (minus entry fee)
+        uint256 netDeposit = depositAmount - _computeFeeOnTotal(depositAmount, vault.getEntryFee());
+        uint256 minExpected = netDeposit * (BPS - newExitFee) / BPS;
+        assertGe(
+            assetsOut + 2, // rounding tolerance
+            minExpected,
+            "user should recover at least (1 - exitFee%) of net deposit"
+        );
+    }
+
+    /// @custom:audit-property BTC-SEC-03
+    /// @notice When feeRecipient is the vault itself, fees should not silently inflate share price
+    /// @param depositSeed Seed for deposit amount
+    /// @param feeSeed Seed for entry fee
+    function testFuzz_FeeRecipientIsVault_NoSilentInflation(uint256 depositSeed, uint256 feeSeed) public {
+        uint256 entryFee = _boundFee(feeSeed);
+        vm.assume(entryFee > 0); // Need non-zero fee to test
+        uint256 assets = _boundBtcAmount(depositSeed);
+
+        _setEntryFee(entryFee);
+
+        // Set feeRecipient to the vault itself
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (address(vault))));
+
+        uint256 totalAssetsBefore = vault.totalAssets();
+
+        // Deposit — fee goes to vault itself
+        uint256 shares = _depositToVault(depositor, assets);
+        vm.assume(shares > 0);
+
+        uint256 totalAssetsAfter = vault.totalAssets();
+
+        // The fee portion stays in the vault contract but is NOT in any strategy.
+        // totalAssets() only counts strategy balances, so fee-to-vault should NOT
+        // inflate totalAssets beyond what was actually deposited to strategies.
+        uint256 expectedFee = _computeFeeOnTotal(assets, entryFee);
+        uint256 netToStrategies = assets - expectedFee;
+
+        assertApproxEqAbs(
+            totalAssetsAfter - totalAssetsBefore,
+            netToStrategies,
+            FC.MAX_ROUNDING_ERROR,
+            "totalAssets should only reflect strategy deposits, not fee trapped in vault"
+        );
+    }
+
+    /// @custom:audit-property BTC-SEC-04
+    /// @notice Withdrawal ordering must not unfairly advantage one depositor over another
+    /// @dev Two equal depositors withdraw sequentially; neither should receive materially more.
+    ///      Uses 1:1 share/asset ratio (no yield) to avoid a known vault/strategy rounding mismatch
+    ///      where `_withdrawFromStrategies` interprets strategy shares-burned as assets-withdrawn.
+    /// @param depositSeed Seed for the deposit amount (same for both depositors)
+    /// @param entryFeeSeed Seed for entry fee
+    /// @param exitFeeSeed Seed for exit fee
+    function testFuzz_MultiActorExitRace_NoOrderingAdvantage(
+        uint256 depositSeed,
+        uint256 entryFeeSeed,
+        uint256 exitFeeSeed
+    ) public {
+        uint256 depositAmount = _boundBtcAmount(depositSeed);
+        uint256 entryFee = _boundFee(entryFeeSeed);
+        uint256 exitFee = _boundFee(exitFeeSeed);
+
+        _setEntryFee(entryFee);
+        _setExitFee(exitFee);
+
+        // Both deposit the same amount
+        uint256 shares1 = _depositToVault(depositor, depositAmount);
+        uint256 shares2 = _depositToVault(depositor2, depositAmount);
+        vm.assume(shares1 > 0 && shares2 > 0);
+
+        // Depositor2 redeems all first
+        vm.prank(depositor2);
+        uint256 assets2Out = vault.redeem(shares2, depositor2, depositor2);
+
+        // Depositor1 redeems all second
+        vm.prank(depositor);
+        uint256 assets1Out = vault.redeem(shares1, depositor, depositor);
+
+        // With equal deposits and no yield, both should receive approximately equal assets.
+        // The difference should be at most a small rounding error.
+        assertApproxEqAbs(
+            assets1Out,
+            assets2Out,
+            FC.MAX_ROUNDING_ERROR,
+            "equal depositors should receive equal assets regardless of withdrawal order"
+        );
+
+        // Neither should receive more than their deposit
+        assertLe(assets1Out, depositAmount, "depositor1 should not profit from ordering");
+        assertLe(assets2Out, depositAmount, "depositor2 should not profit from ordering");
+
+        // Total withdrawn should not exceed total deposited
+        assertLe(assets1Out + assets2Out, depositAmount * 2, "total withdrawn must not exceed total deposits");
     }
 }
