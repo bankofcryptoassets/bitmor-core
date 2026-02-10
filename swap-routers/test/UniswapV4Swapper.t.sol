@@ -37,13 +37,7 @@ contract UniswapV4SwapperTest is Test {
 
     function setUp() public {
         // Deploy a fresh swapper with mock addresses and pool config
-        swapper = new UniswapV4Swapper(
-            MOCK_ROUTER,
-            MOCK_QUOTER,
-            FEE_TIER_MEDIUM,
-            TICK_SPACING_MEDIUM,
-            NO_HOOKS
-        );
+        swapper = new UniswapV4Swapper(MOCK_ROUTER, MOCK_QUOTER, FEE_TIER_MEDIUM, TICK_SPACING_MEDIUM, NO_HOOKS);
 
         // Create test user
         user = makeAddr("user");
@@ -199,13 +193,7 @@ contract UniswapV4SwapperMainnetForkTest is Test {
         }
 
         // Deploy a fresh instance with pool config baked in
-        swapper = new UniswapV4Swapper(
-            UNIVERSAL_ROUTER,
-            V4_QUOTER,
-            FEE_3000,
-            TICK_SPACING_60,
-            NO_HOOKS
-        );
+        swapper = new UniswapV4Swapper(UNIVERSAL_ROUTER, V4_QUOTER, FEE_3000, TICK_SPACING_60, NO_HOOKS);
 
         user = makeAddr("user");
         vm.deal(user, 100 ether);

@@ -22,13 +22,7 @@ library SwapLogic {
         uint256 maxAmountIn,
         address recipient
     ) internal returns (uint256 amountIn) {
-        amountIn = ISwapAdaptor(swapper).swapExactOutput(
-            tokenIn,
-            tokenOut,
-            exactAmountOut,
-            maxAmountIn,
-            recipient
-        );
+        amountIn = ISwapAdaptor(swapper).swapExactOutput(tokenIn, tokenOut, exactAmountOut, maxAmountIn, recipient);
 
         if (amountIn > maxAmountIn) revert Errors.LessThanMinimumAmtReceived();
 
@@ -43,13 +37,8 @@ library SwapLogic {
         uint256 minAmountAcceptable,
         address recipient
     ) internal returns (uint256 amountOut) {
-        amountOut = ISwapAdaptor(swapper).swapExactInput(
-            tokenIn,
-            tokenOut,
-            exactAmountIn,
-            minAmountAcceptable,
-            recipient
-        );
+        amountOut =
+            ISwapAdaptor(swapper).swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
 
         if (minAmountAcceptable > amountOut) revert Errors.LessThanMinimumAmtReceived();
 
@@ -63,11 +52,7 @@ library SwapLogic {
         uint256 exactAmountOut,
         uint256 slippageBps
     ) internal returns (uint256 maxTokenIn) {
-        uint256 amount = ISwapAdaptor(swapper).getMaxTokenInAmount(
-            tokenIn,
-            tokenOut,
-            exactAmountOut
-        );
+        uint256 amount = ISwapAdaptor(swapper).getMaxTokenInAmount(tokenIn, tokenOut, exactAmountOut);
 
         maxTokenIn = amount.mulDivUp(BASIS_POINT_SCALE + slippageBps, BASIS_POINT_SCALE);
     }
@@ -79,11 +64,7 @@ library SwapLogic {
         uint256 tokenInAmount,
         uint256 slippageBps
     ) internal returns (uint256 minTokenOut) {
-        uint256 amount = ISwapAdaptor(swapper).getMinTokenOutAmount(
-            tokenIn,
-            tokenOut,
-            tokenInAmount
-        );
+        uint256 amount = ISwapAdaptor(swapper).getMinTokenOutAmount(tokenIn, tokenOut, tokenInAmount);
 
         minTokenOut = amount.mulDivUp(BASIS_POINT_SCALE - slippageBps, BASIS_POINT_SCALE);
     }

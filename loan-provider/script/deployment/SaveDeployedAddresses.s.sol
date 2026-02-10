@@ -85,12 +85,11 @@ contract SaveDeployedAddresses is Script {
         return string.concat('{"network":"', _getNetworkName(block.chainid), '"');
     }
 
-    function _buildDeployedContracts(
-        address swapper,
-        address loanVault,
-        address loan,
-        address loanVaultFactory
-    ) internal pure returns (string memory) {
+    function _buildDeployedContracts(address swapper, address loanVault, address loan, address loanVaultFactory)
+        internal
+        pure
+        returns (string memory)
+    {
         return string.concat(
             ',"deployedContracts":{',
             '"swapper":"',
@@ -239,9 +238,7 @@ contract SaveDeployedAddresses is Script {
             string.concat(
                 vm.projectRoot(), "/broadcast/DeployMockTokens.s.sol/", vm.toString(block.chainid), "/run-latest.json"
             )
-        ) returns (
-            string memory
-        ) {
+        ) returns (string memory) {
             // File exists, try to get the deployment
             return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
         } catch {

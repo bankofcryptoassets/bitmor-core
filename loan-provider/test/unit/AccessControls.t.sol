@@ -65,9 +65,7 @@ contract AccessControlsTest is BaseLoanTest {
         _scheduleAndExecute(
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
         );
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapper, (NEW_SWAP_ADAPTER))
-        );
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapper, (NEW_SWAP_ADAPTER)));
 
         _scheduleAndExecute(
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
