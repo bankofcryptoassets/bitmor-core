@@ -1,3 +1,4 @@
+// This script patches the bignumber.js package to add an "exports" field in its package.json.
 import { readFileSync, writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
