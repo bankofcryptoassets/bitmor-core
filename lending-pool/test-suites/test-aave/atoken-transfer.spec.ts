@@ -40,7 +40,7 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
   });
 
   it('User 0 deposits USDC via vault, User 1 borrows USDC with bvBTC collateral', async () => {
-    const { users, pool, oracle, usdc, mockBitmorUSDCVault, mockLoanProvider, btcVault, mockLoan, addressesProvider } = testEnv;
+    const { users, pool, oracle, usdc, mockBitmorUSDCVault, mockLoanProvider, btcVault, mockLoan, addressesProvider, helpersContract } = testEnv;
 
     const depositor = users[0];
     const borrower = users[1];
@@ -91,7 +91,8 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     await addressesProvider.setUSDCVault(ZERO_ADDRESS);
 
     // Approve credit delegation
-    const Vdt = await DRE.ethers.getContractAt('VariableDebtToken', '0x7f19f1cc91f205633e9937e6782adc445ac40e86');
+    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt('VariableDebtToken', variableDebtTokenAddress);
     await Vdt.connect(borrower.signer).approveDelegation(
       mockLoanProvider.target,
       '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
