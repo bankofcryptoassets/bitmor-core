@@ -64,6 +64,21 @@ make test:integration:access       # AccessControl (role-path coverage)
 make test:integration:liquidation  # Liquidation (full + micro execution)
 make test:integration:lifecycle    # LoanLifecycle (init, repay, close)
 make test:integration:vault        # VaultStrategy (deposits, strategies)
+make test:integration:initloan     # All InitLoan adversarial tests (31 tests)
+```
+
+**InitLoan adversarial test suites (per-domain):**
+
+```bash
+make test:integration:initloan:usdcvault   # USDCVault attack vectors (6 tests)
+make test:integration:initloan:btcvault    # BTCVault attack vectors (6 tests)
+make test:integration:initloan:oracle      # Oracle manipulation (4 tests)
+make test:integration:initloan:swap        # Swap adversarial (2 tests)
+make test:integration:initloan:accounting  # Accounting invariants (3 tests)
+make test:integration:initloan:irm         # Interest rate model (2 tests)
+make test:integration:initloan:erc4626     # ERC-4626 share attacks (3 tests)
+make test:integration:initloan:strategy    # Strategy manipulation (2 tests)
+make test:integration:initloan:timing      # Timing/ordering attacks (3 tests)
 ```
 
 **Run a single test function or contract:**
@@ -167,7 +182,16 @@ test/
 │   ├── AccessControl.t.sol      # Role-path coverage (25 tests)
 │   ├── Liquidation.t.sol        # Real liquidation execution (10 tests)
 │   ├── LoanLifecycle.t.sol      # Init, repay, close flows (10 tests)
-│   └── VaultStrategy.t.sol      # Vault deposit and strategy tests (7 tests)
+│   ├── VaultStrategy.t.sol      # Vault deposit and strategy tests (7 tests)
+│   ├── InitLoan_USDCVault.t.sol # USDC vault attack vectors (6 tests)
+│   ├── InitLoan_BTCVault.t.sol  # BTC vault attack vectors (6 tests)
+│   ├── InitLoan_Oracle.t.sol    # Oracle manipulation (4 tests)
+│   ├── InitLoan_Swap.t.sol      # Swap adversarial (2 tests)
+│   ├── InitLoan_Accounting.t.sol # Accounting invariants (3 tests)
+│   ├── InitLoan_IRM.t.sol       # Interest rate model (2 tests)
+│   ├── InitLoan_ERC4626.t.sol   # ERC-4626 share attacks (3 tests)
+│   ├── InitLoan_Strategy.t.sol  # Strategy manipulation (2 tests)
+│   └── InitLoan_Timing.t.sol    # Timing/ordering attacks (3 tests)
 │
 └── unit/                        # Unit test files
     ├── Loan/
