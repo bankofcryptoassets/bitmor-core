@@ -24,7 +24,6 @@ import {
   strategyYFI,
   strategyXSUSHI,
   strategyENJ,
-  strategyCBBTC,
   strategyBvBTC
 } from './reservesConfigs.js';
 
@@ -58,7 +57,6 @@ export const AaveConfig: IAaveConfiguration = {
     YFI: strategyYFI,
     ZRX: strategyZRX,
     xSUSHI: strategyXSUSHI,
-    cbBTC: strategyCBBTC,
     bvBTC: strategyBvBTC
   },
   ReserveAssets: {

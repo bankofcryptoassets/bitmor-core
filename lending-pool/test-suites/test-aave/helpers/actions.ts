@@ -113,12 +113,21 @@ export const configuration: ActionsConfig = <ActionsConfig>{};
 
 export const mint = async (reserveSymbol: string, amount: string, user: SignerWithAddress) => {
   const reserve = await getReserveAddressFromSymbol(reserveSymbol);
+  const amountToMint = await convertToCurrencyDecimals(reserve, amount);
 
-  const token = await getMintableERC20(reserve);
-
-  await waitForTx(
-    await token.connect(user.signer).mint(await convertToCurrencyDecimals(reserve, amount))
-  );
+  // bvBTC (MockBTCVault) has mint(address, uint256) signature instead of mint(uint256)
+  if (reserveSymbol === 'bvBTC') {
+    const { ethers } = DRE;
+    const btcVault = await ethers.getContractAt('MockBTCVault', reserve);
+    await waitForTx(
+      await btcVault.connect(user.signer).mint(user.address, amountToMint)
+    );
+  } else {
+    const token = await getMintableERC20(reserve);
+    await waitForTx(
+      await token.connect(user.signer).mint(amountToMint)
+    );
+  }
 };
 
 export const approve = async (reserveSymbol: string, user: SignerWithAddress, testEnv: TestEnv) => {
@@ -128,7 +137,7 @@ export const approve = async (reserveSymbol: string, user: SignerWithAddress, te
   const token = await getMintableERC20(reserve);
 
   // BITMOR: Route to correct vault based on asset type
-  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
+  // USDC → mockBitmorUSDCVault, bvBTC → mockLoanProvider
   const isUSDC = reserveSymbol === 'USDC';
   const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
   const vaultAddress = await vault.getAddress();
@@ -157,13 +166,13 @@ export const deposit = async (
   // BITMOR ARCHITECTURE: Get vault data for aToken balance checks
   // In Bitmor, vault holds aTokens, users hold vault shares
   // BITMOR: Route to correct vault based on asset type
-  // USDC → mockBitmorUSDCVault, cbBTC → mockLoanProvider
+  // USDC → mockBitmorUSDCVault, bvBTC → mockLoanProvider
   const { mockBitmorUSDCVault, mockLoanProvider } = testEnv;
   const isUSDC = reserveSymbol === 'USDC';
   const vault = isUSDC ? mockBitmorUSDCVault : mockLoanProvider;
   const vaultAddress = await vault.getAddress();
 
-  // BITMOR TEST SIMPLIFICATION: In production, LSAs (LoanVaults) receive aTokens for cbBTC deposits.
+  // BITMOR TEST SIMPLIFICATION: In production, LSAs (LoanVaults) receive aTokens for bvBTC deposits.
   // However, in these simplified tests, we send aTokens directly to user.address to avoid creating LSAs.
   // For USDC, vault receives aTokens as expected in production.
   const aTokenHolder = isUSDC ? vaultAddress : sender.address;
@@ -171,7 +180,7 @@ export const deposit = async (
   // BITMOR: Get aToken holder's balance AND user's wallet balance
   const { reserveData: reserveDataBefore, userData: userDataBefore } = await getContractsData(
     reserve,
-    aTokenHolder, // Check aToken holder's balance (vault for USDC, user for cbBTC in tests)
+    aTokenHolder, // Check aToken holder's balance (vault for USDC, user for bvBTC in tests)
     testEnv,
     sender.address // Check user's wallet balance for tokens
   );
@@ -188,8 +197,8 @@ export const deposit = async (
     await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
 
     // BITMOR: Deposit via vault (sender receives vault shares, vault receives aTokens)
-    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
-    // @auditor For cbBTC, we use sender.address as onBehalfOf (test simplification).
+    // Different function signatures: USDC vault uses ERC-4626, bvBTC uses pool-like interface
+    // @auditor For bvBTC, we use sender.address as onBehalfOf (test simplification).
     // In production, this would be LSA address.
     const txResult = isUSDC
       ? await waitForTx(
@@ -229,7 +238,7 @@ export const deposit = async (
 
     // BITMOR: Verify user received vault shares for USDC (not aTokens)
     // @auditor In Bitmor production: For USDC, users hold vault shares while vault holds aTokens.
-    // For cbBTC, LSAs (LoanVaults) hold aTokens. In these tests, we simplify by having users directly hold aTokens to avoid creating LSAs.
+    // For bvBTC, LSAs (LoanVaults) hold aTokens. In these tests, we simplify by having users directly hold aTokens to avoid creating LSAs.
     if (isUSDC) {
       const userVaultShares = await mockBitmorUSDCVault.balanceOf(sender.address);
       expect(userVaultShares).to.be.gte(amountToDeposit, 'BITMOR: User should have USDC vault shares');
@@ -251,7 +260,7 @@ export const deposit = async (
     await token.connect(sender.signer).approve(vaultAddress, amountToDeposit);
 
     // BITMOR: Expect revert when depositing via vault
-    // Different function signatures: USDC vault uses ERC-4626, cbBTC uses pool-like interface
+    // Different function signatures: USDC vault uses ERC-4626, bvBTC uses pool-like interface
     if (isUSDC) {
       await expect(
         mockBitmorUSDCVault.connect(sender.signer).deposit(amountToDeposit, sender.address),
