@@ -253,6 +253,71 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         usdc.approve(bitmorPool, type(uint256).max);
     }
 
+    // ============ Multi-User Helpers ============
+
+    /// @notice Creates a second test user with EXECUTOR role and funding
+    function _setupSecondUser() internal returns (address user2) {
+        user2 = makeAddr("integrationTestUser2");
+        _fundUSDC(user2, TC.USER_USDC_BALANCE);
+        _fundCbBTC(user2, TC.USER_CBBTC_BALANCE);
+        vm.prank(user2);
+        usdc.approve(address(loanContract), type(uint256).max);
+        vm.prank(user2);
+        cbBTC.approve(address(loanContract), type(uint256).max);
+        uint64 executorRoleId = EXECUTOR_ID();
+        vm.prank(admin);
+        manager.grantRole(executorRoleId, user2, 0);
+    }
+
+    /// @notice Funds a user with tokens and grants EXECUTOR role, WITHOUT seeding BLP liquidity
+    /// @dev Use when test needs to control BLP liquidity separately
+    function _setupUserWithoutBLP(address user) internal {
+        _fundUSDC(user, TC.USER_USDC_BALANCE);
+        _fundCbBTC(user, TC.USER_CBBTC_BALANCE);
+        vm.prank(user);
+        usdc.approve(address(loanContract), type(uint256).max);
+        vm.prank(user);
+        cbBTC.approve(address(loanContract), type(uint256).max);
+        uint64 executorRoleId = EXECUTOR_ID();
+        vm.prank(admin);
+        manager.grantRole(executorRoleId, user, 0);
+    }
+
+    // ============ Oracle Helpers (Extended) ============
+
+    /// @notice Queries the Bitmor Lending Pool oracle price for an asset
+    function _getOraclePrice(address asset) internal view returns (uint256) {
+        address oracle = config.getOracle();
+        (bool ok, bytes memory data) =
+            oracle.staticcall(abi.encodeWithSignature("getAssetPrice(address)", asset));
+        require(ok, "getAssetPrice failed");
+        return abi.decode(data, (uint256));
+    }
+
+    // ============ Liquidity Helpers (Extended) ============
+
+    /// @notice Seeds BLP liquidity with a specific USDC amount
+    function _seedBLPLiquidityAmount(uint256 amount) internal {
+        address seeder = makeAddr("blpSeederCustom");
+        _fundUSDC(seeder, amount);
+        vm.prank(seeder);
+        IERC20(address(usdc)).approve(address(usdcVault), amount);
+        vm.prank(seeder);
+        usdcVault.deposit(amount, seeder);
+    }
+
+    // ============ Loan Helpers (Extended) ============
+
+    /// @notice Creates a loan for a specific user (must already have EXECUTOR role + funds)
+    function _createLoanForUser(address user, uint256 collateral, uint256 duration, uint256 premium)
+        internal
+        returns (address lsa)
+    {
+        (,, uint256 minDeposit) = loanContract.getLoanDetails(collateral, duration);
+        vm.prank(user);
+        lsa = loanContract.initializeLoan(minDeposit, premium, collateral, duration, "");
+    }
+
     // ============ State Management ============
 
     /// @notice Reverts to base snapshot for test isolation
