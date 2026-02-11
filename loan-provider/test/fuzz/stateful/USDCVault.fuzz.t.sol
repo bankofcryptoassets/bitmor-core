@@ -388,20 +388,20 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
         // Deploy a new strategy
         USDCStrategy newStrategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));
 
-        // Migrate to new strategy via UVM_SLOW role
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        // Migrate to new strategy via UVC role
+        _scheduleAndExecuteLocal(uvc, UVC_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         uint256 oldStrategyMarketsAfter = oldStrategy.getTotalBalanceInMarkets();
 
         assertEq(oldStrategyMarketsAfter, 0, "old strategy markets should be empty after migration");
 
-        // Funds were withdrawn from markets to the old strategy contract
-        uint256 oldStrategyIdleBalance = mockUSDC.balanceOf(address(oldStrategy));
+        // Funds flow: old strategy markets → vault → new strategy (via setStrategy's supply(idle))
+        uint256 newStrategyAssets = newStrategy.totalAssets();
         assertApproxEqRel(
-            oldStrategyIdleBalance,
+            newStrategyAssets,
             oldStrategyMarketsBefore,
             FC.MAX_ROUNDTRIP_SLIPPAGE,
-            "old strategy should hold withdrawn funds as idle USDC"
+            "new strategy should hold migrated funds"
         );
     }
 
@@ -455,8 +455,8 @@ contract USDCVaultFuzzTest is USDCVaultFuzzTestBase {
      */
     function testFuzz_SetStrategy_RevertsWhenZeroAddress() public {
         _scheduleAndExpectRevertLocal(
-            uvm_slow,
-            UVM_SLOW_ID(),
+            uvc,
+            UVC_ID(),
             abi.encodeCall(USDCVault.setStrategy, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );

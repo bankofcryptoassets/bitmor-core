@@ -116,7 +116,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
      */
     function handler_deposit(uint256 amountSeed, uint256 actorSeed) external {
         address actor = _selectActor(actorSeed);
-        uint256 amount = bound(amountSeed, 1, FC.MAX_BTC_AMOUNT);
+        uint256 amount = bound(amountSeed, FC.MIN_STRATEGY_DEPOSIT + 1000, FC.MAX_BTC_AMOUNT);
 
         _fundCbBTCAndApprove(actor, address(vault), amount);
 
@@ -153,7 +153,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
         uint256 shares = bound(sharesSeed, 1, 50e8);
 
         uint256 assetsNeeded = vault.previewMint(shares);
-        if (assetsNeeded == 0 || assetsNeeded > FC.MAX_BTC_AMOUNT) return;
+        if (assetsNeeded < FC.MIN_STRATEGY_DEPOSIT + 1000 || assetsNeeded > FC.MAX_BTC_AMOUNT) return;
 
         _fundCbBTCAndApprove(actor, address(vault), assetsNeeded);
 

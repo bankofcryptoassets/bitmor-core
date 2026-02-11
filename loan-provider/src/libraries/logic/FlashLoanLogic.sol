@@ -220,9 +220,10 @@ library FlashLoanLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa.redeemBTC(
-                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-            );
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 

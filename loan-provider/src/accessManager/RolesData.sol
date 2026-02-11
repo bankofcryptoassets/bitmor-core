@@ -22,6 +22,7 @@ contract RolesData {
         /// @dev The guardian role ID (follows pattern 9XXX where XXX is the role being guarded)
         bool isContract;
     }
+
     /// @dev True if grantee is a contract (multisig), false if EOA
 
     /// @notice Complete role configuration for access control

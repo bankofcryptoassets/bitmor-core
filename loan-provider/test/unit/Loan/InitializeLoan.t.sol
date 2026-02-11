@@ -300,8 +300,8 @@ contract InitializeLoanTest is BaseLoanTest {
         address loanVaultImplementation = address(new LoanVault());
         address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan2)));
         loan2.setLoanVaultFactory(loanVaultFactory);
-        loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
         loan2.setMaxBTCAmount(TC.MAX_COLLATERAL);
+        loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
         loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
         loan2.setMinDepositBps(TC.MIN_DEPOSIT);
 

@@ -306,8 +306,9 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
 
         // Share price should remain stable (within 0.1% tolerance)
         uint256 tolerance = sharePriceBefore / 1000;
-        uint256 diff =
-            sharePriceBefore > sharePriceAfter ? sharePriceBefore - sharePriceAfter : sharePriceAfter - sharePriceBefore;
+        uint256 diff = sharePriceBefore > sharePriceAfter
+            ? sharePriceBefore - sharePriceAfter
+            : sharePriceAfter - sharePriceBefore;
         assertLe(diff, tolerance, "share price should remain stable after large deposit");
     }
 

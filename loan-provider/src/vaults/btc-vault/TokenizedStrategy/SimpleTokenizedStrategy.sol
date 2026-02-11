@@ -3,6 +3,9 @@ pragma solidity 0.8.30;
 
 import {Address} from "@openzeppelin/utils/Address.sol";
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
+import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
+
+import {Errors} from "../../../libraries/helpers/Errors.sol";
 
 /**
  * @title SimpleTokenizedStrategy
@@ -72,5 +75,33 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      */
     function totalAssets() public view virtual override returns (uint256 assets) {
         return 0;
+    }
+
+    /**
+     * @notice Withdraws ALL assets from the strategy, bypassing ERC-4626 share conversion
+     * @dev Prevents orphaned yield caused by Solady's virtual offset when share count is low.
+     *      When `totalSupply` is small relative to `totalAssets`, `convertToAssets(shares)` returns
+     *      significantly less than actual assets (e.g., 2/3 with 2 shares). This function reads the
+     *      raw `totalAssets()` balance, withdraws it from the yield source, burns all vault shares,
+     *      and transfers everything to the vault.
+     * @return assets The total assets withdrawn and transferred to the vault
+     * @custom:access Only callable by the vault contract
+     */
+    function withdrawAll() external virtual returns (uint256 assets) {
+        if (msg.sender != i_vault) revert Errors.UnauthorizedCaller();
+
+        assets = totalAssets();
+        if (assets == 0) return 0;
+
+        uint256 shares = balanceOf(i_vault);
+
+        // Hook: withdraw all assets from yield source (e.g., Aave)
+        _beforeWithdraw(assets, shares);
+
+        // Burn vault's strategy shares
+        if (shares > 0) _burn(i_vault, shares);
+
+        // Transfer ALL underlying assets to vault
+        SafeTransferLib.safeTransfer(asset(), i_vault, assets);
     }
 }

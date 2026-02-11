@@ -31,7 +31,9 @@ contract LoanMathFuzzTest is Test {
     /// @dev Using 1.1 * RAY (10% above RAY) allows testing monotonicity within MAX_EXPONENT
     uint256 constant SAFE_MAX_RAY_BASE = 1.1e27;
 
-    /// @dev Minimum meaningful interest rate: 1% APR (avoids precision loss in EMI calculation)
+    /// @dev Minimum meaningful interest rate for monotonicity tests: 1% APR
+    /// @dev Ordering tests require this floor because mulDivUp rounding dominates at sub-atomic rates.
+    /// The positivity property (MATH-11) is tested down to rate=1 via testFuzz_MonthlyPayment_AlwaysPositive.
     uint256 constant MIN_MEANINGFUL_INTEREST_RATE = 0.01e27;
 
     /// @dev Minimum price difference to avoid rounding issues in strike price calculation
@@ -301,6 +303,78 @@ contract LoanMathFuzzTest is Test {
         );
 
         assertGe(payment1, payment2, "longer duration should result in lower monthly payment");
+    }
+
+    // ============ Regression: Zero Monthly Payment Bug ============
+
+    /**
+     * @notice Regression test: monthlyPayAmt must never be 0 when loanAmount > 0
+     * @dev Previously, calculateLoanDetails used plain division that truncated to 0
+     *      for small collateral + low interest rate combinations.
+     *      Reproduction: 0.01 BTC at $1,000, interest rate = 1 wei RAY, 12 months
+     * @custom:audit-property MATH-11: monthlyPayAmt > 0 whenever loanAmount > 0
+     * @custom:audit-category Financial Soundness
+     * @custom:audit-severity Critical
+     */
+    function test_MonthlyPayment_NeverZero_SmallCollateralLowRate() public view {
+        // Minimum collateral at minimum price → smallest possible loan
+        uint256 collateral = FC.MIN_BTC_AMOUNT; // 0.01e8
+        uint256 btcPrice = FC.MIN_BTC_PRICE; // 1000e8 ($1,000)
+        uint256 interestRate = 1; // 1 wei RAY (smallest non-zero rate)
+        uint256 duration = FC.MAX_DURATION; // 60 months (worst case)
+
+        (uint256 loanAmount, uint256 monthlyPayment,) = harness.exposed_calculateLoanDetails(
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            interestRate,
+            duration,
+            FC.MIN_DEPOSIT_BPS
+        );
+
+        assertGt(loanAmount, 0, "loan amount should be positive for valid collateral");
+        assertGt(monthlyPayment, 0, "monthly payment must never be zero when loan exists");
+    }
+
+    /**
+     * @notice Fuzz test: monthlyPayAmt is always positive for any valid loan
+     * @dev Covers the full interest rate range (1 wei to 12% APR) now that
+     *      calculateLoanDetails uses mulDivUp via _calculateEMI.
+     * @param collateralSeed Seed for bounded collateral amount
+     * @param btcPriceSeed Seed for bounded BTC price
+     * @param interestRateSeed Seed for bounded interest rate (any non-zero value)
+     * @param durationSeed Seed for bounded duration
+     * @custom:audit-property MATH-11: monthlyPayAmt > 0 for all valid inputs
+     * @custom:audit-category Financial Soundness
+     * @custom:audit-severity Critical
+     */
+    function testFuzz_MonthlyPayment_AlwaysPositive(
+        uint256 collateralSeed,
+        uint256 btcPriceSeed,
+        uint256 interestRateSeed,
+        uint256 durationSeed
+    ) public view {
+        uint256 collateral = bound(collateralSeed, FC.MIN_BTC_AMOUNT, FC.MAX_BTC_AMOUNT);
+        uint256 btcPrice = bound(btcPriceSeed, FC.MIN_BTC_PRICE, FC.MAX_BTC_PRICE);
+        uint256 interestRate = bound(interestRateSeed, 1, FC.MAX_INTEREST_RATE);
+        uint256 duration = bound(durationSeed, FC.MIN_DURATION, FC.MAX_DURATION);
+
+        (uint256 loanAmount, uint256 monthlyPayment,) = harness.exposed_calculateLoanDetails(
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            interestRate,
+            duration,
+            FC.MIN_DEPOSIT_BPS
+        );
+
+        if (loanAmount > 0) {
+            assertGt(monthlyPayment, 0, "monthly payment must be positive when loan exists");
+        }
     }
 
     // ============ min Tests ============

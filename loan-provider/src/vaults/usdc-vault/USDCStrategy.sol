@@ -312,21 +312,6 @@ contract USDCStrategy is ISimpleStrategy {
                 _withdrawFomAaveAndDepositInBLP(delta);
             }
         }
-
-            uint256 deltaPercentage = delta.mulDivUp(BASIS_POINT_SCALE, targetBalanceInAave);
-
-            if (deltaPercentage >= s_minimumDeltaRequired) {
-                _withdrawFomBLPAndDepositInAAVE(delta);
-            }
-        } else if (targetBalanceInAave < currentBalanceInAave) {
-            uint256 delta = currentBalanceInAave.zeroFloorSub(targetBalanceInAave);
-
-            uint256 deltaPercentage = delta.mulDivUp(BASIS_POINT_SCALE, targetBalanceInAave);
-
-            if (deltaPercentage >= s_minimumDeltaRequired) {
-                _withdrawFomAaveAndDepositInBLP(delta);
-            }
-        }
     }
 
     /**

@@ -136,4 +136,7 @@ library FuzzConstants {
 
     /// @dev Maximum rounding error tolerance (in wei of asset)
     uint256 constant MAX_ROUNDING_ERROR = 2;
+
+    /// @dev Minimum deposit amount matching BTCVault.MIN_STRATEGY_DEPOSIT
+    uint256 constant MIN_STRATEGY_DEPOSIT = 10_000;
 }

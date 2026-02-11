@@ -119,9 +119,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return assets The amount of underlying assets held by the specified strategy
      */
     function getAssetInStrategy(address strategy) external view returns (uint256 assets) {
-        assets = TokenizedStrategyLogic.getAssetBalanceInStrategy(
-            s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy
-        );
+        assets = s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy.getAssetBalanceInStrategy();
     }
 
     /**
@@ -399,7 +397,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         uint256 i = 0;
 
         for (i; i < s_strategy.totalStrategies; i++) {
-            assets = assets.rawAdd(TokenizedStrategyLogic.getAssetBalanceInStrategy(s_strategy.strategies[i].strategy));
+            assets = assets.rawAdd(s_strategy.strategies[i].strategy.getAssetBalanceInStrategy());
         }
     }
 
@@ -418,7 +416,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
             if (cap == 0) continue;
 
-            uint256 currentBalance = TokenizedStrategyLogic.getAssetBalanceInStrategy(strategy.strategy);
+            uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
 
             maxAssets = maxAssets.rawAdd(cap.zeroFloorSub(currentBalance));
         }
@@ -554,6 +552,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             assets = assets.rawSub(feeAmount);
         }
 
+        if (assets < MIN_STRATEGY_DEPOSIT) revert Errors.MinimumAssetRequired();
+
         _depositFunds(assets);
     }
 
@@ -666,7 +666,27 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @dev Processes withdrawals across strategies until requested amount is obtained
      * @param assets The total amount of assets to withdraw
      */
+    /**
+     * @notice Withdraws assets from strategies following the withdraw queue order
+     * @dev When draining a strategy's full position (`assets >= maxWithdrawable`), uses
+     *      `withdrawAll()` to prevent orphaned yield from Solady's virtual offset rounding.
+     *      For partial withdrawals, uses standard ERC-4626 `withdraw()`.
+     * @param assets The total amount of assets to withdraw
+     */
+    /**
+     * @notice Withdraws assets from strategies following the withdraw queue order
+     * @dev When draining a strategy's full position (`assets >= maxWithdrawable`), uses
+     *      `withdrawAll()` to prevent orphaned yield from Solady's virtual offset rounding.
+     *      For partial withdrawals, uses standard ERC-4626 `withdraw()`.
+     *      Accounts for idle vault balance first since `totalAssets()` includes it.
+     * @param assets The total amount of assets to withdraw
+     */
     function _withdrawFunds(uint256 assets) internal {
+        // Account for idle assets already in the vault (not deployed to strategies)
+        uint256 idleBalance = ERC20(i_asset).balanceOf(address(this));
+        if (idleBalance >= assets) return;
+        assets = assets.rawSub(idleBalance);
+
         uint256 i = 0;
         uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
         for (i; i < withdrawQueue.length; i++) {
@@ -675,15 +695,21 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             // Get maximum withdrawable amount from this strategy
             uint256 maxWithdrawable = strategy.strategy.getMaxWithdrawable();
 
-            // Withdraw the minimum of needed and available
-            uint256 amountToWithdraw = maxWithdrawable.min(assets);
+            if (maxWithdrawable == 0) continue;
 
-            if (amountToWithdraw > 0) {
-                uint256 finalAmountWithdrawn = strategy.strategy.withdraw(amountToWithdraw);
+            if (assets >= maxWithdrawable) {
+                // Full position drain — use withdrawAll to prevent orphaned yield
+                uint256 actualWithdrawn = strategy.strategy.withdrawAll();
+                assets = assets.zeroFloorSub(actualWithdrawn);
 
-                assets = assets.zeroFloorSub(finalAmountWithdrawn);
+                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], actualWithdrawn);
+            } else {
+                // Partial withdrawal — standard ERC-4626 path
+                strategy.strategy.withdraw(assets);
 
-                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], finalAmountWithdrawn);
+                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], assets);
+
+                assets = 0;
             }
 
             // Exit if all required assets have been withdrawn
@@ -708,7 +734,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             DataTypes.Allocation memory allocation = allocations[i];
             DataTypes.Strategy memory strategy = s_strategy.strategies[allocation.index];
 
-            uint256 currentBalance = TokenizedStrategyLogic.getAssetBalanceInStrategy(strategy.strategy);
+            uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
             uint256 newAllocation = allocation.amount;
 
             // Calculate if we need to withdraw (current > target)
@@ -716,11 +742,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
             if (toWithdraw > 0) {
                 // Withdraw excess funds from strategy
-                uint256 withdrawn = strategy.strategy.withdraw(toWithdraw);
+                strategy.strategy.withdraw(toWithdraw);
 
-                totalWithdrawn += withdrawn;
+                totalWithdrawn += toWithdraw;
 
-                emit BTCVault__WithdrewFromStrategy(allocation.index, withdrawn);
+                emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
             } else {
                 // Calculate assets to supply (target > current)
                 // Special case: type(uint256).max means allocate all remaining withdrawn funds

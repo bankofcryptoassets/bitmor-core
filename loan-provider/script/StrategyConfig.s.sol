@@ -15,6 +15,7 @@ contract StrategyConfig is Script {
         /// @dev Whether to deploy AaveTokenizedStrategy
         address yieldSource;
     }
+
     /// @dev Aave pool address for AaveTokenizedStrategy
 
     /// @notice Configuration for USDCVault strategy deployment
@@ -29,6 +30,7 @@ contract StrategyConfig is Script {
         /// @dev Basis points for Aave allocation (e.g., 8000 = 80%)
         uint256 minimumDeltaRequired;
     }
+
     /// @dev Basis points threshold for reallocation
 
     /// @notice Complete strategy deployment configuration
