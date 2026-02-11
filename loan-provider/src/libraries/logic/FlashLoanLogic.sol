@@ -37,6 +37,7 @@ library FlashLoanLogic {
     using BTCVaultLogic for address;
     using BitmorLendingPoolLogic for address;
     using FixedPointMathLib for uint256;
+    using SwapLogic for address;
 
     /**
      * @notice Local variables for close loan flash loan operations
@@ -104,36 +105,33 @@ library FlashLoanLogic {
         }
         if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
-        (address lsa,) = abi.decode(params.params, (address, uint256));
+        (address lsa, uint256 btcAmount) = abi.decode(params.params, (address, uint256));
 
         // Retrieve loan data from storage
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
-        uint256 minimumAcceptable = SwapLogic.calculateMinBTCAmt(
-            ctx.zQuoter,
+        uint256 maxAmountIn = ctx.swapper.calculateMaxAmountIn(
             ctx.debtAsset, // tokenIn
             ctx.btc, // tokenOut
-            ctx.oracle,
-            totalSwapAmount, // amountIn
+            btcAmount,
             ctx.maxSlippage
         );
 
+        if (maxAmountIn > totalSwapAmount) revert Errors.LessAmountForExactOutSwap();
+
         /// @dev Approve SwapAdaptor to spend tokens
-        IERC20(ctx.debtAsset).forceApprove(ctx.swapAdapter, totalSwapAmount);
+        IERC20(ctx.debtAsset).forceApprove(ctx.swapper, totalSwapAmount);
 
         /// @dev Swap USDC to BTC
-        uint256 amountReceived =
-            SwapLogic.executeSwap(ctx.swapAdapter, ctx.debtAsset, ctx.btc, totalSwapAmount, minimumAcceptable);
-
-        if (amountReceived < minimumAcceptable) revert Errors.LessThanMinimumAmtReceived();
+        ctx.swapper.executeExactOutSwap(ctx.debtAsset, ctx.btc, btcAmount, maxAmountIn, address(this));
 
         /// @dev Approve BTC Vault (`collateralAsset`) to spend `btc`.
-        IERC20(ctx.btc).forceApprove(ctx.collateralAsset, amountReceived);
+        IERC20(ctx.btc).forceApprove(ctx.collateralAsset, btcAmount);
 
         /// @dev Depositing BTC into BTC Vault and receiving its shares `bvBTC`.
-        uint256 bvBTCSharesReceived = ctx.collateralAsset.deposit(amountReceived, address(this));
+        uint256 bvBTCSharesReceived = ctx.collateralAsset.deposit(btcAmount, address(this));
 
         /// @dev Approve Aave V2 pool to spend `bvBTC`
         IERC20(ctx.collateralAsset).forceApprove(ctx.bitmorPool, bvBTCSharesReceived);
@@ -220,10 +218,9 @@ library FlashLoanLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa
-                .redeemBTC(
-                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-                );
+            vars.btcAmtReceived = vars.lsa.redeemBTC(
+                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+            );
         }
         // ===============================================================
 
@@ -234,24 +231,18 @@ library FlashLoanLogic {
 
         vars.btcAmtToSwap = vars.totalBTCAmtToSwap.min((vars.btcAmtReceived - vars.preClosureFeeAmtInBTC));
 
-        vars.minimumAcceptable = SwapLogic.calculateMinBTCAmt(
-            ctx.zQuoter,
-            ctx.btc, // tokenIn
-            ctx.debtAsset, // tokenOut
-            ctx.oracle,
-            vars.btcAmtToSwap, // amountIn
-            ctx.maxSlippage
-        );
+        vars.minimumAcceptable =
+            ctx.swapper.calculateMinAmountOut(ctx.btc, ctx.debtAsset, vars.btcAmtToSwap, ctx.maxSlippage);
 
         // Approve SwapAdaptor to spend tokens
-        IERC20(ctx.btc).forceApprove(ctx.swapAdapter, vars.btcAmtToSwap);
+        IERC20(ctx.btc).forceApprove(ctx.swapper, vars.btcAmtToSwap);
 
-        vars.debtAssetAmtReceived = SwapLogic.executeSwap(
-            ctx.swapAdapter,
+        vars.debtAssetAmtReceived = ctx.swapper.executeExactInSwap(
             ctx.btc, //tokenIn
             ctx.debtAsset, // tokenOut
             vars.btcAmtToSwap, // amountIn
-            vars.minimumAcceptable
+            vars.minimumAcceptable,
+            address(this)
         );
         // ===============================================================
 

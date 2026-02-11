@@ -30,3 +30,7 @@ lending-pool/types
 
 # foundry
 out-foundry
+
+swap-routers/out
+swap-routeres/lib
+swap-routers/cache

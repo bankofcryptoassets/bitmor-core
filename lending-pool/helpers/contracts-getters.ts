@@ -20,26 +20,19 @@ import {
   MockUniswapV2Router02__factory,
   MockParaSwapAugustus__factory,
   MockParaSwapAugustusRegistry__factory,
-  // ParaSwapLiquiditySwapAdapter__factory,
   PriceOracle__factory,
   ReserveLogic__factory,
   SelfdestructTransfer__factory,
   StableAndVariableTokensHelper__factory,
   StableDebtToken__factory,
-  // UniswapLiquiditySwapAdapter__factory,
-  // UniswapRepayAdapter__factory,
   VariableDebtToken__factory,
-  // WalletBalanceProvider__factory,
   WETH9Mocked__factory,
-  // WETHGateway__factory,
-  // FlashLiquidationAdapter__factory,
   IERC20Detailed__factory,
   MockBTCVault__factory,
   MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
-// Import MockUSDCVault from vault/ to get the correct 2-arg constructor version
 import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
-import { getEthersSigners, MockTokenMap, getFirstSigner } from './contracts-helpers.js';
+import {  MockTokenMap, getFirstSigner } from './contracts-helpers.js';
 import { DRE, getDb, notFalsyOrZeroAddress, omit } from './misc-utils.js';
 import { eContractid, TokenContractId } from './types.js';
 import type { PoolConfiguration, tEthereumAddress } from './types.js';

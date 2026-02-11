@@ -4,7 +4,7 @@
  * Provides:
  * - deployMockBitmorCallers(): Deploys MockLoanProvider and MockUSDCVault (from MockBitmorCaller.sol)
  *   and registers them with AddressesProvider
- * - deployBTCVault(): Deploys MockBTCVault for cbBTC collateral testing
+ * - deployBTCVault(): Deploys MockBTCVault (cbBTC -> bvBTC vault shares) for collateral testing
  * - deployLoanContract(): Deploys MockLoan for liquidation testing
  *
  * ethers v6 patterns used:

@@ -3,7 +3,7 @@
  *
  * BITMOR ARCHITECTURE:
  * - USDC deposits: Use mockBitmorUSDCVault (ERC-4626, registered as USDCVault)
- * - CBBTC (DAI, WETH, cbBTC): Use mockLoanProvider (pass-through, registered as BitmorLoan)
+ * - bvBTC (DAI, WETH, vault shares): Use mockLoanProvider (pass-through, registered as BitmorLoan)
  *
  * Usage: Call depositViaVault() instead of pool.deposit() in tests - it handles
  * the full flow: mint → approve → vault.deposit (vault receives aTokens, user gets shares)
@@ -27,7 +27,7 @@ import { APPROVAL_AMOUNT_LENDING_POOL } from '../../../helpers/constants.js';
  *
  * BITMOR ARCHITECTURE:
  * - USDC: mockBitmorUSDCVault.deposit(amount, user)
- * - CBBTC: mockLoanProvider.deposit(asset, amount, user, 0)
+ * - bvBTC: mockLoanProvider.deposit(asset, amount, user, 0)
  *
  * @param asset The ERC20 token to deposit
  * @param amount The amount to deposit
@@ -97,7 +97,7 @@ export async function depositViaVault(
 /**
  * @notice Helper for BTC collateral tests: deposit bvBTC + borrow USDC
  *
- * @param btcAmount The amount of cbBTC to deposit as collateral
+ * @param btcAmount The amount of bvBTC (vault shares) to deposit as collateral
  * @param borrowAmount The amount of USDC to borrow
  * @param user The user performing the operations
  * @param testEnv The test environment
@@ -108,10 +108,10 @@ export async function setupBTCCollateralAndBorrow(
   user: SignerWithAddress,
   testEnv: TestEnv
 ): Promise<void> {
-  const { pool, cbBTC, usdc } = testEnv;
+  const { pool, btcVault, usdc } = testEnv;
 
-  // 1. Deposit cbBTC via vault (user gets bvBTC shares, vault gets aTokens)
-  await depositViaVault(cbBTC, btcAmount, user, testEnv);
+  // 1. Deposit bvBTC (vault shares) as collateral
+  await depositViaVault(btcVault as any, btcAmount, user, testEnv);
 
   // 2. Borrow USDC
   const usdcAddress = await usdc.getAddress();

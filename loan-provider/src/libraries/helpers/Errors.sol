@@ -228,4 +228,6 @@ library Errors {
 
     /// @notice Thrown when a fee parameter is set to an invalid value
     error InvalidFee();
+
+    error LessAmountForExactOutSwap();
 }

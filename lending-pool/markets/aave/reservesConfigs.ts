@@ -265,7 +265,7 @@ export const strategyXSUSHI: IReserveParams = {
   reserveFactor: '3500',
 };
 
-export const strategyCbBtc: IReserveParams = {
+export const strategyCBBTC: IReserveParams = {
   strategy: rateStrategyStableTwo,
   baseLTVAsCollateral: '7500',
   liquidationThreshold: '8000',

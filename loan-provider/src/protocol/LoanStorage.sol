@@ -58,15 +58,9 @@ contract LoanStorage {
      */
     address public s_loanVaultFactory;
 
-    /**
-     * @notice Swap adapter contract for executing token swaps
-     */
-    address public s_swapAdapter;
+    /// @notice Swapper contract for executing token swaps
 
-    /**
-     * @notice zQuoter contract for price quotation (Aerodrome DEX)
-     */
-    address public s_zQuoter; //0x772E2810A471dB2CC7ADA0d37D6395476535889a on Base
+    address public s_swapper;
 
     /**
      * @notice Collects insurance premium amount.

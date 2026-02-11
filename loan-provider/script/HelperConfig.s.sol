@@ -17,8 +17,7 @@ contract HelperConfig is Script {
         address collateralAsset;
         address debtAsset;
         address btc;
-        address getSwapAdapterWrapper;
-        address zQuoter;
+        address swapper;
         address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
@@ -104,8 +103,7 @@ contract HelperConfig is Script {
         s_networkConfig.collateralAsset = getCollateralAsset();
         s_networkConfig.debtAsset = getDebtAsset();
         s_networkConfig.btc = getCbBTC();
-        s_networkConfig.getSwapAdapterWrapper = getSwapAdapterWrapper();
-        s_networkConfig.zQuoter = getZQuoter();
+        s_networkConfig.swapper = getSwapper();
         s_networkConfig.premiumCollector = getPremiumCollector();
         s_networkConfig.preClosureFeeBps = getPreClosureFee();
         s_networkConfig.gracePeriod = getGracePeriod();
@@ -128,8 +126,7 @@ contract HelperConfig is Script {
         s_networkConfig.collateralAsset = _readDeployment("collateralAsset"); // bvBTC
         s_networkConfig.debtAsset = mockUsdc;
         s_networkConfig.btc = mockCbBTC;
-        s_networkConfig.getSwapAdapterWrapper = getSwapAdapterWrapper();
-        s_networkConfig.zQuoter = address(0); // Not used for local
+        s_networkConfig.swapper = getSwapper();
         s_networkConfig.premiumCollector = BITMOR_OWNER;
         s_networkConfig.preClosureFeeBps = getPreClosureFee();
         s_networkConfig.gracePeriod = getGracePeriod();
@@ -220,12 +217,13 @@ contract HelperConfig is Script {
         swapAdapter = _readDeployment("swapAdapter");
     }
 
-    function getSwapAdapterWrapper() public view returns (address) {
-        return _readDeployment("swapAdapterWrapper");
+    function getSwapper() public view returns (address) {
+        return _readDeployment("swapper");
     }
 
-    function getZQuoter() public view returns (address zQuoter) {
-        zQuoter = _readDeployment("zQuoter");
+    /// @dev Deprecated: kept for backward compatibility in tests that still reference the old name
+    function getSwapAdapterWrapper() public view returns (address) {
+        return getSwapper();
     }
 
     function getLoan() public view returns (address) {
@@ -317,10 +315,9 @@ contract HelperConfig is Script {
     /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
     /// @return The absolute path to the broadcast directory
     function getBroadcastPath(string memory scriptName) public view returns (string memory) {
-        return
-            string.concat(
-                vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
-            );
+        return string.concat(
+            vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+        );
     }
 
     function getLoanConfig()

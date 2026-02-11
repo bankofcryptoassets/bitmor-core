@@ -72,8 +72,9 @@ export interface TestEnv {
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
   // BTC Vault infrastructure
-  cbBTC: MintableERC20;
-  acbBTC: AToken;
+  cbBTC: MintableERC20;      // Underlying BTC token (8 decimals) - used for minting vault shares
+  bvBTC: MintableERC20;      // ERC4626 vault shares (btcVault as MintableERC20 interface)
+  abvBTC: AToken;            // aToken for bvBTC vault shares (the actual collateral)
   btcVault: MockBTCVault;
   // Loan infrastructure
   mockLoan: MockLoan;
@@ -103,6 +104,7 @@ const testEnv: TestEnv = {
   mockLoanProvider: {} as MockLoanProvider,
   mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
   cbBTC: {} as MintableERC20,
+  bvBTC: {} as MintableERC20,
   btcVault: {} as MockBTCVault,
   mockLoan: {} as MockLoan,
 } as TestEnv;
@@ -142,7 +144,7 @@ export async function initializeMakeSuite() {
 
   const aDaiAddress = allTokens.find((aToken) => aToken.symbol === 'aDAI')?.tokenAddress;
 
-  const acbBTCAddress = allTokens.find((aToken) => aToken.symbol === 'acbBTC')?.tokenAddress;
+  const abvBTCAddress = allTokens.find((aToken) => aToken.symbol === 'abvBTC')?.tokenAddress;
 
   const aUSDCAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
 
@@ -154,6 +156,7 @@ export async function initializeMakeSuite() {
   const usdcAddress = reservesTokens.find((token) => token.symbol === 'USDC')?.tokenAddress;
   const aaveAddress = reservesTokens.find((token) => token.symbol === 'AAVE')?.tokenAddress;
   const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
+  const bvBTCAddress = reservesTokens.find((token) => token.symbol === 'bvBTC')?.tokenAddress;
 
   if (!aDaiAddress || !aUSDCAddress || !aWEthAddress) {
     process.exit(1);
@@ -165,13 +168,16 @@ export async function initializeMakeSuite() {
   testEnv.aDai = await getAToken(aDaiAddress);
   testEnv.aUSDC = await getAToken(aUSDCAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
-  testEnv.acbBTC = await getAToken(acbBTCAddress);
+  testEnv.abvBTC = await getAToken(abvBTCAddress);
   testEnv.aUSDC = await getAToken(aUSDCAddress);
 
   testEnv.dai = await getMintableERC20(daiAddress);
   testEnv.usdc = await getMintableERC20(usdcAddress);
   testEnv.aave = await getMintableERC20(aaveAddress);
   testEnv.weth = await getWETHMocked(wethAddress);
+  if (bvBTCAddress) {
+    testEnv.bvBTC = await getMintableERC20(bvBTCAddress);
+  }
 
   // Deploy Bitmor mock callers
   const bitmorMocks = await deployMockBitmorCallers(usdcAddress);

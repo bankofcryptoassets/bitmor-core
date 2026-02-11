@@ -232,6 +232,47 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         return super.redeem(shares, to, owner);
     }
 
+    /**
+     * @notice Returns the maximum amount of assets that `owner` can withdraw
+     * @dev Caps the ERC-4626 default at the strategy's actual withdrawable liquidity.
+     *      `totalAssets()` includes lent-out BLP funds for correct share pricing,
+     *      but those funds are not available for immediate withdrawal.
+     * @param owner The address to check maximum withdrawal for
+     * @return maxAssets The maximum amount of underlying assets withdrawable by `owner`
+     */
+    function maxWithdraw(address owner) public view override returns (uint256 maxAssets) {
+        if (paused()) return 0;
+        uint256 ownerAssets = convertToAssets(balanceOf(owner));
+        uint256 available = s_strategy.withdrawableAssets() + ERC20(i_asset).balanceOf(address(this));
+        maxAssets = ownerAssets < available ? ownerAssets : available;
+    }
+
+    /**
+     * @notice Returns the maximum amount of shares that `owner` can redeem
+     * @dev Converts the liquidity-capped `maxWithdraw` back to shares
+     * @param owner The address to check maximum redemption for
+     * @return maxShares The maximum number of shares redeemable by `owner`
+     */
+    function maxRedeem(address owner) public view override returns (uint256 maxShares) {
+        if (paused()) return 0;
+        uint256 ownerShares = balanceOf(owner);
+        uint256 available = s_strategy.withdrawableAssets() + ERC20(i_asset).balanceOf(address(this));
+        uint256 maxRedeemableShares = convertToShares(available);
+        maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
+    }
+
+    /// @notice Returns 0 when paused per ERC-4626 spec.
+    function maxDeposit(address) public view override returns (uint256) {
+        if (paused()) return 0;
+        return type(uint256).max;
+    }
+
+    /// @notice Returns 0 when paused per ERC-4626 spec.
+    function maxMint(address) public view override returns (uint256) {
+        if (paused()) return 0;
+        return type(uint256).max;
+    }
+
     /*
        ___       _                        _   _____                 _   _
       |_ _|_ __ | |_ ___ _ __ _ __   __ _| | |  ___|   _ _ __   ___| |_(_) ___  _ __  ___

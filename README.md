@@ -60,7 +60,19 @@ bitmor-core/
 
 ## Setup
 
-### Quick Start (lending-pool)
+### Quick Start (Recommended)
+
+From the repository root:
+
+```bash
+make install     # Installs all dependencies + enables git hooks
+make build       # Build all contracts
+make test        # Run unit tests
+```
+
+> **Note for existing team members:** After pulling this branch, run `make install` once to enable the new pre-commit formatting hooks.
+
+### Quick Start (lending-pool only)
 
 ```bash
 cd lending-pool
@@ -69,7 +81,7 @@ npm run compile
 npm test
 ```
 
-### Quick Start (loan-provider)
+### Quick Start (loan-provider only)
 
 ```bash
 cd loan-provider
@@ -77,6 +89,33 @@ forge install
 forge build
 make test        # Run unit tests (no RPC needed)
 ```
+
+---
+
+## Code Formatting
+
+This repository uses automatic code formatting via git pre-commit hooks.
+
+### Automatic Formatting (on commit)
+
+After running `make install`, code is automatically formatted every time you commit:
+- **lending-pool**: Prettier formats `.sol`, `.ts` files
+- **loan-provider**: `forge fmt` formats Solidity files
+
+### Manual Formatting
+
+```bash
+make format        # Format all code
+make format-check  # Check formatting without changes (useful for CI)
+```
+
+### Setup for New/Existing Team Members
+
+```bash
+make install       # Run once after cloning or pulling this update
+```
+
+This configures git to use the `.githooks/` folder for pre-commit hooks.
 
 ---
 

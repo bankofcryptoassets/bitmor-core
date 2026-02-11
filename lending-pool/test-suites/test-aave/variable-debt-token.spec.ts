@@ -106,6 +106,7 @@ makeSuite("Variable debt token tests", (testEnv: TestEnv) => {
             const { cbBTC } = testEnv;
             const aaveOracle = await getAaveOracle();
 
+            // cbBTC is the underlying BTC token, not bvBTC vault shares
             await aaveOracle.setBTC(getContractAddress(cbBTC));
             expect(await aaveOracle.s_btc()).to.equal(getContractAddress(cbBTC));
         });
@@ -183,12 +184,12 @@ makeSuite("Variable debt token tests", (testEnv: TestEnv) => {
         });
 
         it("getAssetsPrices returns prices for multiple assets", async () => {
-            const { usdc, cbBTC } = testEnv;
+            const { usdc, btcVault } = testEnv;
             const aaveOracle = await getAaveOracle();
 
             const prices = await aaveOracle.getAssetsPrices([
                 getContractAddress(usdc),
-                getContractAddress(cbBTC),
+                getContractAddress(btcVault),
             ]);
             expect(prices.length).to.equal(2);
         });

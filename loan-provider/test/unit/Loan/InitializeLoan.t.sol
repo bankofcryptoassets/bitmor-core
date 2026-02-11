@@ -290,8 +290,7 @@ contract InitializeLoanTest is BaseLoanTest {
             collateralAsset,
             debtAsset,
             btc,
-            loan.s_swapAdapter(),
-            loan.s_zQuoter(),
+            loan.s_swapper(),
             loan.getPremiumCollector(),
             loan.getPreClosureFee(),
             loan.getGracePeriod()

@@ -104,7 +104,7 @@ contract LendingPoolCollateralManager is
         address user,
         uint256 debtToCover,
         bool receiveAToken
-    ) external returns (uint256, string memory) {
+    ) external override returns (uint256, string memory) {
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
 
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];

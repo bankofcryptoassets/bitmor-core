@@ -52,6 +52,13 @@ interface ISimpleStrategy {
     function getTotalBalanceInMarkets() external view returns (uint256 balance);
 
     /**
+     * @notice Returns the total amount of assets that can actually be withdrawn from external protocols
+     * @dev This excludes funds lent out in BLP that are not currently available for withdrawal
+     * @return withdrawable The total amount of assets that can be withdrawn right now
+     */
+    function withdrawableAssets() external view returns (uint256 withdrawable);
+
+    /**
      * @notice Rebalances assets between protocols to match the configured allocation ratio
      */
     function reallocateAssets() external;

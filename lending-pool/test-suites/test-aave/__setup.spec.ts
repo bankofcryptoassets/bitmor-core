@@ -1,5 +1,5 @@
 import hre from 'hardhat';
-const { network, artifacts } = hre;
+const { network } = hre;
 import {
   insertContractAddressInDb,
   getEthersSigners,
@@ -16,21 +16,14 @@ import {
   deployPriceOracle,
   deployLendingPoolCollateralManager,
   deployMockFlashLoanReceiver,
-  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   deployAaveProtocolDataProvider,
   deployLendingRateOracle,
   deployStableAndVariableTokensHelper,
   deployATokensAndRatesHelper,
-  // deployWETHGateway,  // Not used in Bitmor protocol
   deployWETHMocked,
   deployMockUniswapRouter,
-  // deployUniswapLiquiditySwapAdapter,  // Not used in Bitmor protocol
-  // deployUniswapRepayAdapter,  // Not used in Bitmor protocol
-  // deployFlashLiquidationAdapter,  // Not used in Bitmor protocol
   deployMockParaSwapAugustus,
   deployMockParaSwapAugustusRegistry,
-  // deployParaSwapLiquiditySwapAdapter,  // Not used in Bitmor protocol
-  // authorizeWETHGateway,  // Not used in Bitmor protocol
   deployATokenImplementations,
   deployAaveOracle,
   deployMockBTCVault,

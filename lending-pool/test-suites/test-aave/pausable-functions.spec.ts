@@ -161,7 +161,7 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   });
 
   it('Flash loan', async () => {
-    const { dai, pool, cbBTC, users, configurator } = testEnv;
+    const { dai, pool, btcVault, users, configurator } = testEnv;
 
     const caller = users[3];
 
@@ -177,7 +177,7 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
         .connect(caller.signer)
         .flashLoan(
           getContractAddress(_mockFlashLoanReceiver),
-          [getContractAddress(cbBTC)],
+          [getContractAddress(btcVault)],
           [flashAmount],
           [1],
           caller.address,
@@ -191,7 +191,7 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   });
 
   it('Liquidation call', async () => {
-    const { users, pool, usdc, oracle, cbBTC, configurator, helpersContract, addressesProvider, mockBitmorUSDCVault } = testEnv;
+    const { users, pool, usdc, oracle, btcVault, configurator, helpersContract, addressesProvider, mockBitmorUSDCVault } = testEnv;
     const depositor = users[3];
     const borrower = users[4];
 
@@ -212,20 +212,20 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
       .connect(depositor.signer)
       .deposit(getContractAddress(usdc), amountUSDCtoDeposit, depositor.address, '0');
 
-    //user 4 deposits 1 cbBTC
-    const amountETHtoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
+    //user 4 deposits 1 bvBTC (vault shares)
+    const amountBvBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
 
-    //mints cbBTC to borrower
-    await cbBTC.connect(borrower.signer).mint(amountETHtoDeposit);
+    //mints bvBTC to borrower
+    await btcVault.mint(borrower.address, amountBvBTCtoDeposit);
 
     //approve protocol to access borrower wallet
-    await cbBTC.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     // override the USDC vault address to by pass check on LendingPool(Error: LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER)
     await addressesProvider.setUSDCVault(borrower.address);
     await pool
       .connect(borrower.signer)
-      .deposit(getContractAddress(cbBTC), amountETHtoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountBvBTCtoDeposit, borrower.address, '0');
     
     //user 4 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -272,7 +272,7 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
 
     // Do liquidation
     await expect(
-      pool.liquidationCall(getContractAddress(cbBTC), getContractAddress(usdc), borrower.address, amountToLiquidate, true)
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, amountToLiquidate, true)
     ).revertedWith(LP_IS_PAUSED);
 
     // Unpause pool
@@ -280,15 +280,15 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   });
 
   // it('SwapBorrowRateMode', async () => {
-  //   const { pool, cbBTC, usdc, users, configurator, addressesProvider, mockBitmorUSDCVault, mockLoanProvider } = testEnv;
+  //   const { pool, btcVault, usdc, users, configurator, addressesProvider, mockBitmorUSDCVault, mockLoanProvider } = testEnv;
   //   const user = users[1];
-  //   const amountCbBtcToDeposit = parseEther('10');
+  //   const amountBvBtcToDeposit = parseEther('10');
   //   const amountToBorrow = parseUnits('65', 6);
 
   //   await addressesProvider.setUSDCVault(user.address);
-  //   await cbBTC.connect(user.signer).mint(amountCbBtcToDeposit);
-  //   await cbBTC.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-  //   await pool.connect(user.signer).deposit(getContractAddress(cbBTC), amountCbBtcToDeposit, user.address, '0');
+  //   await btcVault.mint(user.address, amountBvBtcToDeposit);
+  //   await btcVault.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+  //   await pool.connect(user.signer).deposit(getContractAddress(btcVault), amountBvBtcToDeposit, user.address, '0');
   //   await addressesProvider.setBitmorLoan(user.address);
   //   await addressesProvider.setUSDCVault(mockBitmorUSDCVault.target);
   //   await pool.connect(user.signer).borrow(getContractAddress(usdc), amountToBorrow, 2, 0, user.address);
@@ -320,20 +320,20 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   });
 
   it('setUserUseReserveAsCollateral', async () => {
-    const { pool, cbBTC, users, configurator, addressesProvider } = testEnv;
+    const { pool, btcVault, users, configurator, addressesProvider } = testEnv;
     const user = users[1];
 
     await addressesProvider.setUSDCVault(user.address);
-    const amountWETHToDeposit = parseEther('1');
-    await cbBTC.connect(user.signer).mint(amountWETHToDeposit);
-    await cbBTC.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-    await pool.connect(user.signer).deposit(getContractAddress(cbBTC), amountWETHToDeposit, user.address, '0');
+    const amountBvBTCToDeposit = parseEther('1');
+    await btcVault.mint(user.address, amountBvBTCToDeposit);
+    await btcVault.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+    await pool.connect(user.signer).deposit(getContractAddress(btcVault), amountBvBTCToDeposit, user.address, '0');
 
     // Pause pool
     await configurator.connect(users[1].signer).setPoolPause(true);
 
     await expect(
-      pool.connect(user.signer).setUserUseReserveAsCollateral(getContractAddress(cbBTC), false)
+      pool.connect(user.signer).setUserUseReserveAsCollateral(getContractAddress(btcVault), false)
     ).revertedWith(LP_IS_PAUSED);
 
     // Unpause pool
