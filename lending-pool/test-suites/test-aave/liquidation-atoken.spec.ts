@@ -111,11 +111,11 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
   });
 
   it('Tries to liquidate a different currency than the loan principal', async () => {
-    const { pool, users, cbBTC, btcVault } = testEnv;
+    const { pool, users, btcVault } = testEnv;
     const borrower = users[1];
-    //user 2 tries to liquidate with wrong debt asset (cbBTC instead of USDC)
+    //user 2 tries to liquidate with wrong debt asset (bvBTC instead of USDC)
     await expect(
-      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(cbBTC), borrower.address, oneEther.toString(), false)
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(btcVault), borrower.address, oneEther.toString(), false)
     ).revertedWith(LPCM_SPECIFIED_CURRENCY_NOT_BORROWED_BY_USER);
   });
 

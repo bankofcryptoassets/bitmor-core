@@ -309,7 +309,6 @@ export type iAavePoolAssets<T> = Pick<
     | "REN"
     | "ENJ"
     | "xSUSHI"
-    | "cbBTC"
     | "bvBTC"
 >;
 
@@ -353,7 +352,7 @@ export type iAvalanchePoolAssets<T> = Pick<
     "WETH" | "DAI" | "USDT" | "AAVE" | "WBTC" | "WAVAX" | "USDC"
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "bUSDC" | "bvBTC" | "cbBTC">;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "bUSDC" | "bvBTC">;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 

@@ -224,7 +224,9 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     [getContractAddress(addressesProvider), getContractAddress(cbBTC)],
     false
   );
-  console.log('MockBTCVault deployed');
+  // Also register as 'bvBTC' so scenario tests can find it via getReserveAddressFromSymbol
+  await registerContractInJsonDb('bvBTC', mockBTCVault);
+  console.log('MockBTCVault deployed and registered as bvBTC');
 
   // Set bvBTC price (same as cbBTC for 1:1 share ratio)
   await waitForTx(
@@ -271,12 +273,12 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const lendingRateOracle = await deployLendingRateOracle();
   await waitForTx(await addressesProvider.setLendingRateOracle(getContractAddress(lendingRateOracle)));
 
-  const { USD, ...tokensAddressesWithoutUsd } = allTokenAddresses;
+  const { USD, cbBTC: _cbBTC, ...tokensAddressesWithoutUsdAndCbBTC } = allTokenAddresses;
   console.log("\n\n\n");
-  console.log("tokensAddressesWithoutUsd:: ", tokensAddressesWithoutUsd);
+  console.log("tokensAddressesWithoutUsdAndCbBTC:: ", tokensAddressesWithoutUsdAndCbBTC);
   console.log("\n\n\n");
   const allReservesAddresses = {
-    ...tokensAddressesWithoutUsd,
+    ...tokensAddressesWithoutUsdAndCbBTC,
     bvBTC: getContractAddress(mockBTCVault),
   };
   await setInitialMarketRatesInRatesOracleByHelper(

@@ -34,7 +34,7 @@
       ]
     },
     {
-      "description": "User 0 deposits 1000 USDC, user 1 deposits 1 cbBTC as collateral and borrows 100 USDC at variable rate",
+      "description": "User 0 deposits 1000 USDC, user 1 deposits 1 bvBTC as collateral and borrows 100 USDC at variable rate",
       "actions": [
         {
           "name": "mint",
@@ -65,7 +65,7 @@
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -74,7 +74,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "1"
           },
           "expected": "success"
@@ -82,7 +82,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -203,7 +203,7 @@
         {
           "name": "withdraw",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "1"
           },
@@ -212,12 +212,12 @@
       ]
     },
     {
-      "description": "User 2 deposits a small amount of cbBTC to account for rounding errors",
+      "description": "User 2 deposits a small amount of bvBTC to account for rounding errors",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.001",
             "user": "2"
           },
@@ -226,7 +226,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "2"
           },
           "expected": "success"
@@ -234,7 +234,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.001",
             "user": "2"
           },
@@ -243,12 +243,12 @@
       ]
     },
     {
-      "description": "User 1 tries to repay 0 cbBTC",
+      "description": "User 1 tries to repay 0 bvBTC",
       "actions": [
         {
           "name": "repay",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0",
             "user": "1",
             "onBehalfOf": "1",
@@ -265,7 +265,7 @@
         {
           "name": "repay",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "2",
             "borrowRateMode": "variable",
@@ -277,12 +277,12 @@
       ]
     },
     {
-      "description": "User 3 repays a small amount of cbBTC on behalf of user 1",
+      "description": "User 3 repays a small amount of bvBTC on behalf of user 1",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "3"
           },
@@ -291,7 +291,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "3"
           },
           "expected": "success"
@@ -299,7 +299,7 @@
         {
           "name": "repay",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.2",
             "user": "3",
             "borrowRateMode": "variable",
@@ -310,12 +310,12 @@
       ]
     },
     {
-      "description": "User 0 withdraws the deposited cbBTC plus interest",
+      "description": "User 0 withdraws the deposited bvBTC plus interest",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "0"
           },
@@ -355,7 +355,7 @@
       ]
     },
     {
-      "description": "User 0 deposits 1000 USDC, user 1 deposits 1 cbBTC as collateral and borrows 100 USDC at variable rate",
+      "description": "User 0 deposits 1000 USDC, user 1 deposits 1 bvBTC as collateral and borrows 100 USDC at variable rate",
       "actions": [
         {
           "name": "mint",
@@ -386,7 +386,7 @@
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -395,7 +395,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "1"
           },
           "expected": "success"
@@ -403,7 +403,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -492,7 +492,7 @@
         {
           "name": "withdraw",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "1"
           },
@@ -543,12 +543,12 @@
       ]
     },
     {
-      "description": "user 3 deposits 0.1 cbBTC collateral to borrow 100 USDC; 0.1 cbBTC is not enough to borrow 100 USDC (revert expected)",
+      "description": "user 3 deposits 0.1 bvBTC collateral to borrow 100 USDC; 0.1 bvBTC is not enough to borrow 100 USDC (revert expected)",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.1",
             "user": "1"
           },
@@ -557,7 +557,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "1"
           },
           "expected": "success"
@@ -565,7 +565,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.1",
             "user": "3"
           },
@@ -585,12 +585,12 @@
       ]
     },
     {
-      "description": "user 3 withdraws the 0.1 cbBTC",
+      "description": "user 3 withdraws the 0.1 bvBTC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "3"
           },
@@ -641,12 +641,12 @@
       ]
     },
     {
-      "description": "user 3 deposits 0.1 cbBTC collateral to borrow 100 USDC; 0.1 cbBTC is not enough to borrow 100 USDC (revert expected)",
+      "description": "user 3 deposits 0.1 bvBTC collateral to borrow 100 USDC; 0.1 bvBTC is not enough to borrow 100 USDC (revert expected)",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "3"
           },
@@ -655,7 +655,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "1"
           },
           "expected": "success"
@@ -663,7 +663,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0.1",
             "user": "3"
           },
@@ -683,12 +683,12 @@
       ]
     },
     {
-      "description": "user 3 withdraws the 0.1 cbBTC",
+      "description": "user 3 withdraws the 0.1 bvBTC",
       "actions": [
         {
           "name": "withdraw",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "-1",
             "user": "3"
           },
