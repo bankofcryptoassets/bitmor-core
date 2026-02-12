@@ -144,7 +144,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     });
 
     it('Returns 1 (full liquidation) when uninsured and health factor < 1', async () => {
-      const { pool, users, mockLoan, addressesProvider, btcVault, usdc, oracle } = testEnv;
+      const { pool, users, mockLoan, addressesProvider, btcVault, usdc, aggregators } = testEnv;
       const user = users[2];
 
       // Setup user with collateral and debt
@@ -166,18 +166,16 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       // Ensure uninsured (insuranceID = 0)
       await mockLoan.setInsuranceId(user.address, 0);
 
-      // Drop bvBTC price significantly to make HF < 1
-      const currentPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
-      await oracle.setAssetPrice(
-        getContractAddress(btcVault),
-        new BigNumber(currentPrice.toString()).multipliedBy(0.3).toFixed(0)
-      );
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      const cbBTCAggregator = aggregators['cbBTC'];
+      const currentPrice = await cbBTCAggregator.latestAnswer();
+      await cbBTCAggregator.updateAnswer((currentPrice * 30n) / 100n);
 
       const liquidationType = await pool.checkTypeOfLiquidation(user.address);
       expect(liquidationType).to.equal(1n); // Full liquidation
 
       // Restore price
-      await oracle.setAssetPrice(getContractAddress(btcVault), currentPrice);
+      await cbBTCAggregator.updateAnswer(currentPrice);
     });
 
     it('Returns 2 (micro-liquidation) when loan is overdue with sufficient collateral', async () => {
@@ -428,7 +426,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
 
   describe('LendingPoolCollateralManager: collateral capping in micro-liquidation', () => {
     it('Caps debt and consumes all collateral when payment exceeds collateral value', async () => {
-      const { pool, users, mockLoan, addressesProvider, cbBTC, btcVault, usdc, oracle, deployer, helpersContract } = testEnv;
+      const { pool, users, mockLoan, addressesProvider, cbBTC, btcVault, usdc, deployer, helpersContract, aggregators } = testEnv;
       const user = users[1];
 
       // Set up user[1] with small bvBTC collateral (0.05 bvBTC) and USDC debt
@@ -454,12 +452,10 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 1);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price to 50% so collateral can't cover monthly payment + bonus
-      const currentPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
-      await oracle.setAssetPrice(
-        getContractAddress(btcVault),
-        new BigNumber(currentPrice.toString()).multipliedBy(0.5).toFixed(0)
-      );
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      const cbBTCAggregator = aggregators['cbBTC'];
+      const currentPrice = await cbBTCAggregator.latestAnswer();
+      await cbBTCAggregator.updateAnswer((currentPrice * 50n) / 100n);
 
       const liquidationType = await pool.checkTypeOfLiquidation(user.address);
       expect(liquidationType).to.equal(2n);
@@ -486,7 +482,8 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       const collateralAfter = await abvBTC.balanceOf(user.address);
       expect(collateralAfter).to.equal(0n);
 
-      await oracle.setAssetPrice(getContractAddress(btcVault), currentPrice);
+      // Restore price
+      await cbBTCAggregator.updateAnswer(currentPrice);
     });
   });
 
@@ -496,7 +493,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     } = ProtocolErrors;
 
     it('Full liquidation reverts when pool lacks collateral liquidity', async () => {
-      const { pool, users, mockLoan, addressesProvider, btcVault, usdc, oracle, deployer, configurator, abvBTC, mockBitmorUSDCVault } =
+      const { pool, users, mockLoan, addressesProvider, btcVault, usdc, deployer, configurator, abvBTC, mockBitmorUSDCVault, aggregators } =
         testEnv;
       const user = users[3];
 
@@ -535,12 +532,10 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 0);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price to 25% to make HF < 1
-      const currentPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
-      await oracle.setAssetPrice(
-        getContractAddress(btcVault),
-        new BigNumber(currentPrice.toString()).multipliedBy(0.25).toFixed(0)
-      );
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      const cbBTCAggregator = aggregators['cbBTC'];
+      const currentPrice = await cbBTCAggregator.latestAnswer();
+      await cbBTCAggregator.updateAnswer((currentPrice * 25n) / 100n);
 
       const userData = await pool.getUserAccountData(user.address);
       expect(userData.healthFactor).to.be.lessThan(parseEther('1'));
@@ -561,7 +556,8 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
         )
       ).to.be.revertedWith(LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE);
 
-      await oracle.setAssetPrice(getContractAddress(btcVault), currentPrice);
+      // Restore price
+      await cbBTCAggregator.updateAnswer(currentPrice);
     });
 
     it('Micro-liquidation reverts when pool lacks collateral liquidity', async () => {

@@ -41,13 +41,15 @@ export async function depositViaVault(
   user: SignerWithAddress,
   testEnv: TestEnv
 ): Promise<bigint> {
-  const { mockBitmorUSDCVault, mockLoanProvider, usdc, addressesProvider, deployer } = testEnv;
+  const { mockBitmorUSDCVault, mockLoanProvider, usdc, btcVault, addressesProvider, deployer } = testEnv;
 
   const assetAddress = await asset.getAddress();
   const usdcAddress = await usdc.getAddress();
+  const btcVaultAddress = await btcVault.getAddress();
 
   // Determine if this is USDC or other asset
   const isUSDC = assetAddress.toLowerCase() === usdcAddress.toLowerCase();
+  const isBvBTC = assetAddress.toLowerCase() === btcVaultAddress.toLowerCase();
 
   let vaultAddress: string;
   let usesBitmorLoanPath = !isUSDC;
@@ -75,7 +77,11 @@ export async function depositViaVault(
   }
 
   // 1. Mint tokens to user
-  await asset.connect(user.signer).mint(amount);
+  if (isBvBTC) {
+    await btcVault.mint(user.address, amount);
+  } else {
+    await asset.connect(user.signer).mint(amount);
+  }
 
   // 2. User approves vault
   await asset.connect(user.signer).approve(vaultAddress, APPROVAL_AMOUNT_LENDING_POOL);

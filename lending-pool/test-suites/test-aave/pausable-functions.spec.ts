@@ -191,7 +191,7 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   });
 
   it('Liquidation call', async () => {
-    const { users, pool, usdc, oracle, btcVault, configurator, helpersContract, addressesProvider, mockBitmorUSDCVault } = testEnv;
+    const { users, pool, usdc, btcVault, configurator, helpersContract, addressesProvider, mockBitmorUSDCVault, aggregators } = testEnv;
     const depositor = users[3];
     const borrower = users[4];
 
@@ -230,7 +230,9 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
     //user 4 borrows
     const userGlobalData = await pool.getUserAccountData(borrower.address);
 
-    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
+    // Get USDC price from aggregator
+    const usdcAggregator = aggregators['USDC'];
+    const usdcPrice = await usdcAggregator.latestAnswer();
 
     const amountUSDCToBorrow = await convertToCurrencyDecimals(
       getContractAddress(usdc),
@@ -248,10 +250,9 @@ makeSuite('Pausable Pool', (testEnv: TestEnv) => {
       .connect(borrower.signer)
       .borrow(getContractAddress(usdc), amountUSDCToBorrow, 2, 0, borrower.address);
 
-    // Drops HF below 1
-    await oracle.setAssetPrice(
-      getContractAddress(usdc),
-      new BigNumber(usdcPrice.toString()).multipliedBy(1.2).toFixed(0)
+    // Drops HF below 1 via aggregator
+    await usdcAggregator.updateAnswer(
+      BigInt(new BigNumber(usdcPrice.toString()).multipliedBy(1.2).toFixed(0))
     );
 
     //mints dai to the liquidator

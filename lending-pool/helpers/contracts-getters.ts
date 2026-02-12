@@ -30,6 +30,7 @@ import {
   IERC20Detailed__factory,
   MockBTCVault__factory,
   MockLoan__factory,
+  MockAggregator__factory,
 } from '../types/ethers-contracts/index.js';
 import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import {  MockTokenMap, getFirstSigner } from './contracts-helpers.js';
@@ -365,6 +366,16 @@ export const getMockLoan = async (address?: tEthereumAddress) =>
     address ||
       (
         await getDb().get(`${eContractid.MockLoan}.${DRE.network.networkName}`).value()
+      ).address,
+    await getFirstSigner()
+  );
+
+/** Get MockAggregator instance by symbol (e.g., 'USDC', 'cbBTC'). Used for price manipulation in tests. */
+export const getMockAggregator = async (symbol: string, address?: tEthereumAddress) =>
+  await MockAggregator__factory.connect(
+    address ||
+      (
+        await getDb().get(`MockAggregator_${symbol}.${DRE.network.networkName}`).value()
       ).address,
     await getFirstSigner()
   );

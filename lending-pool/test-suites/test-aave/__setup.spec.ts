@@ -43,7 +43,7 @@ import { initializeMakeSuite } from './helpers/make-suite.js';
 
 import {
   setInitialAssetPricesInOracle,
-  deployAllMockAggregators,
+  deployMockAggregators,
   setInitialMarketRatesInRatesOracleByHelper,
 } from '../../helpers/oracles-helpers.js';
 import { DRE, waitForTx, setDRE } from '../../helpers/misc-utils.js';
@@ -233,7 +233,14 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     await fallbackOracle.setAssetPrice(getContractAddress(mockBTCVault), oneUsd.multipliedBy('100000').toFixed())
   );
 
-  const mockAggregators = await deployAllMockAggregators(ALL_ASSETS_INITIAL_PRICES);
+  // Deploy MockAggregators (returns contract instances, not just addresses)
+  const mockAggregators = await deployMockAggregators(ALL_ASSETS_INITIAL_PRICES);
+
+  // Register each aggregator in the database for test access
+  for (const [symbol, aggregator] of Object.entries(mockAggregators)) {
+    await registerContractInJsonDb(`MockAggregator_${symbol}`, aggregator);
+  }
+
   const allTokenAddresses = Object.entries(mockTokens).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, tokenContract]) => ({
       ...accum,
@@ -244,7 +251,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
   const allAggregatorsAddresses = Object.entries(mockAggregators).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, aggregator]) => ({
       ...accum,
-      [tokenSymbol]: aggregator,
+      [tokenSymbol]: getContractAddress(aggregator),
     }),
     {}
   );
@@ -255,7 +262,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     config.OracleQuoteCurrency
   );
 
-  await deployAaveOracle([
+  const aaveOracle = await deployAaveOracle([
     tokens,
     aggregators,
     getContractAddress(cbBTC), // btc - cbBTC token
@@ -264,7 +271,7 @@ const buildTestEnv = async (deployer: Signer, secondaryWallet: Signer) => {
     USD_ADDRESS,
     oneUsd.toString(),
   ]);
-  await waitForTx(await addressesProvider.setPriceOracle(getContractAddress(fallbackOracle)));
+  await waitForTx(await addressesProvider.setPriceOracle(getContractAddress(aaveOracle)));
 
   // Register BTCVault in addresses provider
   await waitForTx(await addressesProvider.setBTCVault(getContractAddress(mockBTCVault)));
