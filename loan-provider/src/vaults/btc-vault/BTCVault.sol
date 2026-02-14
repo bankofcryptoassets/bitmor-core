@@ -423,6 +423,17 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     }
 
     /**
+     * @notice Returns max shares any `user` can mint
+     * @dev Converts `maxDeposit` to shares for ERC-4626 compliance.
+     *      Solady's default returns `type(uint256).max` which overstates mintable shares.
+     * @param user Address of the user
+     * @return maxShares Maximum number of shares that can be minted
+     */
+    function maxMint(address user) public view override returns (uint256 maxShares) {
+        maxShares = convertToShares(maxDeposit(user));
+    }
+
+    /**
      * @notice Returns max amount of assets `user` can withdraw after applicable `fee`.
      * @param user Address of the user
      */
