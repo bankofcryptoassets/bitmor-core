@@ -548,6 +548,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param shares The amount of shares to mint.
      */
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
+        if (shares == 0) revert Errors.ZeroAmount();
+
         uint256 fee = getEntryFee();
 
         super._deposit(by, to, assets, shares);

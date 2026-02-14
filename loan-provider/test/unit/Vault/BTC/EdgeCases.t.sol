@@ -37,19 +37,17 @@ contract EdgeCasesTest is BaseTestForBTCVault {
 
     // ============ Zero Amount Tests ============
 
-    /// @notice Deposit with zero amount - ERC4626 allows this but mints 0 shares
-    function test_deposit_ZeroAssets_MintsZeroShares() public {
+    /// @notice Deposit with zero amount reverts with ZeroAmount (zero-shares guard)
+    function test_deposit_RevertWhen_ZeroAssets() public {
         // Arrange
         _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
 
-        // Act
+        // Act & Assert
         vm.startPrank(user);
         mockUSDC.approve(address(vault), 0);
-        uint256 shares = vault.deposit(0, user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        vault.deposit(0, user);
         vm.stopPrank();
-
-        // Assert - ERC4626 spec allows 0 deposit, returns 0 shares
-        assertEq(shares, 0, "zero deposit should return zero shares");
     }
 
     /// @notice Withdraw with zero amount burns zero shares per ERC4626 spec
@@ -72,8 +70,8 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         assertEq(sharesAfter, sharesBefore, "share balance should be unchanged");
     }
 
-    /// @notice Mint with zero shares - ERC4626 allows this but takes 0 assets
-    function test_mint_ZeroShares_TakesZeroAssets() public {
+    /// @notice Mint with zero shares reverts with ZeroAmount (zero-shares guard)
+    function test_mint_RevertWhen_ZeroShares() public {
         // Arrange - add mint to BVD selectors so user can mint
         bytes4[] memory mintSelector = new bytes4[](1);
         mintSelector[0] = BTCVault.mint.selector;
@@ -81,14 +79,12 @@ contract EdgeCasesTest is BaseTestForBTCVault {
 
         _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
 
-        // Act
+        // Act & Assert
         vm.startPrank(user);
         mockUSDC.approve(address(vault), EDGE_DEPOSIT_AMOUNT);
-        uint256 assets = vault.mint(0, user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        vault.mint(0, user);
         vm.stopPrank();
-
-        // Assert - ERC4626 spec allows 0 mint, takes 0 assets
-        assertEq(assets, 0, "zero mint should take zero assets");
     }
 
     /// @notice Redeem with zero shares should revert or no-op
@@ -323,5 +319,65 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         // Assert updated lengths
         assertEq(vault.getSupplyQueueLength(), 2, "supply queue should have 2 strategies");
         assertEq(vault.getWithdrawQueueLength(), 2, "withdraw queue should have 2 strategies");
+    }
+
+    // ============ Donation Attack Protection Tests ============
+
+    /// @notice Deposit reverts when donation attack inflates share price so deposit yields zero shares
+    /// @dev Attacker seeds vault with small deposit, donates large amount to yield source,
+    ///      then victim's deposit would mint 0 shares — vault now reverts to protect victim.
+    function test_Deposit_RevertWhen_ZeroSharesMinted() public {
+        // Arrange
+        _addStrategy(address(strategy), VERY_LARGE_CAP);
+
+        // Remove fees to isolate donation effect
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (0)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setExitFee, (0)));
+
+        // Attacker seeds vault with small deposit
+        uint256 seedDeposit = 10_000; // smallest meaningful deposit
+        _depositAsUser(seedDeposit);
+
+        // Attacker donates large amount directly to yield source (bypasses vault accounting)
+        // This inflates strategy.totalAssets() without minting new shares
+        uint256 donation = 100_000_000e6; // 100M USDC
+        vm.prank(address(strategy));
+        yieldSource.supply(address(mockUSDC), donation);
+
+        // Act & Assert - Victim deposits tiny amount that yields 0 shares due to inflated price
+        address victim = makeAddr("victim");
+        manager.grantRole(BVD_ID(), victim, 0);
+        uint256 victimDeposit = 1; // 1 wei of USDC
+        mockUSDC.mint(victim, victimDeposit);
+
+        vm.startPrank(victim);
+        mockUSDC.approve(address(vault), victimDeposit);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        vault.deposit(victimDeposit, victim);
+        vm.stopPrank();
+    }
+
+    /// @notice Strategy deposit reverts when donation inflates share price so deposit yields zero shares
+    /// @dev Defense-in-depth: SimpleTokenizedStrategy also guards against zero-share deposits
+    function test_Strategy_Deposit_RevertWhen_ZeroSharesMinted() public {
+        // Arrange
+        _addStrategy(address(strategy), VERY_LARGE_CAP);
+
+        // Seed strategy with a small deposit (via vault deposit which flows to strategy)
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (0)));
+        uint256 seedDeposit = 10_000;
+        _depositAsUser(seedDeposit);
+
+        // Donate large amount directly to yield source to inflate strategy share price
+        uint256 donation = 100_000_000e6;
+        vm.prank(address(strategy));
+        yieldSource.supply(address(mockUSDC), donation);
+
+        // Act & Assert - Direct strategy deposit that yields 0 shares
+        uint256 tinyAmount = 1;
+        mockUSDC.mint(address(this), tinyAmount);
+        mockUSDC.approve(address(strategy), tinyAmount);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        strategy.deposit(tinyAmount, address(this));
     }
 }

@@ -78,6 +78,21 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
     }
 
     /**
+     * @notice Internal deposit hook that guards against zero-share mints
+     * @dev Defense-in-depth: prevents donation attacks at the strategy level.
+     *      If share price is inflated such that `shares` rounds to 0, the depositor
+     *      would lose their assets. This guard reverts instead.
+     * @param by Address where the `assets` will be transferred from
+     * @param to Address where the `shares` will be minted to
+     * @param assets The amount of underlying assets to deposit
+     * @param shares The amount of shares to mint
+     */
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+        if (shares == 0) revert Errors.ZeroAmount();
+        super._deposit(by, to, assets, shares);
+    }
+
+    /**
      * @notice Withdraws ALL assets from the strategy, bypassing ERC-4626 share conversion
      * @dev Prevents orphaned yield caused by Solady's virtual offset when share count is low.
      *      When `totalSupply` is small relative to `totalAssets`, `convertToAssets(shares)` returns
