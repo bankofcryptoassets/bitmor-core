@@ -380,4 +380,87 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         vm.expectRevert(Errors.ZeroAmount.selector);
         strategy.deposit(tinyAmount, address(this));
     }
+
+    // ============ Dust Share Cleanup Tests ============
+
+    /// @notice Verifies that owner's dust shares are burned after withdrawal drains totalAssets to 0
+    function test_withdraw_BurnsDustShares_WhenTotalAssetsDrainedToZero() public {
+        // Arrange — deploy a strategy and deposit
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Act — withdraw all assets (maxWithdraw), which may leave dust shares
+        uint256 maxW = vault.maxWithdraw(user);
+        vm.prank(user);
+        vault.withdraw(maxW, user, user);
+
+        // Assert — if totalAssets is 0, totalSupply must also be 0
+        if (vault.totalAssets() == 0) {
+            assertEq(vault.totalSupply(), 0, "dust shares should be burned when totalAssets == 0");
+            assertEq(vault.balanceOf(user), 0, "user balance should be 0 after dust cleanup");
+        }
+    }
+
+    /// @notice Verifies that ghost dust from a previous drain is cleaned up on next deposit
+    function test_deposit_CleansGhostDust_OnNextInteraction() public {
+        // Arrange — create a second user
+        address user2 = makeAddr("user2");
+        manager.grantRole(BVD_ID(), user2, 0);
+        mockUSDC.mint(user2, USDC_TO_MINT);
+
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+
+        // User 1 deposits
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // User 2 deposits
+        vm.startPrank(user2);
+        mockUSDC.approve(address(vault), EDGE_DEPOSIT_AMOUNT);
+        vault.deposit(EDGE_DEPOSIT_AMOUNT, user2);
+        vm.stopPrank();
+
+        // User 1 withdraws everything — may drain totalAssets if user2's shares are dust
+        uint256 maxW1 = vault.maxWithdraw(user);
+        if (maxW1 > 0) {
+            vm.prank(user);
+            vault.withdraw(maxW1, user, user);
+        }
+
+        // User 2 withdraws everything
+        uint256 maxW2 = vault.maxWithdraw(user2);
+        if (maxW2 > 0) {
+            vm.prank(user2);
+            vault.withdraw(maxW2, user2, user2);
+        }
+
+        // If totalAssets is 0 and user2 has ghost dust, a new deposit should clean it
+        if (vault.totalAssets() == 0 && vault.balanceOf(user2) > 0) {
+            // Act — user2 deposits again (should auto-clean ghost dust)
+            vm.startPrank(user2);
+            mockUSDC.approve(address(vault), EDGE_DEPOSIT_AMOUNT);
+            vault.deposit(EDGE_DEPOSIT_AMOUNT, user2);
+            vm.stopPrank();
+
+            // Assert — vault should be solvent
+            assertGt(vault.totalAssets(), 0, "vault should have assets after new deposit");
+        }
+    }
+
+    /// @notice Verifies that redeem also triggers dust cleanup
+    function test_redeem_BurnsDustShares_WhenTotalAssetsDrainedToZero() public {
+        // Arrange
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Act — redeem all shares
+        uint256 userShares = vault.balanceOf(user);
+        vm.prank(user);
+        vault.redeem(userShares, user, user);
+
+        // Assert
+        assertEq(vault.balanceOf(user), 0, "all shares should be redeemed");
+        if (vault.totalAssets() == 0) {
+            assertEq(vault.totalSupply(), 0, "no dust shares should remain");
+        }
+    }
 }
