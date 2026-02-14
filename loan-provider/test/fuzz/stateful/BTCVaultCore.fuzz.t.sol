@@ -390,14 +390,18 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         uint256 yieldSeed,
         uint256 secondDepositSeed
     ) public {
-        uint256 deposit1 = _boundBtcAmount(depositSeed);
+        // deposit1 must be large enough that net-of-fee >= MIN_STRATEGY_DEPOSIT (10,000 sats),
+        // otherwise the deposit stays idle in the vault and yield accrued in the strategy
+        // is invisible to vault.totalAssets(), making the share-dilution check meaningless.
+        uint256 entryFee = vault.getEntryFee();
+        uint256 minDeposit1 = (FC.MIN_STRATEGY_DEPOSIT * (BPS + entryFee)) / BPS + 1;
+        uint256 deposit1 = bound(depositSeed, minDeposit1, FC.MAX_BTC_AMOUNT);
         // Minimum yield of 100 sats avoids rounding-dominated edge cases
         uint256 yieldAmount = bound(yieldSeed, 100, 10e8);
         uint256 deposit2 = _boundBtcAmount(secondDepositSeed);
 
         // Depositor 1 deposits
         uint256 shares1 = _depositToVault(depositor, deposit1);
-        vm.assume(shares1 > 0);
 
         // Record share value before yield
         uint256 shareValueBefore = vault.convertToAssets(shares1);
@@ -411,9 +415,12 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         // Depositor 1's share value should include yield
         assertGe(shareValueAfter, shareValueBefore, "depositor1 share value should include yield");
 
+        // After large yield, the share price can inflate so much that a small deposit2
+        // rounds to 0 shares and reverts with ZeroAmount. Skip those degenerate inputs.
+        vm.assume(vault.previewDeposit(deposit2) > 0);
+
         // Depositor 2 deposits after yield
         uint256 shares2 = _depositToVault(depositor2, deposit2);
-        vm.assume(shares2 > 0);
 
         // Depositor 2 should get fewer shares per asset (or equivalently, pay more per share)
         // shares2/deposit2 <= shares1/deposit1  =>  shares2 * deposit1 <= shares1 * deposit2
@@ -469,11 +476,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         } catch {
             // Vault or strategy reverted with ZeroAmount — victim is protected
             // Verify victim's funds were not consumed
-            assertGe(
-                mockCbBTC.balanceOf(depositor2),
-                victimDeposit,
-                "victim must retain funds when deposit reverts"
-            );
+            assertGe(mockCbBTC.balanceOf(depositor2), victimDeposit, "victim must retain funds when deposit reverts");
         }
     }
 
@@ -512,7 +515,7 @@ contract BTCVaultCoreFuzzTest is BTCVaultFuzzTestBase {
         // User should get back at least (deposit - maxFee%)
         // With 10% max fee, user should get back at least 90% of deposit (minus entry fee)
         uint256 netDeposit = depositAmount - _computeFeeOnTotal(depositAmount, vault.getEntryFee());
-        uint256 minExpected = netDeposit * (BPS - newExitFee) / BPS;
+        uint256 minExpected = (netDeposit * (BPS - newExitFee)) / BPS;
         assertGe(
             assetsOut + 2, // rounding tolerance
             minExpected,
