@@ -16,7 +16,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
  *      6 invariants across randomized deposit/withdraw/redeem/mint/reallocate/yield sequences.
  *
  * ## Invariants
- * - INV-BTC-01: Solvency — totalAssets >= convertToAssets(totalSupply)
+ * - INV-BTC-01: Solvency — totalAssets >= convertToAssets(totalSupply); dust shares acceptable when totalAssets == 0
  * - INV-BTC-02: Ghost accounting — deposited - withdrawn - fees + yield ~ totalAssets
  * - INV-BTC-03: Strategy balance consistency — sum of strategies == totalAssets
  * - INV-BTC-04: No free money — convertToAssets(convertToShares(x)) <= x
@@ -59,9 +59,14 @@ contract BTCVaultInvariantTest is Test {
     // ============ Invariants ============
 
     /**
-     * @notice INV-BTC-01: Solvency — if shares exist, assets must exist and cover them
-     * @dev Validates that totalAssets >= convertToAssets(totalSupply) within rounding tolerance.
-     *      Catches share inflation or asset drain bugs.
+     * @notice INV-BTC-01: Solvency — if shares exist and have value, assets must cover them
+     * @dev Two sub-checks:
+     *      1. When `totalAssets > 0`: `totalAssets >= convertToAssets(totalSupply)` must hold.
+     *         Solady's floor division guarantees this: `floor(S*(A+1)/(S+1)) <= A`.
+     *      2. When `totalAssets == 0`: remaining shares must be worthless dust from
+     *         double-layer ERC-4626 rounding across multiple holders. `convertToAssets`
+     *         returns 0 via Solady's virtual offset: `floor(N * 1 / (N + 1)) == 0`.
+     *         These dust shares are cleaned lazily in `BTCVault._deposit()` on next interaction.
      * @custom:audit-invariant INV-BTC-01
      */
     function invariant_BTC_01_Solvency() public view {
@@ -69,11 +74,14 @@ contract BTCVaultInvariantTest is Test {
         uint256 totalAssets = vault.totalAssets();
 
         if (totalSupply > 0) {
-            assertGt(totalAssets, 0, "INV-BTC-01: totalSupply > 0 but totalAssets == 0");
-
             uint256 assetsForAllShares = vault.convertToAssets(totalSupply);
-            // Allow 1 wei rounding tolerance per share unit
-            assertGe(totalAssets + 1, assetsForAllShares, "INV-BTC-01: totalAssets < convertToAssets(totalSupply)");
+
+            if (totalAssets == 0) {
+                // After a full drain, remaining shares must be worthless dust
+                assertEq(assetsForAllShares, 0, "INV-BTC-01: shares have non-zero value but totalAssets == 0");
+            } else {
+                assertGe(totalAssets, assetsForAllShares, "INV-BTC-01: totalAssets < convertToAssets(totalSupply)");
+            }
         }
     }
 
