@@ -605,6 +605,16 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
         // Send exact 'assets' amount to user as per ERC4626 spec
         super._withdraw(by, to, owner, assets, shares);
+
+        // Burn owner's remaining dust shares if vault is fully drained.
+        // After many deposit/yield/withdraw cycles, double-layer ERC-4626 rounding
+        // can drain all strategy shares while leaving a few vault shares (dust).
+        // These dust shares are worthless (convertToAssets returns 0) so burning
+        // them maintains the solvency invariant: totalSupply > 0 → totalAssets > 0.
+        uint256 ownerDust = balanceOf(owner);
+        if (ownerDust > 0 && totalAssets() == 0) {
+            _burn(owner, ownerDust);
+        }
     }
 
     /**
