@@ -28,7 +28,6 @@ import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
-import "hardhat/console.sol";
 
 /**
  * @title LendingPool contract

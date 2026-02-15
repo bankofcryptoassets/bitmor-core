@@ -18,11 +18,12 @@ import {
   getAToken,
   getMintableERC20,
   getLendingPoolConfiguratorProxy,
-  getPriceOracle,
+  getAaveOracle,
   getLendingPoolAddressesProviderRegistry,
   getWETHMocked,
   getMockBTCVault,
   getMockLoan,
+  getMockAggregator,
 } from '../../../helpers/contracts-getters.js';
 import type { eNetwork, SignerWithAddress } from '../../../helpers/types.js';
 import type { LendingPool } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPool.js';
@@ -35,7 +36,7 @@ import chai from 'chai';
 // @ts-ignore
 import bignumberChai from 'chai-bignumber';
 import { almostEqual } from './almost-equal.js';
-import type { PriceOracle } from '../../../types/ethers-contracts/mocks/oracle/PriceOracle.js';
+import type { AaveOracle } from '../../../types/ethers-contracts/misc/AaveOracle.js';
 import type { LendingPoolAddressesProvider } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProvider.js';
 import type { LendingPoolAddressesProviderRegistry } from '../../../types/ethers-contracts/protocol/configuration/LendingPoolAddressesProviderRegistry.js';
 import { getEthersSigners } from '../../../helpers/contracts-helpers.js';
@@ -44,6 +45,7 @@ import type { WETH9Mocked } from '../../../types/ethers-contracts/mocks/tokens/W
 import { AaveConfig } from '../../../markets/aave/index.js';
 import type { MockBTCVault } from '../../../types/ethers-contracts/mocks/vault/MockBTCVault.js';
 import type { MockLoan } from '../../../types/ethers-contracts/mocks/MockLoan.js';
+import type { MockAggregator } from '../../../types/ethers-contracts/mocks/oracle/CLAggregators/MockAggregator.js';
 import { usingTenderly } from '../../../helpers/tenderly-utils.js';
 import { deployMockBitmorCallers, BitmorMocks } from './deploy-bitmor-mocks.js';
 import type { MockLoanProvider } from '../../../types/ethers-contracts/mocks/MockBitmorCaller.sol/MockLoanProvider.js';
@@ -57,7 +59,7 @@ export interface TestEnv {
   users: SignerWithAddress[];
   pool: LendingPool;
   configurator: LendingPoolConfigurator;
-  oracle: PriceOracle;
+  oracle: AaveOracle;
   helpersContract: AaveProtocolDataProvider;
   weth: WETH9Mocked;
   aWETH: AToken;
@@ -72,11 +74,14 @@ export interface TestEnv {
   mockLoanProvider: MockLoanProvider;
   mockBitmorUSDCVault: MockBitmorUSDCVault;
   // BTC Vault infrastructure
-  cbBTC: MintableERC20;
-  acbBTC: AToken;
+  cbBTC: MintableERC20;      // Underlying BTC token (8 decimals) - used for minting vault shares
+  bvBTC: MintableERC20;      // ERC4626 vault shares (btcVault as MintableERC20 interface)
+  abvBTC: AToken;            // aToken for bvBTC vault shares (the actual collateral)
   btcVault: MockBTCVault;
   // Loan infrastructure
   mockLoan: MockLoan;
+  // Price aggregators for test price manipulation
+  aggregators: { [symbol: string]: MockAggregator };
 }
 
 let buidlerevmSnapshotId: string = '0x1';
@@ -90,7 +95,7 @@ const testEnv: TestEnv = {
   pool: {} as LendingPool,
   configurator: {} as LendingPoolConfigurator,
   helpersContract: {} as AaveProtocolDataProvider,
-  oracle: {} as PriceOracle,
+  oracle: {} as AaveOracle,
   weth: {} as WETH9Mocked,
   aWETH: {} as AToken,
   dai: {} as MintableERC20,
@@ -103,8 +108,11 @@ const testEnv: TestEnv = {
   mockLoanProvider: {} as MockLoanProvider,
   mockBitmorUSDCVault: {} as MockBitmorUSDCVault,
   cbBTC: {} as MintableERC20,
+  bvBTC: {} as MintableERC20,
+  abvBTC: {} as AToken,
   btcVault: {} as MockBTCVault,
   mockLoan: {} as MockLoan,
+  aggregators: {} as { [symbol: string]: MockAggregator },
 } as TestEnv;
 
 export async function initializeMakeSuite() {
@@ -133,7 +141,8 @@ export async function initializeMakeSuite() {
     );
   } else {
     testEnv.registry = await getLendingPoolAddressesProviderRegistry();
-    testEnv.oracle = await getPriceOracle();
+    // Use AaveOracle (protocol's actual oracle) instead of fallback PriceOracle
+    testEnv.oracle = await getAaveOracle();
   }
 
   testEnv.helpersContract = await getAaveProtocolDataProvider();
@@ -142,7 +151,7 @@ export async function initializeMakeSuite() {
 
   const aDaiAddress = allTokens.find((aToken) => aToken.symbol === 'aDAI')?.tokenAddress;
 
-  const acbBTCAddress = allTokens.find((aToken) => aToken.symbol === 'acbBTC')?.tokenAddress;
+  const abvBTCAddress = allTokens.find((aToken) => aToken.symbol === 'abvBTC')?.tokenAddress;
 
   const aUSDCAddress = allTokens.find((aToken) => aToken.symbol === 'aUSDC')?.tokenAddress;
 
@@ -154,6 +163,7 @@ export async function initializeMakeSuite() {
   const usdcAddress = reservesTokens.find((token) => token.symbol === 'USDC')?.tokenAddress;
   const aaveAddress = reservesTokens.find((token) => token.symbol === 'AAVE')?.tokenAddress;
   const wethAddress = reservesTokens.find((token) => token.symbol === 'WETH')?.tokenAddress;
+  const bvBTCAddress = reservesTokens.find((token) => token.symbol === 'bvBTC')?.tokenAddress;
 
   if (!aDaiAddress || !aUSDCAddress || !aWEthAddress) {
     process.exit(1);
@@ -165,13 +175,17 @@ export async function initializeMakeSuite() {
   testEnv.aDai = await getAToken(aDaiAddress);
   testEnv.aUSDC = await getAToken(aUSDCAddress);
   testEnv.aWETH = await getAToken(aWEthAddress);
-  testEnv.acbBTC = await getAToken(acbBTCAddress);
-  testEnv.aUSDC = await getAToken(aUSDCAddress);
+  if (abvBTCAddress) {
+    testEnv.abvBTC = await getAToken(abvBTCAddress);
+  }
 
   testEnv.dai = await getMintableERC20(daiAddress);
   testEnv.usdc = await getMintableERC20(usdcAddress);
   testEnv.aave = await getMintableERC20(aaveAddress);
   testEnv.weth = await getWETHMocked(wethAddress);
+  if (bvBTCAddress) {
+    testEnv.bvBTC = await getMintableERC20(bvBTCAddress);
+  }
 
   // Deploy Bitmor mock callers
   const bitmorMocks = await deployMockBitmorCallers(usdcAddress);
@@ -202,6 +216,17 @@ export async function initializeMakeSuite() {
     testEnv.mockLoan = await getMockLoan();
   } catch (e) {
     console.log('MockLoan not deployed');
+  }
+
+  // Load price aggregators for test price manipulation
+  // These are used instead of oracle.setAssetPrice() when using AaveOracle
+  const aggregatorSymbols = ['USDC', 'cbBTC', 'WETH', 'DAI', 'AAVE'];
+  for (const symbol of aggregatorSymbols) {
+    try {
+      testEnv.aggregators[symbol] = await getMockAggregator(symbol);
+    } catch (e) {
+      // Aggregator not deployed for this symbol
+    }
   }
 }
 

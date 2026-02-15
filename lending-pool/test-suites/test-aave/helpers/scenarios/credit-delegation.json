@@ -3,12 +3,12 @@
   "description": "Test cases for the credit delegation related functions.",
   "stories": [
     {
-      "description": "User 4 trying to borrow 1 cbBTC stable on behalf of user 0, revert expected",
+      "description": "User 4 trying to borrow 1 bvBTC stable on behalf of user 0, revert expected",
       "actions": [
         {
           "name": "borrow",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "4",
             "onBehalfOf": "0",
@@ -20,12 +20,12 @@
       ]
     },
     {
-      "description": "User 0 delegates borrowing of 1 cbBTC to user 4, user 4 borrows 3 cbBTC variable on behalf of user 0, revert expected",
+      "description": "User 0 delegates borrowing of 1 bvBTC to user 4, user 4 borrows 3 bvBTC variable on behalf of user 0, revert expected",
       "actions": [
         {
           "name": "delegateBorrowAllowance",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "0",
             "borrowRateMode": "variable",
@@ -36,7 +36,7 @@
         {
           "name": "borrow",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "3",
             "user": "4",
             "onBehalfOf": "0",
