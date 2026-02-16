@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {BaseStrategyTest} from "./BaseStrategyTest.t.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title AaveTokenizedStrategyTest
 /// @author Bitmor Protocol
@@ -257,19 +258,13 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
         aaveStrategy.withdraw(excessAmount, user, user);
     }
 
-    /// @notice Test deposit with zero amount behavior
-    function test_Deposit_ZeroAmount() public {
-        // Arrange
-        uint256 sharesBefore = _getStrategyShares(user);
-
-        // Act
+    /// @notice Test deposit with zero amount reverts with ZeroAmount (zero-shares guard)
+    function test_Deposit_RevertWhen_ZeroAmount() public {
+        // Act & Assert
         vm.startPrank(user);
         mockAsset.approve(address(aaveStrategy), 0);
+        vm.expectRevert(Errors.ZeroAmount.selector);
         aaveStrategy.deposit(0, user);
         vm.stopPrank();
-
-        // Assert - zero deposit should mint zero shares
-        uint256 sharesAfter = _getStrategyShares(user);
-        assertEq(sharesAfter, sharesBefore, "zero deposit should not mint shares");
     }
 }

@@ -78,7 +78,7 @@ abstract contract ForkTestBase is BitmorTestBase {
         _loadLendingPoolAddresses();
 
         // 6. Snapshot
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 
     // ============ External Protocol Loading ============
@@ -123,7 +123,7 @@ abstract contract ForkTestBase is BitmorTestBase {
     /// @notice Reverts to base snapshot
     function _resetState() internal {
         vm.revertTo(_baseSnapshotId);
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 
     // ============ Token Helpers ============

@@ -125,7 +125,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         _fundTestAccounts();
 
         // Update snapshot after full setup
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 
     /// @notice Deploys all mock contracts for the lending pool

@@ -46,7 +46,7 @@ The USDC Vault is managed by the **Access Manager**, the following are the roles
 | --------------------------------- | ------ | ------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------- | -------------- | -------- |
 | **UVM_FAST** (USDC Vault Manager) | 21     | Pause, withdraw all funds from yield source                         | USDC Vault | pause, withdrawAllFunds                                              | 0              | Multisig |
 | **UVM_SLOW** (USDC Vault Manager) | 210    | Unpause contract                                                    | USDC Vault | unpause                                                              | 1 DAY          | Multisig |
-| **UVC** (USDC Vault Curator)      | 22     | Set new strategy, set yield source allocation, update minimum delta | USDC Vault | setNewStrategy, updateMinimumDeltaRequired, setYieldSourceAllocation | 1 DAY          | Multisig |
+| **UVC** (USDC Vault Curator)      | 22     | Set strategy, update external allocation, update minimum delta | USDC Vault | setStrategy, updateMinimumDeltaRequired, updateExternalAllocation | 1 DAY          | Multisig |
 | **UVA** (USDC Vault Allocator)    | 23     | Reallocate assets                                                   | USDC Vault | reallocateAssets                                                     | 0              | TBD      |
 
 ### Asset

@@ -215,22 +215,12 @@ contract MockBitmorLendingPool is ILendingPool {
     }
 
     /// @inheritdoc ILendingPool
-    function getConfiguration(address asset)
-        external
-        view
-        override
-        returns (DataTypes.ReserveConfigurationMap memory)
-    {
+    function getConfiguration(address asset) external view override returns (DataTypes.ReserveConfigurationMap memory) {
         return _reserves[asset].configuration;
     }
 
     /// @inheritdoc ILendingPool
-    function getUserConfiguration(address user)
-        external
-        view
-        override
-        returns (DataTypes.UserConfigurationMap memory)
-    {
+    function getUserConfiguration(address user) external view override returns (DataTypes.UserConfigurationMap memory) {
         return _userConfigurations[user];
     }
 
@@ -300,9 +290,9 @@ contract MockBitmorLendingPool is ILendingPool {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize = (
-            actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals)
-        ) / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        uint256 collateralToSeize =
+            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
@@ -398,9 +388,9 @@ contract MockBitmorLendingPool is ILendingPool {
         uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
         // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize = (
-            actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals)
-        ) / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        uint256 collateralToSeize =
+            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
@@ -540,6 +530,37 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @param asset The asset to reset
     function resetInvalidReserve(address asset) external {
         _invalidReserves[asset] = false;
+    }
+
+    /// @notice Simulates a borrow that drains aToken liquidity without minting debt to any user
+    /// @dev Moves underlying tokens OUT of the aToken contract and mints debt tokens to a phantom address.
+    ///      This makes `ERC20(asset).balanceOf(aTokenAddress)` decrease (less withdrawable liquidity)
+    ///      while `variableDebtToken.totalSupply()` increases (total BLP balance stays constant).
+    /// @param asset The reserve asset to simulate borrowing from
+    /// @param amount The amount to "borrow" (drain from available liquidity)
+    function simulateBorrow(address asset, uint256 amount) external {
+        DataTypes.ReserveData storage reserve = _reserves[asset];
+        require(reserve.aTokenAddress != address(0), "Reserve not initialized");
+
+        // Move underlying out of aToken contract (reduces available liquidity)
+        IERC20(asset).transferFrom(reserve.aTokenAddress, address(this), amount);
+
+        // Mint debt to a phantom address (increases totalVariableDebt, preserving _getBalanceInBLP)
+        MockVariableDebtToken(reserve.variableDebtTokenAddress).mint(address(0xDEAD), amount);
+    }
+
+    /// @notice Reverses a simulated borrow — returns liquidity to the aToken contract
+    /// @param asset The reserve asset
+    /// @param amount The amount to return
+    function simulateRepay(address asset, uint256 amount) external {
+        DataTypes.ReserveData storage reserve = _reserves[asset];
+        require(reserve.aTokenAddress != address(0), "Reserve not initialized");
+
+        // Return underlying to aToken contract
+        IERC20(asset).transfer(reserve.aTokenAddress, amount);
+
+        // Burn phantom debt
+        MockVariableDebtToken(reserve.variableDebtTokenAddress).burn(address(0xDEAD), amount);
     }
 
     /// @inheritdoc ILendingPool

@@ -107,7 +107,6 @@ library LoanMath {
      * @return monthlyPayAmt The monthly payment amount in debt asset decimals
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
-    //! TODO: Verify EMI calculation logic for edge cases
     function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
         internal
         pure
@@ -135,35 +134,11 @@ library LoanMath {
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
-        // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
-        // Handle zero interest rate case (simple division)
-        if (data.interestRate == 0) {
-            monthlyPayAmt = loanAmount.fullMulDivUp(1, data.duration);
-            return (loanAmount, monthlyPayAmt, minDepositRequired);
-        }
+        // A zero loan amount means the deposit covers the full collateral value — no loan needed
+        if (loanAmount == 0) revert Errors.ZeroAmount();
 
-        // Convert annual interest rate (ray) to monthly interest rate (ray)
-        // monthlyRate = interestRate / 12
-        uint256 monthlyRate = data.interestRate / MONTHS_PER_YEAR;
-
-        // Calculate (1 + r) in RAY precision
-        // onePlusRate = RAY + monthlyRate
-        uint256 onePlusRate = RAY + monthlyRate;
-
-        // Calculate (1 + r)^n using rayPow
-        uint256 onePlusRatePowN = rayPow(onePlusRate, data.duration);
-
-        // Calculate numerator: P × r × (1 + r)^n
-        // First: loanAmount × monthlyRate (result in ray precision)
-        uint256 numerator = (loanAmount * monthlyRate) / RAY;
-        // Then: multiply by (1 + r)^n
-        numerator = (numerator * onePlusRatePowN) / RAY;
-
-        // Calculate denominator: (1 + r)^n - 1
-        uint256 denominator = onePlusRatePowN - RAY;
-
-        // Calculate EMI: numerator / denominator
-        monthlyPayAmt = (numerator * RAY) / denominator;
+        // Calculate monthly payment using shared EMI formula
+        monthlyPayAmt = _calculateEMI(loanAmount, data.interestRate, data.duration);
     }
 
     /**
@@ -188,7 +163,6 @@ library LoanMath {
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    //! TODO: Verify EMI calculation logic for edge cases
     function calculateLoanDetails(
         uint256 collateralAmount,
         uint256 collateralPriceUSD,
@@ -214,37 +188,8 @@ library LoanMath {
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
-        // Calculate monthly payment using EMI formula: EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
-
-        // Handle zero interest rate case (simple division)
-        if (interestRate == 0) {
-            // monthlyPayAmt = loanAmount / duration;
-            monthlyPayAmt = loanAmount.fullMulDivUp(1, duration);
-            return (loanAmount, monthlyPayAmt, minDepositRequired);
-        }
-
-        // Convert annual interest rate (ray) to monthly interest rate (ray)
-        // monthlyRate = interestRate / 12
-        uint256 monthlyRate = interestRate / MONTHS_PER_YEAR;
-
-        // Calculate (1 + r) in RAY precision
-        // onePlusRate = RAY + monthlyRate
-        uint256 onePlusRate = RAY + monthlyRate;
-
-        // Calculate (1 + r)^n using rayPow
-        uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
-
-        // Calculate numerator: P × r × (1 + r)^n
-        // First: loanAmount × monthlyRate (result in ray precision)
-        uint256 numerator = (loanAmount * monthlyRate) / RAY;
-        // Then: multiply by (1 + r)^n
-        numerator = (numerator * onePlusRatePowN) / RAY;
-
-        // Calculate denominator: (1 + r)^n - 1
-        uint256 denominator = onePlusRatePowN - RAY;
-
-        // Calculate EMI: numerator / denominator
-        monthlyPayAmt = (numerator * RAY) / denominator;
+        // Calculate monthly payment using shared EMI formula
+        monthlyPayAmt = _calculateEMI(loanAmount, interestRate, duration);
     }
 
     /**
@@ -279,5 +224,49 @@ library LoanMath {
         strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
 
         return strikePrice;
+    }
+
+    /**
+     * @notice Calculates the Equated Monthly Installment (EMI)
+     * @dev Shared implementation used by both `calculateLoanAmt` and `calculateLoanDetails`.
+     * Uses Solady's `mulDivUp` throughout to prevent truncation to zero for small amounts.
+     *
+     * Formula: `EMI = P * r * (1 + r)^n / ((1 + r)^n - 1)`
+     *
+     * For zero interest rate, returns `ceil(loanAmount / duration)`.
+     *
+     * @param loanAmount The loan principal in debt asset decimals (e.g., 6 for USDC)
+     * @param interestRate Annual interest rate in RAY (27 decimals)
+     * @param duration Loan duration in months
+     * @return monthlyPayAmt Monthly payment amount in debt asset decimals
+     */
+    function _calculateEMI(uint256 loanAmount, uint256 interestRate, uint256 duration)
+        private
+        pure
+        returns (uint256 monthlyPayAmt)
+    {
+        // Zero interest rate: equal division rounded up
+        if (interestRate == 0) {
+            return loanAmount.fullMulDivUp(1, duration);
+        }
+
+        // Convert annual rate (RAY) to monthly rate (RAY), rounded up
+        uint256 monthlyRate = interestRate.mulDivUp(1, MONTHS_PER_YEAR);
+
+        // (1 + r) in RAY precision
+        uint256 onePlusRate = RAY.rawAdd(monthlyRate);
+
+        // (1 + r)^n via binary exponentiation
+        uint256 onePlusRatePowN = rayPow(onePlusRate, duration);
+
+        // Numerator: P * r * (1 + r)^n
+        uint256 numerator = loanAmount.mulDivUp(monthlyRate, RAY);
+        numerator = numerator.mulDivUp(onePlusRatePowN, RAY);
+
+        // Denominator: (1 + r)^n - 1
+        uint256 denominator = onePlusRatePowN.rawSub(RAY);
+
+        // EMI = numerator / denominator (rounded up)
+        monthlyPayAmt = numerator.mulDivUp(RAY, denominator);
     }
 }

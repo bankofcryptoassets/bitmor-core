@@ -476,25 +476,28 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     /// @inheritdoc ILoan
     function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
+        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
         s_slippage_sharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
     function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
+        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
         s_slippage_swap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
-        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidFee();
+        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidInputs();
         s_maxBTCAmt = newMaxBTCAmt;
         emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
     }
 
     /// @inheritdoc ILoan
     function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
+        if (newMinBTCAmt > s_maxBTCAmt) revert Errors.InvalidInputs();
         s_minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }

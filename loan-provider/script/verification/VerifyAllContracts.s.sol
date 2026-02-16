@@ -45,9 +45,7 @@ contract VerifyAllContracts is Script {
 
         // Build contract list - Sourcify auto-detects constructor args
         contracts[0] = ContractInfo({
-            name: "LoanVault",
-            contractPath: "src/protocol/LoanVault.sol:LoanVault",
-            deployedAddress: loanVault
+            name: "LoanVault", contractPath: "src/protocol/LoanVault.sol:LoanVault", deployedAddress: loanVault
         });
 
         contracts[1] = ContractInfo({name: "Loan", contractPath: "src/protocol/Loan.sol:Loan", deployedAddress: loan});

@@ -112,12 +112,13 @@ library FlashLoanLogic {
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
-        uint256 maxAmountIn = ctx.swapper.calculateMaxAmountIn(
-            ctx.debtAsset, // tokenIn
-            ctx.btc, // tokenOut
-            btcAmount,
-            ctx.maxSlippage
-        );
+        uint256 maxAmountIn = ctx.swapper
+            .calculateMaxAmountIn(
+                ctx.debtAsset, // tokenIn
+                ctx.btc, // tokenOut
+                btcAmount,
+                ctx.maxSlippage
+            );
 
         if (maxAmountIn > totalSwapAmount) revert Errors.LessAmountForExactOutSwap();
 
@@ -174,6 +175,7 @@ library FlashLoanLogic {
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
      * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
+     * TODO: to check whether we need to pass uint256 max or this will work through integration testing.
      */
     function executeFLOperationCloseLoan(
         DataTypes.ExecuteFLOperationContext memory ctx,
@@ -218,9 +220,10 @@ library FlashLoanLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa.redeemBTC(
-                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-            );
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 
@@ -237,13 +240,14 @@ library FlashLoanLogic {
         // Approve SwapAdaptor to spend tokens
         IERC20(ctx.btc).forceApprove(ctx.swapper, vars.btcAmtToSwap);
 
-        vars.debtAssetAmtReceived = ctx.swapper.executeExactInSwap(
-            ctx.btc, //tokenIn
-            ctx.debtAsset, // tokenOut
-            vars.btcAmtToSwap, // amountIn
-            vars.minimumAcceptable,
-            address(this)
-        );
+        vars.debtAssetAmtReceived = ctx.swapper
+            .executeExactInSwap(
+                ctx.btc, //tokenIn
+                ctx.debtAsset, // tokenOut
+                vars.btcAmtToSwap, // amountIn
+                vars.minimumAcceptable,
+                address(this)
+            );
         // ===============================================================
 
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);

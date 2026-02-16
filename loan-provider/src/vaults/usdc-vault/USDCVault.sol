@@ -73,8 +73,10 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
         // Withdraw all funds from current strategy if one exists
-        if (address(s_strategy) != address(0) && s_strategy.getTotalBalanceInMarkets() > 0) {
-            s_strategy.withdrawAllFunds();
+        if (address(s_strategy) != address(0)) {
+            if (s_strategy.getTotalBalanceInMarkets() > 0) {
+                s_strategy.withdrawAllFunds();
+            }
             i_asset.safeApprove(address(s_strategy), 0);
         }
 
@@ -82,6 +84,10 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         i_asset.safeApprove(newStrategy, type(uint256).max);
 
         s_strategy = ISimpleStrategy(newStrategy);
+
+        // Deploy idle assets into the new strategy to eliminate yield gap
+        uint256 idle = ERC20(i_asset).balanceOf(address(this));
+        if (idle > 0) s_strategy.supply(idle);
 
         emit SimpleVault__StrategyUpdated(newStrategy);
     }
@@ -112,6 +118,10 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      */
     function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external restricted whenNotPaused {
         s_strategy.updateMinimumDeltaRequired(newMinimumDeltaRequired);
+    }
+
+    function updateExternalAllocation(uint256 externalAllocation) external restricted whenNotPaused {
+        s_strategy.updateExternalAllocation(externalAllocation);
     }
 
     /**
@@ -177,6 +187,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
+        if (address(s_strategy) == address(0)) return ERC20(i_asset).balanceOf(address(this));
         assets = s_strategy.totalAssets() + ERC20(i_asset).balanceOf(address(this));
     }
 
@@ -241,7 +252,7 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return maxAssets The maximum amount of underlying assets withdrawable by `owner`
      */
     function maxWithdraw(address owner) public view override returns (uint256 maxAssets) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         uint256 ownerAssets = convertToAssets(balanceOf(owner));
         uint256 available = s_strategy.withdrawableAssets() + ERC20(i_asset).balanceOf(address(this));
         maxAssets = ownerAssets < available ? ownerAssets : available;
@@ -254,22 +265,22 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @return maxShares The maximum number of shares redeemable by `owner`
      */
     function maxRedeem(address owner) public view override returns (uint256 maxShares) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         uint256 ownerShares = balanceOf(owner);
         uint256 available = s_strategy.withdrawableAssets() + ERC20(i_asset).balanceOf(address(this));
         uint256 maxRedeemableShares = convertToShares(available);
         maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
     function maxDeposit(address) public view override returns (uint256) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
     function maxMint(address) public view override returns (uint256) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 

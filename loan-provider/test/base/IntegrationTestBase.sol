@@ -70,7 +70,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         _loadDeployedContracts();
 
         // 5. Snapshot
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 
     /// @notice Don't initialize a new AccessManager - use pre-deployed one
@@ -97,6 +97,6 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Reverts to base snapshot
     function _resetState() internal {
         vm.revertTo(_baseSnapshotId);
-        _baseSnapshotId = vm.snapshot();
+        _baseSnapshotId = vm.snapshotState();
     }
 }

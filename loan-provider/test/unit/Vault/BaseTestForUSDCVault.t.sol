@@ -139,9 +139,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
         // Set up mock network config for compatibility
         networkConfig = MockNetworkConfig({
-            usdc: address(mockUSDC),
-            bitmorPool: address(mockBitmorPool),
-            aaveV3Pool: address(mockAavePool)
+            usdc: address(mockUSDC), bitmorPool: address(mockBitmorPool), aaveV3Pool: address(mockAavePool)
         });
 
         // Deploy vault with mock dependencies
@@ -204,41 +202,23 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         mockUSDC.mint(address(this), USDC_TO_MINT);
     }
 
-    /// @notice Sets function permissions for each role using correct USDC vault role IDs
-    /// @dev Uses actual USDCVault selectors with role IDs from RolesData
+    /// @notice Sets function permissions for each role using RolesData as single source of truth
+    /// @dev Delegates to BitmorTestBase._setUSDCVaultTargetSelectors which reads from RolesData.sol
     function _setTargetSelectorsLocal() internal {
-        address target = address(vault);
-
-        // UVM_SLOW functions (require 1 day delay)
-        bytes4[] memory uvmSlowSelectors = new bytes4[](3);
-        uvmSlowSelectors[0] = USDCVault.setStrategy.selector;
-        uvmSlowSelectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
-        uvmSlowSelectors[2] = USDCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID());
-
-        // UVM_FAST functions (no delay)
-        bytes4[] memory uvmFastSelectors = new bytes4[](1);
-        uvmFastSelectors[0] = USDCVault.pause.selector;
-        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID());
-
-        // UVA functions - use function signature for overloaded function
-        bytes4[] memory uvaSelectors = new bytes4[](2);
-        uvaSelectors[0] = bytes4(keccak256("reallocateAssets()"));
-        uvaSelectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
-        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID());
+        _setUSDCVaultTargetSelectors(address(vault));
 
         // Grant UVA role to BLP for reallocateAssets(uint256) - the function also checks msg.sender == i_blp
         manager.grantRole(UVA_ID(), address(mockBitmorPool), 0);
     }
 
-    /// @notice Sets the strategy on the vault using UVM_SLOW role
+    /// @notice Sets the strategy on the vault using UVC role
     /// @dev Also initializes the default Aave allocation (80%)
     function _setStrategy() internal {
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
+        _scheduleAndExecuteLocal(uvc, UVC_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
 
         // Initialize the default Aave allocation to 80%
         vm.prank(address(vault));
-        strategy.setAaveAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
+        strategy.updateExternalAllocation(DEFAULT_AAVE_ALLOCATION_BPS);
     }
 
     // ============ Helper Functions ============
@@ -360,12 +340,12 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
 
     // ============ Allocation and Rebalance Helpers ============
 
-    /// @notice Sets the Aave allocation on the strategy
+    /// @notice Sets the external allocation on the strategy
     /// @param allocationBps The new allocation in basis points (e.g., 8000 = 80%)
-    /// @dev Pranks as the vault since only the vault can call setAaveAllocation
+    /// @dev Pranks as the vault since only the vault can call updateExternalAllocation
     function _setAllocation(uint256 allocationBps) internal {
         vm.prank(address(vault));
-        strategy.setAaveAllocation(allocationBps);
+        strategy.updateExternalAllocation(allocationBps);
     }
 
     /// @notice Triggers reallocation via the vault

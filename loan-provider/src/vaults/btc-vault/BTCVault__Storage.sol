@@ -131,6 +131,14 @@ contract BTCVault__Storage {
      */
     uint256 internal constant MAX_FEE_BPS = 10_00;
 
+    /**
+     * @notice Minimum amount of assets that must be deposited into strategies per vault deposit
+     * @dev Prevents the tiny-shares scenario where Solady's virtual offset causes
+     *      disproportionate rounding. 10,000 sat = 0.0001 BTC provides 110x safety margin
+     *      over the theoretical threshold (~91 sat for <0.01% orphaned fraction).
+     */
+    uint256 internal constant MIN_STRATEGY_DEPOSIT = 10_000;
+
     // ============ Mutable Storage ============
 
     /**

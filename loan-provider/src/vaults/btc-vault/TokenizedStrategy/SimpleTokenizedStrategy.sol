@@ -3,6 +3,9 @@ pragma solidity 0.8.30;
 
 import {Address} from "@openzeppelin/utils/Address.sol";
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
+import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
+
+import {Errors} from "../../../libraries/helpers/Errors.sol";
 
 /**
  * @title SimpleTokenizedStrategy
@@ -68,10 +71,52 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      * @notice Returns the total amount of assets under management by this strategy
      * @inheritdoc ERC4626
      * @dev Must be implemented by derived contracts to return actual deployed assets
-     * //! TODO: This should be implemented by derived contracts with actual balance calculation
      * @return assets The total amount of underlying assets managed by the strategy
      */
     function totalAssets() public view virtual override returns (uint256 assets) {
         return 0;
+    }
+
+    /**
+     * @notice Internal deposit hook that guards against zero-share mints
+     * @dev Defense-in-depth: prevents donation attacks at the strategy level.
+     *      If share price is inflated such that `shares` rounds to 0, the depositor
+     *      would lose their assets. This guard reverts instead.
+     * @param by Address where the `assets` will be transferred from
+     * @param to Address where the `shares` will be minted to
+     * @param assets The amount of underlying assets to deposit
+     * @param shares The amount of shares to mint
+     */
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+        if (shares == 0) revert Errors.ZeroAmount();
+        super._deposit(by, to, assets, shares);
+    }
+
+    /**
+     * @notice Withdraws ALL assets from the strategy, bypassing ERC-4626 share conversion
+     * @dev Prevents orphaned yield caused by Solady's virtual offset when share count is low.
+     *      When `totalSupply` is small relative to `totalAssets`, `convertToAssets(shares)` returns
+     *      significantly less than actual assets (e.g., 2/3 with 2 shares). This function reads the
+     *      raw `totalAssets()` balance, withdraws it from the yield source, burns all vault shares,
+     *      and transfers everything to the vault.
+     * @return assets The total assets withdrawn and transferred to the vault
+     * @custom:access Only callable by the vault contract
+     */
+    function withdrawAll() external virtual returns (uint256 assets) {
+        if (msg.sender != i_vault) revert Errors.UnauthorizedCaller();
+
+        assets = totalAssets();
+        if (assets == 0) return 0;
+
+        uint256 shares = balanceOf(i_vault);
+
+        // Hook: withdraw all assets from yield source (e.g., Aave)
+        _beforeWithdraw(assets, shares);
+
+        // Burn vault's strategy shares
+        if (shares > 0) _burn(i_vault, shares);
+
+        // Transfer ALL underlying assets to vault
+        SafeTransferLib.safeTransfer(asset(), i_vault, assets);
     }
 }
