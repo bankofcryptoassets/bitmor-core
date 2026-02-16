@@ -134,16 +134,13 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
   });
 
   it('Drop the health factor below 1', async () => {
-    const { btcVault, users, pool, oracle } = testEnv;
+    const { btcVault, users, pool, aggregators } = testEnv;
     const borrower = users[1];
 
-    const bvBTCPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
-
-    // Drop bvBTC price by 20% to push health factor below 1
-    await oracle.setAssetPrice(
-      getContractAddress(btcVault),
-      new BigNumber(bvBTCPrice.toString()).multipliedBy(0.80).toFixed(0)
-    );
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    const cbBTCAggregator = aggregators['cbBTC'];
+    const cbBtcPrice = await cbBTCAggregator.latestAnswer();
+    await cbBTCAggregator.updateAnswer((cbBtcPrice * 80n) / 100n);
 
     const userGlobalData = await pool.getUserAccountData(borrower.address);
 
@@ -271,11 +268,17 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
   });
 
   it('User 3 deposits 1000 USDC, user 4 deposits 1 bvBTC, user 4 borrows - drops HF, liquidates the borrow', async () => {
-    const { usdc, users, pool, oracle, cbBTC, btcVault, helpersContract, mockLoanProvider, mockLoan, addressesProvider } = testEnv;
+    const { usdc, users, pool, oracle, cbBTC, btcVault, helpersContract, mockLoanProvider, mockLoan, addressesProvider, aggregators } = testEnv;
 
     const depositor = users[3];
     const borrower = users[4];
     const liquidator = users[5];
+
+    // Restore prices to original values (previous tests may have modified them)
+    const usdcAggregator = aggregators['USDC'];
+    const cbBTCAggregator = aggregators['cbBTC'];
+    await usdcAggregator.updateAnswer(BigInt(100000000)); // $1 in 8 decimals
+    await cbBTCAggregator.updateAnswer(BigInt(10000000000000)); // $100,000 in 8 decimals
 
     // Set mockLoanProvider as BitmorLoan for deposits/borrows
     await addressesProvider.setBitmorLoan(getContractAddress(mockLoanProvider));
@@ -298,7 +301,8 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
 
     // Borrower borrows USDC
     const userGlobalData = await pool.getUserAccountData(borrower.address);
-    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
+    // Get USDC price from aggregator (8 decimals) - matches protocol's AaveOracle
+    const usdcPrice = await usdcAggregator.latestAnswer();
 
     const amountUSDCToBorrow = await convertToCurrencyDecimals(
       getContractAddress(usdc),
@@ -320,10 +324,9 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
       .connect(borrower.signer)
       .borrow(getContractAddress(usdc), amountUSDCToBorrow, RateMode.Variable, '0', borrower.address);
 
-    // Raise USDC price to push HF below 1
-    await oracle.setAssetPrice(
-      getContractAddress(usdc),
-      new BigNumber(usdcPrice.toString()).multipliedBy(1.12).toFixed(0)
+    // Raise USDC price to push HF below 1 via aggregator
+    await usdcAggregator.updateAnswer(
+      BigInt(new BigNumber(usdcPrice.toString()).multipliedBy(1.12).toFixed(0))
     );
 
     // Mint USDC to the liquidator (enough to cover the debt)
@@ -356,10 +359,10 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
       5000
     );
 
-    // Drop bvBTC price to push HF below 1 and make loan overdue
-    const bvBTCPrice = await oracle.getAssetPrice(getContractAddress(btcVault));
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    const cbBtcPrice = await cbBTCAggregator.latestAnswer();
     await mockLoan.makeLoanOverdue(borrower.address, 30);
-    await oracle.setAssetPrice(getContractAddress(btcVault), (bvBTCPrice * 40n) / 100n);
+    await cbBTCAggregator.updateAnswer((cbBtcPrice * 40n) / 100n);
     await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
 
     // Fund vault with cbBTC for redemption during liquidation
@@ -410,11 +413,9 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
 
     // If position is underwater, only partial debt can be liquidated
     let actualDebtLiquidated: BigNumber;
-    let actualCollateralLiquidated: BigNumber;
 
     if (expectedCollateralLiquidated.gt(userCollateralBalance)) {
       // Underwater: all collateral is taken, calculate debt covered
-      actualCollateralLiquidated = userCollateralBalance;
       actualDebtLiquidated = new BigNumber(collateralPrice.toString())
         .times(userCollateralBalance)
         .times(new BigNumber(10).pow(principalDecimals))
@@ -424,7 +425,6 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
         .decimalPlaces(0, BigNumber.ROUND_DOWN);
     } else {
       // Sufficient collateral: full debt is liquidated
-      actualCollateralLiquidated = expectedCollateralLiquidated;
       actualDebtLiquidated = new BigNumber(amountToLiquidate);
     }
 

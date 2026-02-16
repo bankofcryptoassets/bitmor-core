@@ -548,6 +548,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param shares The amount of shares to mint.
      */
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
+        // Lazy cleanup: burn ghost dust shares from previous drain.
+        // When the vault fully drains (totalAssets == 0), some holders may retain
+        // worthless shares. Burning them here on next interaction prevents stale
+        // shares from diluting new depositors.
+        uint256 recipientDust = balanceOf(to);
+        if (recipientDust > 0 && totalAssets() == 0) {
+            _burn(to, recipientDust);
+        }
+
         if (shares == 0) revert Errors.ZeroAmount();
 
         uint256 fee = getEntryFee();
@@ -605,6 +614,16 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
         // Send exact 'assets' amount to user as per ERC4626 spec
         super._withdraw(by, to, owner, assets, shares);
+
+        // Burn owner's remaining dust shares if vault is fully drained.
+        // After many deposit/yield/withdraw cycles, double-layer ERC-4626 rounding
+        // can drain all strategy shares while leaving a few vault shares (dust).
+        // These dust shares are worthless (convertToAssets returns 0) so burning
+        // them maintains the solvency invariant: totalSupply > 0 → totalAssets > 0.
+        uint256 ownerDust = balanceOf(owner);
+        if (ownerDust > 0 && totalAssets() == 0) {
+            _burn(owner, ownerDust);
+        }
     }
 
     /**

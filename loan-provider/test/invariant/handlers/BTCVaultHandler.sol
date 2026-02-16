@@ -122,6 +122,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
         uint256 feeBalBefore = _feeRecipientBalance();
         uint256 assetsBefore = vault.totalAssets();
+        uint256 supplyBefore = vault.totalSupply();
 
         vm.prank(actor);
         try vault.deposit(amount, actor) returns (uint256 shares) {
@@ -135,6 +136,13 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
             ghost_netAssetsIn += assetsDelta;
             ghost_userDeposited[actor] += amount;
             ghost_depositCount++;
+
+            // Track dust shares burned by BTCVault._deposit() cleanup
+            uint256 supplyAfter = vault.totalSupply();
+            uint256 expectedSupply = supplyBefore + shares;
+            if (expectedSupply > supplyAfter) {
+                ghost_totalSharesRedeemed += expectedSupply - supplyAfter;
+            }
         } catch {
             // Graceful failure
         }
@@ -159,6 +167,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
         uint256 feeBalBefore = _feeRecipientBalance();
         uint256 assetsBefore = vault.totalAssets();
+        uint256 supplyBefore = vault.totalSupply();
 
         vm.prank(actor);
         try vault.mint(shares, actor) returns (uint256 assetsUsed) {
@@ -172,6 +181,13 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
             ghost_netAssetsIn += assetsDelta;
             ghost_userDeposited[actor] += assetsUsed;
             ghost_mintCount++;
+
+            // Track dust shares burned by BTCVault._deposit() cleanup
+            uint256 supplyAfter = vault.totalSupply();
+            uint256 expectedSupply = supplyBefore + shares;
+            if (expectedSupply > supplyAfter) {
+                ghost_totalSharesRedeemed += expectedSupply - supplyAfter;
+            }
         } catch {
             // Graceful failure
         }
@@ -194,6 +210,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
         uint256 feeBalBefore = _feeRecipientBalance();
         uint256 assetsBefore = vault.totalAssets();
+        uint256 supplyBefore = vault.totalSupply();
 
         vm.prank(actor);
         try vault.withdraw(assets, actor, actor) returns (uint256 sharesBurned) {
@@ -206,6 +223,12 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
             ghost_netAssetsOut += assetsDelta;
             ghost_userWithdrawn[actor] += assets;
             ghost_withdrawCount++;
+
+            // Track dust shares burned by BTCVault._withdraw() cleanup
+            uint256 supplyAfter = vault.totalSupply();
+            if (supplyBefore > sharesBurned + supplyAfter) {
+                ghost_totalSharesRedeemed += supplyBefore - sharesBurned - supplyAfter;
+            }
         } catch {
             // Graceful failure
         }
@@ -228,6 +251,7 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
 
         uint256 feeBalBefore = _feeRecipientBalance();
         uint256 assetsBefore = vault.totalAssets();
+        uint256 supplyBefore = vault.totalSupply();
 
         vm.prank(actor);
         try vault.redeem(shares, actor, actor) returns (uint256 assetsReturned) {
@@ -240,6 +264,12 @@ contract BTCVaultHandler is BTCVaultFuzzTestBase {
             ghost_netAssetsOut += assetsDelta;
             ghost_userWithdrawn[actor] += assetsReturned;
             ghost_redeemCount++;
+
+            // Track dust shares burned by BTCVault._withdraw() cleanup
+            uint256 supplyAfter = vault.totalSupply();
+            if (supplyBefore > shares + supplyAfter) {
+                ghost_totalSharesRedeemed += supplyBefore - shares - supplyAfter;
+            }
         } catch {
             // Graceful failure
         }

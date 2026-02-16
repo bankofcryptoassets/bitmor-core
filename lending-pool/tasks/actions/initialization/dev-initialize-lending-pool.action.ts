@@ -2,11 +2,9 @@ import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import {
   deployLendingPoolCollateralManager,
   deployMockFlashLoanReceiver,
-  // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   deployAaveProtocolDataProvider,
-  // authorizeWETHGateway,  // Not used in Bitmor protocol
 } from '../../../helpers/contracts-deployments.js';
-import { getParamPerNetwork, insertContractAddressInDb, getContractAddress } from '../../../helpers/contracts-helpers.js';
+import { insertContractAddressInDb, getContractAddress } from '../../../helpers/contracts-helpers.js';
 import { eNetwork } from '../../../helpers/types.js';
 import {
   ConfigNames,
@@ -18,7 +16,7 @@ import {
 } from '../../../helpers/configuration.js';
 
 import { tEthereumAddress, eContractid } from '../../../helpers/types.js';
-import { waitForTx, filterMapBy, notFalsyOrZeroAddress } from '../../../helpers/misc-utils.js';
+import { waitForTx, filterMapBy } from '../../../helpers/misc-utils.js';
 import { configureReservesByHelper, initReservesByHelper } from '../../../helpers/init-helpers.js';
 import { getAllTokenAddresses } from '../../../helpers/mock-helpers.js';
 import { ZERO_ADDRESS } from '../../../helpers/constants.js';
@@ -55,7 +53,6 @@ export default async function devInitializeLendingPoolAction(
     StableDebtTokenNamePrefix,
     VariableDebtTokenNamePrefix,
     SymbolPrefix,
-    WethGateway,
     ReservesConfig,
   } = poolConfig;
 
