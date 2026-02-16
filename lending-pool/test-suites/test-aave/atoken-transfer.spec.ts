@@ -39,8 +39,8 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     expect(userATokenBalance.toString()).to.be.equal('0', 'User should NOT receive aTokens directly');
   });
 
-  it('User 0 deposits USDC via vault, User 1 borrows USDC with cbBTC collateral', async () => {
-    const { users, pool, oracle, usdc, mockBitmorUSDCVault, mockLoanProvider, cbBTC, mockLoan, addressesProvider } = testEnv;
+  it('User 0 deposits USDC via vault, User 1 borrows USDC with bvBTC collateral', async () => {
+    const { users, pool, oracle, usdc, mockBitmorUSDCVault, mockLoanProvider, btcVault, mockLoan, addressesProvider, helpersContract } = testEnv;
 
     const depositor = users[0];
     const borrower = users[1];
@@ -57,13 +57,13 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
       .connect(depositor.signer)
       .deposit(amountUSDCtoDeposit, depositor.address);
 
-    // User 1 deposits 1 cbBTC as collateral via mockLoanProvider (as loan contract)
-    const amountBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(cbBTC), '1');
-    await cbBTC.connect(borrower.signer).mint(amountBTCtoDeposit);
-    await cbBTC.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    // User 1 deposits 1 bvBTC (vault shares) as collateral via mockLoanProvider (as loan contract)
+    const amountBvBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountBvBTCtoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await mockLoanProvider
       .connect(borrower.signer)
-      .deposit(getContractAddress(cbBTC), amountBTCtoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountBvBTCtoDeposit, borrower.address, '0');
 
     // Calculate borrow amount (95% of available borrows)
     const userGlobalData = await pool.getUserAccountData(borrower.address);
@@ -81,7 +81,7 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     await mockLoan.createActiveLoan(
       borrower.address,
       borrower.address,
-      amountBTCtoDeposit,
+      amountBvBTCtoDeposit,
       amountUsdcToBorrow,
       12,
       5000
@@ -91,7 +91,8 @@ makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
     await addressesProvider.setUSDCVault(ZERO_ADDRESS);
 
     // Approve credit delegation
-    const Vdt = await DRE.ethers.getContractAt('VariableDebtToken', '0x7f19f1cc91f205633e9937e6782adc445ac40e86');
+    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt('VariableDebtToken', variableDebtTokenAddress);
     await Vdt.connect(borrower.signer).approveDelegation(
       mockLoanProvider.target,
       '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'

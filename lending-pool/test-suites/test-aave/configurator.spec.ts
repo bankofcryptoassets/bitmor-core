@@ -408,8 +408,8 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
     ).to.be.revertedWith(LPC_RESERVE_LIQUIDITY_NOT_0);
   });
 
-  it('Changes the interest rate strategy of CBBTC', async () => {
-    const { configurator, pool, cbBTC, addressesProvider } = testEnv;
+  it('Changes the interest rate strategy of bvBTC', async () => {
+    const { configurator, pool, btcVault, addressesProvider } = testEnv;
 
     // Deploy a new interest rate strategy
     const newStrategy = await deployDefaultReserveInterestRateStrategy(
@@ -426,17 +426,17 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
     );
 
     // Get the old strategy address
-    const reserveDataBefore = await pool.getReserveData(getContractAddress(cbBTC));
+    const reserveDataBefore = await pool.getReserveData(getContractAddress(btcVault));
     const oldStrategyAddress = reserveDataBefore.interestRateStrategyAddress;
 
     // Set the new strategy
     await configurator.setReserveInterestRateStrategyAddress(
-      getContractAddress(cbBTC),
+      getContractAddress(btcVault),
       getContractAddress(newStrategy)
     );
 
     // Verify the strategy was changed
-    const reserveDataAfter = await pool.getReserveData(getContractAddress(cbBTC));
+    const reserveDataAfter = await pool.getReserveData(getContractAddress(btcVault));
     expect(reserveDataAfter.interestRateStrategyAddress).to.be.equal(
       getContractAddress(newStrategy),
       'Interest rate strategy was not updated'
@@ -448,7 +448,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   });
 
   it('Check the onlyPoolAdmin on setReserveInterestRateStrategyAddress', async () => {
-    const { configurator, users, cbBTC, addressesProvider } = testEnv;
+    const { configurator, users, btcVault, addressesProvider } = testEnv;
 
     // Deploy a new strategy for the test
     const newStrategy = await deployDefaultReserveInterestRateStrategy(
@@ -467,7 +467,7 @@ makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
     await expect(
       configurator
         .connect(users[2].signer)
-        .setReserveInterestRateStrategyAddress(getContractAddress(cbBTC), getContractAddress(newStrategy)),
+        .setReserveInterestRateStrategyAddress(getContractAddress(btcVault), getContractAddress(newStrategy)),
       CALLER_NOT_POOL_ADMIN
     ).to.be.revertedWith(CALLER_NOT_POOL_ADMIN);
   });
