@@ -119,7 +119,8 @@ library LSALogic {
     ) internal returns (uint256 assetsReceived) {
         uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
 
-        uint256 minimumReceivable = estimatedReceivable.mulDiv(slippage_sharesToAsset, BASIS_POINT_SCALE);
+        uint256 minimumReceivable =
+            estimatedReceivable.mulDiv(BASIS_POINT_SCALE - slippage_sharesToAsset, BASIS_POINT_SCALE);
 
         bytes memory redeemData = abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, lsa);
 
@@ -128,6 +129,8 @@ library LSALogic {
         // Decode the actual amount redeemed.
         assetsReceived = abi.decode(result, (uint256));
 
-        if (assetsReceived < minimumReceivable) revert Errors.SlippageExceededWhileConvertingToAssets();
+        if (assetsReceived < minimumReceivable) {
+            revert Errors.SlippageExceededWhileConvertingToAssets();
+        }
     }
 }
