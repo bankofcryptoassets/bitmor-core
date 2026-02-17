@@ -8,7 +8,7 @@ import { APPROVAL_AMOUNT_LENDING_POOL } from '../../helpers/constants.js';
 import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
 import { ProtocolErrors } from '../../helpers/types.js';
 import { DRE } from '../../helpers/misc-utils.js';
-import { parseEther, parseUnits, AbiCoder } from 'ethers';
+import { parseEther, parseUnits, AbiCoder, MaxUint256 } from 'ethers';
 import BigNumber from 'bignumber.js';
 import chai from 'chai';
 
@@ -546,12 +546,14 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await usdc.connect(deployer.signer).mint(parseUnits('50000', 6));
       await usdc.connect(deployer.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
+      // Pass MaxUint256 to satisfy the full debt coverage check (contract caps to actual debt).
+      // The NOT_ENOUGH_LIQUIDITY error is hit after the debt coverage check passes.
       await expect(
         pool.liquidationCall(
           getContractAddress(btcVault),
           getContractAddress(usdc),
           user.address,
-          parseUnits('30000', 6),
+          MaxUint256,
           false
         )
       ).to.be.revertedWith(LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE);
