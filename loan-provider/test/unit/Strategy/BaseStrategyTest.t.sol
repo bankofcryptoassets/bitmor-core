@@ -102,20 +102,24 @@ contract BaseStrategyTest is Test {
         mockAsset.mint(_user, amount);
     }
 
-    /// @notice Deposit to Aave strategy as user
+    /// @notice Deposit to Aave strategy as vault (strategies are vault-only)
+    /// @dev Transfers assets from user to vault, then vault deposits to strategy
     /// @param amount Amount to deposit
     function _depositToStrategy(uint256 amount) internal {
-        vm.startPrank(user);
+        vm.prank(user);
+        mockAsset.transfer(address(mockVault), amount);
+
+        vm.startPrank(address(mockVault));
         mockAsset.approve(address(aaveStrategy), amount);
-        aaveStrategy.deposit(amount, user);
+        aaveStrategy.deposit(amount, address(mockVault));
         vm.stopPrank();
     }
 
-    /// @notice Withdraw from Aave strategy as user
+    /// @notice Withdraw from Aave strategy as vault (strategies are vault-only)
     /// @param amount Amount to withdraw
     function _withdrawFromStrategy(uint256 amount) internal {
-        vm.prank(user);
-        aaveStrategy.withdraw(amount, user, user);
+        vm.prank(address(mockVault));
+        aaveStrategy.withdraw(amount, address(mockVault), address(mockVault));
     }
 
     /// @notice Simulate yield by minting extra aTokens to strategy
@@ -126,11 +130,10 @@ contract BaseStrategyTest is Test {
         mockAToken.mint(address(aaveStrategy), yieldAmount);
     }
 
-    /// @notice Get user's share balance in strategy
-    /// @param _user Address to check
-    /// @return Share balance
-    function _getStrategyShares(address _user) internal view returns (uint256) {
-        return aaveStrategy.balanceOf(_user);
+    /// @notice Get vault's share balance in strategy
+    /// @return Share balance of the vault
+    function _getStrategyShares() internal view returns (uint256) {
+        return aaveStrategy.balanceOf(address(mockVault));
     }
 
     /// @notice Get strategy's total assets
