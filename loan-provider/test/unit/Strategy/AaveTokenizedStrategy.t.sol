@@ -267,4 +267,41 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
         aaveStrategy.deposit(0, address(mockVault));
         vm.stopPrank();
     }
+
+    // ============ Access Control Tests ============
+
+    /// @notice Test that deposit reverts when called by non-vault
+    function test_Deposit_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.deposit(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that mint reverts when called by non-vault
+    function test_Mint_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.mint(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that withdraw reverts when called by non-vault
+    function test_Withdraw_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.withdraw(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that redeem reverts when called by non-vault
+    function test_Redeem_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.redeem(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that withdrawAll reverts when called by non-vault
+    function test_WithdrawAll_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.withdrawAll();
+    }
 }
