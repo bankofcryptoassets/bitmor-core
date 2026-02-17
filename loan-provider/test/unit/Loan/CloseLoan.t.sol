@@ -513,4 +513,76 @@ contract CloseLoanTest is BaseLoanTest {
         assertEq(_getDebtBalance(lsa), 0, "Debt should be 0 after close");
         assertEq(_getCollateralBalance(lsa), 0, "Collateral should be 0 after close");
     }
+
+    // ============ Balance Sweep Isolation Tests (Issue #63) ============
+
+    /// @dev Simulated USDC residual from other users' exactOut swap surpluses (100 USDC)
+    uint256 internal constant SIMULATED_USDC_RESIDUAL = 100e6;
+
+    /// @dev Simulated cbBTC residual from other operations (0.001 BTC)
+    uint256 internal constant SIMULATED_BTC_RESIDUAL = 0.001e8;
+
+    /// @notice Closing a loan must NOT sweep pre-existing USDC residuals from the Loan contract
+    function test_closeLoan_doesNotSweepPreExistingUsdcResidual() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate accumulated USDC residual from other users' init operations
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcBefore, SIMULATED_USDC_RESIDUAL, "Loan should hold residual USDC");
+
+        // Close the loan withdrawing in USDC
+        vm.prank(user);
+        loan.closeLoan(lsa, false);
+
+        // The Loan contract should still hold the simulated residual
+        uint256 loanUsdcAfter = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcAfter, SIMULATED_USDC_RESIDUAL, "Loan must still hold other users' USDC residual");
+    }
+
+    /// @notice Closing a loan must NOT sweep pre-existing cbBTC residuals from the Loan contract
+    function test_closeLoan_doesNotSweepPreExistingBtcResidual() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate accumulated cbBTC residual
+        mockCbBTC.mint(address(loan), SIMULATED_BTC_RESIDUAL);
+
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+        assertGe(loanBtcBefore, SIMULATED_BTC_RESIDUAL, "Loan should hold residual cbBTC");
+
+        // Close the loan withdrawing in BTC
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // The Loan contract should still hold the simulated residual
+        uint256 loanBtcAfter = IERC20(btc).balanceOf(address(loan));
+        assertGe(loanBtcAfter, SIMULATED_BTC_RESIDUAL, "Loan must still hold other users' cbBTC residual");
+    }
+
+    /// @notice Two-user scenario: User B closing does not capture User A's init residual
+    function test_closeLoan_twoUsers_residualIsolation() public {
+        address userA = makeAddr("userA");
+        address userB = makeAddr("userB");
+
+        // User A creates a loan (exactOut swap leaves USDC residual in Loan contract)
+        _createStandardLoanForBorrower(userA);
+
+        // Record Loan contract USDC balance after User A's init
+        uint256 loanUsdcAfterInitA = IERC20(debtAsset).balanceOf(address(loan));
+
+        // Warp for CREATE2 salt uniqueness
+        vm.warp(block.timestamp + 1);
+
+        // User B creates a loan
+        address lsaB = _createStandardLoanForBorrower(userB);
+
+        // User B closes their loan
+        vm.prank(userB);
+        loan.closeLoan(lsaB, false);
+
+        // Loan contract should still hold at least User A's residual
+        uint256 loanUsdcAfterClose = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcAfterClose, loanUsdcAfterInitA, "Loan must still hold User A's residual after User B closes");
+    }
 }
