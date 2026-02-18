@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
-import { IERC20Metadata } from "@openzeppelin/interfaces/IERC20Metadata.sol";
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-import { IPriceOracleGetter } from "../../interfaces/IPriceOracleGetter.sol";
-import { ILoan } from "../../interfaces/ILoan.sol";
+import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
 
-import { Errors } from "../helpers/Errors.sol";
-import { DataTypes } from "../types/DataTypes.sol";
+import {Errors} from "../helpers/Errors.sol";
+import {DataTypes} from "../types/DataTypes.sol";
 
-import { AavePoolLogic } from "./AavePoolLogic.sol";
-import { BTCVaultLogic } from "./BTCVaultLogic.sol";
-import { BitmorLendingPoolLogic } from "./BitmorLendingPoolLogic.sol";
+import {AavePoolLogic} from "./AavePoolLogic.sol";
+import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
 /**
  * @title CloseLoanLogic
@@ -127,9 +127,7 @@ library CloseLoanLogic {
          * @dev `collateralAssetPrice` is the price of `bvBTC` shares.
          * It is calculated by converting 1 `bvBTC` share into BTC and mutiplying it by `BTC` price.
          */
-        vars.collateralAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(
-            ctx.collateralAsset
-        );
+        vars.collateralAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.collateralAsset);
         vars.debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
         vars.btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
 
@@ -143,17 +141,12 @@ library CloseLoanLogic {
 
         /// @dev Here the decimals will be same as `vars.collateralAmtInBTC`
         /// @dev Pre Closure Fee amount needs to be calculated in terms of `ctx.btc`
-        vars.preClosureFeeAmtInBTC = vars.collateralAmtInBTC.mulDivUp(
-            ctx.preClosureFeeBps,
-            BASIS_POINTS
-        );
+        vars.preClosureFeeAmtInBTC = vars.collateralAmtInBTC.mulDivUp(ctx.preClosureFeeBps, BASIS_POINTS);
 
         /// @dev Decimal Calulation
         /// decimals = 8, as its provided by Chainlink Price Feed.
-        vars.preClosureFeeUSD = vars.preClosureFeeAmtInBTC.mulDivUp(
-            vars.btcPrice,
-            10 ** IERC20Metadata(ctx.btc).decimals()
-        );
+        vars.preClosureFeeUSD =
+            vars.preClosureFeeAmtInBTC.mulDivUp(vars.btcPrice, 10 ** IERC20Metadata(ctx.btc).decimals());
 
         /// @dev Here the decimals will be
         /// decimals = IERC20Metadata(ctx.debtAsset).decimals();
@@ -168,23 +161,16 @@ library CloseLoanLogic {
 
         /// @dev Decimal Calculation
         /// decimals = 8, as its provided by Chainlink Price Feed.
-        vars.flashLoanPremiumAmountUSD = vars.flashLoanPremiumAmount.mulDivUp(
-            vars.debtAssetPrice,
-            10 ** IERC20Metadata(ctx.debtAsset).decimals()
-        );
+        vars.flashLoanPremiumAmountUSD =
+            vars.flashLoanPremiumAmount.mulDivUp(vars.debtAssetPrice, 10 ** IERC20Metadata(ctx.debtAsset).decimals());
 
         /// @dev This is to calculate the `vars.totalBTCAmtToSwap` which is in terms of `ctx.btc`
         /// @dev Decimal Calculation
         /// decimals = IERC20Metadata(ctx.btc).decimals()
-        vars.flashLoanPremiumAmountInBTC = vars.flashLoanPremiumAmountUSD.mulDivUp(
-            10 ** IERC20Metadata(ctx.btc).decimals(),
-            vars.btcPrice
-        );
+        vars.flashLoanPremiumAmountInBTC =
+            vars.flashLoanPremiumAmountUSD.mulDivUp(10 ** IERC20Metadata(ctx.btc).decimals(), vars.btcPrice);
 
-        if (
-            vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD >
-            vars.totalCollateralUSD
-        ) {
+        if (vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD > vars.totalCollateralUSD) {
             revert Errors.InsufficientCollateral();
         }
 
@@ -209,12 +195,8 @@ library CloseLoanLogic {
 
         bool initializingLoan = false;
 
-        bytes memory flData = abi.encode(
-            params.lsa,
-            params.withdrawInBTC,
-            vars.totalBTCAmtToSwap,
-            vars.preClosureFeeAmtInBTC
-        );
+        bytes memory flData =
+            abi.encode(params.lsa, params.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
         uint256 debtAssetBalBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
@@ -222,9 +204,7 @@ library CloseLoanLogic {
 
         ctx.aavePool.executeFlashLoan(address(this), ctx.debtAsset, vars.debtAmt, paramsForFL);
 
-        vars.remainingDebtAssetBal =
-            IERC20(ctx.debtAsset).balanceOf(address(this)) -
-            debtAssetBalBefore;
+        vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this)) - debtAssetBalBefore;
         vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this)) - btcBalBefore;
 
         if (vars.remainingBTCAmt > 0) {
@@ -255,10 +235,6 @@ library CloseLoanLogic {
         uint256 assetADecimals,
         uint256 assetBDecimals
     ) internal pure returns (uint256) {
-        return
-            assetAAmt.mulDivUp(
-                assetAPrice * (10 ** assetBDecimals),
-                assetBPrice * (10 ** assetADecimals)
-            );
+        return assetAAmt.mulDivUp(assetAPrice * (10 ** assetBDecimals), assetBPrice * (10 ** assetADecimals));
     }
 }
