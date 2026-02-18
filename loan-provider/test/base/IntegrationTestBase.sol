@@ -390,6 +390,14 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     // ============ Liquidation Helpers ============
 
+    /// @notice Queries checkTypeOfLiquidation from the lending pool
+    function _checkTypeOfLiquidation(address lsa) internal view returns (uint256 liquidationType) {
+        (bool ok, bytes memory data) =
+            bitmorPool.staticcall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", lsa));
+        require(ok, "checkTypeOfLiquidation failed");
+        liquidationType = abi.decode(data, (uint256));
+    }
+
     /// @notice Triggers a micro-liquidation on the BLP for a given LSA
     /// @dev Uses low-level call because BLP is Solidity 0.6.12
     /// @return success Whether the call succeeded

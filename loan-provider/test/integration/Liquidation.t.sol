@@ -220,15 +220,4 @@ contract LiquidationTest is IntegrationTestBase {
         assertFalse(success, "liquidationCall should revert for healthy loan");
     }
 
-    // ============ Internal Helpers ============
-
-    /// @notice Queries checkTypeOfLiquidation from the lending pool
-    /// @param lsa The loan smart account address
-    /// @return liquidationType The liquidation type (0=none, 1=full, 2=micro)
-    function _checkTypeOfLiquidation(address lsa) internal view returns (uint256 liquidationType) {
-        (bool ok, bytes memory data) =
-            bitmorPool.staticcall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", lsa));
-        assertTrue(ok, "checkTypeOfLiquidation should succeed");
-        liquidationType = abi.decode(data, (uint256));
-    }
 }
