@@ -1,19 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Test} from "forge-std/Test.sol";
-import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
-import {LSALogicHarness} from "../../harness/LSALogicHarness.sol";
-import {MockBTCVault} from "../../mock/MockBTCVault.sol";
-import {MockERC20} from "../../mock/MockERC20.sol";
-import {MockAToken} from "../../mock/MockAToken.sol";
-import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
-import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
-import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";
-import {MockPriceOracle} from "../../mock/MockPriceOracle.sol";
-import {MockInterestRateStrategy} from "../../mock/MockInterestRateStrategy.sol";
-import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {LSAFuzzTestBase} from "../base/LSAFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /**
  * @title LSALogicFuzzTest
@@ -25,113 +15,7 @@ import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
  *
  * @custom:audit-category Financial Safety, Token Accounting, Edge Cases
  */
-contract LSALogicFuzzTest is Test {
-    // ============ Constants ============
-
-    /// @dev Standard slippage for clean-vault tests: 95% (9500 BPS)
-    uint256 private constant STANDARD_SLIPPAGE = 95_00;
-
-    /// @dev Basis points denominator
-    uint256 private constant BPS_DENOMINATOR = 100_00;
-
-    /// @dev Default deposit for redeemBTC tests: 100 BTC
-    uint256 private constant DEFAULT_DEPOSIT = 100e8;
-
-    // ============ Infrastructure ============
-
-    /// @notice Harness exposing LSALogic internal functions
-    LSALogicHarness public harness;
-
-    /// @notice Mock cbBTC token (underlying for the BTC vault)
-    MockERC20 public cbBTC;
-
-    /// @notice Mock BTC vault (ERC-4626, wraps cbBTC into bvBTC shares)
-    MockBTCVault public btcVault;
-
-    /// @notice LoanVault instance (LSA) owned by the harness
-    LoanVault public vault;
-
-    /// @notice Recipient address for redeemed/withdrawn tokens
-    address public recipient;
-
-    // ============ withdrawCollateral Infrastructure ============
-
-    /// @notice Mock Bitmor lending pool for withdrawCollateral tests
-    MockBitmorLendingPool public mockPool;
-
-    /// @notice Mock aToken for bvBTC in the lending pool
-    MockAToken public aTokenBvBTC;
-
-    // ============ Setup ============
-
-    function setUp() public {
-        recipient = makeAddr("recipient");
-
-        // Deploy tokens
-        cbBTC = new MockERC20("Coinbase BTC", "cbBTC", 8);
-
-        // Deploy BTC vault
-        btcVault = new MockBTCVault(address(cbBTC), "Bitmor BTC Vault", "bvBTC", 8);
-
-        // Deploy harness (will be the vault owner)
-        harness = new LSALogicHarness();
-
-        // Deploy vault owned by harness
-        vault = new LoanVault();
-        vault.initialize(address(harness), makeAddr("borrower"));
-
-        // Deploy lending pool infrastructure for withdrawCollateral test
-        _deployWithdrawalInfrastructure();
-    }
-
-    /// @notice Deploys mock lending pool infrastructure needed for withdrawCollateral tests
-    function _deployWithdrawalInfrastructure() internal {
-        MockPriceOracle oracle = new MockPriceOracle(address(btcVault), address(cbBTC));
-        MockAddressesProvider provider = new MockAddressesProvider(address(0), address(oracle), address(this));
-
-        mockPool = new MockBitmorLendingPool(address(provider));
-        provider.setLendingPool(address(mockPool));
-
-        // Deploy aToken for bvBTC (underlying = bvBTC, pool = mockPool)
-        aTokenBvBTC = new MockAToken("aToken bvBTC", "abvBTC", 8, address(btcVault), address(mockPool));
-
-        // Deploy a debt token (required for initReserveWithStrategy even though unused for withdraw)
-        MockVariableDebtToken debtToken =
-            new MockVariableDebtToken("Debt bvBTC", "dbvBTC", 8, address(btcVault), address(mockPool));
-
-        // Deploy minimal interest rate strategy
-        MockInterestRateStrategy irs = new MockInterestRateStrategy();
-
-        // Initialize bvBTC reserve in lending pool
-        mockPool.initReserveWithStrategy(address(btcVault), address(aTokenBvBTC), address(debtToken), address(irs));
-    }
-
-    // ============ Helpers ============
-
-    /**
-     * @notice Deposits cbBTC into the BTC vault, sending bvBTC shares to the LSA
-     * @param amount Amount of cbBTC to deposit
-     * @return shares Number of bvBTC shares received by the LSA
-     */
-    function _depositToVault(uint256 amount) internal returns (uint256 shares) {
-        cbBTC.mint(address(this), amount);
-        cbBTC.approve(address(btcVault), amount);
-        shares = btcVault.deposit(amount, address(vault));
-    }
-
-    /**
-     * @notice Deposits cbBTC into the BTC vault with additional yield to create non-1:1 ratio
-     * @param depositAmount Amount of cbBTC to deposit
-     * @param yieldAmount Extra cbBTC minted directly to vault (simulates yield accrual)
-     * @return shares Number of bvBTC shares received by the LSA
-     */
-    function _depositToVaultWithYield(uint256 depositAmount, uint256 yieldAmount) internal returns (uint256 shares) {
-        shares = _depositToVault(depositAmount);
-        if (yieldAmount > 0) {
-            cbBTC.mint(address(btcVault), yieldAmount);
-        }
-    }
-
+contract LSALogicFuzzTest is LSAFuzzTestBase {
     // ============ Tests — redeemBTC ============
 
     /**
@@ -153,7 +37,7 @@ contract LSALogicFuzzTest is Test {
         uint256 yieldAmount,
         uint256 sharesSeed
     ) public {
-        depositAmount = bound(depositAmount, 1e5, 100e8);
+        depositAmount = bound(depositAmount, 1e5, FC.MAX_BTC_AMOUNT);
         yieldAmount = bound(yieldAmount, 0, depositAmount);
 
         uint256 sharesReceived = _depositToVaultWithYield(depositAmount, yieldAmount);
@@ -180,12 +64,12 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity Critical
      */
     function testFuzz_redeemBTC_RevertsWhenBelowMinimum(uint256 sharesSeed, uint256 shortfallSeed) public {
-        uint256 sharesReceived = _depositToVault(DEFAULT_DEPOSIT);
+        uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
         uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
 
         uint256 estimated = btcVault.convertToAssets(sharesToRedeem);
-        uint256 minimum = (estimated * STANDARD_SLIPPAGE) / BPS_DENOMINATOR;
+        uint256 minimum = (estimated * STANDARD_SLIPPAGE) / FC.BPS_DENOMINATOR;
 
         // Need minimum > 0 to trigger meaningful slippage check
         vm.assume(minimum > 0);
@@ -211,10 +95,10 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity Medium
      */
     function testFuzz_redeemBTC_ZeroSlippageAcceptsAnyReturn(uint256 sharesSeed, uint256 returnSeed) public {
-        uint256 sharesReceived = _depositToVault(DEFAULT_DEPOSIT);
+        uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
         uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
-        uint256 mockReturn = bound(returnSeed, 0, DEFAULT_DEPOSIT);
+        uint256 mockReturn = bound(returnSeed, 0, FC.MAX_BTC_AMOUNT);
 
         btcVault.setMockRedeemReturn(mockReturn);
 
@@ -238,12 +122,12 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity Medium
      */
     function testFuzz_redeemBTC_RevertsWhenSlippageExceedsBPS(uint256 sharesSeed, uint256 slippageSeed) public {
-        uint256 sharesReceived = _depositToVault(DEFAULT_DEPOSIT);
+        uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
-        // Bound sharesToRedeem >= BPS_DENOMINATOR so that floor(estimated * slippage / 10000) > estimated
+        // Bound sharesToRedeem >= FC.BPS_DENOMINATOR so that floor(estimated * slippage / 10000) > estimated
         // for any slippage > 10000. With small shares, integer truncation can make minimum == estimated.
-        uint256 sharesToRedeem = bound(sharesSeed, BPS_DENOMINATOR, sharesReceived);
-        uint256 slippage = bound(slippageSeed, BPS_DENOMINATOR + 1, 2 * BPS_DENOMINATOR);
+        uint256 sharesToRedeem = bound(sharesSeed, FC.BPS_DENOMINATOR, sharesReceived);
+        uint256 slippage = bound(slippageSeed, FC.BPS_DENOMINATOR + 1, 2 * FC.BPS_DENOMINATOR);
 
         // With clean vault, actual redeem <= estimated. But minimum > estimated, so always reverts.
         vm.expectRevert(Errors.SlippageExceededWhileConvertingToAssets.selector);
@@ -263,7 +147,7 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity Critical
      */
     function testFuzz_redeemBTC_TokenFlowConservation(uint256 depositSeed, uint256 sharesSeed) public {
-        uint256 depositAmount = bound(depositSeed, 1e5, 100e8);
+        uint256 depositAmount = bound(depositSeed, 1e5, FC.MAX_BTC_AMOUNT);
 
         uint256 sharesReceived = _depositToVault(depositAmount);
         uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
@@ -299,7 +183,7 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity High
      */
     function testFuzz_redeemBTC_MonotonicShareRedemption(uint256 shares1Seed, uint256 shares2Seed) public {
-        uint256 sharesReceived = _depositToVault(DEFAULT_DEPOSIT);
+        uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
         // Ensure shares1 < shares2 and both valid
         uint256 shares1 = bound(shares1Seed, 1, sharesReceived - 1);
@@ -336,7 +220,7 @@ contract LSALogicFuzzTest is Test {
      * @custom:audit-severity Critical
      */
     function testFuzz_withdrawCollateral_TokenFlowConservation(uint256 depositSeed) public {
-        uint256 depositAmount = bound(depositSeed, 1e5, 100e8);
+        uint256 depositAmount = bound(depositSeed, 1e5, FC.MAX_BTC_AMOUNT);
 
         // Step 1: Get bvBTC shares into the test contract (not the vault)
         cbBTC.mint(address(this), depositAmount);

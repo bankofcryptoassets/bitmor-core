@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
+import {LoanFuzzTestBase} from "../base/LoanFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
@@ -16,64 +16,15 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
  *
  * @custom:audit-category Core Functionality, Financial Safety, Storage Integrity
  */
-contract InitializeLoanFuzzTest is LoanUnitTestBase {
-    // ============ Constants ============
-
-    /// @dev Maximum premium to fuzz: 100k USDC
-    uint256 private constant MAX_PREMIUM = 100_000e6;
-
-    /// @dev Basis points denominator
-    uint256 private constant BPS_DENOMINATOR = 10_000;
-
+contract InitializeLoanFuzzTest is LoanFuzzTestBase {
     // ============ Bound Helpers ============
 
     /**
-     * @notice Bounds collateral to the Loan contract's configured min/max range
-     * @param raw Raw fuzz input to bound
-     */
-    function _boundCollateral(uint256 raw) internal view returns (uint256) {
-        return bound(raw, loan.getMinBTCAmount(), loan.getMaxBTCAmount());
-    }
-
-    /**
-     * @notice Bounds duration to valid range (1-60 months)
-     * @param raw Raw fuzz input to bound
-     */
-    function _boundDuration(uint256 raw) internal pure returns (uint256) {
-        return bound(raw, FC.MIN_DURATION, FC.MAX_DURATION);
-    }
-
-    /**
-     * @notice Bounds premium to [0, MAX_PREMIUM]
+     * @notice Bounds premium to [0, FC.MAX_PREMIUM]
      * @param raw Raw fuzz input to bound
      */
     function _boundPremium(uint256 raw) internal pure returns (uint256) {
-        return bound(raw, 0, MAX_PREMIUM);
-    }
-
-    /**
-     * @notice Bounds deposit between the contract-computed minimum and 90% of collateral value
-     * @dev 90% cap ensures a non-zero loan amount (deposit < collateralValue)
-     * @param collateral Collateral amount in cbBTC (8 decimals)
-     * @param duration Loan duration in months
-     * @param raw Raw fuzz input to bound
-     */
-    function _boundValidDeposit(uint256 collateral, uint256 duration, uint256 raw)
-        internal
-        view
-        returns (uint256 deposit, uint256 minDeposit)
-    {
-        (,, minDeposit) = loan.getLoanDetails(collateral, duration);
-        uint256 btcPrice = mockOracle.getAssetPrice(address(mockBTCVault));
-        uint256 collateralValueUsdc = (collateral * btcPrice) / 1e8; // 8 dec price → 8 dec BTC → 8 dec USD
-        uint256 maxDeposit = (collateralValueUsdc * 90) / 100; // 90% cap in USD (8 dec)
-        maxDeposit = (maxDeposit * 1e6) / 1e8; // Convert to USDC (6 dec)
-
-        if (minDeposit >= maxDeposit) {
-            deposit = minDeposit;
-        } else {
-            deposit = bound(raw, minDeposit, maxDeposit);
-        }
+        return bound(raw, 0, FC.MAX_PREMIUM);
     }
 
     /**
@@ -378,10 +329,11 @@ contract InitializeLoanFuzzTest is LoanUnitTestBase {
     /**
      * @notice Two independent financial constraints must hold for any valid loan:
      *         (1) loanAmount < collateralValueUsdc - user always puts down equity
-     *         (2) loanAmount <= 70% of collateralValue - protocol enforces min 30% deposit
+     *         (2) loanAmount <= (100% - TC.MIN_DEPOSIT) of collateralValue
      *         Neither check mirrors the production formula; they are independent invariants.
-     * @dev Uses s_minDeposit = 3000 bps (30%), so actual max loan is 70%. The 70% bound
-     *      is intentionally tight to match the protocol's configured minimum.
+     * @dev TC.MIN_DEPOSIT (30_00 bps = 30%) is configured via _configureLoanParameters in setUp.
+     *      Max loan = (BPS_DENOMINATOR - MIN_DEPOSIT) / BPS_DENOMINATOR of collateral value.
+     *      +1 tolerance accounts for fullMulDivUp rounding in the loan amount calculation.
      * @param collateralSeed Seed for bounded collateral amount
      * @param durationSeed Seed for bounded duration
      * @param depositSeed Seed for bounded deposit amount
@@ -416,12 +368,13 @@ contract InitializeLoanFuzzTest is LoanUnitTestBase {
             "loan amount must be strictly less than collateral value (user equity)"
         );
 
-        // Invariant 2: loanAmount <= 70% of collateralValue (min 30% deposit enforced)
-        uint256 maxLoanAmount = (collateralValueUsdc * 70_00) / BPS_DENOMINATOR;
+        // Invariant 2: loanAmount <= (100% - minDeposit%) of collateralValue
+        uint256 maxLoanBps = FC.BPS_DENOMINATOR - TC.MIN_DEPOSIT;
+        uint256 maxLoanAmount = (collateralValueUsdc * maxLoanBps) / FC.BPS_DENOMINATOR;
         assertLe(
             data.loanAmount,
-            maxLoanAmount + 1, // +1 for fullMulDivUp rounding tolerance
-            "loan amount must not exceed 70% of collateral value (30% deposit floor)"
+            maxLoanAmount + 2, // +2: production chains two fullMulDivUp ops (collateral→USD, USD→USDC) and the test rounds DOWN in 3 intermediate divisions, so cumulative rounding can exceed +1
+            "loan amount must not exceed max loan ratio derived from TC.MIN_DEPOSIT"
         );
     }
 }

@@ -121,7 +121,7 @@ contract LoanInvariantHandler is LoanFuzzTestBase {
 
         uint256 collateral = _boundCollateral(collateralSeed);
         uint256 duration = _boundDuration(durationSeed);
-        uint256 premium = bound(premiumSeed, 0, 100_000e6);
+        uint256 premium = bound(premiumSeed, 0, FC.MAX_PREMIUM);
 
         (uint256 deposit,) = _boundValidDeposit(collateral, duration, depositSeed);
 

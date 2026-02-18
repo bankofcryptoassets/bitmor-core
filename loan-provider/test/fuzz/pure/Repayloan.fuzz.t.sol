@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
+import {LoanFuzzTestBase} from "../base/LoanFuzzTestBase.sol";
+import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
@@ -15,7 +16,17 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
  *
  * @custom:audit-category Financial Safety, Storage Integrity, Token Accounting
  */
-contract RepayLoanFuzzTest is LoanUnitTestBase {
+contract RepayLoanFuzzTest is LoanFuzzTestBase {
+    // ============ Setup ============
+
+    /// @notice Pre-funds user with USDC so _createStandardLoan() works without per-test funding
+    function setUp() public override {
+        super.setUp();
+        _fundUSDC(user, TC.USER_USDC_BALANCE);
+        vm.prank(user);
+        mockUSDC.approve(address(loan), type(uint256).max);
+    }
+
     // ============ Helpers ============
 
     /**

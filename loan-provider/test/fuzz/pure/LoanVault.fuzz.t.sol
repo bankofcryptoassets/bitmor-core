@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
 import {MockReturnTarget} from "../../mock/LoanVaultMocks.sol";
 
@@ -94,8 +95,8 @@ contract LoanVaultFuzzTest is Test {
 
         bytes memory initData = abi.encodeWithSelector(LoanVault.initialize.selector, newOwner, newBorrower);
 
-        // Inner call fails ("already initialized"), outer execute reverts ("execution failed")
-        vm.expectRevert("LoanVault: execution failed");
+        // Inner call fails (already initialized), outer execute reverts (execution failed)
+        vm.expectRevert(Errors.LoanVault__ExecutionFailed.selector);
         vault.execute(address(vault), initData);
 
         assertEq(vault.owner(), originalOwner, "owner must not change after failed re-initialization");

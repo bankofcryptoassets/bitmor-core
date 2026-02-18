@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
+import {LoanFuzzTestBase} from "../base/LoanFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
@@ -24,24 +24,8 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
  *
  * @custom:audit-category State Machine, Financial Safety, Cross-Lifecycle Integrity
  */
-contract CloseLoanFuzzTest is LoanUnitTestBase {
-    // ============ Bound Helpers ============
-
-    /**
-     * @notice Bounds collateral to the Loan contract's configured min/max range
-     * @param raw Raw fuzz input to bound
-     */
-    function _boundCollateral(uint256 raw) internal view returns (uint256) {
-        return bound(raw, loan.getMinBTCAmount(), loan.getMaxBTCAmount());
-    }
-
-    /**
-     * @notice Bounds duration to valid range (1-60 months)
-     * @param raw Raw fuzz input to bound
-     */
-    function _boundDuration(uint256 raw) internal pure returns (uint256) {
-        return bound(raw, FC.MIN_DURATION, FC.MAX_DURATION);
-    }
+contract CloseLoanFuzzTest is LoanFuzzTestBase {
+    // ============ Helpers ============
 
     /**
      * @notice Funds user with USDC and approves the loan contract for max spending
@@ -188,7 +172,7 @@ contract CloseLoanFuzzTest is LoanUnitTestBase {
         address lsa = _createLoanWithParams(TC.STANDARD_COLLATERAL, duration);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
+        uint256 partialAmount = loanData.estimatedMonthlyPayment / 2;
         address collector = loan.getPremiumCollector();
 
         // Snapshot state after loan creation
@@ -202,13 +186,13 @@ contract CloseLoanFuzzTest is LoanUnitTestBase {
 
         uint256 fee_A = mockCbBTC.balanceOf(collector) - collectorBefore_A;
 
-        // --- Path B: Make N repayments, then close ---
+        // --- Path B: Make N partial repayments, then close ---
         vm.revertToState(snapId);
 
         for (uint256 i = 0; i < numRepayments; i++) {
-            _fundUSDC(user, monthlyPayment);
+            _fundUSDC(user, partialAmount);
             vm.prank(user);
-            loan.repay(lsa, monthlyPayment);
+            loan.repay(lsa, partialAmount);
         }
 
         uint256 collectorBefore_B = mockCbBTC.balanceOf(collector);
@@ -246,13 +230,13 @@ contract CloseLoanFuzzTest is LoanUnitTestBase {
         address lsa = _createLoanWithParams(TC.STANDARD_COLLATERAL, duration);
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
+        uint256 partialAmount = loanData.estimatedMonthlyPayment / 2;
 
-        // Make N partial repayments
+        // Make N partial repayments (each < estimatedMonthlyPayment, so no full period credited)
         for (uint256 i = 0; i < numRepayments; i++) {
-            _fundUSDC(user, monthlyPayment);
+            _fundUSDC(user, partialAmount);
             vm.prank(user);
-            loan.repay(lsa, monthlyPayment);
+            loan.repay(lsa, partialAmount);
         }
 
         // Verify loan is still active after partial repayments

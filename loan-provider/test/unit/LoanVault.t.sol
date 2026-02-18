@@ -96,13 +96,13 @@ contract LoanVaultTest is Test {
 
     /// @notice initialize reverts when owner is zero address
     function test_initialize_RevertWhen_OwnerIsZeroAddress() public {
-        vm.expectRevert("LoanVault: invalid owner");
+        vm.expectRevert(Errors.LoanVault__InvalidOwner.selector);
         vault.initialize(address(0), borrower);
     }
 
     /// @notice initialize reverts when borrower is zero address
     function test_initialize_RevertWhen_BorrowerIsZeroAddress() public {
-        vm.expectRevert("LoanVault: invalid borrower");
+        vm.expectRevert(Errors.LoanVault__InvalidBorrower.selector);
         vault.initialize(owner, address(0));
     }
 
@@ -119,7 +119,7 @@ contract LoanVaultTest is Test {
     function test_initialize_RevertWhen_AlreadyInitialized() public {
         vault.initialize(owner, borrower);
 
-        vm.expectRevert("LoanVault: already initialized");
+        vm.expectRevert(Errors.LoanVault__AlreadyInitialized.selector);
         vault.initialize(attacker, attacker);
     }
 
@@ -145,7 +145,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: invalid token");
+        vm.expectRevert(Errors.LoanVault__InvalidToken.selector);
         vault.approveToken(address(0), spender, TC.USER_USDC_BALANCE);
     }
 
@@ -156,7 +156,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: invalid spender");
+        vm.expectRevert(Errors.LoanVault__InvalidSpender.selector);
         vault.approveToken(address(mockToken), address(0), TC.USER_USDC_BALANCE);
     }
 
@@ -180,7 +180,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(attacker);
-        vm.expectRevert("LoanVault: caller is not owner");
+        vm.expectRevert(Errors.LoanVault__CallerIsNotOwner.selector);
         vault.approveToken(address(mockToken), spender, TC.USER_USDC_BALANCE);
     }
 
@@ -224,7 +224,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: invalid token");
+        vm.expectRevert(Errors.LoanVault__InvalidToken.selector);
         vault.transferToken(address(0), recipient, TC.PREMIUM_AMOUNT);
     }
 
@@ -236,7 +236,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: invalid to address");
+        vm.expectRevert(Errors.LoanVault__InvalidToAddress.selector);
         vault.transferToken(address(mockToken), address(0), TC.PREMIUM_AMOUNT);
     }
 
@@ -265,7 +265,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(attacker);
-        vm.expectRevert("LoanVault: caller is not owner");
+        vm.expectRevert(Errors.LoanVault__CallerIsNotOwner.selector);
         vault.transferToken(address(mockToken), recipient, TC.PREMIUM_AMOUNT);
     }
 
@@ -320,7 +320,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: invalid target");
+        vm.expectRevert(Errors.LoanVault__InvalidTarget.selector);
         vault.execute(address(0), abi.encodeWithSignature("foo()"));
     }
 
@@ -331,7 +331,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(owner);
-        vm.expectRevert("LoanVault: execution failed");
+        vm.expectRevert(Errors.LoanVault__ExecutionFailed.selector);
         vault.execute(address(revertingTarget), abi.encodeWithSignature("alwaysReverts()"));
     }
 
@@ -362,7 +362,7 @@ contract LoanVaultTest is Test {
 
         // Act + Assert
         vm.prank(attacker);
-        vm.expectRevert("LoanVault: caller is not owner");
+        vm.expectRevert(Errors.LoanVault__CallerIsNotOwner.selector);
         vault.execute(address(returnTarget), abi.encodeWithSignature("foo()"));
     }
 
@@ -638,7 +638,7 @@ contract LoanVaultTest is Test {
         mockBitmorPool.setInvalidReserve(address(mockUSDC));
 
         // Act + Assert
-        vm.expectRevert("LSALogic: invalid debt token");
+        vm.expectRevert(Errors.LSALogic__InvalidDebtToken.selector);
         lsaHarness.exposed_approveCreditDelegation(
             address(lsa), address(mockBitmorPool), address(mockUSDC), TC.USER_USDC_BALANCE, address(this)
         );
