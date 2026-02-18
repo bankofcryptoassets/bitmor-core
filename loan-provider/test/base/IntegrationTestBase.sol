@@ -399,10 +399,10 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     }
 
     /// @notice Triggers a micro-liquidation on the BLP for a given LSA
-    /// @dev Uses low-level call because BLP is Solidity 0.6.12
+    /// @dev Uses low-level call because BLP is Solidity 0.6.12.
+    ///      Caller must call _setupLiquidator() before using this helper.
     /// @return success Whether the call succeeded
     function _triggerMicroLiquidation(address lsa) internal returns (bool success) {
-        _setupLiquidator();
         bytes memory mlData = abi.encode(address(btcVault), address(usdc), lsa);
         vm.prank(testLiquidator);
         (success,) = bitmorPool.call(
@@ -411,9 +411,9 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     }
 
     /// @notice Triggers a full liquidation on the BLP for a given LSA
+    /// @dev Caller must call _setupLiquidator() before using this helper.
     /// @return success Whether the call succeeded
     function _triggerFullLiquidation(address lsa) internal returns (bool success) {
-        _setupLiquidator();
         vm.prank(testLiquidator);
         (success,) = bitmorPool.call(
             abi.encodeWithSignature(
@@ -455,6 +455,14 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         uint256 currentBalance = IERC20(aToken).balanceOf(strategy);
         uint256 lossAmount = currentBalance * lossBps / 10_000;
         deal(aToken, strategy, currentBalance - lossAmount);
+    }
+
+    // ============ Insurance Helpers ============
+
+    /// @notice Sets insurance ID on a loan (admin has EXECUTOR role from deploy-local)
+    function _setInsurance(address lsa, uint256 insuranceId) internal {
+        vm.prank(admin);
+        loanContract.updateInsuranceId(lsa, insuranceId);
     }
 
     // ============ State Management ============
