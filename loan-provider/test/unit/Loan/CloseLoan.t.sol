@@ -693,15 +693,9 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Verify balances are completely unchanged (revert = no state change)
         assertEq(
-            IERC20(debtAsset).balanceOf(address(loan)),
-            loanUsdcBefore,
-            "USDC balance must be unchanged after revert"
+            IERC20(debtAsset).balanceOf(address(loan)), loanUsdcBefore, "USDC balance must be unchanged after revert"
         );
-        assertEq(
-            IERC20(btc).balanceOf(address(loan)),
-            loanBtcBefore,
-            "cbBTC balance must be unchanged after revert"
-        );
+        assertEq(IERC20(btc).balanceOf(address(loan)), loanBtcBefore, "cbBTC balance must be unchanged after revert");
 
         // Verify loan is still active (not accidentally closed)
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
@@ -709,5 +703,54 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Clean up
         mockSwapAdapter.clearFixedOutput();
+    }
+
+    // ============ Slippage + Residual Guard Tests ============
+
+    /// @dev Mock slippage in bps that is within protocol's maxSlippage (50 bps) but
+    ///      enough to cause swap output < flash loan repayment at exact oracle price.
+    uint256 internal constant SLIPPAGE_TRIGGERING_GUARD = 30;
+
+    /// @notice With realistic swap slippage + pre-existing residuals, InsufficientSwapOutput guard fires
+    /// @dev Exercises the scenario where slippage causes BTC→USDC swap output < flash loan repayment
+    ///      (debtAmt + premium). The guard at FlashLoanLogic.sol:252-254 prevents the Aave pool from
+    ///      pulling pre-existing USDC residuals to cover the shortfall, which would cause the snapshot-diff
+    ///      subtraction at CloseLoanLogic.sol:207 to underflow.
+    ///
+    ///      Guard chain for withdrawInBTC=true:
+    ///      1. MockSwapAdapter check (line 105): passes because 30 bps < protocol's 50 bps maxSlippage
+    ///      2. SwapLogic.LessThanMinimumAmtReceived (line 43): passes for the same reason
+    ///      3. FlashLoanLogic.InsufficientSwapOutput (line 252): FIRES because swap output at 30 bps
+    ///         slippage is strictly less than totalFlashLoanBorrowedAmt computed at exact oracle price
+    function test_RevertWhen_CloseLoan_SlippageWithResiduals_InsufficientSwapOutput() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate pre-existing USDC residual from other users' exactOut swap surpluses
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+
+        // Enable slippage on mock swap adapter: 30 bps is within protocol's 50 bps maxSlippage
+        // tolerance, so it passes SwapLogic's LessThanMinimumAmtReceived guard, but the output
+        // is 0.3% below oracle price — insufficient to cover flash loan repayment.
+        mockSwapAdapter.setSlippage(SLIPPAGE_TRIGGERING_GUARD);
+
+        // Close loan with withdrawInBTC=true (only swaps enough BTC to cover flash loan repayment)
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Verify residuals are untouched (revert = no state change)
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(loan)), loanUsdcBefore, "USDC residual must be unchanged after revert"
+        );
+        assertEq(IERC20(btc).balanceOf(address(loan)), loanBtcBefore, "cbBTC balance must be unchanged after revert");
+
+        // Verify loan is still active
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should still be active");
+
+        // Clean up
+        mockSwapAdapter.setSlippage(0);
     }
 }
