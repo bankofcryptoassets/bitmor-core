@@ -226,9 +226,22 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         usdcVault.deposit(TC.LENDING_POOL_USDC_BALANCE, seeder);
     }
 
+    /// @notice Seeds BTCVault with initial cbBTC so oracle price is computable
+    /// @dev BTCVault.deposit() requires BVD role - only the Loan contract has it.
+    ///      We prank as the Loan contract to bootstrap the vault.
+    function _seedBTCVault() internal {
+        uint256 seedAmount = 1e8; // 1 BTC
+        _fundCbBTC(address(loanContract), seedAmount);
+        vm.startPrank(address(loanContract));
+        cbBTC.approve(address(btcVault), seedAmount);
+        btcVault.deposit(seedAmount, address(loanContract));
+        vm.stopPrank();
+    }
+
     /// @notice Funds testUser with tokens, approves Loan, grants EXECUTOR role
     function _setupTestUser() internal {
         _seedBLPLiquidity();
+        _seedBTCVault();
         _fundUSDC(testUser, TC.USER_USDC_BALANCE);
         _fundCbBTC(testUser, TC.USER_CBBTC_BALANCE);
 
