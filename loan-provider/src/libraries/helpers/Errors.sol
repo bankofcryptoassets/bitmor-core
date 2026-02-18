@@ -229,8 +229,12 @@ library Errors {
     /// @notice Thrown when a fee parameter is set to an invalid value
     error InvalidFee();
 
+    /// @notice Thrown when the exact-output swap requires more input tokens than available.
     error LessAmountForExactOutSwap();
 
     /// @notice Thrown when slippage exceeds the allowed value.
     error InvalidSlippage();
+
+    /// @notice Thrown when cbBTC-to-USDC swap output is insufficient to cover flash loan repayment.
+    error InsufficientSwapOutput();
 }

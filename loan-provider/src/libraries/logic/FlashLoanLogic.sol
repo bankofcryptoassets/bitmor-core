@@ -248,6 +248,11 @@ library FlashLoanLogic {
                 vars.minimumAcceptable,
                 address(this)
             );
+
+        if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
+            revert Errors.InsufficientSwapOutput();
+        }
+
         // ===============================================================
 
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);

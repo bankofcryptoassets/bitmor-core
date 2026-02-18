@@ -199,10 +199,13 @@ library CloseLoanLogic {
             abi.encode(params.lsa, params.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
+        uint256 debtAssetBalBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
+        uint256 btcBalBefore = IERC20(ctx.btc).balanceOf(address(this));
+
         ctx.aavePool.executeFlashLoan(address(this), ctx.debtAsset, vars.debtAmt, paramsForFL);
 
-        vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this));
-        vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this));
+        vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this)) - debtAssetBalBefore;
+        vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this)) - btcBalBefore;
 
         if (vars.remainingBTCAmt > 0) {
             IERC20(ctx.btc).safeTransfer(loan.borrower, vars.remainingBTCAmt);

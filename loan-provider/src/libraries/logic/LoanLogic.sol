@@ -119,6 +119,9 @@ library LoanLogic {
         userLoanAtIndex[params.user][loanIndex] = lsa;
         userLoanCount[params.user] = loanIndex + 1;
 
+        /// @dev Snapshot balance before deposit+flash loan to refund exactOut swap surplus
+        uint256 balBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
+
         // Transfer deposit from user to contract
         IERC20(ctx.debtAsset).safeTransferFrom(params.user, address(this), params.depositAmount);
 
@@ -133,6 +136,12 @@ library LoanLogic {
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
         AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
+
+        /// @dev Refund any USDC surplus from the exactOut swap to the user.
+        /// The swap consumes at most `deposit + loanAmount` but typically less,
+        /// leaving a surplus that belongs to the depositing user.
+        uint256 surplus = IERC20(ctx.debtAsset).balanceOf(address(this)) - balBefore;
+        if (surplus > 0) IERC20(ctx.debtAsset).safeTransfer(params.user, surplus);
 
         // Emit loan creation event
         emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
