@@ -19,6 +19,8 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 // Mocks (for minting and oracle manipulation on deployed mock contracts)
 import {MintableERC20} from "../mock/MintableERC20.sol";
 import {MockChainlinkOracle} from "../mock/MockChainlinkOracle.sol";
+// Strategy (for yield simulation)
+import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 
 /// @title IntegrationTestBase
 /// @author Bitmor Protocol
@@ -26,12 +28,11 @@ import {MockChainlinkOracle} from "../mock/MockChainlinkOracle.sol";
 /// @dev Reads all addresses from deployments.json - requires `make deploy-local` first.
 ///      Tests must run with `--fork-url http://127.0.0.1:8545` to connect to live Anvil.
 abstract contract IntegrationTestBase is BitmorTestBase {
-    // ============ Configuration ============
+    // ============ Configuration & State ============
 
     HelperConfig public config;
 
-    // ============ Pre-deployed Contracts ============
-
+    // Pre-deployed Contracts
     Loan public loanContract;
     BTCVault public btcVault;
     USDCVault public usdcVault;
@@ -40,25 +41,21 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     address public addressesProvider;
     address public swapper;
 
-    // ============ Tokens ============
-
+    // Tokens
     IERC20 public cbBTC;
     IERC20 public usdc;
 
-    // ============ Oracles ============
-
+    // Oracles
     MockChainlinkOracle public btcOracle;
     MockChainlinkOracle public usdcOracle;
     address public aaveV3Pool;
 
-    // ============ Test Actors ============
-
+    // Test Actors
     address public admin;
     address public testUser;
     address public testLiquidator;
 
-    // ============ Snapshot ============
-
+    // Snapshot
     uint256 internal _baseSnapshotId;
     uint256 internal constant DEFAULT_ANVIL_PRIVATE_KEY =
         0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
@@ -92,8 +89,6 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         // Intentionally empty - manager and rolesData set in setUp()
     }
 
-    // ============ Contract Loading ============
-
     /// @notice Resolves the deployer/admin address used by make deploy-local
     function _resolveAdmin() internal view returns (address) {
         uint256 deployerPk = vm.envOr("PRIVATE_KEY", DEFAULT_ANVIL_PRIVATE_KEY);
@@ -122,7 +117,98 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         aaveV3Pool = config.getAaveV3Pool();
     }
 
-    // ============ Loan Creation Helpers ============
+    // ============ Actor Setup ============
+
+    /// @notice Funds testUser with tokens, approves Loan, grants EXECUTOR role
+    function _setupTestUser() internal {
+        _seedBLPLiquidity();
+        _seedBTCVault();
+        _fundUSDC(testUser, TC.USER_USDC_BALANCE);
+        _fundCbBTC(testUser, TC.USER_CBBTC_BALANCE);
+
+        vm.prank(testUser);
+        usdc.approve(address(loanContract), type(uint256).max);
+
+        vm.prank(testUser);
+        cbBTC.approve(address(loanContract), type(uint256).max);
+
+        // Grant EXECUTOR role to testUser so they can create loans
+        // Cache role ID before prank to avoid consuming it
+        uint64 executorRoleId = EXECUTOR_ID();
+        vm.prank(admin);
+        manager.grantRole(executorRoleId, testUser, 0);
+    }
+
+    /// @notice Creates an additional test user with EXECUTOR role and funding
+    /// @param name Unique name for the user (used in makeAddr)
+    function _setupAdditionalUser(string memory name) internal returns (address user) {
+        user = makeAddr(name);
+        _setupUserWithoutBLP(user);
+    }
+
+    /// @notice Funds a user with tokens and grants EXECUTOR role, WITHOUT seeding BLP liquidity
+    /// @dev Use when test needs to control BLP liquidity separately, or when BLP is already seeded
+    function _setupUserWithoutBLP(address user) internal {
+        _fundUSDC(user, TC.USER_USDC_BALANCE);
+        _fundCbBTC(user, TC.USER_CBBTC_BALANCE);
+        vm.prank(user);
+        usdc.approve(address(loanContract), type(uint256).max);
+        vm.prank(user);
+        cbBTC.approve(address(loanContract), type(uint256).max);
+        uint64 executorRoleId = EXECUTOR_ID();
+        vm.prank(admin);
+        manager.grantRole(executorRoleId, user, 0);
+    }
+
+    /// @notice Funds testLiquidator with tokens, approves lending pool
+    function _setupLiquidator() internal {
+        _fundUSDC(testLiquidator, TC.USER_USDC_BALANCE);
+
+        vm.prank(testLiquidator);
+        usdc.approve(bitmorPool, type(uint256).max);
+    }
+
+    // ============ Funding & Liquidity ============
+
+    /// @notice Mints mock USDC to `to` (MintableERC20.mint is public)
+    function _fundUSDC(address to, uint256 amount) internal {
+        MintableERC20(address(usdc)).mint(to, amount);
+    }
+
+    /// @notice Mints mock cbBTC to `to` (MintableERC20.mint is public)
+    function _fundCbBTC(address to, uint256 amount) internal {
+        MintableERC20(address(cbBTC)).mint(to, amount);
+    }
+
+    /// @notice Seeds the BLP with USDC liquidity by depositing into USDCVault
+    /// @dev Must be called before any loan creation (loans borrow USDC from BLP)
+    function _seedBLPLiquidity() internal {
+        _seedBLPLiquidity(TC.LENDING_POOL_USDC_BALANCE);
+    }
+
+    /// @notice Seeds BLP liquidity with a specific USDC amount
+    function _seedBLPLiquidity(uint256 amount) internal {
+        address seeder = makeAddr("blpSeeder");
+        _fundUSDC(seeder, amount);
+        vm.prank(seeder);
+        IERC20(address(usdc)).approve(address(usdcVault), amount);
+        vm.prank(seeder);
+        usdcVault.deposit(amount, seeder);
+    }
+
+    /// @notice Seeds BTCVault with initial cbBTC so oracle price is computable
+    /// @dev BTCVault.deposit() requires BVD role - only the Loan contract has it.
+    ///      We prank as the Loan contract to bootstrap the vault.
+    function _seedBTCVault() internal {
+        uint256 seedAmount = 1e8; // 1 BTC
+        _fundCbBTC(address(loanContract), seedAmount);
+        vm.startPrank(address(loanContract));
+        cbBTC.approve(address(btcVault), seedAmount);
+        btcVault.deposit(seedAmount, address(loanContract));
+        vm.stopPrank();
+    }
+
+    // ============ Loan Helpers ============
 
     /// @notice Creates a standard loan: 1 BTC collateral, 12 months
     function _createStandardLoan() internal returns (address lsa) {
@@ -145,22 +231,31 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         loanData = loanContract.getLoanByLSA(lsa);
     }
 
-    // ============ Funding Helpers ============
-
-    /// @notice Mints mock USDC to `to` (MintableERC20.mint is public)
-    /// @dev DEPRECATED: Use `_setupTestUser()` for standard user funding or `_seedBLPLiquidity()` for pool liquidity.
-    ///      Direct token minting should only occur inside setUp helpers, not in individual test bodies.
-    ///      Will be removed after all integration tests are migrated to use setUp helpers exclusively.
-    function _fundUSDC(address to, uint256 amount) internal {
-        MintableERC20(address(usdc)).mint(to, amount);
+    /// @notice Creates a standard loan and returns the LSA + loan data
+    function _createStandardLoanWithData()
+        internal
+        returns (address lsa, DataTypes.LoanData memory loanData)
+    {
+        return _createLoanWithData(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
     }
 
-    /// @notice Mints mock cbBTC to `to` (MintableERC20.mint is public)
-    /// @dev DEPRECATED: Use `_setupTestUser()` for standard user funding.
-    ///      Direct token minting should only occur inside setUp helpers, not in individual test bodies.
-    ///      Will be removed after all integration tests are migrated to use setUp helpers exclusively.
-    function _fundCbBTC(address to, uint256 amount) internal {
-        MintableERC20(address(cbBTC)).mint(to, amount);
+    /// @notice Creates a loan for a specific user (must already have EXECUTOR role + funds)
+    function _createLoanForUser(address user, uint256 collateral, uint256 duration, uint256 premium)
+        internal
+        returns (address lsa)
+    {
+        (,, uint256 minDeposit) = loanContract.getLoanDetails(collateral, duration);
+        vm.prank(user);
+        lsa = loanContract.initializeLoan(minDeposit, premium, collateral, duration, "");
+    }
+
+    /// @notice Executes a repayment on behalf of a user
+    /// @param lsa The LSA to repay
+    /// @param payer The address paying
+    /// @param amount The repayment amount in USDC
+    function _repayLoan(address lsa, address payer, uint256 amount) internal {
+        vm.prank(payer);
+        loanContract.repay(lsa, amount);
     }
 
     // ============ Oracle Helpers ============
@@ -182,6 +277,15 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         btcOracle.updateAnswer(price);
     }
 
+    /// @notice Queries the Bitmor Lending Pool oracle price for an asset
+    function _getOraclePrice(address asset) internal view returns (uint256) {
+        address oracle = config.getOracle();
+        (bool ok, bytes memory data) =
+            oracle.staticcall(abi.encodeWithSignature("getAssetPrice(address)", asset));
+        require(ok, "getAssetPrice failed");
+        return abi.decode(data, (uint256));
+    }
+
     // ============ Time Helpers ============
 
     /// @notice Warps forward by `days_` days
@@ -194,7 +298,15 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         vm.warp(block.timestamp + config.getGracePeriod() + 1);
     }
 
-    // ============ Balance Helpers ============
+    /// @notice Makes a freshly created loan overdue by advancing past the first payment + grace period
+    /// @dev Overdue threshold = lastPaymentTimestamp + REPAYMENT_INTERVAL(30d) + GRACE_PERIOD(7d)
+    ///      This helper warps past that threshold. Use instead of _makeOverdue() when the loan
+    ///      was just created and no payments have been made.
+    function _makeFirstPaymentOverdue() internal {
+        vm.warp(block.timestamp + 30 days + config.getGracePeriod() + 1);
+    }
+
+    // ============ BLP Query Helpers ============
 
     /// @notice Queries user account data from Bitmor Lending Pool via low-level staticcall
     /// @dev Uses low-level call because Bitmor LP is Solidity 0.6.12 (interface incompatible with 0.8.30)
@@ -213,122 +325,128 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             abi.decode(data, (uint256, uint256, uint256, uint256, uint256, uint256));
     }
 
-    // ============ Setup Helpers ============
-
-    /// @notice Seeds the BLP with USDC liquidity by depositing into USDCVault
-    /// @dev Must be called before any loan creation (loans borrow USDC from BLP)
-    function _seedBLPLiquidity() internal {
-        address seeder = makeAddr("blpSeeder");
-        _fundUSDC(seeder, TC.LENDING_POOL_USDC_BALANCE);
-        vm.prank(seeder);
-        IERC20(address(usdc)).approve(address(usdcVault), TC.LENDING_POOL_USDC_BALANCE);
-        vm.prank(seeder);
-        usdcVault.deposit(TC.LENDING_POOL_USDC_BALANCE, seeder);
+    /// @notice Gets the USDC-denominated debt balance for an LSA (includes accrued interest)
+    /// @dev Queries BLP getReserveData → variableDebtTokenAddress → balanceOf(lsa)
+    function _getDebtBalanceUSDC(address lsa) internal view returns (uint256 debt) {
+        // Step 1: Get the variable debt token address from reserve data
+        (bool ok1, bytes memory reserveData) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
+        require(ok1, "getReserveData failed");
+        // ReserveData struct: field 9 (0-indexed) is variableDebtTokenAddress
+        (,,,,,,,,,address vdt,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        // Step 2: Get current debt balance (includes accrued interest)
+        (bool ok2, bytes memory balData) =
+            vdt.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
+        require(ok2, "VDT balanceOf failed");
+        debt = abi.decode(balData, (uint256));
     }
 
-    /// @notice Seeds BTCVault with initial cbBTC so oracle price is computable
-    /// @dev BTCVault.deposit() requires BVD role - only the Loan contract has it.
-    ///      We prank as the Loan contract to bootstrap the vault.
-    function _seedBTCVault() internal {
-        uint256 seedAmount = 1e8; // 1 BTC
-        _fundCbBTC(address(loanContract), seedAmount);
-        vm.startPrank(address(loanContract));
-        cbBTC.approve(address(btcVault), seedAmount);
-        btcVault.deposit(seedAmount, address(loanContract));
-        vm.stopPrank();
+    /// @notice Gets the scaled (principal-only) debt balance for an LSA
+    function _getScaledDebtBalance(address lsa) internal view returns (uint256 scaledDebt) {
+        (bool ok1, bytes memory reserveData) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
+        require(ok1, "getReserveData failed");
+        (,,,,,,,,,address vdt,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        (bool ok2, bytes memory data) =
+            vdt.staticcall(abi.encodeWithSignature("scaledBalanceOf(address)", lsa));
+        require(ok2, "VDT scaledBalanceOf failed");
+        scaledDebt = abi.decode(data, (uint256));
     }
 
-    /// @notice Funds testUser with tokens, approves Loan, grants EXECUTOR role
-    function _setupTestUser() internal {
-        _seedBLPLiquidity();
-        _seedBTCVault();
-        _fundUSDC(testUser, TC.USER_USDC_BALANCE);
-        _fundCbBTC(testUser, TC.USER_CBBTC_BALANCE);
-
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
-
-        vm.prank(testUser);
-        cbBTC.approve(address(loanContract), type(uint256).max);
-
-        // Grant EXECUTOR role to testUser so they can create loans
-        // Cache role ID before prank to avoid consuming it
-        uint64 executorRoleId = EXECUTOR_ID();
-        vm.prank(admin);
-        manager.grantRole(executorRoleId, testUser, 0);
+    /// @notice Gets the variable borrow index for USDC from the BLP
+    function _getVariableBorrowIndex() internal view returns (uint256 index) {
+        (bool ok, bytes memory reserveData) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
+        require(ok, "getReserveData failed");
+        // Field 2 (0-indexed) is variableBorrowIndex (uint128, stored as RAY)
+        (,, uint128 borrowIndex,,,,,,,,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        index = uint256(borrowIndex);
     }
 
-    /// @notice Funds testLiquidator with tokens, approves lending pool
-    function _setupLiquidator() internal {
-        _fundUSDC(testLiquidator, TC.USER_USDC_BALANCE);
+    /// @notice Gets the aToken (collateral) balance for an LSA in the BLP
+    function _getATokenBalance(address lsa) internal view returns (uint256 balance) {
+        (bool ok1, bytes memory reserveData) = bitmorPool.staticcall(
+            abi.encodeWithSignature("getReserveData(address)", address(btcVault))
+        );
+        require(ok1, "getReserveData(btcVault) failed");
+        (,,,,,,, address aTokenAddr,,,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        (bool ok2, bytes memory data) =
+            aTokenAddr.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
+        require(ok2, "aToken balanceOf failed");
+        balance = abi.decode(data, (uint256));
+    }
 
+    // ============ Liquidation Helpers ============
+
+    /// @notice Triggers a micro-liquidation on the BLP for a given LSA
+    /// @dev Uses low-level call because BLP is Solidity 0.6.12
+    /// @return success Whether the call succeeded
+    function _triggerMicroLiquidation(address lsa) internal returns (bool success) {
+        _setupLiquidator();
+        bytes memory mlData = abi.encode(address(btcVault), address(usdc), lsa);
         vm.prank(testLiquidator);
-        usdc.approve(bitmorPool, type(uint256).max);
+        (success,) = bitmorPool.call(
+            abi.encodeWithSignature("microLiquidationCall(bytes)", mlData)
+        );
     }
 
-    // ============ Multi-User Helpers ============
-
-    /// @notice Creates a second test user with EXECUTOR role and funding
-    function _setupSecondUser() internal returns (address user2) {
-        user2 = makeAddr("integrationTestUser2");
-        _fundUSDC(user2, TC.USER_USDC_BALANCE);
-        _fundCbBTC(user2, TC.USER_CBBTC_BALANCE);
-        vm.prank(user2);
-        usdc.approve(address(loanContract), type(uint256).max);
-        vm.prank(user2);
-        cbBTC.approve(address(loanContract), type(uint256).max);
-        uint64 executorRoleId = EXECUTOR_ID();
-        vm.prank(admin);
-        manager.grantRole(executorRoleId, user2, 0);
+    /// @notice Triggers a full liquidation on the BLP for a given LSA
+    /// @return success Whether the call succeeded
+    function _triggerFullLiquidation(address lsa) internal returns (bool success) {
+        _setupLiquidator();
+        vm.prank(testLiquidator);
+        (success,) = bitmorPool.call(
+            abi.encodeWithSignature(
+                "liquidationCall(address,address,address,uint256,bool)",
+                address(btcVault), address(usdc), lsa, type(uint256).max, false
+            )
+        );
     }
 
-    /// @notice Funds a user with tokens and grants EXECUTOR role, WITHOUT seeding BLP liquidity
-    /// @dev Use when test needs to control BLP liquidity separately
-    function _setupUserWithoutBLP(address user) internal {
-        _fundUSDC(user, TC.USER_USDC_BALANCE);
-        _fundCbBTC(user, TC.USER_CBBTC_BALANCE);
-        vm.prank(user);
-        usdc.approve(address(loanContract), type(uint256).max);
-        vm.prank(user);
-        cbBTC.approve(address(loanContract), type(uint256).max);
-        uint64 executorRoleId = EXECUTOR_ID();
-        vm.prank(admin);
-        manager.grantRole(executorRoleId, user, 0);
-    }
+    // ============ Yield Simulation ============
 
-    // ============ Oracle Helpers (Extended) ============
-
-    /// @notice Queries the Bitmor Lending Pool oracle price for an asset
-    function _getOraclePrice(address asset) internal view returns (uint256) {
-        address oracle = config.getOracle();
+    /// @notice Simulates yield accrual in BTCVault's AaveTokenizedStrategy
+    /// @dev Uses deal() to inflate the strategy's aToken balance. This is acceptable
+    ///      because it simulates an external dependency (Aave yield) not our protocol.
+    ///      MUST be called AFTER a loan exists (strategy needs deposits to inflate).
+    function _simulateVaultYield(uint256 yieldBps) internal {
+        address strategy = config.getAaveTokenizedStrategy();
+        AaveTokenizedStrategy ats = AaveTokenizedStrategy(strategy);
+        address yieldSource = ats.i_yieldSource();
         (bool ok, bytes memory data) =
-            oracle.staticcall(abi.encodeWithSignature("getAssetPrice(address)", asset));
-        require(ok, "getAssetPrice failed");
-        return abi.decode(data, (uint256));
+            yieldSource.staticcall(abi.encodeWithSignature("getReserveAToken(address)", address(cbBTC)));
+        require(ok, "getReserveAToken failed");
+        address aToken = abi.decode(data, (address));
+        uint256 currentBalance = IERC20(aToken).balanceOf(strategy);
+        require(currentBalance > 0, "strategy must have deposits before simulating yield");
+        uint256 yieldAmount = currentBalance * yieldBps / 10_000;
+        deal(aToken, strategy, currentBalance + yieldAmount);
     }
 
-    // ============ Liquidity Helpers (Extended) ============
-
-    /// @notice Seeds BLP liquidity with a specific USDC amount
-    function _seedBLPLiquidityAmount(uint256 amount) internal {
-        address seeder = makeAddr("blpSeederCustom");
-        _fundUSDC(seeder, amount);
-        vm.prank(seeder);
-        IERC20(address(usdc)).approve(address(usdcVault), amount);
-        vm.prank(seeder);
-        usdcVault.deposit(amount, seeder);
-    }
-
-    // ============ Loan Helpers (Extended) ============
-
-    /// @notice Creates a loan for a specific user (must already have EXECUTOR role + funds)
-    function _createLoanForUser(address user, uint256 collateral, uint256 duration, uint256 premium)
-        internal
-        returns (address lsa)
-    {
-        (,, uint256 minDeposit) = loanContract.getLoanDetails(collateral, duration);
-        vm.prank(user);
-        lsa = loanContract.initializeLoan(minDeposit, premium, collateral, duration, "");
+    /// @notice Simulates strategy loss by reducing the strategy's aToken balance
+    function _simulateStrategyLoss(uint256 lossBps) internal {
+        address strategy = config.getAaveTokenizedStrategy();
+        AaveTokenizedStrategy ats = AaveTokenizedStrategy(strategy);
+        address yieldSource = ats.i_yieldSource();
+        (bool ok, bytes memory data) =
+            yieldSource.staticcall(abi.encodeWithSignature("getReserveAToken(address)", address(cbBTC)));
+        require(ok, "getReserveAToken failed");
+        address aToken = abi.decode(data, (address));
+        uint256 currentBalance = IERC20(aToken).balanceOf(strategy);
+        uint256 lossAmount = currentBalance * lossBps / 10_000;
+        deal(aToken, strategy, currentBalance - lossAmount);
     }
 
     // ============ State Management ============

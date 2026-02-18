@@ -160,7 +160,7 @@ contract InitLoanTest is IntegrationTestBase {
         uint256 baselineEMI = loanDataA.estimatedMonthlyPayment;
 
         // Spike utilization: create multiple loans from different users to consume BLP USDC
-        address user2 = _setupSecondUser();
+        address user2 = _setupAdditionalUser("user2");
         vm.warp(block.timestamp + 1);
         _createLoanForUser(user2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
@@ -298,7 +298,7 @@ contract InitLoanTest is IntegrationTestBase {
     ///         the first (e.g., stale reserves), one or both loans could be born unhealthy.
     function test_Timing_ConcurrentFlashLoans_AavePoolDrain() public {
         // Arrange - set up second user
-        address user2 = _setupSecondUser();
+        address user2 = _setupAdditionalUser("user2");
 
         // Act - User A creates standard loan
         address lsaA = _createStandardLoan();
@@ -461,7 +461,7 @@ contract InitLoanTest is IntegrationTestBase {
     ///         depositors and the second loan may be born less healthy.
     function test_Accounting_MultiLoanSameBlock_SharePriceShift() public {
         // Arrange - setup second user
-        address user2 = _setupSecondUser();
+        address user2 = _setupAdditionalUser("user2");
 
         // Act - User A creates loan
         address lsaA = _createLoan(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
