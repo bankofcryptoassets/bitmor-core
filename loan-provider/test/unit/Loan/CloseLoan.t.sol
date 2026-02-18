@@ -585,4 +585,129 @@ contract CloseLoanTest is BaseLoanTest {
         uint256 loanUsdcAfterClose = IERC20(debtAsset).balanceOf(address(loan));
         assertGe(loanUsdcAfterClose, loanUsdcAfterInitA, "Loan must still hold User A's residual after User B closes");
     }
+
+    /// @notice Close-loan must revert when swap output is insufficient to repay flash loan (withdrawInBTC = true)
+    /// @dev Covers FlashLoanLogic.sol:272-274 InsufficientSwapOutput guard
+    function test_RevertWhen_CloseLoan_InsufficientSwapOutput_WithdrawBTC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate what the flash loan repayment will be: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return 1 wei less than needed
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Close-loan must revert when swap output is insufficient (withdrawInBTC = false)
+    /// @dev When withdrawInBTC=false, ALL collateral (minus fee) is swapped. The oracle-based
+    ///      `minimumAcceptable` in SwapLogic is much larger than `totalFlashLoanRepayment`, so
+    ///      SwapLogic's LessThanMinimumAmtReceived guard fires before FlashLoanLogic's
+    ///      InsufficientSwapOutput guard. This test verifies the swap output guard chain works
+    ///      correctly for the withdrawInBTC=false path.
+    function test_RevertWhen_CloseLoan_InsufficientSwapOutput_WithdrawUSDC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate what the flash loan repayment will be: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return 1 wei less than needed for flash loan repayment.
+        // When withdrawInBTC=false, SwapLogic's minimumAcceptable (oracle-based, applied to ALL
+        // collateral being swapped) exceeds totalFlashLoanRepayment, so LessThanMinimumAmtReceived
+        // fires first -- this is the correct and expected behavior.
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.LessThanMinimumAmtReceived.selector);
+        loan.closeLoan(lsa, false);
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Close-loan succeeds when swap output exactly equals flash loan repayment (boundary test)
+    /// @dev Verifies the guard uses `<` not `<=`
+    function test_closeLoan_ExactSwapOutputMatchingFlashLoan_Succeeds() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate exact flash loan repayment: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return exactly the needed amount
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // Verify loan closed successfully
+        assertEq(_getDebtBalance(lsa), 0, "Debt should be 0 after close");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be 0 after close");
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Pre-existing USDC on Loan contract is untouched when InsufficientSwapOutput reverts
+    /// @dev Confirms the revert path prevents any state change to pre-existing balances
+    function test_closeLoan_preExistingFundsUntouched_WhenInsufficientSwapOutput() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate pre-existing USDC from other users
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+
+        // Simulate pre-existing cbBTC from other users
+        mockCbBTC.mint(address(loan), SIMULATED_BTC_RESIDUAL);
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+
+        // Force swap output to 1 wei below flash loan repayment (above SwapLogic minimumAcceptable
+        // but below the InsufficientSwapOutput threshold)
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        // Attempt close - should revert with InsufficientSwapOutput
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Verify balances are completely unchanged (revert = no state change)
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(loan)),
+            loanUsdcBefore,
+            "USDC balance must be unchanged after revert"
+        );
+        assertEq(
+            IERC20(btc).balanceOf(address(loan)),
+            loanBtcBefore,
+            "cbBTC balance must be unchanged after revert"
+        );
+
+        // Verify loan is still active (not accidentally closed)
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should still be active");
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
 }
