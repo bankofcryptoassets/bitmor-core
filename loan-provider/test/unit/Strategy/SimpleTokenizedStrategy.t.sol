@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseStrategyTest} from "./BaseStrategyTest.t.sol";
 import {SimpleTokenizedStrategyHarness} from "../../harness/SimpleTokenizedStrategyHarness.sol";
 import {MockVault} from "../../mock/MockVault.sol";
+import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title SimpleTokenizedStrategyTest
 /// @author Bitmor Protocol
@@ -56,6 +57,43 @@ contract SimpleTokenizedStrategyTest is BaseStrategyTest {
 
         vm.expectRevert();
         new SimpleTokenizedStrategyHarness(address(mockAavePool), invalidVault);
+    }
+
+    // ============ Access Control Tests ============
+
+    /// @notice Test that deposit reverts when called by non-vault
+    function test_Deposit_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        strategyHarness.deposit(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that mint reverts when called by non-vault
+    function test_Mint_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        strategyHarness.mint(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that withdraw reverts when called by non-vault
+    function test_Withdraw_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        strategyHarness.withdraw(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that redeem reverts when called by non-vault
+    function test_Redeem_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        strategyHarness.redeem(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that withdrawAll reverts when called by non-vault
+    function test_WithdrawAll_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        strategyHarness.withdrawAll();
     }
 }
 

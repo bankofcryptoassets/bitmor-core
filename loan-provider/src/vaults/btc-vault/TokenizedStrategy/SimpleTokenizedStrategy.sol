@@ -32,6 +32,13 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      */
     address private immutable i_asset;
 
+    /// @notice Restricts function access to the vault contract only
+    /// @custom:security Critical access control - prevents direct strategy manipulation bypassing vault accounting
+    modifier onlyVault() {
+        if (msg.sender != i_vault) revert Errors.UnauthorizedCaller();
+        _;
+    }
+
     /**
      * @notice Initializes the tokenized strategy with yield source and vault
      * @dev Automatically queries vault for asset address to ensure compatibility
@@ -92,6 +99,26 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
         super._deposit(by, to, assets, shares);
     }
 
+    /// @inheritdoc ERC4626
+    function deposit(uint256 assets, address to) public override onlyVault returns (uint256) {
+        return super.deposit(assets, to);
+    }
+
+    /// @inheritdoc ERC4626
+    function mint(uint256 shares, address to) public override onlyVault returns (uint256) {
+        return super.mint(shares, to);
+    }
+
+    /// @inheritdoc ERC4626
+    function withdraw(uint256 assets, address to, address owner) public override onlyVault returns (uint256) {
+        return super.withdraw(assets, to, owner);
+    }
+
+    /// @inheritdoc ERC4626
+    function redeem(uint256 shares, address to, address owner) public override onlyVault returns (uint256) {
+        return super.redeem(shares, to, owner);
+    }
+
     /**
      * @notice Withdraws ALL assets from the strategy, bypassing ERC-4626 share conversion
      * @dev Prevents orphaned yield caused by Solady's virtual offset when share count is low.
@@ -102,9 +129,7 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      * @return assets The total assets withdrawn and transferred to the vault
      * @custom:access Only callable by the vault contract
      */
-    function withdrawAll() external virtual returns (uint256 assets) {
-        if (msg.sender != i_vault) revert Errors.UnauthorizedCaller();
-
+    function withdrawAll() external virtual onlyVault returns (uint256 assets) {
         assets = totalAssets();
         if (assets == 0) return 0;
 

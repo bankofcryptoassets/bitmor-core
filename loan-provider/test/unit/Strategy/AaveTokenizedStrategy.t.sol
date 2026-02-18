@@ -121,7 +121,7 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
         _depositToStrategy(depositAmount);
 
         // Assert
-        uint256 shares = _getStrategyShares(user);
+        uint256 shares = _getStrategyShares();
         assertGt(shares, 0, "user should receive shares");
         // First deposit: shares == assets (1:1 ratio)
         assertEq(shares, depositAmount, "first deposit should mint 1:1 shares");
@@ -182,14 +182,14 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
         _depositToStrategy(depositAmount);
 
         uint256 withdrawAmount = depositAmount / 2;
-        uint256 userBalanceBefore = mockAsset.balanceOf(user);
+        uint256 vaultBalanceBefore = mockAsset.balanceOf(address(mockVault));
 
         // Act
         _withdrawFromStrategy(withdrawAmount);
 
         // Assert
-        uint256 userBalanceAfter = mockAsset.balanceOf(user);
-        assertEq(userBalanceAfter, userBalanceBefore + withdrawAmount, "user should receive withdrawn assets");
+        uint256 vaultBalanceAfter = mockAsset.balanceOf(address(mockVault));
+        assertEq(vaultBalanceAfter, vaultBalanceBefore + withdrawAmount, "vault should receive withdrawn assets");
     }
 
     /// @notice Test withdraw burns user shares
@@ -198,14 +198,14 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
         uint256 depositAmount = STRATEGY_DEPOSIT_AMOUNT;
         _depositToStrategy(depositAmount);
 
-        uint256 sharesBefore = _getStrategyShares(user);
+        uint256 sharesBefore = _getStrategyShares();
         uint256 withdrawAmount = depositAmount / 2;
 
         // Act
         _withdrawFromStrategy(withdrawAmount);
 
         // Assert
-        uint256 sharesAfter = _getStrategyShares(user);
+        uint256 sharesAfter = _getStrategyShares();
         assertLt(sharesAfter, sharesBefore, "shares should decrease after withdraw");
     }
 
@@ -237,7 +237,7 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
 
         // Assert
         uint256 totalAssets = aaveStrategy.totalAssets();
-        uint256 shares = _getStrategyShares(user);
+        uint256 shares = _getStrategyShares();
         assertEq(totalAssets, 0, "totalAssets should be 0 after full withdraw");
         assertEq(shares, 0, "user should have 0 shares after full withdraw");
     }
@@ -254,17 +254,54 @@ contract AaveTokenizedStrategyTest is BaseStrategyTest {
 
         // Assert + Act
         vm.expectRevert();
-        vm.prank(user);
-        aaveStrategy.withdraw(excessAmount, user, user);
+        vm.prank(address(mockVault));
+        aaveStrategy.withdraw(excessAmount, address(mockVault), address(mockVault));
     }
 
     /// @notice Test deposit with zero amount reverts with ZeroAmount (zero-shares guard)
     function test_Deposit_RevertWhen_ZeroAmount() public {
         // Act & Assert
-        vm.startPrank(user);
+        vm.startPrank(address(mockVault));
         mockAsset.approve(address(aaveStrategy), 0);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        aaveStrategy.deposit(0, user);
+        aaveStrategy.deposit(0, address(mockVault));
         vm.stopPrank();
+    }
+
+    // ============ Access Control Tests ============
+
+    /// @notice Test that deposit reverts when called by non-vault
+    function test_Deposit_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.deposit(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that mint reverts when called by non-vault
+    function test_Mint_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.mint(STRATEGY_DEPOSIT_AMOUNT, user);
+    }
+
+    /// @notice Test that withdraw reverts when called by non-vault
+    function test_Withdraw_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.withdraw(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that redeem reverts when called by non-vault
+    function test_Redeem_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.redeem(STRATEGY_DEPOSIT_AMOUNT, user, user);
+    }
+
+    /// @notice Test that withdrawAll reverts when called by non-vault
+    function test_WithdrawAll_RevertWhen_CallerIsNotVault() public {
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        vm.prank(user);
+        aaveStrategy.withdrawAll();
     }
 }

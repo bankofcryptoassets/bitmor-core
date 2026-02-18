@@ -373,12 +373,14 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         vm.prank(address(strategy));
         yieldSource.supply(address(mockUSDC), donation);
 
-        // Act & Assert - Direct strategy deposit that yields 0 shares
+        // Act & Assert - Strategy deposit as vault that yields 0 shares
         uint256 tinyAmount = 1;
-        mockUSDC.mint(address(this), tinyAmount);
+        mockUSDC.mint(address(vault), tinyAmount);
+        vm.startPrank(address(vault));
         mockUSDC.approve(address(strategy), tinyAmount);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        strategy.deposit(tinyAmount, address(this));
+        strategy.deposit(tinyAmount, address(vault));
+        vm.stopPrank();
     }
 
     // ============ Dust Share Cleanup Tests ============
