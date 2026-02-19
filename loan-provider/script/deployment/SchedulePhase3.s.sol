@@ -78,6 +78,7 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (60)), when);
 
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);

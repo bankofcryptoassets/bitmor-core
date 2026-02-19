@@ -233,6 +233,10 @@ library DataTypes {
          * @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
          */
         uint256 minDepositBps;
+        /**
+         * @dev Maximum loan duration in months
+         */
+        uint256 maxDuration;
     }
 
     /**
@@ -390,6 +394,8 @@ library DataTypes {
         uint256 maxBTCAmt;
         /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
         uint256 minDepositBps;
+        /// @dev Maximum loan duration in months
+        uint256 maxDuration;
     }
 
     /**

@@ -98,6 +98,9 @@ contract LoanStorage {
     /// @notice Min % of deposit user need to make of the BTC amount.
     uint256 internal s_minDeposit;
 
+    /// @notice Maximum loan duration in months
+    uint256 internal s_maxDuration;
+
     // ============ Storage Mappings ============
 
     /**

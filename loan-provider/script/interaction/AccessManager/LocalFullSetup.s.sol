@@ -170,6 +170,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (60)), when);
 
         // BVC Operations (BTCVault strategy) - if strategy deployed
         address aaveStrategy = config.getAaveTokenizedStrategy();
@@ -204,6 +205,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())));
         manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
+        manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (60)));
 
         // BVC Operations
         address aaveStrategy = config.getAaveTokenizedStrategy();

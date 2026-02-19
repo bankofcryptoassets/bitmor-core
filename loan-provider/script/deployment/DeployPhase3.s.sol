@@ -260,6 +260,7 @@ contract DeployPhase3 is InitialSetup {
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (GRACE_PERIOD)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (msg.sender)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (PRE_CLOSURE_FEE)), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (60)), when);
 
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);

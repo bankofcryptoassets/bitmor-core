@@ -157,6 +157,12 @@ interface ILoan {
      */
     event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
 
+    /**
+     * @notice Emitted when the maximum loan duration is updated
+     * @param newMaxDuration New maximum duration in months
+     */
+    event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
+
     // ============ Main Functions ============
 
     /**
@@ -419,6 +425,18 @@ interface ILoan {
     /// @notice Returns the `s_liquidationFeeCollector` address.
     /// @return The address that receives liquidation fees
     function getLiquidationFeeCollector() external view returns (address);
+
+    /**
+     * @notice Updates the maximum allowed loan duration
+     * @dev Reverts if `newMaxDuration` is zero
+     * @param newMaxDuration New maximum duration in months
+     * @custom:access Restricted to `LPM_SLOW` role
+     */
+    function setMaxDuration(uint256 newMaxDuration) external;
+
+    /// @notice Returns the `s_maxDuration` value in months.
+    /// @return The maximum loan duration in months
+    function getMaxDuration() external view returns (uint256);
 
     /**
      * @notice Updates the liquidation fee collector address
