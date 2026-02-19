@@ -238,8 +238,23 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForFullLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForFullLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
+
+        _lsa.claimRemainingCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            borrower: s_loansByLSA[_lsa].borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
 
