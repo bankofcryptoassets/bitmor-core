@@ -412,9 +412,13 @@ contract LendingPoolCollateralManager is
 
         DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
-        vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < vars.userVariableDebt
-            ? loanData.estimatedMonthlyPayment
-            : vars.userVariableDebt;
+        if (loanData.duration == 1) {
+            vars.actualDebtToLiquidate = vars.userVariableDebt;
+        } else {
+            vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment > vars.userVariableDebt
+                ? vars.userVariableDebt
+                : loanData.estimatedMonthlyPayment;
+        }
 
         (
             vars.maxCollateralToLiquidate,
@@ -558,10 +562,10 @@ contract LendingPoolCollateralManager is
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
 
-        if (loanData.duration.sub(1) > 0) {
-            _updateLoanForMicroLiquidation(user);
+        if (loanData.duration.sub(1) == 0) {
+            _updateLoanForMicroLiquidationCompletion(user);
         } else {
-            _updateLoanForFullLiquidation(user);
+            _updateLoanForMicroLiquidation(user);
         }
 
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
@@ -584,21 +588,33 @@ contract LendingPoolCollateralManager is
         return (uint256(Errors.CollateralManagerErrors.NO_ERROR), Errors.LPCM_NO_ERRORS);
     }
 
+    /**
+     * @notice Routes a standard micro-liquidation update to the external Loan contract
+     * @dev Called when `duration > 1`. Reduces loan duration by 1 and updates payment timestamp.
+     * @param lsa The Loan Specific Address
+     */
     function _updateLoanForMicroLiquidation(address lsa) internal {
         address bitmorLoan = _addressesProvider.getBitmorLoan();
-
-        /// @dev The call will reduce the durtion of the loan by 1,
-        /// and updates the `lastPaymentTimestamp` with `block.timestamp`
         ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(lsa);
     }
 
+    /**
+     * @notice Routes a final micro-liquidation completion to the external Loan contract
+     * @dev Called when `duration == 1`. Sets loan to Completed, returns remaining collateral to borrower.
+     * @param lsa The Loan Specific Address
+     */
+    function _updateLoanForMicroLiquidationCompletion(address lsa) internal {
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        ILoan(bitmorLoan).updateLoanForMicroLiquidationCompletion(lsa);
+    }
+
+    /**
+     * @notice Routes a full liquidation update to the external Loan contract
+     * @dev Sets duration to 0, status to Liquidated, updates payment timestamp.
+     * @param lsa The Loan Specific Address
+     */
     function _updateLoanForFullLiquidation(address lsa) internal {
         address bitmorLoan = _addressesProvider.getBitmorLoan();
-
-        /// @dev This call will change the following:
-        /// 1. duration = 0
-        /// 2. lastPaymentTimestamp = block.timestamp
-        /// 3. status = DataTypes.LoanStatus.Liquidated
         ILoan(bitmorLoan).updateLoanDataForFullLiquidation(lsa);
     }
 

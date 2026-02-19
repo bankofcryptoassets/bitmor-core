@@ -185,6 +185,25 @@ library LoanLogic {
     }
 
     /**
+     * @notice Completes the loan after the final micro-liquidation when `duration == 1`
+     * @dev Sets `duration` to 0, updates `lastPaymentTimestamp`, and marks `status` as `Completed`.
+     * Called by the lending pool when the last remaining period is micro-liquidated,
+     * after which remaining collateral is returned to the borrower.
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param lsa The Loan Specific Address being completed
+     */
+    function updateLoanForMicroLiquidationCompletion(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal {
+        DataTypes.LoanData storage loan = loansByLSA[lsa];
+
+        loan.duration = 0;
+        loan.lastPaymentTimestamp = block.timestamp;
+        loan.status = DataTypes.LoanStatus.Completed;
+    }
+
+    /**
      * @notice Updates loan data after a full liquidation event
      * @dev Sets duration to 0 and status to Liquidated.
      * Full liquidation occurs when collateral value drops below debt threshold.

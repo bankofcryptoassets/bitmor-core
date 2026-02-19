@@ -399,9 +399,10 @@ contract RolesData {
     /// @dev Selectors for updateLoanData function
     /// @return selectors Array of function selectors
     function getLPCM_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](3);
         selectors[0] = ILoan.updateLoanDataForFullLiquidation.selector;
         selectors[1] = ILoan.updateLoanDataForMicroLiquidation.selector;
+        selectors[2] = ILoan.updateLoanForMicroLiquidationCompletion.selector;
     }
 
     /// @notice Returns function selectors for LPM_FAST role

@@ -100,7 +100,7 @@ library RepayLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
             params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
-            emit ILoan.Loan__ClosedLoan(params.lsa);
+            emit ILoan.Loan__Completed(params.lsa);
         } else {
             loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
             uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;

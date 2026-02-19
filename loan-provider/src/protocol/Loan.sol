@@ -6,6 +6,7 @@ import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
 import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
+import {LSALogic} from "../libraries/logic/LSALogic.sol";
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {RepayLogic} from "../libraries/logic/RepayLogic.sol";
@@ -42,6 +43,7 @@ import {LoanStorage} from "./LoanStorage.sol";
  */
 contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, AccessManaged, Pausable {
     using LoanLogic for mapping(address => DataTypes.LoanData);
+    using LSALogic for address;
 
     // ============ Constructor ============
 
@@ -209,6 +211,27 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
         uint256 newDuration = s_loansByLSA.updateLoanDataForMicroLiquidation(_lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
+    }
+
+    /// @inheritdoc ILoan
+    function updateLoanForMicroLiquidationCompletion(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
+        s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
+
+        _lsa.claimRemainingCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            borrower: s_loansByLSA[_lsa].borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+
+        emit Loan__Completed(_lsa);
     }
 
     /**
