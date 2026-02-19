@@ -200,7 +200,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @dev BTCVault.deposit() requires BVD role - only the Loan contract has it.
     ///      We prank as the Loan contract to bootstrap the vault.
     function _seedBTCVault() internal {
-        uint256 seedAmount = 1e8; // 1 BTC
+        uint256 seedAmount = TC.STANDARD_COLLATERAL;
         _fundCbBTC(address(loanContract), seedAmount);
         vm.startPrank(address(loanContract));
         cbBTC.approve(address(btcVault), seedAmount);
@@ -388,6 +388,39 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         balance = abi.decode(data, (uint256));
     }
 
+    /// @notice Gets the total scaled debt supply (sum of all scaledBalanceOf) for USDC
+    function _getTotalScaledDebtSupply() internal view returns (uint256 totalScaled) {
+        (bool ok1, bytes memory reserveData) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
+        require(ok1, "getReserveData failed");
+        (,,,,,,,,,address vdt,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        (bool ok2, bytes memory data) =
+            vdt.staticcall(abi.encodeWithSignature("scaledTotalSupply()"));
+        require(ok2, "VDT scaledTotalSupply failed");
+        totalScaled = abi.decode(data, (uint256));
+    }
+
+    /// @notice Gets the liquidity index for an asset from BLP reserve data
+    function _getLiquidityIndex(address asset) internal view returns (uint256 index) {
+        (bool ok, bytes memory reserveData) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", asset));
+        require(ok, "getReserveData failed");
+        // Field 1 (0-indexed) is liquidityIndex (uint128, stored as RAY)
+        (, uint128 liqIndex,,,,,,,,,,) = abi.decode(
+            reserveData,
+            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
+        );
+        index = uint256(liqIndex);
+    }
+
+    /// @notice Gets the BLP's available liquidity for an asset (raw token balance held by pool)
+    function _getBLPAvailableLiquidity(address asset) internal view returns (uint256) {
+        return IERC20(asset).balanceOf(bitmorPool);
+    }
+
     // ============ Liquidation Helpers ============
 
     /// @notice Queries checkTypeOfLiquidation from the lending pool
@@ -429,7 +462,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @dev Uses deal() to inflate the strategy's aToken balance. This is acceptable
     ///      because it simulates an external dependency (Aave yield) not our protocol.
     ///      MUST be called AFTER a loan exists (strategy needs deposits to inflate).
-    function _simulateVaultYield(uint256 yieldBps) internal {
+    function _simulateVaultYield(uint256 yieldBps) internal virtual {
         address strategy = config.getAaveTokenizedStrategy();
         AaveTokenizedStrategy ats = AaveTokenizedStrategy(strategy);
         address yieldSource = ats.i_yieldSource();
