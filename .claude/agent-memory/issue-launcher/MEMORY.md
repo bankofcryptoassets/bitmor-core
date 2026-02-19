@@ -24,5 +24,17 @@
 - The 6-param tests use `dai` as the reserve address (not USDC) to bypass the `require(reserve != vault.asset(), "WA")` check
 - Rate strategy params defined in `markets/bitmor/rateStrategies.ts`
 
+## Collateral Recovery Patterns
+- `LSALogic.claimRemainingCollateral()` already exists for micro-liquidation completion (withdraws aTokens -> redeems bvBTC -> sends cbBTC to borrower)
+- `RepayLogic.executeRepay()` handles full repayment collateral return inline (withdraw + redeem to borrower)
+- `LendingPoolCollateralManager.liquidationCall()` only seizes `maxCollateralToLiquidate` (debt + bonus), leaving surplus in LSA
+- After `updateLoanDataForFullLiquidation()` marks status as `Liquidated`, no existing function allows surplus withdrawal
+- The LSA's `execute()` is `onlyOwner` (Loan contract), so borrower cannot call it directly
+
+## Cross-Module Interface Pattern
+- `lending-pool/contracts/interfaces/ILoan.sol` (Solidity 0.6.12) must mirror loan-provider `ILoan.sol` (0.8.30)
+- When adding new functions callable from lending-pool, BOTH interfaces must be updated
+- `lending-pool/contracts/mocks/MockLoan.sol` must also implement any new ILoan functions
+
 ## Git Config Issue
 - Empty branch name config entries (`branch..gh-merge-base`) can appear from `gh issue develop` -- clean with `git config --local --unset 'branch..gh-merge-base'`
