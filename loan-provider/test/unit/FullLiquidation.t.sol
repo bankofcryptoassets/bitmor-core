@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
 import {ILendingPoolAddressesProvider} from "@bitmor/interfaces/ILendingPoolAddressesProvider.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 
 /// @title FullLiquidationTest
 /// @author Bitmor Protocol
@@ -300,5 +301,106 @@ contract FullLiquidationTest is BaseLoanTest {
         vm.prank(liquidator);
         vm.expectRevert(); // ValidationLogic returns error for typeOfLiquidation != 1
         ILendingPool(s_bitmorPool).liquidationCall(collateralAsset, debtAsset, lsa, type(uint256).max, false);
+    }
+
+    // ============ Collateral Recovery After Full Liquidation (#73) ============
+
+    /// @notice Full liquidation with surplus returns remaining collateral to borrower
+    /// @dev When collateral > (debt + bonus), the surplus should be returned to the borrower
+    function test_fullLiquidation_returnsSurplusCollateralToBorrower() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Use 20% price drop so collateral value still exceeds debt + bonus → surplus exists
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+
+        // Snapshot borrower's cbBTC balance before liquidation
+        uint256 borrowerCbBtcBefore = IERC20(btc).balanceOf(user);
+
+        // Snapshot LSA collateral (aToken balance) before
+        uint256 lsaCollateralBefore = _getCollateralBalance(lsa);
+        assertGt(lsaCollateralBefore, 0, "LSA should have collateral before liquidation");
+
+        // Execute full liquidation
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        // Borrower should have received cbBTC (surplus collateral)
+        uint256 borrowerCbBtcAfter = IERC20(btc).balanceOf(user);
+        assertGt(
+            borrowerCbBtcAfter, borrowerCbBtcBefore, "borrower should receive surplus cbBTC after full liquidation"
+        );
+
+        // LSA should have zero aToken balance after (all collateral claimed)
+        uint256 lsaCollateralAfter = _getCollateralBalance(lsa);
+        assertEq(lsaCollateralAfter, 0, "LSA should have zero collateral after full liquidation with recovery");
+    }
+
+    /// @notice Full liquidation with no surplus does not change borrower balance
+    /// @dev When collateral <= (debt + bonus), there is no surplus to return.
+    ///      Must drop both cbBTC and bvBTC prices so the mock liquidation seizes all collateral.
+    function test_fullLiquidation_noSurplus_borrowerReceivesNothing() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Setup: drop both cbBTC AND bvBTC prices so collateral is underwater
+        _updateAddressesProviderBitmorLoan();
+        _warpPastGracePeriod();
+        _fundLiquidator();
+        _dropOraclePrice(PRICE_DROP_50_PERCENT); // cbBTC price
+        _dropOraclePrice(collateralAsset, PRICE_DROP_50_PERCENT); // bvBTC price
+        mockBitmorPool.setHealthFactor(lsa, 0.5e18);
+        _setLiquidationType(lsa, LIQUIDATION_TYPE_FULL);
+
+        // Verify all aToken collateral will be seized (collateralToSeize > userCollateral)
+        uint256 lsaCollateralBefore = _getCollateralBalance(lsa);
+        assertGt(lsaCollateralBefore, 0, "LSA should have collateral before liquidation");
+
+        // Snapshot borrower's cbBTC balance before liquidation
+        uint256 borrowerCbBtcBefore = IERC20(btc).balanceOf(user);
+
+        // Execute full liquidation
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        // LSA should have zero aToken balance (all collateral seized by liquidator)
+        uint256 lsaCollateralAfter = _getCollateralBalance(lsa);
+        assertEq(lsaCollateralAfter, 0, "LSA should have zero collateral when fully underwater");
+
+        // Borrower should NOT have received additional cbBTC (no surplus)
+        uint256 borrowerCbBtcAfter = IERC20(btc).balanceOf(user);
+        assertEq(borrowerCbBtcAfter, borrowerCbBtcBefore, "borrower should not receive cbBTC when no surplus");
+    }
+
+    /// @notice Full liquidation status is Liquidated even when surplus is returned
+    function test_fullLiquidation_statusIsLiquidated_whenSurplusExists() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Use 20% price drop → surplus exists
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+
+        // Execute full liquidation
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        // Loan status should be Liquidated (not Completed)
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Liquidated),
+            "loan status should be Liquidated even with surplus recovery"
+        );
+        assertEq(loanData.duration, 0, "duration should be 0 after full liquidation");
+    }
+
+    /// @notice Full liquidation emits event when surplus is returned
+    function test_fullLiquidation_emitsEvent_whenSurplusReturned() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Use 20% price drop → surplus exists
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+
+        // Expect the event to be emitted during the liquidation call
+        // The event is emitted from Loan.updateLoanDataForFullLiquidation
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__LoanDataForFullLiquidationUpdated(lsa);
+
+        // Execute full liquidation
+        _executeFullLiquidation(lsa, type(uint256).max, false);
     }
 }
