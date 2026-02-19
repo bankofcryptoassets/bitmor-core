@@ -1,0 +1,23 @@
+#!/bin/bash
+
+echo "Running formatters..."
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+# Format lending-pool (Prettier) - only staged files
+cd "$ROOT_DIR/lending-pool"
+npx pretty-quick --staged --pattern 'contracts/**/*.sol' --pattern 'helpers/**/*.ts' --pattern 'tasks/**/*.ts' --pattern 'test-suites/**/*.ts' 2>/dev/null || true
+
+# Format loan-provider (Forge)
+cd "$ROOT_DIR/loan-provider"
+forge fmt 2>/dev/null || true
+
+# Format swap-routers (Forge)
+cd "$ROOT_DIR/swap-routers"
+forge fmt 2>/dev/null || true
+
+# Re-stage any formatted files
+cd "$ROOT_DIR"
+git add -u
+
+echo "Formatting complete"

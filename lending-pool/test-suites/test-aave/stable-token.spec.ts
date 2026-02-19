@@ -1,0 +1,40 @@
+import chai from 'chai';
+const { expect } = chai;
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ProtocolErrors } from '../../helpers/types.js';
+import { getStableDebtToken } from '../../helpers/contracts-getters.js';
+import { getContractAddress } from '../../helpers/contracts-helpers.js';
+
+makeSuite('Stable debt token tests', (testEnv: TestEnv) => {
+  const { CT_CALLER_MUST_BE_LENDING_POOL } = ProtocolErrors;
+
+  it('Tries to invoke mint not being the LendingPool', async () => {
+    const { deployer, pool, dai, helpersContract } = testEnv;
+
+    const daiStableDebtTokenAddress = (await helpersContract.getReserveTokensAddresses(getContractAddress(dai)))
+      .stableDebtTokenAddress;
+
+    const stableDebtContract = await getStableDebtToken(daiStableDebtTokenAddress);
+
+    await expect(
+      stableDebtContract.mint(deployer.address, deployer.address, '1', '1')
+    ).to.be.revertedWith(CT_CALLER_MUST_BE_LENDING_POOL);
+  });
+
+  it('Tries to invoke burn not being the LendingPool', async () => {
+    const { deployer, dai, helpersContract } = testEnv;
+
+    const daiStableDebtTokenAddress = (await helpersContract.getReserveTokensAddresses(getContractAddress(dai)))
+      .stableDebtTokenAddress;
+
+    const stableDebtContract = await getStableDebtToken(daiStableDebtTokenAddress);
+
+    const name = await stableDebtContract.name();
+
+    expect(name).to.be.equal('Aave stable debt bearing DAI');
+    await expect(stableDebtContract.burn(deployer.address, '1')).to.be.revertedWith(
+      CT_CALLER_MUST_BE_LENDING_POOL
+    );
+  });
+});

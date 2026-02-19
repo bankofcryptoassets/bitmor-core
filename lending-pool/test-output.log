@@ -1,0 +1,21 @@
+
+> @aave/protocol-v2@1.0.1 test
+> npm run compile && TS_NODE_TRANSPILE_ONLY=1 hardhat test ./test-suites/test-aave/*.spec.ts
+
+
+> @aave/protocol-v2@1.0.1 compile
+> SKIP_LOAD=true hardhat compile
+
+
+WARNING: You are using Node.js 18.19.1 which is not supported by Hardhat.
+Please upgrade to 22.10.0 or a later LTS version (even major version number)
+
+An unexpected error occurred:
+
+TypeError: plugins.toReversed is not a function
+    at HookManagerImplementation (/home/abhishek/bitmor/bitmor-core/lending-pool/node_modules/hardhat/src/internal/core/hook-manager.ts:54:43)
+    at Function.create (/home/abhishek/bitmor/bitmor-core/lending-pool/node_modules/hardhat/src/internal/core/hre.ts:85:19)
+    at main (/home/abhishek/bitmor/bitmor-core/lending-pool/node_modules/hardhat/src/internal/cli/main.ts:158:17)
+    at async file:///home/abhishek/bitmor/bitmor-core/lending-pool/node_modules/hardhat/dist/src/cli.js:21:1
+
+If you think this is a bug in Hardhat, please report it here: https://hardhat.org/report-bug

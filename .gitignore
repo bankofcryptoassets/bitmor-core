@@ -9,12 +9,26 @@ build/
 .idea
 /types
 
-deployed-contracts.json
-
 coverage
 .coverage_artifacts
 .coverage_cache
 .coverage_contracts
 
-*.md
+forge-out
+*/lib/
+broadcast
 
+loan-provider/lcov.info
+loan-provider/lcov.filtered.info
+docs
+lending-pool/types
+loan-provider/coverage-html
+lending-pool/types
+
+# Git worktrees
+.worktrees/
+
+
+swap-routers/out
+swap-routeres/lib
+swap-routers/cache
