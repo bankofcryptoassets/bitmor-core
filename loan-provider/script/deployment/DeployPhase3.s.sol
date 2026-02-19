@@ -27,6 +27,7 @@ contract DeployPhase3 is InitialSetup {
 
     uint256 constant PRE_CLOSURE_FEE = 10; // 0.1% in bps
     uint256 constant GRACE_PERIOD = 7 days;
+    uint256 constant MAX_DURATION = 60; // 5 years in months
     uint256 constant LIQUIDATION_BUFFER = 50; // 0.5% in bps
     uint256 constant STRATEGY_CAP = type(uint256).max; // Max cap for local testing
 
@@ -260,7 +261,7 @@ contract DeployPhase3 is InitialSetup {
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (GRACE_PERIOD)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (msg.sender)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (PRE_CLOSURE_FEE)), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (60)), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (MAX_DURATION)), when);
 
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
