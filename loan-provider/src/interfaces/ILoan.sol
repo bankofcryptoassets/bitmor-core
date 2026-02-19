@@ -210,8 +210,10 @@ interface ILoan {
     function updateLoanForMicroLiquidationCompletion(address _lsa) external;
 
     /**
-     * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
+     * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation and returns any surplus collateral to the borrower
      * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp` to `block.timestamp`.
+     *      After the state update, claims any remaining aToken collateral from the Bitmor Lending Pool,
+     *      redeems it to cbBTC, and transfers it to the borrower.
      * @param _lsa The Loan Specific Address
      * @custom:access Restricted to `LPCM` role
      */
