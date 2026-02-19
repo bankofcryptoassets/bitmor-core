@@ -1292,7 +1292,8 @@ interface IPool {
      * @param useAsCollateral True if the user wants to use the reserve as collateral, false otherwise
      * @param onBehalfOf The address of the user
      */
-    function setUserUseReserveAsCollateralOnBehalfOf(address asset, bool useAsCollateral, address onBehalfOf) external;
+    function setUserUseReserveAsCollateralOnBehalfOf(address asset, bool useAsCollateral, address onBehalfOf)
+        external;
 
     /**
      * @notice Sets the eMode category for the user on the specific reserve on behalf of the user.
