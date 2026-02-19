@@ -2,20 +2,14 @@
   "printWidth": 100,
   "trailingComma": "es5",
   "semi": true,
-  "singleQuote": false,
-  "tabWidth": 4,
-  "plugins": ["prettier-plugin-solidity"],
+  "singleQuote": true,
+  "tabWidth": 2,
   "overrides": [
     {
       "files": "*.sol",
       "options": {
-        "parser": "slang",
-        "printWidth": 100,
-        "tabWidth": 4,
-        "useTabs": false,
-        "singleQuote": false,
-        "bracketSpacing": true,
-        "compiler": "0.8.30"
+        "semi": true,
+        "printWidth": 100
       }
     }
   ]
