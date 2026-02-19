@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-import {SafeMath} from "../dependencies/openzeppelin/contracts/SafeMath.sol";
+import {AaveOracle} from "../misc/AaveOracle.sol";
 
 /// @dev Mock Chainlink aggregator for oracle harness tests
 contract MockChainlinkForOracle {
@@ -64,18 +64,19 @@ contract MockFallbackOracle {
     }
 }
 
-/// @dev Harness that replicates the AaveOracle bvBTC price conversion logic as a pure-ish function.
-/// This avoids needing the full AaveOracle constructor with Ownable and Chainlink dependencies.
-contract AaveOracleHarness {
-    using SafeMath for uint256;
-
-    /// @dev Replicates the bvBTC price conversion from AaveOracle.getAssetPrice():
-    /// bvBTCPrice = btcPrice * assetPerShare / (10 ** btcDecimals)
-    function calculateBvBTCPrice(
-        uint256 btcPrice,
-        uint256 assetPerShare,
-        uint8 btcDecimals
-    ) external pure returns (uint256) {
-        return btcPrice.mul(assetPerShare).div(10 ** uint256(btcDecimals));
-    }
+/// @dev Harness that inherits from the real AaveOracle for fuzz testing.
+/// Tests exercise the actual getAssetPrice() code path instead of a reimplemented formula.
+contract AaveOracleHarness is AaveOracle {
+    constructor(
+        address[] memory assets,
+        address[] memory sources,
+        address btc,
+        address bvBTC,
+        address fallbackOracle,
+        address baseCurrency,
+        uint256 baseCurrencyUnit
+    )
+        public
+        AaveOracle(assets, sources, btc, bvBTC, fallbackOracle, baseCurrency, baseCurrencyUnit)
+    {}
 }

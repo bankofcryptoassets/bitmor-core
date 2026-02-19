@@ -4,99 +4,186 @@ pragma solidity >=0.8.13 <0.9.0;
 import "forge-std/Test.sol";
 
 interface IATokenHarness {
-    function RAY() external pure returns (uint256);
-    function scaledAmount(uint256 amount, uint256 index) external pure returns (uint256);
-    function scaledBalance(uint256 scaledBal, uint256 index) external pure returns (uint256);
-    function mintThenBalance(uint256 amount, uint256 mintIndex, uint256 queryIndex) external pure returns (uint256);
-    function mintBurnRoundTrip(uint256 amount, uint256 index) external pure returns (uint256 diff);
+    function initialize(
+        address pool,
+        address treasury,
+        address underlyingAsset,
+        address incentivesController,
+        uint8 aTokenDecimals,
+        string calldata aTokenName,
+        string calldata aTokenSymbol,
+        bytes calldata params
+    ) external;
+
+    function mint(address user, uint256 amount, uint256 index) external returns (bool);
+    function balanceOf(address user) external view returns (uint256);
+    function scaledBalanceOf(address user) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function scaledTotalSupply() external view returns (uint256);
+}
+
+interface IMockPoolForAToken {
+    function setNormalizedIncome(uint256 income) external;
 }
 
 contract ATokenFuzzTest is Test {
-    IATokenHarness h;
+    IATokenHarness aToken;
+    IMockPoolForAToken mockPool;
 
     uint256 constant RAY = 1e27;
+    uint256 constant MAX_BOUND = 1e36;
 
     function setUp() public {
-        h = IATokenHarness(deployCode("ATokenHarness.sol"));
+        // Deploy mock pool and AToken harness (inherits real AToken)
+        mockPool = IMockPoolForAToken(deployCode("ATokenHarness.sol:MockPoolForAToken"));
+        aToken = IATokenHarness(deployCode("ATokenHarness.sol:ATokenHarness"));
+
+        // Set default normalized income to RAY (1.0)
+        mockPool.setNormalizedIncome(RAY);
+
+        // Initialize AToken with mock pool
+        aToken.initialize(
+            address(mockPool),
+            address(0xdead),    // treasury
+            address(0xbeef),    // underlyingAsset
+            address(0),         // incentivesController
+            8,                  // decimals
+            "Test AToken",
+            "aTEST",
+            ""
+        );
     }
 
     // ============================================================
-    //                       scaledAmount
+    //               scaledAmount (via mint + scaledBalanceOf)
     // ============================================================
+    // mint stores: scaledBal = amount.rayDiv(index)
+    // Verified via scaledBalanceOf
 
-    function testFuzz_scaledAmount_Identity(uint256 amount) public view {
-        // rayDiv(amount, RAY) == amount for non-overflowing values
-        amount = bound(amount, 0, type(uint256).max / RAY);
-        uint256 result = h.scaledAmount(amount, RAY);
-        assertEq(result, amount, "scaledAmount at RAY index should return amount");
+    function testFuzz_scaledAmount_Identity(uint256 amount) public {
+        // rayDiv(amount, RAY) == amount
+        amount = bound(amount, 1, type(uint256).max / RAY);
+
+        address user = makeAddr("user_identity");
+        vm.prank(address(mockPool));
+        aToken.mint(user, amount, RAY);
+
+        uint256 scaledBal = aToken.scaledBalanceOf(user);
+        assertEq(scaledBal, amount, "scaledAmount at RAY index should return amount");
     }
 
     function testFuzz_scaledAmount_MonotonicInIndex(
         uint256 amount,
         uint256 index1,
         uint256 index2
-    ) public view {
+    ) public {
         // Higher index → smaller scaled amount (more growth already happened)
-        amount = bound(amount, 1, 1e36);
         index1 = bound(index1, RAY, 10 * RAY);
         index2 = bound(index2, index1, 10 * RAY);
+        // Ensure amount is large enough so rayDiv(amount, index) >= 1 for both indices
+        uint256 minAmount = index2 / (2 * RAY) + 1;
+        amount = bound(amount, minAmount, MAX_BOUND);
 
-        uint256 scaled1 = h.scaledAmount(amount, index1);
-        uint256 scaled2 = h.scaledAmount(amount, index2);
+        address user1 = makeAddr("user_mono1");
+        address user2 = makeAddr("user_mono2");
+
+        vm.prank(address(mockPool));
+        aToken.mint(user1, amount, index1);
+
+        vm.prank(address(mockPool));
+        aToken.mint(user2, amount, index2);
+
+        uint256 scaled1 = aToken.scaledBalanceOf(user1);
+        uint256 scaled2 = aToken.scaledBalanceOf(user2);
 
         assertGe(scaled1, scaled2, "higher index should give smaller or equal scaled amount");
     }
 
-    function testFuzz_scaledAmount_ZeroAmount(uint256 index) public view {
+    function testFuzz_scaledAmount_ZeroAmountReverts(uint256 index) public {
+        // Real AToken requires amountScaled != 0 (error "56": CT_INVALID_MINT_AMOUNT)
         index = bound(index, RAY, 10 * RAY);
-        uint256 result = h.scaledAmount(0, index);
-        assertEq(result, 0, "scaling zero amount should return zero");
+
+        address user = makeAddr("user_zero");
+        vm.prank(address(mockPool));
+        vm.expectRevert(bytes("56"));
+        aToken.mint(user, 0, index);
     }
 
     // ============================================================
-    //                       scaledBalance
+    //              scaledBalance (via balanceOf + normalizedIncome)
     // ============================================================
+    // balanceOf returns: scaledBal.rayMul(normalizedIncome)
+    // We mint at RAY index (so stored == amount), then vary income
 
-    function testFuzz_scaledBalance_Identity(uint256 scaledBal) public view {
+    function testFuzz_scaledBalance_Identity(uint256 scaledBal) public {
         // rayMul(scaledBal, RAY) == scaledBal
-        scaledBal = bound(scaledBal, 0, type(uint256).max / RAY);
-        uint256 result = h.scaledBalance(scaledBal, RAY);
-        assertEq(result, scaledBal, "scaledBalance at RAY index should return scaledBal");
+        scaledBal = bound(scaledBal, 1, type(uint256).max / RAY);
+
+        address user = makeAddr("user_bal_identity");
+        // Mint at RAY so stored == scaledBal
+        vm.prank(address(mockPool));
+        aToken.mint(user, scaledBal, RAY);
+
+        mockPool.setNormalizedIncome(RAY);
+        uint256 result = aToken.balanceOf(user);
+        assertEq(result, scaledBal, "scaledBalance at RAY income should return scaledBal");
     }
 
     function testFuzz_scaledBalance_MonotonicInIndex(
         uint256 scaledBal,
         uint256 index1,
         uint256 index2
-    ) public view {
-        // Higher index → larger balance (more interest accrued)
-        scaledBal = bound(scaledBal, 1, 1e36);
+    ) public {
+        // Higher income → larger balance (more interest accrued)
+        scaledBal = bound(scaledBal, 1, MAX_BOUND);
         index1 = bound(index1, RAY, 10 * RAY);
         index2 = bound(index2, index1, 10 * RAY);
 
-        uint256 bal1 = h.scaledBalance(scaledBal, index1);
-        uint256 bal2 = h.scaledBalance(scaledBal, index2);
+        address user = makeAddr("user_bal_mono");
+        // Mint at RAY so stored == scaledBal
+        vm.prank(address(mockPool));
+        aToken.mint(user, scaledBal, RAY);
 
-        assertLe(bal1, bal2, "higher index should give larger or equal balance");
+        mockPool.setNormalizedIncome(index1);
+        uint256 bal1 = aToken.balanceOf(user);
+
+        mockPool.setNormalizedIncome(index2);
+        uint256 bal2 = aToken.balanceOf(user);
+
+        assertLe(bal1, bal2, "higher income should give larger or equal balance");
     }
 
-    function testFuzz_scaledBalance_ZeroScaledBal(uint256 index) public view {
+    function testFuzz_scaledBalance_ZeroScaledBal(uint256 index) public {
         index = bound(index, RAY, 10 * RAY);
-        uint256 result = h.scaledBalance(0, index);
+
+        address user = makeAddr("user_zero_bal");
+        // Don't mint anything - scaledBal is 0
+
+        mockPool.setNormalizedIncome(index);
+        uint256 result = aToken.balanceOf(user);
         assertEq(result, 0, "zero scaled balance should return zero");
     }
 
     // ============================================================
     //                       mintThenBalance
     // ============================================================
+    // Mint at mintIndex (stores amount.rayDiv(mintIndex))
+    // Query balanceOf at queryIndex (returns stored.rayMul(queryIndex))
 
-    function testFuzz_mintThenBalance_SameIndex(uint256 amount, uint256 index) public view {
+    function testFuzz_mintThenBalance_SameIndex(uint256 amount, uint256 index) public {
         // Mint at index, query at same index → should recover amount (± rounding)
-        // Rounding error from rayDiv then rayMul is bounded by ceil(index / RAY) + 1
-        amount = bound(amount, 0, 1e36);
         index = bound(index, RAY, 10 * RAY);
+        // Ensure amount is large enough so rayDiv(amount, index) >= 1
+        uint256 minAmount = index / (2 * RAY) + 1;
+        amount = bound(amount, minAmount, MAX_BOUND);
 
-        uint256 recovered = h.mintThenBalance(amount, index, index);
+        address user = makeAddr("user_same_idx");
+        vm.prank(address(mockPool));
+        aToken.mint(user, amount, index);
+
+        mockPool.setNormalizedIncome(index);
+        uint256 recovered = aToken.balanceOf(user);
+
         uint256 diff = amount > recovered ? amount - recovered : recovered - amount;
         uint256 maxError = index / RAY + 1;
 
@@ -107,16 +194,19 @@ contract ATokenFuzzTest is Test {
         uint256 amount,
         uint256 mintIndex,
         uint256 queryIndex
-    ) public view {
+    ) public {
         // Query at higher index → balance >= original amount (interest accrued)
-        // Use minimum amount large enough to survive rayDiv rounding
-        amount = bound(amount, 1e18, 1e36);
+        amount = bound(amount, 1e18, MAX_BOUND);
         mintIndex = bound(mintIndex, RAY, 5 * RAY);
         queryIndex = bound(queryIndex, mintIndex, 10 * RAY);
 
-        uint256 balance = h.mintThenBalance(amount, mintIndex, queryIndex);
+        address user = makeAddr("user_growing_idx");
+        vm.prank(address(mockPool));
+        aToken.mint(user, amount, mintIndex);
 
-        // Allow rounding tolerance: ceil(queryIndex / RAY) + 1
+        mockPool.setNormalizedIncome(queryIndex);
+        uint256 balance = aToken.balanceOf(user);
+
         uint256 maxError = queryIndex / RAY + 1;
         assertGe(balance + maxError, amount, "balance at higher index should be >= original amount minus rounding");
     }
@@ -125,38 +215,45 @@ contract ATokenFuzzTest is Test {
         uint256 amount,
         uint256 mintIndex,
         uint256 queryIndex
-    ) public view {
+    ) public {
         // Query at lower index → balance <= original amount (+ rounding tolerance)
-        // Rounding from rayDiv then rayMul can yield result slightly above original
-        amount = bound(amount, 1e18, 1e36);
+        amount = bound(amount, 1e18, MAX_BOUND);
         queryIndex = bound(queryIndex, RAY, 5 * RAY);
         mintIndex = bound(mintIndex, queryIndex, 10 * RAY);
 
-        uint256 balance = h.mintThenBalance(amount, mintIndex, queryIndex);
+        address user = makeAddr("user_dec_idx");
+        vm.prank(address(mockPool));
+        aToken.mint(user, amount, mintIndex);
+
+        mockPool.setNormalizedIncome(queryIndex);
+        uint256 balance = aToken.balanceOf(user);
 
         uint256 maxError = mintIndex / RAY + 1;
         assertLe(balance, amount + maxError, "balance at lower index should be <= original amount + rounding tolerance");
     }
 
     // ============================================================
-    //                    mintBurnRoundTrip
+    //                    mintRoundTrip
     // ============================================================
 
-    function testFuzz_mintBurnRoundTrip_BoundedError(uint256 amount, uint256 index) public view {
-        // Precision loss from rayDiv then rayMul is bounded by ceil(index / RAY) + 1
-        amount = bound(amount, 0, 1e36);
+    function testFuzz_mintRoundTrip_BoundedError(uint256 amount, uint256 index) public {
+        // Precision loss from rayDiv then rayMul is bounded
         index = bound(index, RAY, 10 * RAY);
+        // Ensure amount is large enough so rayDiv(amount, index) >= 1
+        uint256 minAmount = index / (2 * RAY) + 1;
+        amount = bound(amount, minAmount, MAX_BOUND);
 
-        uint256 diff = h.mintBurnRoundTrip(amount, index);
+        address user = makeAddr("user_roundtrip");
+        vm.prank(address(mockPool));
+        aToken.mint(user, amount, index);
+
+        mockPool.setNormalizedIncome(index);
+        uint256 recovered = aToken.balanceOf(user);
+
+        uint256 diff = amount > recovered ? amount - recovered : recovered - amount;
         uint256 maxError = index / RAY + 1;
 
-        assertLe(diff, maxError, "mint-burn round trip precision loss should be within rounding tolerance");
-    }
-
-    function testFuzz_mintBurnRoundTrip_ZeroAmountNoDiff(uint256 index) public view {
-        index = bound(index, RAY, 10 * RAY);
-        uint256 diff = h.mintBurnRoundTrip(0, index);
-        assertEq(diff, 0, "zero amount should have zero round-trip diff");
+        assertLe(diff, maxError, "mint round trip precision loss should be within rounding tolerance");
     }
 
     // ============================================================
@@ -168,7 +265,9 @@ contract ATokenFuzzTest is Test {
         amount = bound(amount, type(uint256).max / RAY + 1, type(uint256).max);
         index = bound(index, 1, RAY / 2);
 
+        address user = makeAddr("user_overflow");
+        vm.prank(address(mockPool));
         vm.expectRevert();
-        h.scaledAmount(amount, index);
+        aToken.mint(user, amount, index);
     }
 }

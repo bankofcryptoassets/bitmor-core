@@ -1,38 +1,22 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-import {WadRayMath} from "../protocol/libraries/math/WadRayMath.sol";
+import {AToken} from "../protocol/tokenization/AToken.sol";
 
-/// @dev Harness that exposes the pure scaling math used in AToken mint/burn/balanceOf.
-/// This avoids needing a full LendingPool mock — we only test the math layer.
-contract ATokenHarness {
-    using WadRayMath for uint256;
+/// @dev Mock lending pool for AToken harness tests.
+/// Provides configurable getReserveNormalizedIncome for balanceOf/totalSupply.
+contract MockPoolForAToken {
+    uint256 internal _normalizedIncome;
 
-    /// @dev Mirrors AToken.mint: amountScaled = amount.rayDiv(index)
-    function scaledAmount(uint256 amount, uint256 index) external pure returns (uint256) {
-        return amount.rayDiv(index);
+    function setNormalizedIncome(uint256 income) external {
+        _normalizedIncome = income;
     }
 
-    /// @dev Mirrors AToken.balanceOf: balance = scaledBalance.rayMul(index)
-    function scaledBalance(uint256 scaledBal, uint256 index) external pure returns (uint256) {
-        return scaledBal.rayMul(index);
-    }
-
-    /// @dev Round-trip: mint then query balance. Returns the balance for the given amount and index.
-    function mintThenBalance(uint256 amount, uint256 mintIndex, uint256 queryIndex) external pure returns (uint256) {
-        uint256 scaled = amount.rayDiv(mintIndex);
-        return scaled.rayMul(queryIndex);
-    }
-
-    /// @dev Tests that minting and burning round-trip correctly.
-    /// Returns the difference between original amount and recovered amount.
-    function mintBurnRoundTrip(uint256 amount, uint256 index) external pure returns (uint256 diff) {
-        uint256 scaled = amount.rayDiv(index);
-        uint256 recovered = scaled.rayMul(index);
-        diff = amount > recovered ? amount - recovered : recovered - amount;
-    }
-
-    function RAY() external pure returns (uint256) {
-        return WadRayMath.ray();
+    function getReserveNormalizedIncome(address) external view returns (uint256) {
+        return _normalizedIncome;
     }
 }
+
+/// @dev Harness that inherits from the real AToken for fuzz testing.
+/// Tests exercise mint, scaledBalanceOf, and balanceOf on the actual AToken code.
+contract ATokenHarness is AToken {}

@@ -1,77 +1,87 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
-import {SafeMath} from "../dependencies/openzeppelin/contracts/SafeMath.sol";
-import {PercentageMath} from "../protocol/libraries/math/PercentageMath.sol";
+import {LendingPoolCollateralManager} from "../protocol/lendingpool/LendingPoolCollateralManager.sol";
+import {ILendingPoolAddressesProvider} from "../interfaces/ILendingPoolAddressesProvider.sol";
+import {DataTypes} from "../protocol/libraries/types/DataTypes.sol";
+import {ReserveConfiguration} from "../protocol/libraries/configuration/ReserveConfiguration.sol";
 
-/// @dev Harness that exposes the pure liquidation math from LendingPoolCollateralManager.
-/// Extracts _calculateAvailableCollateralToLiquidate as a pure function.
-/// Split into two functions to avoid stack-too-deep in Solidity 0.6.12.
-contract LendingPoolCollateralManagerHarness {
-    using SafeMath for uint256;
-    using PercentageMath for uint256;
+/// @dev Mock price oracle for LPCM harness tests
+contract MockPriceOracleForLPCM {
+    mapping(address => uint256) internal _prices;
 
-    /// @dev Computes maxAmountCollateralToLiquidate (uncapped by user balance).
-    /// maxCollateral = debtAssetPrice * debtToCover * 10^collateralDecimals * liquidationBonus
-    ///                 / (collateralPrice * 10^debtAssetDecimals)
-    function calculateMaxCollateral(
-        uint256 collateralPrice,
-        uint256 debtAssetPrice,
-        uint256 debtToCover,
-        uint256 collateralDecimals,
-        uint256 debtAssetDecimals,
-        uint256 liquidationBonus
-    ) public pure returns (uint256) {
-        return debtAssetPrice
-            .mul(debtToCover)
-            .mul(10 ** collateralDecimals)
-            .percentMul(liquidationBonus)
-            .div(collateralPrice.mul(10 ** debtAssetDecimals));
+    function setAssetPrice(address asset, uint256 price) external {
+        _prices[asset] = price;
     }
 
-    /// @dev Computes reverse: given collateral amount, how much debt is needed?
-    /// debtNeeded = collateralPrice * collateralAmount * 10^debtDecimals
-    ///              / (debtAssetPrice * 10^collateralDecimals) / liquidationBonus
-    function calculateDebtFromCollateral(
-        uint256 collateralPrice,
-        uint256 debtAssetPrice,
-        uint256 collateralAmount,
-        uint256 collateralDecimals,
-        uint256 debtAssetDecimals,
-        uint256 liquidationBonus
-    ) public pure returns (uint256) {
-        return collateralPrice
-            .mul(collateralAmount)
-            .mul(10 ** debtAssetDecimals)
-            .div(debtAssetPrice.mul(10 ** collateralDecimals))
-            .percentDiv(liquidationBonus);
+    function getAssetPrice(address asset) external view returns (uint256) {
+        return _prices[asset];
+    }
+}
+
+/// @dev Mock addresses provider — only implements getPriceOracle() for the harness
+contract MockAddressesProviderForLPCM {
+    address internal _oracle;
+
+    function setOracle(address oracle_) external {
+        _oracle = oracle_;
     }
 
-    /// @dev Full calculation with user balance cap.
-    /// Uses the two functions above.
-    function calculateAvailableCollateralToLiquidate(
-        uint256 collateralPrice,
-        uint256 debtAssetPrice,
-        uint256 debtToCover,
-        uint256 userCollateralBalance,
+    function getPriceOracle() external view returns (address) {
+        return _oracle;
+    }
+}
+
+/// @dev Harness that inherits from the real LendingPoolCollateralManager
+/// and exposes _calculateAvailableCollateralToLiquidate for fuzz testing.
+contract LendingPoolCollateralManagerHarness is LendingPoolCollateralManager {
+    using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
+
+    /// @dev Configure harness storage: addresses provider and reserve configurations.
+    function setupState(
+        address addressesProvider,
+        address collateralAsset,
+        address debtAsset,
         uint256 collateralDecimals,
         uint256 debtAssetDecimals,
         uint256 liquidationBonus
-    ) external pure returns (uint256 collateralAmount, uint256 debtAmountNeeded) {
-        uint256 maxCol = calculateMaxCollateral(
-            collateralPrice, debtAssetPrice, debtToCover,
-            collateralDecimals, debtAssetDecimals, liquidationBonus
+    ) external {
+        _addressesProvider = ILendingPoolAddressesProvider(addressesProvider);
+
+        DataTypes.ReserveConfigurationMap memory collateralConfig;
+        collateralConfig.setLiquidationBonus(liquidationBonus);
+        collateralConfig.setDecimals(collateralDecimals);
+        _reserves[collateralAsset].configuration = collateralConfig;
+
+        DataTypes.ReserveConfigurationMap memory debtConfig;
+        debtConfig.setDecimals(debtAssetDecimals);
+        _reserves[debtAsset].configuration = debtConfig;
+    }
+
+    /// @dev Expose _calculateAvailableCollateralToLiquidate for external testing.
+    function exposed_calculateAvailableCollateralToLiquidate(
+        address collateralAsset,
+        address debtAsset,
+        uint256 debtToCover,
+        uint256 userCollateralBalance
+    ) external view returns (uint256, uint256, uint256) {
+        return _calculateAvailableCollateralToLiquidate(
+            _reserves[collateralAsset],
+            _reserves[debtAsset],
+            collateralAsset,
+            debtAsset,
+            debtToCover,
+            userCollateralBalance
         );
+    }
 
-        if (maxCol > userCollateralBalance) {
-            collateralAmount = userCollateralBalance;
-            debtAmountNeeded = calculateDebtFromCollateral(
-                collateralPrice, debtAssetPrice, collateralAmount,
-                collateralDecimals, debtAssetDecimals, liquidationBonus
-            );
-        } else {
-            collateralAmount = maxCol;
-            debtAmountNeeded = debtToCover;
-        }
+    /// @dev Expose _calculateProtocolFee for external testing.
+    function exposed_calculateProtocolFee(
+        uint256 maxCollateralToLiquidate,
+        uint256 liquidationBonusPercent,
+        uint256 liquidationFee
+    ) external pure returns (uint256 protocolFee, uint256 liquidatorCollateral) {
+        return _calculateProtocolFee(maxCollateralToLiquidate, liquidationBonusPercent, liquidationFee);
     }
 }

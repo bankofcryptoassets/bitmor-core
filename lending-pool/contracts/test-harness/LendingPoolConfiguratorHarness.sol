@@ -1,44 +1,65 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
-import {PercentageMath} from "../protocol/libraries/math/PercentageMath.sol";
+import {LendingPoolConfigurator} from "../protocol/lendingpool/LendingPoolConfigurator.sol";
+import {DataTypes} from "../protocol/libraries/types/DataTypes.sol";
 
-/// @dev Harness that exposes the collateral configuration validation logic
-/// from LendingPoolConfigurator.configureReserveAsCollateral().
-contract LendingPoolConfiguratorHarness {
-    using PercentageMath for uint256;
+/// @dev Mock LendingPool for LendingPoolConfigurator harness tests.
+/// Implements getConfiguration, setConfiguration, and getReserveData.
+contract MockPoolForLPC {
+    mapping(address => uint256) internal _configurations;
 
-    /// @dev Validates collateral configuration parameters.
-    /// Mirrors the require checks from configureReserveAsCollateral:
-    ///   1. ltv <= liquidationThreshold
-    ///   2. If threshold != 0: liquidationBonus > 10000
-    ///   3. If threshold != 0: threshold * bonus <= 10000 (percentMul)
-    ///   4. If threshold == 0: liquidationBonus == 0
-    /// Returns true if all checks pass, reverts otherwise.
-    function validateCollateralConfig(
-        uint256 ltv,
-        uint256 liquidationThreshold,
-        uint256 liquidationBonus
-    ) external pure returns (bool) {
-        require(ltv <= liquidationThreshold, "LTV_GT_THRESHOLD");
-
-        if (liquidationThreshold != 0) {
-            require(
-                liquidationBonus > PercentageMath.PERCENTAGE_FACTOR,
-                "BONUS_NOT_GT_100"
-            );
-            require(
-                liquidationThreshold.percentMul(liquidationBonus) <= PercentageMath.PERCENTAGE_FACTOR,
-                "THRESHOLD_TIMES_BONUS_GT_100"
-            );
-        } else {
-            require(liquidationBonus == 0, "BONUS_NOT_ZERO");
-        }
-
-        return true;
+    function getConfiguration(address asset)
+        external
+        view
+        returns (DataTypes.ReserveConfigurationMap memory)
+    {
+        return DataTypes.ReserveConfigurationMap(_configurations[asset]);
     }
 
-    function PERCENTAGE_FACTOR() external pure returns (uint256) {
-        return PercentageMath.PERCENTAGE_FACTOR;
+    function setConfiguration(address asset, uint256 data) external {
+        _configurations[asset] = data;
+    }
+
+    /// @dev Returns default (all-zero) reserve data.
+    /// currentLiquidityRate == 0 satisfies _checkNoLiquidity.
+    function getReserveData(address) external pure returns (DataTypes.ReserveData memory) {
+        DataTypes.ReserveData memory data;
+        return data;
     }
 }
+
+/// @dev Mock addresses provider for LendingPoolConfigurator harness tests.
+contract MockAddressesProviderForLPC {
+    address internal _poolAdmin;
+    address internal _pool;
+
+    function setPoolAdmin(address admin) external {
+        _poolAdmin = admin;
+    }
+
+    function setLendingPool(address pool_) external {
+        _pool = pool_;
+    }
+
+    function getPoolAdmin() external view returns (address) {
+        return _poolAdmin;
+    }
+
+    function getLendingPool() external view returns (address) {
+        return _pool;
+    }
+}
+
+/// @dev Mock ERC20 asset that returns 0 balance for any address.
+/// Used by _checkNoLiquidity when threshold is set to 0.
+contract MockAssetForLPC {
+    function balanceOf(address) external pure returns (uint256) {
+        return 0;
+    }
+}
+
+/// @dev Harness that inherits from the real LendingPoolConfigurator.
+/// Tests exercise the actual configureReserveAsCollateral code path.
+contract LendingPoolConfiguratorHarness is LendingPoolConfigurator {}
