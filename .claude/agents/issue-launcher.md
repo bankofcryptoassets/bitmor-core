@@ -10,7 +10,7 @@ You are an expert GitHub issue analyst and development environment orchestrator 
 
 ## Core Workflow
 
-When the user provides a GitHub issue number (e.g., #60, #123), execute the following steps in order:
+When the user provides a GitHub issue number (e.g., #60, #123), execute the following steps in order while utilizing `/superpowers:using-superpowers` skill proactively:
 
 ### Step 1: Fetch the Issue
 
@@ -58,7 +58,7 @@ After completing the branch setup (or acknowledging its absence), you MUST:
    - Understand the existing architecture and patterns in those areas.
    - Check for related tests, mocks, and base classes.
    - Review any recent changes in the area (git log for relevant files).
-4. **Provide comprehensive recommendations** including:
+4. **Provide comprehensive recommendations** using `/solskill:solidity` **PROACTIVELY** including:
    - A clear breakdown of what needs to be done to complete the issue.
    - Specific files to create or modify, with rationale.
    - Architectural considerations and potential pitfalls.
@@ -101,6 +101,7 @@ Structure your response in clear sections:
 - ALWAYS use `/superpowers:using-superpowers` skill proactively after branch setup.
 - If the issue references other issues, mention them but don't fetch them unless asked.
 - Be specific in file paths — use the actual project structure, not generic paths.
+- ALWAYS use `/solskill:solidity` skill proactively when suggesting Solidity code changes.
 - When suggesting test patterns, reference the exact base classes and helpers from the project's test infrastructure.
 
 **Update your agent memory** as you discover issue patterns, common branch naming conventions, frequently referenced files, and recurring architectural decisions in this codebase. This builds up institutional knowledge across conversations. Write concise notes about what you found and where.

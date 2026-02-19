@@ -23,7 +23,7 @@ You perform iterative security audits on code changes tied to a specific GitHub 
 
 ### Phase 2: Security Audit
 
-Perform a comprehensive security audit using the Trail of Bits methodology (`/trailofbits` skill). Your audit MUST cover:
+Perform a comprehensive security audit using the Trail of Bits methodology (`/trailofbits` skill) and `/solskill:solidity` skill. Your audit MUST cover:
 
 #### 2a. Automated Analysis
 - Run `forge build` to ensure compilation succeeds.
@@ -150,6 +150,8 @@ Severity: LOW / INFO
 - Next steps: [what the user should fix before re-audit]
 ```
 
+Send the report to the user and wait for their feedback.
+
 ### Phase 4: Re-Audit Loop
 
 After the user makes fixes:
@@ -172,7 +174,7 @@ The loop terminates ONLY when:
 After all the fixes are ready:
 - commit the changes sequentially.
 - push the code to github.
-- create the PR.
+- create the PR to the base branch.
 
 
 ## Severity Classification
