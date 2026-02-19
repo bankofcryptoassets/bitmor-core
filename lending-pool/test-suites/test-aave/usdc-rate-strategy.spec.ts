@@ -117,7 +117,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,uint256,uint256,uint256,uint256,uint256)'](
       getContractAddress(dai), // reserve address (not USDC to avoid "WA" check)
-      '1000000000000000000', // availableLiquidity (1 token in wei)
+      '1000000000000000000', // totalAssets (1 token in wei)
       0, // totalStableDebt
       0, // totalVariableDebt
       0, // averageStableBorrowRate
@@ -134,8 +134,9 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
   it('Checks rates at 90% utilization rate (optimal)', async () => {
     const { dai } = testEnv;
 
-    // 90% utilization: 100 liquidity, 900 debt => 900 / (100 + 900) = 0.9
-    const availableLiquidity = '100000000000000000'; // 0.1 token
+    // 90% utilization: totalAssets includes totalDebt (vault semantics)
+    // U = totalDebt / totalAssets = 0.9 / 1.0 = 0.9
+    const totalAssets = '1000000000000000000'; // 1.0 token (idle + borrowed)
     const totalVariableDebt = '900000000000000000'; // 0.9 token
 
     const {
@@ -144,7 +145,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,uint256,uint256,uint256,uint256,uint256)'](
       getContractAddress(dai),
-      availableLiquidity,
+      totalAssets,
       '0', // totalStableDebt
       totalVariableDebt,
       '0', // averageStableBorrowRate
@@ -175,8 +176,9 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
   it('Checks rates at 100% utilization rate (above optimal)', async () => {
     const { dai } = testEnv;
 
-    // 100% utilization: 0 liquidity, 1000 debt => 1000 / (0 + 1000) = 1.0
-    const availableLiquidity = '0';
+    // 100% utilization: totalAssets = 0 with outstanding debt
+    // When totalAssets == 0 and totalDebt > 0, utilization is capped at 100%
+    const totalAssets = '0';
     const totalVariableDebt = '1000000000000000000'; // 1 token
 
     const {
@@ -185,7 +187,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,uint256,uint256,uint256,uint256,uint256)'](
       getContractAddress(dai),
-      availableLiquidity,
+      totalAssets,
       '0', // totalStableDebt
       totalVariableDebt,
       '0', // averageStableBorrowRate
@@ -216,8 +218,9 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
   it('Checks rates at 45% utilization rate (below optimal)', async () => {
     const { dai } = testEnv;
 
-    // 45% utilization: 550 liquidity, 450 debt => 450 / (550 + 450) = 0.45
-    const availableLiquidity = '550000000000000000'; // 0.55 token
+    // 45% utilization: totalAssets includes totalDebt (vault semantics)
+    // U = totalDebt / totalAssets = 0.45 / 1.0 = 0.45
+    const totalAssets = '1000000000000000000'; // 1.0 token (idle + borrowed)
     const totalVariableDebt = '450000000000000000'; // 0.45 token
 
     const {
@@ -226,7 +229,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,uint256,uint256,uint256,uint256,uint256)'](
       getContractAddress(dai),
-      availableLiquidity,
+      totalAssets,
       '0', // totalStableDebt
       totalVariableDebt,
       '0', // averageStableBorrowRate
@@ -252,7 +255,8 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
     const { dai } = testEnv;
 
     // 50% stable, 50% variable at 100% utilization
-    const availableLiquidity = '0';
+    // totalAssets = 0 with outstanding debt triggers 100% utilization cap
+    const totalAssets = '0';
     const totalStableDebt = '500000000000000000'; // 0.5 token
     const totalVariableDebt = '500000000000000000'; // 0.5 token
     const averageStableBorrowRate = new BigNumber(0.1).times(RAY).toFixed(0); // 10% avg stable rate
@@ -263,7 +267,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,uint256,uint256,uint256,uint256,uint256)'](
       getContractAddress(dai),
-      availableLiquidity,
+      totalAssets,
       totalStableDebt,
       totalVariableDebt,
       averageStableBorrowRate,
