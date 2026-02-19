@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
@@ -136,6 +137,28 @@ contract AdminSettersTest is BaseLoanTest {
         assertEq(loan.getMinDepositBps(), newValue, "MinDepositBps should be updated");
     }
 
+    /// @notice Test successfully setting the maximum loan duration and emitting event
+    function test_setMaxDuration() public {
+        uint256 newValue = 36; // 3 years
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, newValue);
+
+        // Schedule first, then expect event before execute
+        uint64 roleId = LPM_SLOW_ID();
+        (, uint32 delay,,) = manager.getAccess(roleId, lpm_slow);
+        uint48 when = uint48(block.timestamp + delay);
+
+        vm.startPrank(lpm_slow);
+        manager.schedule(address(loan), data, when);
+        vm.warp(when);
+
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__MaxDurationUpdated(newValue);
+        manager.execute(address(loan), data);
+        vm.stopPrank();
+
+        assertEq(loan.getMaxDuration(), newValue, "MaxDuration should be updated");
+    }
+
     /// @notice Test successfully setting the liquidation fee in basis points
     function test_setLiquidationFeeBps() public {
         uint256 newValue = TC.DEFAULT_LIQUIDATION_FEE_BPS;
@@ -165,6 +188,14 @@ contract AdminSettersTest is BaseLoanTest {
         );
     }
 
+    /// @notice Test that setting max duration to zero reverts
+    function test_setMaxDuration_RevertWhen_Zero() public {
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, 0);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAmount.selector)
+        );
+    }
+
     // ============ Setters Without Role Revert ============
 
     /// @notice Test that setters revert when caller lacks the required role
@@ -182,6 +213,9 @@ contract AdminSettersTest is BaseLoanTest {
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setLiquidationFeeCollector(newAddress);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        loan.setMaxDuration(60);
 
         vm.stopPrank();
     }
@@ -241,5 +275,19 @@ contract AdminSettersTest is BaseLoanTest {
         _setMinDepositBps(newBps);
 
         assertEq(loan.getMinDepositBps(), newBps, "Min deposit BPS should be updated");
+    }
+
+    /// @notice Test that changing max duration affects loan creation validation
+    function test_setMaxDuration_affectsLoanCreation() public {
+        uint256 newMax = 6;
+        _setMaxDuration(newMax);
+
+        // Duration at new max should work
+        (uint256 loanAmt,,) = loan.getLoanDetails(TC.STANDARD_COLLATERAL, 6);
+        assertGt(loanAmt, 0, "Duration at new max should be valid");
+
+        // Duration above new max should revert
+        vm.expectRevert(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(TC.STANDARD_COLLATERAL, 7);
     }
 }
