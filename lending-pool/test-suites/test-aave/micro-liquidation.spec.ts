@@ -304,7 +304,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       expect(reverted).to.equal(true, 'Expected micro-liquidation to revert for non-overdue loan');
     });
 
-    it('Triggers full liquidation update when duration becomes 0 after micro-liquidation', async () => {
+    it('Completes loan when duration becomes 0 after micro-liquidation', async () => {
       const { pool, users, mockLoan, addressesProvider, cbBTC, btcVault, usdc, deployer } = testEnv;
       const borrower = users[6];
       const liquidator = deployer;
@@ -347,9 +347,13 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       // Execute micro-liquidation
       await pool.connect(liquidator.signer).microLiquidationCall(callData);
 
-      // When duration was 1, after micro-liq it becomes 0, triggering full liquidation update
+      // When duration was 1, micro-liquidation completes the loan (not full liquidation)
+      const completionCount = await mockLoan.microLiquidationCompletionCount(borrower.address);
+      expect(completionCount).to.equal(1n, 'micro-liquidation completion should be called once');
+
+      // Verify full liquidation was NOT called
       const fullLiqCount = await mockLoan.fullLiquidationCount(borrower.address);
-      expect(fullLiqCount).to.equal(1n);
+      expect(fullLiqCount).to.equal(0n, 'full liquidation should not be triggered');
     });
   });
 

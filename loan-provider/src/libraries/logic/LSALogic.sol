@@ -10,6 +10,7 @@ import {ILoanVault} from "../../interfaces/ILoanVault.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 import {Errors} from "../helpers/Errors.sol";
 
 /**
@@ -32,6 +33,7 @@ import {Errors} from "../helpers/Errors.sol";
 library LSALogic {
     using BTCVaultLogic for address;
     using FixedPointMathLib for uint256;
+    using BitmorLendingPoolLogic for address;
 
     /// @dev Maximum uint256 value used for max withdrawal amounts
     uint256 internal constant MAX_U256 = type(uint256).max;
@@ -90,13 +92,7 @@ library LSALogic {
         internal
         returns (uint256 amountWithdrawn)
     {
-        bytes memory withdrawData =
-            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
-
-        bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
-
-        // Decode the actual amount withdrawn
-        amountWithdrawn = abi.decode(result, (uint256));
+        amountWithdrawn = _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, recipient);
     }
 
     /**
@@ -117,6 +113,64 @@ library LSALogic {
         address recipient,
         uint256 slippage_sharesToAsset
     ) internal returns (uint256 assetsReceived) {
+        assetsReceived = _redeemBTC(lsa, collateralAsset, sharesAmount, recipient, slippage_sharesToAsset);
+    }
+
+    /**
+     * @notice Claims all remaining collateral from the Bitmor Lending Pool and redeems it to the `borrower`
+     * @dev Used during micro-liquidation completion (`duration == 1`) to return leftover collateral.
+     * Withdraws all aToken collateral to the LSA, then redeems bvBTC shares to the borrower.
+     * @param lsa The Loan Specific Address holding the collateral position
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param borrower Address of the loan borrower to receive the collateral
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     */
+    function claimRemainingCollateral(
+        address lsa,
+        address bitmorPool,
+        address collateralAsset,
+        address borrower,
+        uint256 slippage_sharesToAsset
+    ) internal {
+        /// @dev Check if there is any collateral to claim
+        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) return;
+
+        /// @dev Withdraw all the collateral, `bvBTC` shares from the BLP to the LSA.
+        _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, lsa);
+
+        /// @dev Calculate the maximum redeemable amount of `bvBTC` shares from the `bvBTC` vault.
+        uint256 maxRedeemable = collateralAsset.maxRedeem(lsa);
+
+        /// @dev Guard: nothing to redeem (e.g., vault paused or zero shares after withdrawal)
+        if (maxRedeemable == 0) return;
+
+        /// @dev Redeem all the `bvBTC` shares from the `bvBTC` vault to the `borrower`.
+        _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
+    }
+
+    /// @dev Withdraws all collateral from the Bitmor Lending Pool via the LSA using `MAX_U256`.
+    function _withdrawMaxCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
+        private
+        returns (uint256 amountWithdrawn)
+    {
+        bytes memory withdrawData =
+            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
+
+        bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
+
+        // Decode the actual amount withdrawn
+        amountWithdrawn = abi.decode(result, (uint256));
+    }
+
+    /// @dev Redeems bvBTC shares via the LSA, validates received assets against slippage tolerance.
+    function _redeemBTC(
+        address lsa,
+        address collateralAsset,
+        uint256 sharesAmount,
+        address recipient,
+        uint256 slippage_sharesToAsset
+    ) private returns (uint256 assetsReceived) {
         uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
 
         uint256 minimumReceivable =

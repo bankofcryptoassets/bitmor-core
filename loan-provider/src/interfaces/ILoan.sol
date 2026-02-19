@@ -47,6 +47,12 @@ interface ILoan {
     event Loan__ClosedLoan(address indexed lsa);
 
     /**
+     * @notice Emitted when a loan is completed.
+     * @param lsa Address of the completed Loan Specific Address
+     */
+    event Loan__Completed(address indexed lsa);
+
+    /**
      * @notice Emitted when the LoanVaultFactory address is updated
      * @param newFactory Address of the new factory contract
      */
@@ -187,6 +193,15 @@ interface ILoan {
      * @custom:access Restricted to `LPCM` role
      */
     function updateLoanDataForMicroLiquidation(address _lsa) external;
+
+    /**
+     * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, updates `lastPaymentTimestamp`,
+     * and returns remaining collateral to the borrower.
+     * @param _lsa The Loan Specific Address
+     * @custom:access Restricted to `LPCM` role
+     */
+    function updateLoanForMicroLiquidationCompletion(address _lsa) external;
 
     /**
      * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
