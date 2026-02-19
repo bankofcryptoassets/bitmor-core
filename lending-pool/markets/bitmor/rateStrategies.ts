@@ -7,7 +7,7 @@ export const rateStrategyUSDC: IInterestRateStrategyParams = {
   optimalUtilizationRate: new BigNumber(0.9).multipliedBy(oneRay).toFixed(),
   baseVariableBorrowRate: new BigNumber(0.05).multipliedBy(oneRay).toFixed(),
   variableRateSlope1: new BigNumber(0.04).multipliedBy(oneRay).toFixed(),
-  variableRateSlope2: new BigNumber(0.02).multipliedBy(oneRay).toFixed(),
+  variableRateSlope2: new BigNumber(0.03).multipliedBy(oneRay).toFixed(),
   stableRateSlope1: '0',
   stableRateSlope2: '0',
 };
