@@ -139,7 +139,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             minCollateralAmt: s_minBTCAmt,
             maxCollateralAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
-            minDepositBps: s_minDeposit
+            minDepositBps: s_minDeposit,
+            maxDuration: s_maxDuration
         });
 
         lsa = s_loansByLSA.executeInitializeLoan(
@@ -363,7 +364,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
         (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
-            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit),
+            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit, s_maxDuration),
             i_BITMOR_POOL,
             i_ORACLE,
             i_COLLATERAL_ASSET,
@@ -438,6 +439,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /// @inheritdoc ILoan
     function getMinDepositBps() external view returns (uint256) {
         return s_minDeposit;
+    }
+
+    /// @inheritdoc ILoan
+    function getMaxDuration() external view returns (uint256) {
+        return s_maxDuration;
     }
 
     /// @inheritdoc ILoan
@@ -529,6 +535,12 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
         s_minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
+    }
+
+    /// @inheritdoc ILoan
+    function setMaxDuration(uint256 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
+        s_maxDuration = newMaxDuration;
+        emit Loan__MaxDurationUpdated(newMaxDuration);
     }
 
     /// @inheritdoc ILoan

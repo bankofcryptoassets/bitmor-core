@@ -69,8 +69,12 @@ library LoanLogic {
         DataTypes.InitializeLoanContext memory ctx,
         DataTypes.ExecuteInitializeLoanParams memory params
     ) internal returns (address lsa) {
-        if (params.depositAmount == 0 || params.collateralAmount == 0 || params.duration == 0) {
+        if (params.depositAmount == 0 || params.collateralAmount == 0) {
             revert Errors.ZeroAmount();
+        }
+
+        if (params.duration == 0 || params.duration > ctx.maxDuration) {
+            revert Errors.Loan__InvalidDuration();
         }
 
         if (params.collateralAmount < ctx.minCollateralAmt) {
@@ -289,7 +293,7 @@ library LoanLogic {
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
         if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
-        if (duration == 0) revert Errors.ZeroAmount();
+        if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);

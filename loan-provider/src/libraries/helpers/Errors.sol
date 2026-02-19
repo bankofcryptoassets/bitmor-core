@@ -40,6 +40,11 @@ library Errors {
     error LoanIsNotActive();
 
     /**
+     * @notice Thrown when loan duration is zero or exceeds the maximum allowed
+     */
+    error Loan__InvalidDuration();
+
+    /**
      * @notice Thrown when array index is out of valid bounds
      */
     error IndexOutOfBounds();
