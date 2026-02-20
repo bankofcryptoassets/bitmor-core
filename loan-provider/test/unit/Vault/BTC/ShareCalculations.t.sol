@@ -262,6 +262,14 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
         assertEq(maxWith, 0, "maxWithdraw for zero balance user should be 0");
     }
 
+    /// @notice `maxRedeem` with zero balance should return zero
+    function test_maxRedeem_ZeroBalance_ReturnsZero() public {
+        address noBalanceUser = makeAddr("noBalanceUser");
+        uint256 maxRed = vault.maxRedeem(noBalanceUser);
+
+        assertEq(maxRed, 0, "maxRedeem for zero balance user should be 0");
+    }
+
     /// @notice `maxDeposit` should decrease after a deposit
     function test_maxDeposit_DecreasesAfterDeposit() public {
         uint256 maxBefore = vault.maxDeposit(user);
