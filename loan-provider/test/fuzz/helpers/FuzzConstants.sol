@@ -51,6 +51,11 @@ library FuzzConstants {
     /// @dev Maximum USDC amount: 10M USDC
     uint256 constant MAX_USDC_AMOUNT = 10_000_000e6;
 
+    // ============ Premium Bounds (6 decimals) ============
+
+    /// @dev Maximum premium for fuzz testing: 100k USDC
+    uint256 constant MAX_PREMIUM = 100_000e6;
+
     // ============ Deposit Bounds ============
 
     /// @dev Minimum deposit: 30% (in basis points)

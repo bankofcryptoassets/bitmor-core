@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 import {ILoanVault} from "../interfaces/ILoanVault.sol";
+import {Errors} from "../libraries/helpers/Errors.sol";
 
 /**
  * @title LoanVault
@@ -67,8 +68,8 @@ contract LoanVault is ILoanVault {
      * @param _borrower The user who created this loan
      */
     function initialize(address _owner, address _borrower) external override notInitialized {
-        require(_owner != address(0), "LoanVault: invalid owner");
-        require(_borrower != address(0), "LoanVault: invalid borrower");
+        if (_owner == address(0)) revert Errors.LoanVault__InvalidOwner();
+        if (_borrower == address(0)) revert Errors.LoanVault__InvalidBorrower();
 
         s_owner = _owner;
         s_borrower = _borrower;
@@ -88,8 +89,8 @@ contract LoanVault is ILoanVault {
      * @custom:access Restricted to owner (Loan contract)
      */
     function approveToken(address token, address spender, uint256 amount) external override onlyOwner {
-        require(token != address(0), "LoanVault: invalid token");
-        require(spender != address(0), "LoanVault: invalid spender");
+        if (token == address(0)) revert Errors.LoanVault__InvalidToken();
+        if (spender == address(0)) revert Errors.LoanVault__InvalidSpender();
 
         IERC20(token).forceApprove(spender, 0); // Reset first for tokens like USDT
         IERC20(token).forceApprove(spender, amount);
@@ -105,8 +106,8 @@ contract LoanVault is ILoanVault {
      * @custom:access Restricted to owner (Loan contract)
      */
     function transferToken(address token, address to, uint256 amount) external override onlyOwner {
-        require(token != address(0), "LoanVault: invalid token");
-        require(to != address(0), "LoanVault: invalid to address");
+        if (token == address(0)) revert Errors.LoanVault__InvalidToken();
+        if (to == address(0)) revert Errors.LoanVault__InvalidToAddress();
 
         IERC20(token).safeTransfer(to, amount);
         emit LoanVault__TokenTransferred(token, to, amount);
@@ -123,10 +124,10 @@ contract LoanVault is ILoanVault {
      * @custom:access Restricted to owner (Loan contract)
      */
     function execute(address target, bytes calldata data) external override onlyOwner returns (bytes memory result) {
-        require(target != address(0), "LoanVault: invalid target");
+        if (target == address(0)) revert Errors.LoanVault__InvalidTarget();
 
         (bool success, bytes memory returnData) = target.call(data);
-        require(success, "LoanVault: execution failed");
+        if (!success) revert Errors.LoanVault__ExecutionFailed();
 
         emit LoanVault__Executed(target, data, returnData);
 
@@ -173,7 +174,7 @@ contract LoanVault is ILoanVault {
      * @dev Reverts if `s_initialized` is true
      */
     function _notInitialized() internal view {
-        require(!s_initialized, "LoanVault: already initialized");
+        if (s_initialized) revert Errors.LoanVault__AlreadyInitialized();
     }
 
     /**
@@ -181,7 +182,7 @@ contract LoanVault is ILoanVault {
      * @dev Reverts if `msg.sender` is not `s_owner`
      */
     function _onlyOwner() internal view {
-        require(msg.sender == s_owner, "LoanVault: caller is not owner");
+        if (msg.sender != s_owner) revert Errors.LoanVault__CallerIsNotOwner();
     }
 
     /**
