@@ -157,6 +157,49 @@ library LSALogic {
         _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
     }
 
+    /**
+     * @notice Claims all remaining collateral from the Bitmor Lending Pool and redeems it to the `borrower`
+     * @dev Used after liquidation/completion to return leftover collateral.
+     * Reverts if the LSA still has outstanding variable debt.
+     * Withdraws all aToken collateral to the LSA, then redeems bvBTC shares to the borrower.
+     * @param lsa The Loan Specific Address holding the collateral position
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param debtAsset Address of the debt asset (USDC) for debt balance check
+     * @param borrower Address of the loan borrower to receive the collateral
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     */
+    function claimSurplusCollateral(
+        address lsa,
+        address bitmorPool,
+        address collateralAsset,
+        address debtAsset,
+        address borrower,
+        uint256 slippage_sharesToAsset
+    ) internal {
+        /// @dev Revert if the LSA still has outstanding variable debt
+        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) != 0) {
+            revert Errors.LSALogic__OutstandingDebtExists();
+        }
+
+        /// @dev Check if there is any collateral to claim
+        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) {
+            revert Errors.Loan__ClaimingSurplusCollateralFailed();
+        }
+
+        /// @dev Withdraw all the collateral, `bvBTC` shares from the BLP to the LSA.
+        _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, lsa);
+
+        /// @dev Calculate the maximum redeemable amount of `bvBTC` shares from the `bvBTC` vault.
+        uint256 maxRedeemable = collateralAsset.maxRedeem(lsa);
+
+        /// @dev Guard: nothing to redeem (e.g., vault paused or zero shares after withdrawal)
+        if (maxRedeemable == 0) revert Errors.Loan__ClaimingSurplusCollateralFailed();
+
+        /// @dev Redeem all the `bvBTC` shares from the `bvBTC` vault to the `borrower`.
+        _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
+    }
+
     /// @dev Withdraws all collateral from the Bitmor Lending Pool via the LSA using `MAX_U256`.
     function _withdrawMaxCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
         private

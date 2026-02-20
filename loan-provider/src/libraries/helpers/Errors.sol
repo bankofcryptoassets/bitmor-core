@@ -290,4 +290,7 @@ library Errors {
 
     /// @notice Thrown when `claimSurplusCollateral` is called on a loan that is still Active
     error Loan__InvalidLoanStatus();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called and either BLP or BTC vault returns 0.
+    error Loan__ClaimingSurplusCollateralFailed();
 }
