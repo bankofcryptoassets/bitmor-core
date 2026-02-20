@@ -157,7 +157,7 @@ library LoanMath {
      * @param collateralAssetDecimals Number of decimals for collateral asset
      * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
      * @param debtAssetDecimals Number of decimals for debt asset
-     * @param interestRate Interest rate from Aave V2 reserve (27 decimals - RAY)
+     * @param interestRate Maximum variable borrow rate from interest rate strategy (27 decimals - RAY)
      * @param duration Loan duration in months
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
