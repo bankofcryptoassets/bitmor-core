@@ -282,9 +282,6 @@ library Errors {
 
     // ============ Loan Surplus Claim Errors ============
 
-    /// @notice Thrown when `_claimSurplusInternal` is called by an address other than the contract itself
-    error Loan__OnlySelf();
-
     /// @notice Thrown when `claimSurplusCollateral` is called by an address other than the loan borrower
     error Loan__OnlyBorrower();
 

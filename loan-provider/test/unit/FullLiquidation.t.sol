@@ -305,8 +305,9 @@ contract FullLiquidationTest is BaseLoanTest {
 
     // ============ Collateral Recovery After Full Liquidation (#73) ============
 
-    /// @notice Full liquidation with surplus returns remaining collateral to borrower
-    /// @dev When collateral > (debt + bonus), the surplus should be returned to the borrower
+    /// @notice Full liquidation with surplus keeps collateral in BLP for borrower to claim separately
+    /// @dev When collateral > (debt + bonus), the surplus stays in the BLP. Borrower must call
+    ///      `claimSurplusCollateral` to recover it.
     function test_fullLiquidation_returnsSurplusCollateralToBorrower() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
@@ -323,15 +324,29 @@ contract FullLiquidationTest is BaseLoanTest {
         // Execute full liquidation
         _executeFullLiquidation(lsa, type(uint256).max, false);
 
-        // Borrower should have received cbBTC (surplus collateral)
-        uint256 borrowerCbBtcAfter = IERC20(btc).balanceOf(user);
-        assertGt(
-            borrowerCbBtcAfter, borrowerCbBtcBefore, "borrower should receive surplus cbBTC after full liquidation"
+        // Borrower should NOT have received cbBTC automatically (no auto-claim)
+        uint256 borrowerCbBtcAfterLiq = IERC20(btc).balanceOf(user);
+        assertEq(
+            borrowerCbBtcAfterLiq, borrowerCbBtcBefore, "borrower should NOT receive cbBTC automatically during liquidation"
         );
 
-        // LSA should have zero aToken balance after (all collateral claimed)
-        uint256 lsaCollateralAfter = _getCollateralBalance(lsa);
-        assertEq(lsaCollateralAfter, 0, "LSA should have zero collateral after full liquidation with recovery");
+        // Surplus collateral should still be in BLP
+        uint256 lsaCollateralAfterLiq = _getCollateralBalance(lsa);
+        assertGt(lsaCollateralAfterLiq, 0, "LSA should still have surplus collateral in BLP after liquidation");
+
+        // Borrower explicitly claims surplus
+        vm.prank(user);
+        loan.claimSurplusCollateral(lsa);
+
+        // Now borrower should have received cbBTC
+        uint256 borrowerCbBtcAfterClaim = IERC20(btc).balanceOf(user);
+        assertGt(
+            borrowerCbBtcAfterClaim, borrowerCbBtcBefore, "borrower should receive surplus cbBTC after explicit claim"
+        );
+
+        // LSA should have zero aToken balance after claim
+        uint256 lsaCollateralAfterClaim = _getCollateralBalance(lsa);
+        assertEq(lsaCollateralAfterClaim, 0, "LSA should have zero collateral after explicit claim");
     }
 
     /// @notice Full liquidation with no surplus does not change borrower balance

@@ -249,10 +249,6 @@ contract Loan is
     {
         s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
 
-        try this._claimSurplusInternal(_lsa) {} catch {
-            emit Loan__SurplusClaimFailed(_lsa);
-        }
-
         emit Loan__Completed(_lsa);
     }
 
@@ -270,10 +266,6 @@ contract Loan is
         checkIfLoanExists(_lsa)
     {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
-
-        try this._claimSurplusInternal(_lsa) {} catch {
-            emit Loan__SurplusClaimFailed(_lsa);
-        }
 
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
@@ -661,25 +653,6 @@ contract Loan is
         });
 
         emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower);
-    }
-
-    /**
-     * @notice Internal self-call target for try/catch surplus claim during liquidation
-     * @dev Only callable by this contract (`address(this)`). Reverts if caller is not self.
-     *      This exists because `claimRemainingCollateral` is an internal library call
-     *      and Solidity try/catch only works on external calls.
-     * @param _lsa The Loan Specific Address with surplus collateral
-     */
-    function _claimSurplusInternal(address _lsa) external {
-        if (msg.sender != address(this)) revert Errors.Loan__OnlySelf();
-
-        _lsa.claimRemainingCollateral({
-            bitmorPool: i_BITMOR_POOL,
-            collateralAsset: i_COLLATERAL_ASSET,
-            debtAsset: i_DEBT_ASSET,
-            borrower: s_loansByLSA[_lsa].borrower,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
-        });
     }
 
     // ============ Internal Functions ============
