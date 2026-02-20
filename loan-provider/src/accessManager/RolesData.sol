@@ -436,11 +436,12 @@ contract RolesData {
     }
 
     /// @notice Returns function selectors for ARE role
-    /// @dev Selectors for executeAutoRepayment function
+    /// @dev Selectors for executeAutoRepayment and rescueTokens functions
     /// @return selectors Array of function selectors
     function getARE_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
+        selectors = new bytes4[](2);
         selectors[0] = IAutoRepayment.executeAutoRepayment.selector;
+        selectors[1] = IAutoRepayment.rescueTokens.selector;
     }
 
     /// @notice Returns function selectors for BVM_FAST role
