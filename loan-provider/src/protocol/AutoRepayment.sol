@@ -92,6 +92,28 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
         IERC20(i_DEBT_ASSET).forceApprove(i_LOAN, amount);
         uint256 amountRepaid = ILoan(i_LOAN).repay(lsa, amount);
 
+        IERC20(i_DEBT_ASSET).forceApprove(i_LOAN, 0);
+
+        uint256 excess = amount - amountRepaid;
+        if (excess > 0) {
+            IERC20(i_DEBT_ASSET).safeTransfer(user, excess);
+            emit AutoRepayment__ExcessRefunded(user, excess);
+        }
+
         emit AutoRepayment__RepaymentExecuted(lsa, user, amount, amountRepaid);
+    }
+
+    /**
+     * @inheritdoc IAutoRepayment
+     * @custom:access Restricted to `ARE` (Auto Repayment Executor) role
+     */
+    function rescueTokens(address token, address to, uint256 amount) external restricted {
+        if (token == address(0)) revert Errors.ZeroAddress();
+        if (to == address(0)) revert Errors.ZeroAddress();
+        if (amount == 0) revert Errors.ZeroAmount();
+
+        IERC20(token).safeTransfer(to, amount);
+
+        emit AutoRepayment__TokensRescued(token, to, amount);
     }
 }

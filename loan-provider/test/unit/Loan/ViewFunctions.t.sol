@@ -116,6 +116,58 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(loan.getUserLoanCount(user), 1, "User should still have 1 loan");
     }
 
+    // ============ Preview vs Actual Rate Consistency ============
+
+    /// @notice Test that getLoanDetails preview monthly payment matches the actual loan's estimatedMonthlyPayment
+    /// @dev Regression test for vuln-38: getLoanDetails previously used currentVariableBorrowRate
+    ///      while initializeLoan used getMaxVariableBorrowRate, causing preview < actual
+    function test_getLoanDetails_MonthlyPaymentMatchesActualLoan() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Get preview values
+        (uint256 previewLoanAmt, uint256 previewMonthlyPay, uint256 minDeposit) =
+            loan.getLoanDetails(collateral, duration);
+
+        // Create the actual loan
+        _mintDebtAssetToUser();
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, collateral, duration, "");
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        // Preview loan amount must match actual loan amount
+        assertEq(previewLoanAmt, loanData.loanAmount, "preview loanAmount should equal actual loanAmount");
+
+        // Preview monthly payment must match actual monthly payment
+        assertEq(
+            previewMonthlyPay,
+            loanData.estimatedMonthlyPayment,
+            "preview monthlyPayment should equal actual estimatedMonthlyPayment"
+        );
+    }
+
+    /// @notice Test that getLoanDetails uses getMaxVariableBorrowRate, not currentVariableBorrowRate
+    /// @dev Sets divergent rates in mock to prove the preview reads from the strategy, not reserve data
+    function test_getLoanDetails_UsesMaxVariableBorrowRate() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Set a low currentVariableBorrowRate in the reserve (1%) — preview should NOT use this
+        mockBitmorPool.setVariableBorrowRate(address(mockUSDC), 0.01e27);
+
+        // Get preview with the default strategy max rate
+        (, uint256 previewMonthlyPayHigh,) = loan.getLoanDetails(collateral, duration);
+
+        // Lower the strategy's base rate, reducing getMaxVariableBorrowRate()
+        mockUSDCInterestRateStrategy.setBaseVariableBorrowRate(0.001e27);
+
+        (, uint256 previewMonthlyPayLow,) = loan.getLoanDetails(collateral, duration);
+
+        // Higher max rate must produce higher monthly payment (proving preview uses strategy, not reserve)
+        assertGt(previewMonthlyPayHigh, previewMonthlyPayLow, "higher max rate should produce higher monthly payment");
+    }
+
     /// @notice Test that getUserAllLoans returns correct loan data for each user
     function test_getUserAllLoans_ReturnsCorrectData() public {
         // Create loan for user
