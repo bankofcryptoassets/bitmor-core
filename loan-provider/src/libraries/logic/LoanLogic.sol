@@ -245,7 +245,7 @@ library LoanLogic {
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch current variable borrow rate from Aave V2 USDC reserve
+        // Fetch max variable borrow rate from interest rate strategy
         DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
 
         uint256 maxInterestRate =
@@ -302,9 +302,10 @@ library LoanLogic {
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch current variable borrow rate from Aave V2 USDC reserve
+        // Fetch max variable borrow rate from interest rate strategy (matches executeInitializeLoan)
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-        uint256 interestRate = reserveData.currentVariableBorrowRate;
+        uint256 interestRate =
+            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
