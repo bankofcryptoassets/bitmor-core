@@ -276,4 +276,18 @@ library Errors {
 
     /// @notice Thrown when variable debt token address is zero
     error LSALogic__InvalidDebtToken();
+
+    /// @notice Thrown when surplus collateral claim is attempted while the LSA still has outstanding debt
+    error LSALogic__OutstandingDebtExists();
+
+    // ============ Loan Surplus Claim Errors ============
+
+    /// @notice Thrown when `_claimSurplusInternal` is called by an address other than the contract itself
+    error Loan__OnlySelf();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called by an address other than the loan borrower
+    error Loan__OnlyBorrower();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called on a loan that is still Active
+    error Loan__InvalidLoanStatus();
 }

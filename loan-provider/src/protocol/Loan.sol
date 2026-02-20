@@ -225,12 +225,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     {
         s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
 
-        _lsa.claimRemainingCollateral({
-            bitmorPool: i_BITMOR_POOL,
-            collateralAsset: i_COLLATERAL_ASSET,
-            borrower: s_loansByLSA[_lsa].borrower,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
-        });
+        try this._claimSurplusInternal(_lsa) {}
+        catch {
+            emit Loan__SurplusClaimFailed(_lsa);
+        }
 
         emit Loan__Completed(_lsa);
     }
@@ -248,12 +246,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
 
-        _lsa.claimRemainingCollateral({
-            bitmorPool: i_BITMOR_POOL,
-            collateralAsset: i_COLLATERAL_ASSET,
-            borrower: s_loansByLSA[_lsa].borrower,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
-        });
+        try this._claimSurplusInternal(_lsa) {}
+        catch {
+            emit Loan__SurplusClaimFailed(_lsa);
+        }
 
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
@@ -590,6 +586,55 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      */
     function unpause() external whenPaused restricted {
         _unpause();
+    }
+
+    // ============ Surplus Collateral Recovery ============
+
+    /**
+     * @notice Internal self-call target for try/catch surplus claim during liquidation
+     * @dev Only callable by this contract (`address(this)`). Reverts if caller is not self.
+     *      This exists because `claimRemainingCollateral` is an internal library call
+     *      and Solidity try/catch only works on external calls.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     */
+    function _claimSurplusInternal(address _lsa) external {
+        if (msg.sender != address(this)) revert Errors.Loan__OnlySelf();
+
+        _lsa.claimRemainingCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            debtAsset: i_DEBT_ASSET,
+            borrower: s_loansByLSA[_lsa].borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+    }
+
+    /// @inheritdoc ILoan
+    function claimSurplusCollateral(address _lsa)
+        external
+        whenNotPaused
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
+        DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
+
+        if (loanData.status == DataTypes.LoanStatus.Active) {
+            revert Errors.Loan__InvalidLoanStatus();
+        }
+        if (msg.sender != loanData.borrower) {
+            revert Errors.Loan__OnlyBorrower();
+        }
+
+        _lsa.claimRemainingCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            debtAsset: i_DEBT_ASSET,
+            borrower: loanData.borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+
+        emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower);
     }
 
     // ============ Internal Functions ============

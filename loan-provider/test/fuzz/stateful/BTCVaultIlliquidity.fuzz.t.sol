@@ -106,11 +106,7 @@ contract BTCVaultIlliquidityFuzzTest is BaseTestForBTCVault {
             vault.withdraw(maxWithdrawable, user, user);
 
             uint256 balanceAfter = mockUSDC.balanceOf(user);
-            assertEq(
-                balanceAfter - balanceBefore,
-                maxWithdrawable,
-                "user should receive exactly maxWithdraw assets"
-            );
+            assertEq(balanceAfter - balanceBefore, maxWithdrawable, "user should receive exactly maxWithdraw assets");
         }
     }
 

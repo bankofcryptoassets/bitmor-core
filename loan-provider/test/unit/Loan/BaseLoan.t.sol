@@ -467,10 +467,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @notice Sets up full liquidation without time warp (price drop only, loan not overdue)
-    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop)
-        internal
-        returns (uint256 liquidationType)
-    {
+    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
         _updateAddressesProviderBitmorLoan();
         _fundLiquidator();
         _dropOraclePrice(priceDrop);

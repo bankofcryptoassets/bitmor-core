@@ -118,11 +118,13 @@ library LSALogic {
 
     /**
      * @notice Claims all remaining collateral from the Bitmor Lending Pool and redeems it to the `borrower`
-     * @dev Used during micro-liquidation completion (`duration == 1`) to return leftover collateral.
+     * @dev Used after liquidation/completion to return leftover collateral.
+     * Reverts if the LSA still has outstanding variable debt.
      * Withdraws all aToken collateral to the LSA, then redeems bvBTC shares to the borrower.
      * @param lsa The Loan Specific Address holding the collateral position
      * @param bitmorPool Bitmor Lending Pool address
      * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param debtAsset Address of the debt asset (USDC) for debt balance check
      * @param borrower Address of the loan borrower to receive the collateral
      * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
      */
@@ -130,9 +132,15 @@ library LSALogic {
         address lsa,
         address bitmorPool,
         address collateralAsset,
+        address debtAsset,
         address borrower,
         uint256 slippage_sharesToAsset
     ) internal {
+        /// @dev Revert if the LSA still has outstanding variable debt
+        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) != 0) {
+            revert Errors.LSALogic__OutstandingDebtExists();
+        }
+
         /// @dev Check if there is any collateral to claim
         if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) return;
 

@@ -163,6 +163,19 @@ interface ILoan {
      */
     event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
 
+    /**
+     * @notice Emitted when a best-effort surplus collateral claim fails during liquidation
+     * @param lsa Address of the Loan Specific Address
+     */
+    event Loan__SurplusClaimFailed(address indexed lsa);
+
+    /**
+     * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
+     * @param lsa Address of the Loan Specific Address
+     * @param borrower Address of the borrower who received the collateral
+     */
+    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower);
+
     // ============ Main Functions ============
 
     /**
@@ -289,6 +302,15 @@ interface ILoan {
      * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
+
+    /**
+     * @notice Allows the borrower to claim surplus collateral after liquidation or micro-liquidation completion
+     * @dev Only callable by the loan's borrower when loan is no longer Active (i.e., Liquidated or Completed).
+     *      Surplus arises during full liquidation or micro-liquidation when duration == 1.
+     *      This is a fallback for when the best-effort claim during liquidation fails.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     */
+    function claimSurplusCollateral(address _lsa) external;
 
     // ============ Admin Functions ============
 
