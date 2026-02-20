@@ -24,5 +24,18 @@
 - The 6-param tests use `dai` as the reserve address (not USDC) to bypass the `require(reserve != vault.asset(), "WA")` check
 - Rate strategy params defined in `markets/bitmor/rateStrategies.ts`
 
+## Loan Provider Interest Rate Paths
+- `executeInitializeLoan` -> `_calculateLoanAmountAndMonthlyPayment` -> fetches `getMaxVariableBorrowRate()` from strategy
+- `getLoanDetails` preview -> `calculateLoanDetails` -> reads `reserveData.currentVariableBorrowRate` (BUG: vuln-38)
+- `getMaxVariableBorrowRate()` = baseRate + slope1 + slope2 (rate at 100% utilization)
+- `currentVariableBorrowRate` = what the pool currently stores (utilization-dependent, typically lower)
+- Mock USDC strategy: `MockUSDCInterestRateStrategy` registered via `initReserveWithStrategy()` in `LoanUnitTestBase`
+- Mock USDC default currentVariableBorrowRate: 0.05e27 (5%) vs max: 0.81e27 (81%)
+
+## Testing Gotchas
+- `ViewFunctions.t.sol` line 101: monthly payment only asserts `> 0`, does NOT check exact equality with preview
+- `getLoanDetails()` used widely for `minDeposit` value; loan amount and minDeposit are rate-independent
+- Only `monthlyPayment` (EMI) depends on the interest rate source
+
 ## Git Config Issue
 - Empty branch name config entries (`branch..gh-merge-base`) can appear from `gh issue develop` -- clean with `git config --local --unset 'branch..gh-merge-base'`
