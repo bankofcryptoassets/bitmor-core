@@ -104,6 +104,62 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         }
     }
 
+    // ============ Pause State Tests (ERC-4626 Compliance) ============
+
+    /// @notice maxDeposit should return 0 when vault is paused
+    function test_maxDeposit_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxDeposit(user), 0, "maxDeposit should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxDeposit(user), 0, "maxDeposit should be 0 when paused");
+    }
+
+    /// @notice maxMint should return 0 when vault is paused
+    function test_maxMint_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxMint(user), 0, "maxMint should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxMint(user), 0, "maxMint should be 0 when paused");
+    }
+
+    /// @notice maxWithdraw should return 0 when vault is paused
+    function test_maxWithdraw_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxWithdraw(user), 0, "maxWithdraw should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxWithdraw(user), 0, "maxWithdraw should be 0 when paused");
+    }
+
+    /// @notice maxRedeem should return 0 when vault is paused
+    function test_maxRedeem_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxRedeem(user), 0, "maxRedeem should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxRedeem(user), 0, "maxRedeem should be 0 when paused");
+    }
+
     // ============ No Strategy Tests ============
 
     /// @notice Deposit with no strategies should revert - maxDeposit is 0

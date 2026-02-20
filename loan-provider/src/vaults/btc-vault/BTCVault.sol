@@ -403,10 +403,12 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Returns max amount of assets any `user` can deposit.
-     * @dev It returns the sum of remaining `cap` of each `strategy`.
+     * @dev Returns 0 when paused per ERC-4626 spec. Otherwise returns the sum of remaining `cap` of each strategy in the supply queue.
      * @param user Address of the user
      */
     function maxDeposit(address user) public view override returns (uint256 maxAssets) {
+        if (paused()) return 0;
+
         uint256 i = 0;
         uint256[] memory supplyQueue = s_strategy.supplyQueue;
         for (i; i < supplyQueue.length; i++) {
@@ -424,28 +426,47 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Returns max shares any `user` can mint
-     * @dev Converts `maxDeposit` to shares for ERC-4626 compliance.
-     *      Solady's default returns `type(uint256).max` which overstates mintable shares.
+     * @dev Returns 0 when paused per ERC-4626 spec. Otherwise converts `maxDeposit` to shares for ERC-4626 compliance.
      * @param user Address of the user
      * @return maxShares Maximum number of shares that can be minted
      */
     function maxMint(address user) public view override returns (uint256 maxShares) {
+        if (paused()) return 0;
         maxShares = convertToShares(maxDeposit(user));
     }
 
     /**
-     * @notice Returns max amount of assets `user` can withdraw after applicable `fee`.
-     * @param user Address of the user
+     * @notice Returns max amount of assets `owner` can withdraw after applicable exit fee
+     * @dev Caps the ERC-4626 default at actual available liquidity across strategies.
+     * Returns 0 when paused per ERC-4626 spec. The returned value MUST NOT cause a revert when passed to `withdraw`.
+     * @param owner Address of the user
      */
-    function maxWithdraw(address user) public view override returns (uint256 maxAssets) {
-        uint256 balanceOfUser = convertToAssets(balanceOf(user));
+    function maxWithdraw(address owner) public view override returns (uint256 maxAssets) {
+        if (paused()) return 0;
+
+        uint256 ownerAssets = convertToAssets(balanceOf(owner));
+        uint256 availableLiquidity = _getAvailableLiquidity();
+        uint256 withdrawable = ownerAssets < availableLiquidity ? ownerAssets : availableLiquidity;
+
         uint256 fee = getExitFee();
+        if (fee == 0) return withdrawable;
 
-        if (fee == 0) return balanceOfUser;
+        maxAssets = withdrawable.rawSub(_feeOnTotal(withdrawable, fee));
+    }
 
-        uint256 feeOnWithdraw = _feeOnTotal(balanceOfUser, fee);
+    /**
+     * @notice Returns max shares `owner` can redeem
+     * @dev Caps at actual available liquidity converted to shares. Returns 0 when paused per ERC-4626 spec.
+     * @param owner Address of the user
+     * @return maxShares Maximum number of shares redeemable by `owner`
+     */
+    function maxRedeem(address owner) public view override returns (uint256 maxShares) {
+        if (paused()) return 0;
 
-        maxAssets = balanceOfUser.rawSub(feeOnWithdraw);
+        uint256 ownerShares = balanceOf(owner);
+        uint256 availableLiquidity = _getAvailableLiquidity();
+        uint256 maxRedeemableShares = convertToShares(availableLiquidity);
+        maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }
 
     /**
@@ -623,6 +644,20 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         uint256 ownerDust = balanceOf(owner);
         if (ownerDust > 0 && totalAssets() == 0) {
             _burn(owner, ownerDust);
+        }
+    }
+
+    /**
+     * @notice Returns the total available liquidity for withdrawals
+     * @dev Sums idle vault balance and max withdrawable from each strategy in the withdraw queue
+     * @return liquidity The total amount of assets available for immediate withdrawal
+     */
+    function _getAvailableLiquidity() internal view returns (uint256 liquidity) {
+        liquidity = ERC20(i_asset).balanceOf(address(this));
+
+        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+        for (uint256 i = 0; i < withdrawQueue.length; i++) {
+            liquidity = liquidity.rawAdd(s_strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
         }
     }
 
