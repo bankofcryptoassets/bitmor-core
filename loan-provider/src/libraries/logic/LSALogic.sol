@@ -60,7 +60,7 @@ library LSALogic {
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
         address variableDebtToken = reserveData.variableDebtTokenAddress;
 
-        require(variableDebtToken != address(0), "LSALogic: invalid debt token");
+        if (variableDebtToken == address(0)) revert Errors.LSALogic__InvalidDebtToken();
 
         // Encode the approveDelegation call
         bytes memory data = abi.encodeWithSignature("approveDelegation(address,uint256)", delegatee, amount);

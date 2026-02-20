@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
+import {LoanFuzzTestBase} from "../base/LoanFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
@@ -9,17 +9,18 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
  * @title LoanHandler
  * @author Bitmor Protocol
  * @notice Handler contract for stateful fuzz testing of Loan contract
- * @dev Wraps Loan operations with proper setup and state tracking for invariant testing
+ * @dev Wraps Loan operations with proper setup and state tracking for invariant testing.
+ *      Extends `LoanFuzzTestBase` for full loan infrastructure with mock lending pool.
  *
  * ## Usage
  * This handler is used with Foundry's invariant testing to track state across
  * multiple randomized operations. Each handler function:
- * 1. Bounds inputs to valid ranges using bound helpers
+ * 1. Bounds inputs to valid ranges using inherited bound helpers
  * 2. Performs necessary setup (funding, approvals)
  * 3. Executes the operation with graceful failure handling
  * 4. Tracks state changes for invariant verification
  */
-contract LoanHandler is LoanUnitTestBase {
+contract LoanHandler is LoanFuzzTestBase {
     // ============ State Tracking ============
 
     /// @dev Array of all created LSA addresses
@@ -50,8 +51,8 @@ contract LoanHandler is LoanUnitTestBase {
      * @param durationSeed Seed for duration
      */
     function handler_initializeLoan(uint256 collateralSeed, uint256 depositSeed, uint256 durationSeed) external {
-        // Bound inputs to valid ranges
-        uint256 collateral = _boundCollateralFromLoan(collateralSeed);
+        // Bound inputs to valid ranges (inherited from LoanFuzzTestBase / FuzzTestBase)
+        uint256 collateral = _boundCollateral(collateralSeed);
         uint256 duration = _boundDuration(durationSeed);
 
         // Get collateral value and bound deposit
@@ -192,57 +193,5 @@ contract LoanHandler is LoanUnitTestBase {
     function _removeFromActive(uint256 index) internal {
         activeLSAs[index] = activeLSAs[activeLSAs.length - 1];
         activeLSAs.pop();
-    }
-
-    /**
-     * @notice Bounds collateral using Loan contract's actual min/max parameters
-     * @param raw The raw fuzzed input
-     * @return The bounded collateral amount
-     */
-    function _boundCollateralFromLoan(uint256 raw) internal view returns (uint256) {
-        uint256 maxBTC = loan.getMaxBTCAmount();
-        uint256 minBTC = loan.getMinBTCAmount();
-        return bound(raw, minBTC, maxBTC);
-    }
-
-    /**
-     * @notice Bounds raw input to valid loan duration range
-     * @param raw The raw fuzzed input
-     * @return The bounded duration (1 - 60 months)
-     */
-    function _boundDuration(uint256 raw) internal pure returns (uint256) {
-        return bound(raw, FC.MIN_DURATION, FC.MAX_DURATION);
-    }
-
-    /**
-     * @notice Calculates collateral value in USD
-     * @param collateralAmount BTC amount (8 decimals)
-     * @param btcPrice BTC price in USD (8 decimals)
-     * @return Collateral value in USD (8 decimals)
-     */
-    function _getCollateralValueUsd(uint256 collateralAmount, uint256 btcPrice) internal pure returns (uint256) {
-        return (collateralAmount * btcPrice) / 1e8;
-    }
-
-    /**
-     * @notice Bounds raw input to valid deposit range based on collateral value
-     * @param collateralValueUsd The collateral value in USD (8 decimals)
-     * @param raw The raw fuzzed input
-     * @return The bounded deposit amount in USDC (6 decimals)
-     */
-    function _boundDeposit(uint256 collateralValueUsd, uint256 raw) internal pure returns (uint256) {
-        uint256 minDepositUsd = (collateralValueUsd * FC.MIN_DEPOSIT_BPS) / FC.BPS_DENOMINATOR;
-        uint256 maxDepositUsd = collateralValueUsd;
-
-        // Convert to USDC (6 decimals) from USD (8 decimals)
-        uint256 minDepositUsdc = (minDepositUsd * 1e6) / 1e8;
-        uint256 maxDepositUsdc = (maxDepositUsd * 1e6) / 1e8;
-
-        // Ensure min <= max
-        if (minDepositUsdc >= maxDepositUsdc) {
-            return maxDepositUsdc;
-        }
-
-        return bound(raw, minDepositUsdc, maxDepositUsdc);
     }
 }
