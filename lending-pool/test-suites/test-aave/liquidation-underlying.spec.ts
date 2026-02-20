@@ -137,7 +137,7 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
     const { btcVault, users, pool, aggregators } = testEnv;
     const borrower = users[1];
 
-    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
     const cbBTCAggregator = aggregators['cbBTC'];
     const cbBtcPrice = await cbBTCAggregator.latestAnswer();
     await cbBTCAggregator.updateAnswer((cbBtcPrice * 80n) / 100n);
@@ -417,7 +417,7 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
       5000
     );
 
-    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
     const cbBtcPrice = await cbBTCAggregator.latestAnswer();
     await mockLoan.makeLoanOverdue(borrower.address, 30);
     await cbBTCAggregator.updateAnswer((cbBtcPrice * 40n) / 100n);

@@ -170,7 +170,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
     );
     await mockLoan.makeLoanOverdue(borrower.address, 30);
 
-    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
     const cbBTCAggregator = aggregators['cbBTC'];
     const cbBtcPrice = await cbBTCAggregator.latestAnswer();
     await cbBTCAggregator.updateAnswer((cbBtcPrice * 80n) / 100n);
@@ -320,7 +320,7 @@ makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => 
       12,
       5000
     );
-    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
     const cbBtcPrice = await cbBTCAggregator.latestAnswer();
     await mockLoan.makeLoanOverdue(borrower.address, 30);
     // Use 60% price drop to ensure HF is well below 1 for full liquidation
