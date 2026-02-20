@@ -372,13 +372,13 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
     /// @param dropPercent Percentage to drop (e.g., 50 = 50% drop)
     /// @return newPrice The new BTC price
     function _dropOraclePrice(uint256 dropPercent) internal returns (uint256 newPrice) {
-        newPrice = mockOracle.dropPrice(address(mockCbBTC), dropPercent);
+        newPrice = mockOracle.dropPrice(address(mockBTCVault), dropPercent);
     }
 
     /// @notice Sets the BTC price directly
     /// @param price New price in 8 decimals
     function _setBtcPrice(uint256 price) internal {
-        mockOracle.setAssetPrice(address(mockCbBTC), price);
+        mockOracle.setAssetPrice(address(mockBTCVault), price);
     }
 
     // ============ Liquidation Helpers ============
