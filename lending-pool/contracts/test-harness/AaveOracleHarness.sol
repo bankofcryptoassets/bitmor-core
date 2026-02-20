@@ -18,19 +18,19 @@ contract MockChainlinkForOracle {
 
 /// @dev Mock ERC4626 vault for bvBTC price conversion
 contract MockVaultForOracle {
-    uint256 internal _convertToAssetsResult;
+    uint256 internal _previewRedeemResult;
     uint8 internal _decimals;
 
-    function setConvertToAssets(uint256 result) external {
-        _convertToAssetsResult = result;
+    function setPreviewRedeem(uint256 result) external {
+        _previewRedeemResult = result;
     }
 
     function setDecimals(uint8 dec) external {
         _decimals = dec;
     }
 
-    function convertToAssets(uint256) external view returns (uint256) {
-        return _convertToAssetsResult;
+    function previewRedeem(uint256) external view returns (uint256) {
+        return _previewRedeemResult;
     }
 
     function decimals() external view returns (uint8) {

@@ -166,7 +166,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       // Ensure uninsured (insuranceID = 0)
       await mockLoan.setInsuranceId(user.address, 0);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 30n) / 100n);
@@ -456,7 +456,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 1);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 50n) / 100n);
@@ -536,7 +536,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 0);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 25n) / 100n);
