@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import { DataTypes } from "../libraries/types/DataTypes.sol";
+import {DataTypes} from "../libraries/types/DataTypes.sol";
 
 /**
  * @title ILoan
@@ -21,11 +21,7 @@ interface ILoan {
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower,
-        address indexed lsa,
-        uint256 loanAmount,
-        uint256 collateralAmount,
-        bytes data
+        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
     );
 
     /**
@@ -35,9 +31,7 @@ interface ILoan {
      * @param newStatus New loan status
      */
     event Loan__LoanStatusUpdated(
-        address indexed lsa,
-        DataTypes.LoanStatus indexed oldStatus,
-        DataTypes.LoanStatus indexed newStatus
+        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
     );
 
     /**
@@ -88,10 +82,7 @@ interface ILoan {
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
      */
-    event Loan__LoanDataForMicroLiquidationUpdated(
-        address indexed lsa,
-        uint256 indexed newDuration
-    );
+    event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
 
     /**
      * @notice Emitted when loan data is updated after a full liquidation
@@ -176,8 +167,9 @@ interface ILoan {
      * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
      * @param lsa Address of the Loan Specific Address
      * @param borrower Address of the borrower who received the collateral
+     * @param assetsClaimed Amount of assets claimed by the borrower
      */
-    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower);
+    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
 
     // ============ Main Functions ============
 
@@ -284,10 +276,7 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(
-        uint256 loanAmount,
-        uint256 deposit
-    ) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -314,8 +303,9 @@ interface ILoan {
      *      Withdraws aToken collateral from the Bitmor Lending Pool, redeems bvBTC shares, and transfers
      *      the underlying cbBTC to the borrower. Reverts if outstanding debt exists or no collateral remains.
      * @param _lsa The Loan Specific Address with surplus collateral
+     * @return assetsClaimed The amount of assets claimed by the borrower
      */
-    function claimSurplusCollateral(address _lsa) external;
+    function claimSurplusCollateral(address _lsa) external returns (uint256 assetsClaimed);
 
     // ============ Admin Functions ============
 
@@ -378,10 +368,7 @@ interface ILoan {
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
-    function getLoanDetails(
-        uint256 collateralAmount,
-        uint256 duration
-    )
+    function getLoanDetails(uint256 collateralAmount, uint256 duration)
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);

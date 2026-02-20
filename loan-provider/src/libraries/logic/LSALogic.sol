@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import { ERC4626 } from "@solady/tokens/ERC4626.sol";
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import {ERC4626} from "@solady/tokens/ERC4626.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-import { ILendingPool } from "../../interfaces/ILendingPool.sol";
-import { ILoanVault } from "../../interfaces/ILoanVault.sol";
+import {ILendingPool} from "../../interfaces/ILendingPool.sol";
+import {ILoanVault} from "../../interfaces/ILoanVault.sol";
 
-import { DataTypes } from "../types/DataTypes.sol";
+import {DataTypes} from "../types/DataTypes.sol";
 
-import { BTCVaultLogic } from "./BTCVaultLogic.sol";
-import { BitmorLendingPoolLogic } from "./BitmorLendingPoolLogic.sol";
-import { Errors } from "../helpers/Errors.sol";
+import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
+import {Errors} from "../helpers/Errors.sol";
 
 /**
  * @title LSALogic
@@ -59,19 +59,13 @@ library LSALogic {
         address delegatee
     ) internal {
         // Get variable debt token address from Aave V2
-        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(
-            debtAsset
-        );
+        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
         address variableDebtToken = reserveData.variableDebtTokenAddress;
 
         if (variableDebtToken == address(0)) revert Errors.LSALogic__InvalidDebtToken();
 
         // Encode the approveDelegation call
-        bytes memory data = abi.encodeWithSignature(
-            "approveDelegation(address,uint256)",
-            delegatee,
-            amount
-        );
+        bytes memory data = abi.encodeWithSignature("approveDelegation(address,uint256)", delegatee, amount);
 
         // Use LSA's execute() function to call variableDebtToken.approveDelegation()
         ILoanVault(lsa).execute(variableDebtToken, data);
@@ -94,12 +88,10 @@ library LSALogic {
      * @param recipient Address to receive the withdrawn collateral
      * @return amountWithdrawn The actual amount of collateral withdrawn
      */
-    function withdrawCollateral(
-        address lsa,
-        address bitmorPool,
-        address collateralAsset,
-        address recipient
-    ) internal returns (uint256 amountWithdrawn) {
+    function withdrawCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
+        internal
+        returns (uint256 amountWithdrawn)
+    {
         amountWithdrawn = _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, recipient);
     }
 
@@ -121,13 +113,7 @@ library LSALogic {
         address recipient,
         uint256 slippage_sharesToAsset
     ) internal returns (uint256 assetsReceived) {
-        assetsReceived = _redeemBTC(
-            lsa,
-            collateralAsset,
-            sharesAmount,
-            recipient,
-            slippage_sharesToAsset
-        );
+        assetsReceived = _redeemBTC(lsa, collateralAsset, sharesAmount, recipient, slippage_sharesToAsset);
     }
 
     /**
@@ -149,14 +135,16 @@ library LSALogic {
         address debtAsset,
         address borrower,
         uint256 slippage_sharesToAsset
-    ) internal {
+    ) internal returns (uint256 assetsClaimed) {
         /// @dev Revert if the LSA still has outstanding variable debt
-        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) != 0)
+        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) != 0) {
             revert Errors.LSALogic__OutstandingDebtExists();
+        }
 
         /// @dev Check if there is any collateral to claim
-        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0)
+        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) {
             revert Errors.Loan__ClaimingSurplusCollateralFailed();
+        }
 
         /// @dev Withdraw all the collateral, `bvBTC` shares from the BLP to the LSA.
         _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, lsa);
@@ -168,22 +156,16 @@ library LSALogic {
         if (maxRedeemable == 0) revert Errors.Loan__ClaimingSurplusCollateralFailed();
 
         /// @dev Redeem all the `bvBTC` shares from the `bvBTC` vault to the `borrower`.
-        _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
+        assetsClaimed = _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
     }
 
     /// @dev Withdraws all collateral from the Bitmor Lending Pool via the LSA using `MAX_U256`.
-    function _withdrawMaxCollateral(
-        address lsa,
-        address bitmorPool,
-        address collateralAsset,
-        address recipient
-    ) private returns (uint256 amountWithdrawn) {
-        bytes memory withdrawData = abi.encodeWithSelector(
-            ILendingPool.withdraw.selector,
-            collateralAsset,
-            MAX_U256,
-            recipient
-        );
+    function _withdrawMaxCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
+        private
+        returns (uint256 amountWithdrawn)
+    {
+        bytes memory withdrawData =
+            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
 
         bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
 
@@ -199,19 +181,12 @@ library LSALogic {
         address recipient,
         uint256 slippage_sharesToAsset
     ) private returns (uint256 assetsReceived) {
-        uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
+        uint256 estimatedReceivable = collateralAsset.previewRedeem(sharesAmount);
 
-        uint256 minimumReceivable = estimatedReceivable.mulDiv(
-            BASIS_POINT_SCALE - slippage_sharesToAsset,
-            BASIS_POINT_SCALE
-        );
+        uint256 minimumReceivable =
+            estimatedReceivable.mulDiv(BASIS_POINT_SCALE - slippage_sharesToAsset, BASIS_POINT_SCALE);
 
-        bytes memory redeemData = abi.encodeWithSelector(
-            ERC4626.redeem.selector,
-            sharesAmount,
-            recipient,
-            lsa
-        );
+        bytes memory redeemData = abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, lsa);
 
         bytes memory result = ILoanVault(lsa).execute(collateralAsset, redeemData);
 

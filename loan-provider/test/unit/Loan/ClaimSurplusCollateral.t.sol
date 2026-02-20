@@ -113,9 +113,9 @@ contract ClaimSurplusCollateralTest is BaseLoanTest {
         uint256 lsaCollateral = _getCollateralBalance(lsa);
         assertGt(lsaCollateral, 0, "LSA should have surplus collateral");
 
-        // Expect the SurplusCollateralClaimed event
-        vm.expectEmit(true, true, true, true);
-        emit ILoan.Loan__SurplusCollateralClaimed(lsa, user);
+        // Expect the SurplusCollateralClaimed event (check indexed params, don't check data since amount is dynamic)
+        vm.expectEmit(true, true, false, false);
+        emit ILoan.Loan__SurplusCollateralClaimed(lsa, user, 0);
 
         vm.prank(user);
         loan.claimSurplusCollateral(lsa);
@@ -199,6 +199,23 @@ contract ClaimSurplusCollateralTest is BaseLoanTest {
 
         // Attempt to claim surplus -- should revert because debt is non-zero
         vm.expectRevert(Errors.LSALogic__OutstandingDebtExists.selector);
+        vm.prank(user);
+        loan.claimSurplusCollateral(lsa);
+    }
+
+    /// @notice Second call to `claimSurplusCollateral` reverts when collateral already claimed
+    function test_claimSurplusCollateral_RevertsWhen_AlreadyClaimed() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        // First claim succeeds
+        vm.prank(user);
+        loan.claimSurplusCollateral(lsa);
+
+        // Second claim should revert (no collateral left)
+        vm.expectRevert(Errors.Loan__ClaimingSurplusCollateralFailed.selector);
         vm.prank(user);
         loan.claimSurplusCollateral(lsa);
     }

@@ -327,7 +327,9 @@ contract FullLiquidationTest is BaseLoanTest {
         // Borrower should NOT have received cbBTC automatically (no auto-claim)
         uint256 borrowerCbBtcAfterLiq = IERC20(btc).balanceOf(user);
         assertEq(
-            borrowerCbBtcAfterLiq, borrowerCbBtcBefore, "borrower should NOT receive cbBTC automatically during liquidation"
+            borrowerCbBtcAfterLiq,
+            borrowerCbBtcBefore,
+            "borrower should NOT receive cbBTC automatically during liquidation"
         );
 
         // Surplus collateral should still be in BLP
