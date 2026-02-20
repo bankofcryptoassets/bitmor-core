@@ -242,4 +242,38 @@ library Errors {
 
     /// @notice Thrown when cbBTC-to-USDC swap output is insufficient to cover flash loan repayment.
     error InsufficientSwapOutput();
+
+    // ============ LoanVault Errors ============
+
+    /// @notice Thrown when LoanVault owner address is zero during initialization
+    error LoanVault__InvalidOwner();
+
+    /// @notice Thrown when LoanVault borrower address is zero during initialization
+    error LoanVault__InvalidBorrower();
+
+    /// @notice Thrown when LoanVault token address is zero
+    error LoanVault__InvalidToken();
+
+    /// @notice Thrown when LoanVault spender address is zero
+    error LoanVault__InvalidSpender();
+
+    /// @notice Thrown when LoanVault recipient address is zero
+    error LoanVault__InvalidToAddress();
+
+    /// @notice Thrown when LoanVault execute target address is zero
+    error LoanVault__InvalidTarget();
+
+    /// @notice Thrown when LoanVault external call execution fails
+    error LoanVault__ExecutionFailed();
+
+    /// @notice Thrown when LoanVault has already been initialized
+    error LoanVault__AlreadyInitialized();
+
+    /// @notice Thrown when caller is not the LoanVault owner
+    error LoanVault__CallerIsNotOwner();
+
+    // ============ LSALogic Errors ============
+
+    /// @notice Thrown when variable debt token address is zero
+    error LSALogic__InvalidDebtToken();
 }

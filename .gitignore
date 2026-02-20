@@ -28,6 +28,8 @@ lending-pool/types
 # Git worktrees
 .worktrees/
 
+# foundry
+out-foundry
 
 swap-routers/out
 swap-routeres/lib
