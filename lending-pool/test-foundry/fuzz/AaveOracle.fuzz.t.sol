@@ -12,7 +12,7 @@ interface IMockChainlinkForOracle {
 }
 
 interface IMockVaultForOracle {
-    function setConvertToAssets(uint256 result) external;
+    function setPreviewRedeem(uint256 result) external;
     function setDecimals(uint8 dec) external;
 }
 
@@ -71,13 +71,13 @@ contract AaveOracleFuzzTest is Test {
     /// @dev Configure mock state for a fuzz run (uses default BTC_DECIMALS from setUp)
     function _setOracleState(uint256 btcPrice, uint256 assetPerShare) internal {
         chainlink.setAnswer(int256(btcPrice));
-        bvBTC.setConvertToAssets(assetPerShare);
+        bvBTC.setPreviewRedeem(assetPerShare);
     }
 
     /// @dev Configure mock state with custom btcDecimals
     function _setOracleState(uint256 btcPrice, uint256 assetPerShare, uint8 btcDecimals) internal {
         chainlink.setAnswer(int256(btcPrice));
-        bvBTC.setConvertToAssets(assetPerShare);
+        bvBTC.setPreviewRedeem(assetPerShare);
         btc.setDecimals(btcDecimals);
     }
 
@@ -95,7 +95,7 @@ contract AaveOracleFuzzTest is Test {
         // Chainlink returns 0 → oracle falls back; set fallback to 0 as well
         chainlink.setAnswer(0);
         fallbackOracle.setAssetPrice(address(btc), 0);
-        bvBTC.setConvertToAssets(assetPerShare);
+        bvBTC.setPreviewRedeem(assetPerShare);
         btc.setDecimals(btcDecimals);
 
         uint256 result = oracle.getAssetPrice(address(bvBTC));
