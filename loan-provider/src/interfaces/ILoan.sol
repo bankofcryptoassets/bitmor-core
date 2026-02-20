@@ -163,6 +163,14 @@ interface ILoan {
      */
     event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
 
+    /**
+     * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
+     * @param lsa Address of the Loan Specific Address
+     * @param borrower Address of the borrower who received the collateral
+     * @param assetsClaimed Amount of assets claimed by the borrower
+     */
+    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
+
     // ============ Main Functions ============
 
     /**
@@ -202,8 +210,8 @@ interface ILoan {
 
     /**
      * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, updates `lastPaymentTimestamp`,
-     * and returns remaining collateral to the borrower.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @custom:access Restricted to `LPCM` role
      */
@@ -211,7 +219,8 @@ interface ILoan {
 
     /**
      * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp` to `block.timestamp`.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @custom:access Restricted to `LPCM` role
      */
@@ -287,6 +296,16 @@ interface ILoan {
      * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
+
+    /**
+     * @notice Allows the borrower to claim surplus collateral after liquidation or micro-liquidation completion
+     * @dev Only callable by the loan's borrower when loan is no longer Active (i.e., Liquidated or Completed).
+     *      Withdraws aToken collateral from the Bitmor Lending Pool, redeems bvBTC shares, and transfers
+     *      the underlying cbBTC to the borrower. Reverts if outstanding debt exists or no collateral remains.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     * @return assetsClaimed The amount of assets claimed by the borrower
+     */
+    function claimSurplusCollateral(address _lsa) external returns (uint256 assetsClaimed);
 
     // ============ Admin Functions ============
 

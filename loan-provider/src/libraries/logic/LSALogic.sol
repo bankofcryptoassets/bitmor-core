@@ -118,23 +118,33 @@ library LSALogic {
 
     /**
      * @notice Claims all remaining collateral from the Bitmor Lending Pool and redeems it to the `borrower`
-     * @dev Used during micro-liquidation completion (`duration == 1`) to return leftover collateral.
+     * @dev Used after liquidation/completion to return leftover collateral.
+     * Reverts if the LSA still has outstanding variable debt.
      * Withdraws all aToken collateral to the LSA, then redeems bvBTC shares to the borrower.
      * @param lsa The Loan Specific Address holding the collateral position
      * @param bitmorPool Bitmor Lending Pool address
      * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param debtAsset Address of the debt asset (USDC) for debt balance check
      * @param borrower Address of the loan borrower to receive the collateral
      * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
      */
-    function claimRemainingCollateral(
+    function claimSurplusCollateral(
         address lsa,
         address bitmorPool,
         address collateralAsset,
+        address debtAsset,
         address borrower,
         uint256 slippage_sharesToAsset
-    ) internal {
+    ) internal returns (uint256 assetsClaimed) {
+        /// @dev Revert if the LSA still has outstanding variable debt
+        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) != 0) {
+            revert Errors.LSALogic__OutstandingDebtExists();
+        }
+
         /// @dev Check if there is any collateral to claim
-        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) return;
+        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) {
+            revert Errors.Loan__ClaimingSurplusCollateralFailed();
+        }
 
         /// @dev Withdraw all the collateral, `bvBTC` shares from the BLP to the LSA.
         _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, lsa);
@@ -143,10 +153,10 @@ library LSALogic {
         uint256 maxRedeemable = collateralAsset.maxRedeem(lsa);
 
         /// @dev Guard: nothing to redeem (e.g., vault paused or zero shares after withdrawal)
-        if (maxRedeemable == 0) return;
+        if (maxRedeemable == 0) revert Errors.Loan__ClaimingSurplusCollateralFailed();
 
         /// @dev Redeem all the `bvBTC` shares from the `bvBTC` vault to the `borrower`.
-        _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
+        assetsClaimed = _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
     }
 
     /// @dev Withdraws all collateral from the Bitmor Lending Pool via the LSA using `MAX_U256`.
@@ -171,7 +181,7 @@ library LSALogic {
         address recipient,
         uint256 slippage_sharesToAsset
     ) private returns (uint256 assetsReceived) {
-        uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
+        uint256 estimatedReceivable = collateralAsset.previewRedeem(sharesAmount);
 
         uint256 minimumReceivable =
             estimatedReceivable.mulDiv(BASIS_POINT_SCALE - slippage_sharesToAsset, BASIS_POINT_SCALE);

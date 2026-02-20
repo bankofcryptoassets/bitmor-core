@@ -208,8 +208,8 @@ interface ILoan {
 
     /**
      * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, updates `lastPaymentTimestamp`,
-     * and returns remaining collateral to the borrower.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, and updates `lastPaymentTimestamp`.
+     * Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @dev Access: Restricted to `LPCM` role
      */

@@ -225,21 +225,22 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     {
         s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
 
-        _lsa.claimRemainingCollateral({
-            bitmorPool: i_BITMOR_POOL,
-            collateralAsset: i_COLLATERAL_ASSET,
-            borrower: s_loansByLSA[_lsa].borrower,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
-        });
-
         emit Loan__Completed(_lsa);
     }
 
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForFullLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForFullLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
+
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
 
@@ -575,6 +576,35 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      */
     function unpause() external whenPaused restricted {
         _unpause();
+    }
+
+    /// @inheritdoc ILoan
+    function claimSurplusCollateral(address _lsa)
+        external
+        whenNotPaused
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+        returns (uint256 assetsClaimed)
+    {
+        DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
+
+        if (loanData.status == DataTypes.LoanStatus.Active) {
+            revert Errors.Loan__InvalidLoanStatus();
+        }
+        if (msg.sender != loanData.borrower) {
+            revert Errors.Loan__OnlyBorrower();
+        }
+
+        assetsClaimed = _lsa.claimSurplusCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            debtAsset: i_DEBT_ASSET,
+            borrower: loanData.borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+
+        emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower, assetsClaimed);
     }
 
     // ============ Internal Functions ============
