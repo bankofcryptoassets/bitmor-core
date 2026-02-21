@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {TokenizedStrategyLogic} from "./TokenizedStrategyLogic.sol";
+import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 import {Errors} from "../helpers/Errors.sol";
@@ -29,6 +30,7 @@ import {Errors} from "../helpers/Errors.sol";
  */
 library StrategyStateLogic {
     using TokenizedStrategyLogic for address;
+    using SafeTransferLib for address;
 
     /**
      * @notice Retrieves the index of a strategy in the strategies array
@@ -87,11 +89,13 @@ library StrategyStateLogic {
 
     /**
      * @notice Updates the withdraw queue and removes strategies not included in the new queue
-     * @dev Validates that removed strategies have zero cap and balance before deletion
+     * @dev Validates that removed strategies have zero cap and balance before deletion.
+     *      Revokes token approval for removed strategies to prevent unauthorized asset transfers.
      * @param s The strategy state storage reference
      * @param newQueue Array of indices referencing positions in current withdraw queue
+     * @param asset The underlying asset address used to revoke approval for removed strategies
      */
-    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue) internal {
+    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue, address asset) internal {
         uint256[] memory currentWithdrawQueue = s.withdrawQueue;
         uint256 newLength = newQueue.length;
         uint256 currLength = currentWithdrawQueue.length;
@@ -125,6 +129,7 @@ library StrategyStateLogic {
                     revert Errors.InvalidStrategyRemovalWithNonZeroAssetBalance(id);
                 }
 
+                asset.safeApprove(strategy.strategy, 0);
                 delete s.strategies[id];
             }
         }
