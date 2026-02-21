@@ -5,6 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title RepayLoanTest
@@ -577,6 +578,10 @@ contract RepayLoanTest is BaseLoanTest {
         // Simulate Aave V2 rounding: repay burns 1 wei less
         mockBitmorPool.setRepaymentShortfall(1);
 
+        // Expect Loan__DustDebtAbsorbed event with 1 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 1);
+
         vm.prank(user);
         loan.repay(lsa, totalDebt);
 
@@ -600,6 +605,10 @@ contract RepayLoanTest is BaseLoanTest {
         uint256 totalDebt = _getDebtBalance(lsa);
 
         mockBitmorPool.setRepaymentShortfall(10);
+
+        // Expect Loan__DustDebtAbsorbed event with 10 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 10);
 
         vm.prank(user);
         loan.repay(lsa, totalDebt);
