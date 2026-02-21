@@ -589,20 +589,9 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     {
         DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
 
-        if (loanData.status == DataTypes.LoanStatus.Active) {
-            revert Errors.Loan__InvalidLoanStatus();
-        }
-        if (msg.sender != loanData.borrower) {
-            revert Errors.Loan__OnlyBorrower();
-        }
-
-        assetsClaimed = _lsa.claimSurplusCollateral({
-            bitmorPool: i_BITMOR_POOL,
-            collateralAsset: i_COLLATERAL_ASSET,
-            debtAsset: i_DEBT_ASSET,
-            borrower: loanData.borrower,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
-        });
+        assetsClaimed = LoanLogic.executeClaimRemainingCollateral(
+            _lsa, loanData.borrower, loanData.status, i_BITMOR_POOL, i_DEBT_ASSET, i_COLLATERAL_ASSET, s_slippage_sharesToAsset
+        );
 
         emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower, assetsClaimed);
     }

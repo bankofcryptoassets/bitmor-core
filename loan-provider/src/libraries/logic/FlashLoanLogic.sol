@@ -215,7 +215,9 @@ library FlashLoanLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
+            // Repay dust debt so lending pool allows full collateral withdrawal
             if (vars.totalDebtRemaining > 0) {
+                ctx.bitmorPool.repayDustDebt(ctx.debtAsset, vars.lsa, vars.totalDebtRemaining);
                 emit ILoan.Loan__DustDebtAbsorbed(vars.lsa, vars.totalDebtRemaining);
             }
 

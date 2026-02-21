@@ -93,7 +93,10 @@ library RepayLogic {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
+            // Repay dust debt so lending pool allows full collateral withdrawal
             if (totalDebtRemaining > 0) {
+                uint256 dustRepaid = bitmorPool.repayDustDebt(debtAsset, params.lsa, totalDebtRemaining);
+                finalAmountRepaid += dustRepaid;
                 emit ILoan.Loan__DustDebtAbsorbed(params.lsa, totalDebtRemaining);
             }
 

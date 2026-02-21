@@ -13,10 +13,13 @@ import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 
+import {LSALogic} from "./LSALogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 
 /**
@@ -41,6 +44,8 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
 library LoanLogic {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
+    using LSALogic for address;
+    using BitmorLendingPoolLogic for address;
 
     /**
      * @notice Executes the full loan initialization flow
@@ -318,5 +323,51 @@ library LoanLogic {
             duration,
             ctx.minDepositBps
         );
+    }
+
+    /**
+     * @notice Validates ownership, repays dust debt from borrower if needed, and claims remaining collateral
+     * @dev Approach 3b: pulls dust USDC from the borrower (`msg.sender`) for dust repayment.
+     *      Keeps consistency with other LoanLogic functions that handle full lifecycle operations.
+     * @param lsa The Loan Specific Address with surplus collateral
+     * @param borrower Cached borrower address (caller must validate ownership before calling)
+     * @param status Current loan status (caller must read from storage before calling)
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset Debt asset address (USDC)
+     * @param collateralAsset Collateral asset address (bvBTC)
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     * @return assetsClaimed The amount of cbBTC assets claimed by the borrower
+     */
+    function executeClaimRemainingCollateral(
+        address lsa,
+        address borrower,
+        DataTypes.LoanStatus status,
+        address bitmorPool,
+        address debtAsset,
+        address collateralAsset,
+        uint256 slippage_sharesToAsset
+    ) internal returns (uint256 assetsClaimed) {
+        if (status == DataTypes.LoanStatus.Active) {
+            revert Errors.Loan__InvalidLoanStatus();
+        }
+        if (msg.sender != borrower) {
+            revert Errors.Loan__OnlyBorrower();
+        }
+
+        // Repay dust debt from borrower if Aave V2 rounding left residual
+        uint256 dustDebt = bitmorPool.getVDTTokenAmount(debtAsset, lsa);
+        if (dustDebt > 0 && dustDebt <= Constants.DEBT_DUST_THRESHOLD) {
+            IERC20(debtAsset).safeTransferFrom(msg.sender, address(this), dustDebt);
+            bitmorPool.repayDustDebt(debtAsset, lsa, dustDebt);
+            emit ILoan.Loan__DustDebtAbsorbed(lsa, dustDebt);
+        }
+
+        assetsClaimed = lsa.claimSurplusCollateral({
+            bitmorPool: bitmorPool,
+            collateralAsset: collateralAsset,
+            debtAsset: debtAsset,
+            borrower: borrower,
+            slippage_sharesToAsset: slippage_sharesToAsset
+        });
     }
 }

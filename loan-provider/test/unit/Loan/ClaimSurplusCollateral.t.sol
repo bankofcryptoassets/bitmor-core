@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {Constants} from "@bitmor/libraries/helpers/Constants.sol";
+import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
 
 /// @title ClaimSurplusCollateralTest
 /// @author Bitmor Protocol
@@ -246,6 +247,86 @@ contract ClaimSurplusCollateralTest is BaseLoanTest {
         // Verify surplus collateral still exists in BLP for the LSA
         uint256 lsaCollateral = _getCollateralBalance(lsa);
         assertGt(lsaCollateral, 0, "surplus collateral should remain in BLP after liquidation");
+    }
+
+    // ============ Dust Debt Edge Cases ============
+
+    /// @notice `claimSurplusCollateral` reverts when borrower has not approved USDC for dust debt repayment
+    function test_claimSurplusCollateral_RevertsWhen_NoBorrowerApproval_DustDebt() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 dustAmount = 5; // 5 wei of USDC dust debt
+
+        // Execute full liquidation to clear debt and set status to Liquidated
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Liquidated), "loan should be liquidated");
+
+        // Simulate Aave V2 rayDiv rounding leaving dust debt
+        vm.prank(address(mockBitmorPool));
+        mockDebtTokenUSDC.mint(lsa, dustAmount);
+
+        uint256 remainingDebt = _getDebtBalance(lsa);
+        assertEq(remainingDebt, dustAmount, "LSA should have dust debt");
+
+        // Revoke any existing approval so transfer will fail
+        vm.prank(user);
+        mockUSDC.approve(address(loan), 0);
+
+        // claimSurplusCollateral should revert because borrower has no USDC approval for dust repayment
+        vm.expectRevert();
+        vm.prank(user);
+        loan.claimSurplusCollateral(lsa);
+    }
+
+    /// @notice `claimSurplusCollateral` succeeds when borrower approves dust amount and emits DustDebtAbsorbed
+    function test_claimSurplusCollateral_SucceedsWithDustDebt_BorrowerApproves() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 dustAmount = 5; // 5 wei of USDC dust debt
+
+        // Execute full liquidation to clear debt and set status to Liquidated
+        _setupForFullLiquidation(lsa, PRICE_DROP_FOR_LIQUIDATION);
+        _executeFullLiquidation(lsa, type(uint256).max, false);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Liquidated), "loan should be liquidated");
+
+        // Verify surplus collateral exists
+        uint256 lsaCollateral = _getCollateralBalance(lsa);
+        assertGt(lsaCollateral, 0, "LSA should have surplus collateral");
+
+        // Simulate Aave V2 rayDiv rounding leaving dust debt
+        vm.prank(address(mockBitmorPool));
+        mockDebtTokenUSDC.mint(lsa, dustAmount);
+
+        uint256 remainingDebt = _getDebtBalance(lsa);
+        assertEq(remainingDebt, dustAmount, "LSA should have dust debt");
+
+        // Fund borrower with USDC for dust repayment and approve Loan contract
+        _fundUSDC(user, dustAmount);
+        vm.prank(user);
+        mockUSDC.approve(address(loan), dustAmount);
+
+        // Snapshot borrower cbBTC balance before claim
+        uint256 borrowerCbBtcBefore = IERC20(btc).balanceOf(user);
+
+        // Expect DustDebtAbsorbed event
+        vm.expectEmit(true, false, false, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, dustAmount);
+
+        // Borrower claims surplus collateral — dust repayment happens automatically
+        vm.prank(user);
+        uint256 assetsClaimed = loan.claimSurplusCollateral(lsa);
+
+        // Verify debt is now zero
+        uint256 debtAfter = _getDebtBalance(lsa);
+        assertEq(debtAfter, 0, "debt should be zero after dust repayment");
+
+        // Verify borrower received cbBTC
+        uint256 borrowerCbBtcAfter = IERC20(btc).balanceOf(user);
+        assertGt(borrowerCbBtcAfter, borrowerCbBtcBefore, "borrower should receive surplus cbBTC");
+        assertGt(assetsClaimed, 0, "assetsClaimed should be positive");
     }
 
     /// @notice Micro-liquidation completion does NOT automatically claim surplus — collateral stays in BLP

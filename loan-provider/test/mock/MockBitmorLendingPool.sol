@@ -148,6 +148,12 @@ contract MockBitmorLendingPool is ILendingPool {
             amountToWithdraw = userBalance;
         }
 
+        // Simulate GenericLogic.balanceDecreaseAllowed:
+        // Cannot withdraw ALL collateral when user has outstanding debt
+        if (amountToWithdraw == userBalance && _hasAnyDebt(msg.sender)) {
+            revert("VL_TRANSFER_NOT_ALLOWED");
+        }
+
         aToken.burn(msg.sender, amountToWithdraw);
         // Transfer from aToken address (where deposit() put the underlying)
         IERC20(asset).transferFrom(reserve.aTokenAddress, to, amountToWithdraw);
@@ -644,6 +650,22 @@ contract MockBitmorLendingPool is ILendingPool {
     /// @inheritdoc ILendingPool
     function finalizeTransfer(address, address, address, uint256, uint256, uint256) external override {
         // Stub - not implemented for mock
+    }
+
+    /// @dev Returns true if `user` has any outstanding variable debt across all reserves.
+    ///      Simulates the GenericLogic.balanceDecreaseAllowed check that blocks full collateral
+    ///      withdrawal when debt exists.
+    function _hasAnyDebt(address user) private view returns (bool) {
+        for (uint256 i = 0; i < _reservesList.length; i++) {
+            address asset = _reservesList[i];
+            DataTypes.ReserveData storage reserve = _reserves[asset];
+            if (reserve.variableDebtTokenAddress != address(0)) {
+                if (IERC20(reserve.variableDebtTokenAddress).balanceOf(user) > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /// @inheritdoc ILendingPool
