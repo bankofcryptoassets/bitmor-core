@@ -51,6 +51,7 @@ contract MockLoanForLiquidation {
         uint256 createdAt,
         uint256 insuranceID,
         uint256 lastPaymentTimestamp,
+        uint256 amountRepaidInCurrentPeriod,
         DataTypes.LoanStatus status
     ) external {
         _loanData = DataTypes.LoanData({
@@ -63,6 +64,7 @@ contract MockLoanForLiquidation {
             createdAt: createdAt,
             insuranceID: insuranceID,
             lastPaymentTimestamp: lastPaymentTimestamp,
+            amountRepaidInCurrentPeriod: amountRepaidInCurrentPeriod,
             status: status
         });
     }
