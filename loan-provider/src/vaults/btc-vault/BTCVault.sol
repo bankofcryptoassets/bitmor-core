@@ -283,7 +283,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        s_strategy.updateWithdrawQueue(newWithdrawQueue);
+        s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
     }
