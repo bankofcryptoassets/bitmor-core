@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
@@ -24,6 +25,8 @@ import {DataTypes} from "../types/DataTypes.sol";
  * @custom:security All operations require proper approvals to be set before execution
  */
 library BitmorLendingPoolLogic {
+    using SafeERC20 for IERC20;
+
     /// @dev Variable interest rate mode for Aave V2 borrows
     uint256 constant RATE_MODE = 2;
 
@@ -123,5 +126,23 @@ library BitmorLendingPoolLogic {
         // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
         // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
         finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, amount, RATE_MODE, lsa);
+    }
+
+    /**
+     * @notice Repays dust debt remaining after a full repayment
+     * @dev Aave V2 `rayDiv` rounding can leave 1-10 wei of residual debt that blocks
+     *      collateral withdrawal via `GenericLogic.balanceDecreaseAllowed`.
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset USDC token address
+     * @param lsa Loan Specific Address
+     * @param dustAmount The dust debt amount to repay (must be <= DEBT_DUST_THRESHOLD)
+     * @return dustRepaid Actual amount repaid
+     */
+    function repayDustDebt(address bitmorPool, address debtAsset, address lsa, uint256 dustAmount)
+        internal
+        returns (uint256 dustRepaid)
+    {
+        IERC20(debtAsset).forceApprove(bitmorPool, dustAmount);
+        dustRepaid = ILendingPool(bitmorPool).repay(debtAsset, dustAmount, RATE_MODE, lsa);
     }
 }

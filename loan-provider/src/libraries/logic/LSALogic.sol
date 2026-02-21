@@ -137,7 +137,9 @@ library LSALogic {
         address borrower,
         uint256 slippage_sharesToAsset
     ) internal returns (uint256 assetsClaimed) {
-        /// @dev Revert if the LSA still has outstanding variable debt (above dust threshold)
+        /// @dev Revert if the LSA still has outstanding variable debt above dust threshold.
+        ///      Dust debt (1-10 wei) from Aave V2 rayDiv rounding is handled by LoanLogic
+        ///      before this function is called.
         if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) > Constants.DEBT_DUST_THRESHOLD) {
             revert Errors.LSALogic__OutstandingDebtExists();
         }
