@@ -165,7 +165,7 @@ contract BTCVault__Storage {
 
     /**
      * @notice Complete strategy management state including strategies array and queues
-     * @dev Contains strategies mapping, supplyQueue, withdrawQueue, totalStrategies
+     * @dev Contains strategies mapping, supplyQueue, withdrawQueue, nextStrategyIndex
      */
     DataTypes.StrategyState internal s_strategy;
 

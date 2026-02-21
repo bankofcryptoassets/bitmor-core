@@ -121,12 +121,14 @@ contract BTCVaultInvariantTest is Test {
      * @custom:audit-invariant INV-BTC-03
      */
     function invariant_BTC_03_StrategyBalanceConsistency() public view {
-        uint256 totalStrategies = vault.getTotalStrategies();
-        uint256 sumStrategyAssets = 0;
+        uint256[] memory wq = vault.getWithdrawQueue();
+        uint256 sumStrategyAssets = IERC20(vault.asset()).balanceOf(address(vault));
 
-        for (uint256 i = 0; i < totalStrategies; i++) {
-            DataTypes.Strategy memory strat = vault.getStrategyDetails(i);
-            sumStrategyAssets += vault.getAssetInStrategy(strat.strategy);
+        for (uint256 i = 0; i < wq.length; i++) {
+            DataTypes.Strategy memory strat = vault.getStrategyDetails(wq[i]);
+            if (strat.strategy != address(0)) {
+                sumStrategyAssets += vault.getAssetInStrategy(strat.strategy);
+            }
         }
 
         assertEq(vault.totalAssets(), sumStrategyAssets, "INV-BTC-03: totalAssets != sum of strategy balances");
