@@ -137,8 +137,12 @@ library LoanMath {
         // A zero loan amount means the deposit covers the full collateral value — no loan needed
         if (loanAmount == 0) revert Errors.ZeroAmount();
 
-        // Calculate monthly payment using shared EMI formula
-        monthlyPayAmt = _calculateEMI(loanAmount, data.interestRate, data.duration);
+        // Include flash loan premium in EMI principal (matches CloseLoanLogic pattern)
+        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(data.flashLoanPremiumBps, BASIS_POINTS);
+        uint256 totalDebt = loanAmount + flashLoanPremiumAmt;
+
+        // Calculate monthly payment on total debt (loanAmount + flash loan premium)
+        monthlyPayAmt = _calculateEMI(totalDebt, data.interestRate, data.duration);
     }
 
     /**
@@ -171,7 +175,8 @@ library LoanMath {
         uint256 debtAssetDecimals,
         uint256 interestRate,
         uint256 duration,
-        uint256 minDepositBps
+        uint256 minDepositBps,
+        uint256 flashLoanPremiumBps
     ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         // Convert collateral amount to USD value
         uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
@@ -188,8 +193,12 @@ library LoanMath {
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
-        // Calculate monthly payment using shared EMI formula
-        monthlyPayAmt = _calculateEMI(loanAmount, interestRate, duration);
+        // Include flash loan premium in EMI principal (matches CloseLoanLogic pattern)
+        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(flashLoanPremiumBps, BASIS_POINTS);
+        uint256 totalDebt = loanAmount + flashLoanPremiumAmt;
+
+        // Calculate monthly payment on total debt (loanAmount + flash loan premium)
+        monthlyPayAmt = _calculateEMI(totalDebt, interestRate, duration);
     }
 
     /**

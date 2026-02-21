@@ -420,6 +420,10 @@ library DataTypes {
          */
         address debtAsset;
         /**
+         * @dev Aave V3 pool address for fetching flash loan premium
+         */
+        address aavePool;
+        /**
          * @dev User's deposit amount
          */
         uint256 depositAmount;
@@ -482,6 +486,8 @@ library DataTypes {
         uint256 duration;
         /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
         uint256 minDepositBps;
+        /// @dev Aave V3 flash loan premium in basis points (e.g., 5 = 0.05%)
+        uint256 flashLoanPremiumBps;
     }
 
     // ============ Loan Data Structure ============
