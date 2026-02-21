@@ -500,20 +500,21 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function setPreClosureFee(uint256 newFee) external whenNotPaused restricted {
+        if (newFee >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
         s_preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
     /// @inheritdoc ILoan
     function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
+        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
         s_slippage_sharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
     function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
+        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
         s_slippage_swap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
@@ -534,6 +535,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
 
     /// @inheritdoc ILoan
     function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
+        if (newMinDepositBps >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
         s_minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
     }

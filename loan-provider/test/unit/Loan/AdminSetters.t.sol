@@ -196,6 +196,78 @@ contract AdminSettersTest is BaseLoanTest {
         );
     }
 
+    /// @notice Test setting pre-closure fee at just below BASIS_POINT_SCALE succeeds
+    function test_setPreClosureFee_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getPreClosureFee(), maxValue, "Should accept max valid pre-closure fee");
+    }
+
+    /// @notice Test that setting pre-closure fee at BASIS_POINT_SCALE reverts
+    function test_setPreClosureFee_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidFee.selector)
+        );
+    }
+
+    /// @notice Test setting min deposit BPS at just below BASIS_POINT_SCALE succeeds
+    function test_setMinDepositBps_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getMinDepositBps(), maxValue, "Should accept max valid min deposit BPS");
+    }
+
+    /// @notice Test that setting min deposit BPS at BASIS_POINT_SCALE reverts
+    function test_setMinDepositBps_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
+        );
+    }
+
+    /// @notice Test setting slippage for shares-to-asset at just below BASIS_POINT_SCALE succeeds
+    function test_setSlippageForSharesToAsset_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSharesToAsset(), maxValue, "Should accept max valid shares-to-asset slippage");
+    }
+
+    /// @notice Test that setting slippage for shares-to-asset at BASIS_POINT_SCALE reverts
+    function test_setSlippageForSharesToAsset_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
+        );
+    }
+
+    /// @notice Test setting slippage for swap at just below BASIS_POINT_SCALE succeeds
+    function test_setSlippageForSwap_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSwap(), maxValue, "Should accept max valid swap slippage");
+    }
+
+    /// @notice Test that setting slippage for swap at BASIS_POINT_SCALE reverts
+    function test_setSlippageForSwap_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
+        );
+    }
+
     // ============ Setters Without Role Revert ============
 
     /// @notice Test that setters revert when caller lacks the required role
