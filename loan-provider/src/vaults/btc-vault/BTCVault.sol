@@ -261,19 +261,19 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function emergencyWithdrawFunds() external restricted {
         uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+        uint256 totalRecovered;
 
         for (uint256 i; i < withdrawQueue.length; i++) {
             address strategyAddress = s_strategy.strategies[withdrawQueue[i]].strategy;
 
-            try SimpleTokenizedStrategy(strategyAddress).withdrawAll() {
-            // Success — funds returned to vault
-            }
-            catch (bytes memory reason) {
+            try SimpleTokenizedStrategy(strategyAddress).withdrawAll() returns (uint256 recovered) {
+                totalRecovered += recovered;
+            } catch (bytes memory reason) {
                 emit BTCVault__EmergencyWithdrawFailed(withdrawQueue[i], reason);
             }
         }
 
-        emit BTCVault__EmergencyWithdrawFunds();
+        emit BTCVault__EmergencyWithdrawFunds(totalRecovered);
     }
 
     /**
