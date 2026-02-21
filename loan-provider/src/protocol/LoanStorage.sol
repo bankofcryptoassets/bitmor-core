@@ -42,7 +42,7 @@ contract LoanStorage {
      */
     address public immutable i_ORACLE;
 
-    /// @notice Collateral asset address (cbBTC)
+    /// @notice Collateral asset address (bvBTC)
     address internal immutable i_COLLATERAL_ASSET;
 
     /// @notice Debt asset address (USDC)

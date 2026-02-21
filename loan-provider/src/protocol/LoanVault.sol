@@ -12,11 +12,11 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @author Bitmor Protocol
  * @notice Loan Specific Address (LSA) that holds the Aave V2 position
  * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses.
- * Each loan gets its own LSA which holds acbBTC collateral and vdtUSDC debt.
+ * Each loan gets its own LSA which holds abvBTC collateral and vdtUSDC debt.
  *
  * ## Design
  * - Each loan creates a new LoanVault instance via minimal proxy (clone)
- * - The vault holds aTokens (acbBTC) representing collateral
+ * - The vault holds aTokens (abvBTC) representing collateral
  * - The vault holds variable debt tokens (vdtUSDC) representing the borrowed amount
  * - Only the Loan contract (owner) can execute operations on this vault
  *

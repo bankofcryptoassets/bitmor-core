@@ -95,7 +95,9 @@ library StrategyStateLogic {
      * @param newQueue Array of indices referencing positions in current withdraw queue
      * @param asset The underlying asset address used to revoke approval for removed strategies
      */
-    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue, address asset) internal {
+    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue, address asset)
+        internal
+    {
         uint256[] memory currentWithdrawQueue = s.withdrawQueue;
         uint256 newLength = newQueue.length;
         uint256 currLength = currentWithdrawQueue.length;

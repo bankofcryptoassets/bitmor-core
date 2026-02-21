@@ -53,7 +53,16 @@ contract FindPoolParams is Script {
         ];
 
         int24[10] memory tickSpacings = [
-            int24(1), int24(2), int24(5), int24(10), int24(15), int24(20), int24(50), int24(60), int24(100), int24(200)
+            int24(1),
+            int24(2),
+            int24(5),
+            int24(10),
+            int24(15),
+            int24(20),
+            int24(50),
+            int24(60),
+            int24(100),
+            int24(200)
         ];
 
         console.log("Exhaustive search (100 combinations):");

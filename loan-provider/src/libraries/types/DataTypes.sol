@@ -198,7 +198,7 @@ library DataTypes {
          */
         address oracle;
         /**
-         * @dev Collateral asset address (cbBTC)
+         * @dev Collateral asset address (bvBTC)
          */
         address collateralAsset;
         /**
@@ -352,7 +352,7 @@ library DataTypes {
          */
         address debtAsset;
         /**
-         * @dev Collateral asset address (cbBTC)
+         * @dev Collateral asset address (bvBTC)
          */
         address collateralAsset;
         /**

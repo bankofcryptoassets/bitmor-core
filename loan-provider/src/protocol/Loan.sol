@@ -35,7 +35,7 @@ import {LoanStorage} from "./LoanStorage.sol";
  * 2. Contract creates a Loan Specific Address (LSA) via `LoanVaultFactory`
  * 3. Flash loan is taken from Aave V3 for the loan amount
  * 4. USDC is swapped to cbBTC via Uniswap V4
- * 5. cbBTC collateral is deposited to Bitmor Lending Pool
+ * 5. bvBTC collateral is deposited to Bitmor Lending Pool
  * 6. User repays monthly via `repay()` or closes early via `closeLoan()`
  *
  * @custom:security Uses reentrancy guards, access control, and pausability for secure operations

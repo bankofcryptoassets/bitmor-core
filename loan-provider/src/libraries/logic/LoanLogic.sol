@@ -280,7 +280,7 @@ library LoanLogic {
      * @param bitmorPool Bitmor Lending Pool address for interest rate data
      * @param _oracle Price oracle address for asset valuations
      * @param aavePool Aave V3 pool address for fetching flash loan premium
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
      * @param duration Loan duration in months

@@ -47,7 +47,7 @@ library RepayLogic {
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param params Repayment parameters containing LSA and amount
      * @param loansByLSA Storage mapping of all loans by LSA
      * @return finalAmountRepaid The actual amount repaid to the pool

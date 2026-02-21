@@ -259,7 +259,7 @@ interface ILoan {
 
     /**
      * @notice Gets the collateral asset address
-     * @return cbBTC address
+     * @return bvBTC address
      */
     function getCollateralAsset() external view returns (address);
 
