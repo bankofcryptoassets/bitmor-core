@@ -96,7 +96,8 @@ library LoanMath {
      * 1. Converts collateral to USD value using oracle price
      * 2. Validates deposit meets minimum deposit
      * 3. Calculates loan amount as: collateralValue - depositValue
-     * 4. Computes EMI using standard amortization formula
+     * 4. Includes flash loan premium in total debt before EMI computation
+     * 5. Computes EMI using standard amortization formula
      *
      * ## Validation
      * - Reverts with `InsufficientCollateral` if deposit exceeds collateral value
@@ -154,7 +155,8 @@ library LoanMath {
      * 1. Convert collateral to USD value
      * 2. Calculate minimum deposit
      * 3. Loan amount = collateral value - minimum deposit value
-     * 4. Calculate monthly payment using EMI formula
+     * 4. Include flash loan premium in total debt
+     * 5. Calculate monthly payment using EMI formula
      *
      * @param collateralAmount Desired BTC collateral amount (8 decimals)
      * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
@@ -163,6 +165,8 @@ library LoanMath {
      * @param debtAssetDecimals Number of decimals for debt asset
      * @param interestRate Maximum variable borrow rate from interest rate strategy (27 decimals - RAY)
      * @param duration Loan duration in months
+     * @param minDepositBps Minimum deposit requirement in basis points (e.g., 3300 = 33%)
+     * @param flashLoanPremiumBps Aave V3 flash loan premium in basis points (e.g., 5 = 0.05%)
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)

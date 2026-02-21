@@ -279,6 +279,7 @@ library LoanLogic {
      * @param ctx Context containing collateral bounds and minimum deposit BPS
      * @param bitmorPool Bitmor Lending Pool address for interest rate data
      * @param _oracle Price oracle address for asset valuations
+     * @param aavePool Aave V3 pool address for fetching flash loan premium
      * @param collateralAsset Collateral asset address (cbBTC)
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
