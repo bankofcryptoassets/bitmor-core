@@ -458,6 +458,93 @@ contract RepayLoanTest is BaseLoanTest {
         mockBitmorPool.setRepaymentShortfall(0);
     }
 
+    // ============ Duration Clamp (vuln-37 regression) ============
+
+    /// @notice When `periods >= duration` but debt remains (interest accrual), duration must clamp to 1
+    /// @dev Covers RepayLogic.sol:117-120 zeroFloorSub + clamp.
+    ///      Simulates interest accrual by minting extra debt tokens to the LSA so that
+    ///      `totalDebt > duration * EMI`. Paying `duration * EMI` then covers all periods
+    ///      while leaving residual debt, triggering the clamp.
+    function test_repay_durationClampsToOneWhenPeriodsExceedDuration() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 emi = loanData.estimatedMonthlyPayment;
+        uint256 duration = loanData.duration; // 12
+
+        // Simulate heavy interest accrual: mint enough extra debt so totalDebt > duration * EMI.
+        // EMI uses worst-case 81% APR, so EMI * duration >> loanAmount. We need extra debt
+        // large enough that paying duration * EMI still leaves residual debt.
+        uint256 extraDebt = emi * duration;
+        vm.prank(address(mockBitmorPool));
+        mockDebtTokenUSDC.mint(lsa, extraDebt);
+
+        uint256 totalDebtBefore = _getDebtBalance(lsa);
+        uint256 repayAmount = emi * duration;
+
+        // Sanity: repayAmount < totalDebt, so we stay in the else branch
+        assertLt(repayAmount, totalDebtBefore, "repay amount must be less than total debt for this test");
+
+        // Fund user for the large repayment
+        _fundUSDC(user, repayAmount);
+
+        // Act
+        vm.prank(user);
+        loan.repay(lsa, repayAmount);
+
+        // Assert
+        DataTypes.LoanData memory afterData = loan.getLoanByLSA(lsa);
+
+        assertEq(afterData.duration, 1, "duration must clamp to 1, not 0");
+        assertEq(
+            uint256(afterData.status), uint256(DataTypes.LoanStatus.Active), "loan must remain Active while debt exists"
+        );
+        assertGt(_getDebtBalance(lsa), 0, "residual debt must still exist");
+    }
+
+    /// @notice Edge case: duration is already 1 and periods >= 1 with residual debt
+    /// @dev Verifies duration stays at 1 (not 0) when the last period is "covered" but debt remains
+    function test_repay_durationStaysAtOneWhenAlreadyOneAndDebtRemains() public setUpLoanForUser {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        uint256 emi = loanData.estimatedMonthlyPayment;
+        uint256 duration = loanData.duration; // 12
+
+        // Add extra debt BEFORE bulk repay so totalDebt > (duration - 1) * EMI + EMI
+        // This ensures paying (duration-1) EMIs doesn't clear all debt
+        uint256 extraDebt = emi * (duration + 2);
+        vm.prank(address(mockBitmorPool));
+        mockDebtTokenUSDC.mint(lsa, extraDebt);
+
+        // Pay (duration - 1) periods to get duration down to 1
+        uint256 bulkRepay = emi * (duration - 1);
+        _fundUSDC(user, bulkRepay);
+        vm.prank(user);
+        loan.repay(lsa, bulkRepay);
+
+        DataTypes.LoanData memory midData = loan.getLoanByLSA(lsa);
+        assertEq(midData.duration, 1, "duration should be 1 after paying (duration-1) periods");
+        assertGt(_getDebtBalance(lsa), 0, "debt must remain after bulk repay");
+
+        uint256 debtBefore = _getDebtBalance(lsa);
+
+        // Pay exactly 1 EMI - covers periods == 1, but debt remains due to extra accrual
+        _fundUSDC(user, emi);
+        vm.prank(user);
+        loan.repay(lsa, emi);
+
+        // Assert
+        DataTypes.LoanData memory afterData = loan.getLoanByLSA(lsa);
+
+        assertEq(afterData.duration, 1, "duration must stay at 1, not drop to 0");
+        assertEq(
+            uint256(afterData.status), uint256(DataTypes.LoanStatus.Active), "loan must remain Active while debt exists"
+        );
+        assertGt(_getDebtBalance(lsa), 0, "residual debt must still exist");
+        assertLt(_getDebtBalance(lsa), debtBefore, "debt should have decreased from repayment");
+    }
+
     // ============ Collateral Withdrawal Failure ============
 
     /// @notice Test that full repayment reverts when collateral withdrawal fails

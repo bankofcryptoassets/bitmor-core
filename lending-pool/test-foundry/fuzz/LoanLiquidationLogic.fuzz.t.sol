@@ -22,6 +22,7 @@ interface IMockLoanForLiquidation {
         uint256 createdAt,
         uint256 insuranceID,
         uint256 lastPaymentTimestamp,
+        uint256 amountRepaidInCurrentPeriod,
         uint8 status
     ) external;
     function setCollateralAsset(address asset) external;
@@ -153,6 +154,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
             block.timestamp - 60 days, // createdAt
             insuranceID,
             lastPaymentTimestamp,
+            0, // amountRepaidInCurrentPeriod
             STATUS_ACTIVE
         );
 
@@ -168,7 +170,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         hf = bound(hf, 0, type(uint128).max);
 
         mockLoan.setLoanData(
-            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, STATUS_COMPLETED
+            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, 0, STATUS_COMPLETED
         );
 
         uint256 result = h.checkTypeOfLiquidation(
@@ -184,7 +186,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         hf = bound(hf, 0, type(uint128).max);
 
         mockLoan.setLoanData(
-            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, STATUS_LIQUIDATED
+            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, 0, STATUS_LIQUIDATED
         );
 
         uint256 result = h.checkTypeOfLiquidation(

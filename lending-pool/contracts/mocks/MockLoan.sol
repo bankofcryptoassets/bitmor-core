@@ -327,6 +327,7 @@ contract MockLoan is ILoan {
             createdAt: block.timestamp,
             insuranceID: 0,
             lastPaymentTimestamp: block.timestamp,
+            amountRepaidInCurrentPeriod: 0,
             status: DataTypes.LoanStatus.Active
         });
         _loanExists[lsa] = true;
