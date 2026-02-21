@@ -128,11 +128,11 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
 
     /// @notice Configure vault with fees using delayed operations
     function _setFeeConfig() internal {
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
         _scheduleAndExecuteLocal(
             bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (networkConfig.entryFee))
         );
         _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setExitFee, (networkConfig.exitFee)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
     }
 
     /// @notice Mint mock USDC to test accounts

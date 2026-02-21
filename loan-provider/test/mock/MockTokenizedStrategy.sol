@@ -9,7 +9,9 @@ import {MockYieldSource} from "./MockYieldSource.sol";
 
 /// @title MockTokenizedStrategy
 /// @notice Mock implementation of a tokenized strategy for testing purposes
-/// @dev Uses MockYieldSource instead of real protocols like Aave for controlled testing environment
+/// @dev Uses MockYieldSource instead of real protocols like Aave for controlled testing environment.
+///      Yield source withdrawal is done in `_beforeWithdraw` so it works for both ERC-4626 `withdraw()`
+///      and `SimpleTokenizedStrategy.withdrawAll()` (which calls `_beforeWithdraw` directly).
 /// @author Bitmor Protocol
 contract MockTokenizedStrategy is SimpleTokenizedStrategy {
     using FixedPointMathLib for uint256;
@@ -57,17 +59,12 @@ contract MockTokenizedStrategy is SimpleTokenizedStrategy {
         MockYieldSource(i_yieldSource).supply(asset(), assets);
     }
 
-    /// @notice Internal hook called before withdrawals to retrieve assets from mock yield source
-    /// @inheritdoc ERC4626
-    /// @dev Withdraws assets from MockYieldSource back to strategy for testing
-    /// @param by The address initiating the withdrawal
-    /// @param to The address receiving the assets
-    /// @param owner The address owning the shares being burned
+    /// @notice Hook called before withdrawals to retrieve assets from mock yield source
+    /// @dev Withdraws assets from MockYieldSource back to strategy. Used by both
+    ///      ERC-4626 `withdraw()` (via `_withdraw` → `_beforeWithdraw`) and
+    ///      `SimpleTokenizedStrategy.withdrawAll()` (calls `_beforeWithdraw` directly).
     /// @param assets The amount of assets being withdrawn
-    /// @param shares The amount of shares being burned
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
-        super._withdraw(by, to, owner, assets, shares);
-
+    function _beforeWithdraw(uint256 assets, uint256) internal override {
         MockYieldSource(i_yieldSource).withdraw(asset(), assets);
     }
 

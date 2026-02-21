@@ -73,22 +73,6 @@ library TokenizedStrategyLogic {
     }
 
     /**
-     * @notice Emergency withdrawal of all funds from all strategies
-     * @dev Withdraws maximum available from each strategy in withdraw queue order
-     * @param s The strategy state storage reference
-     */
-    function emergencyWithdraw(DataTypes.StrategyState storage s) internal {
-        uint256 i = 0;
-        uint256[] memory withdrawQueue = s.withdrawQueue;
-        for (i; i < withdrawQueue.length; i++) {
-            address strategyAddress = s.strategies[withdrawQueue[i]].strategy;
-
-            // Use withdrawAll to prevent orphaned yield
-            SimpleTokenizedStrategy(strategyAddress).withdrawAll();
-        }
-    }
-
-    /**
      * @notice Internal function to deposit assets into a tokenized strategy
      * @dev Calls the strategy's deposit function with vault as receiver
      * @param strategy The address of the strategy to deposit into
