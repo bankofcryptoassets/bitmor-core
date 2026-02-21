@@ -74,8 +74,9 @@ contract BTCVault__Storage {
 
     /**
      * @notice Emitted when emergency withdrawal of all funds is executed
+     * @param totalRecovered The total amount of assets successfully recovered across all strategies
      */
-    event BTCVault__EmergencyWithdrawFunds();
+    event BTCVault__EmergencyWithdrawFunds(uint256 totalRecovered);
 
     /**
      * @notice Emitted when a strategy withdrawal fails during reallocation and is skipped
