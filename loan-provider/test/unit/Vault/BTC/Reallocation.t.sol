@@ -218,6 +218,29 @@ contract ReallocationTest is BaseTestForBTCVault {
         );
     }
 
+    /// @notice Reallocation emits BTCVault__StrategyWithdrawFailed when a strategy's withdraw reverts
+    function test_reallocateFunds_EmitsWithdrawFailedEvent() public {
+        // Arrange
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+
+        _depositAsUser(5000e6);
+
+        // Break strategy1's withdraw
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Expect the failure event (only check indexed strategyIndex)
+        vm.expectEmit(true, false, false, false, address(vault));
+        emit BTCVault__StrategyWithdrawFailed(0, 0, "");
+
+        // Act — use max sentinel so the overall reallocation succeeds despite the failure
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: 0}); // withdraw all from s1
+        allocations[1] = DataTypes.Allocation({index: 1, amount: type(uint256).max}); // deposit remaining
+
+        _reallocate(allocations);
+    }
+
     /// @notice When a failing strategy is skipped and allocations use type(uint256).max, partial reallocation succeeds
     function test_reallocateFunds_PartialReallocationWithMaxSentinel() public {
         // Arrange — set up 3 strategies
