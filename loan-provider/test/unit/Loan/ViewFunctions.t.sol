@@ -189,4 +189,64 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(borrower2Loans[0].borrower, borrower2, "Loan borrower should match borrower2");
         assertEq(borrower2Loans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
     }
+
+    // ============ Flash Loan Premium in EMI (vuln-22) ============
+
+    /// @notice Test that estimatedMonthlyPayment * duration covers the actual Bitmor Pool debt
+    /// @dev Regression test for vuln-22: EMI was previously computed on loanAmount only,
+    ///      but actual debt is loanAmount + flashLoanPremium
+    function test_estimatedMonthlyPayment_CoversActualDebt() public {
+        // Arrange
+        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
+        uint256 actualDebt = _getDebtBalance(lsa);
+
+        // Assert: total scheduled payments must cover the actual debt
+        // EMI * duration >= actualDebt (EMI includes interest, so it will exceed principal)
+        uint256 totalScheduledPayments = loanData.estimatedMonthlyPayment * loanData.duration;
+        assertGe(
+            totalScheduledPayments,
+            actualDebt,
+            "total scheduled payments (EMI * duration) must cover actual Bitmor Pool debt"
+        );
+    }
+
+    /// @notice Test that EMI is higher when flash loan premium is higher
+    /// @dev Proves the flash loan premium is factored into the EMI calculation
+    function test_estimatedMonthlyPayment_IncreasesWithHigherFlashLoanPremium() public {
+        // Arrange: create loan with default premium (5 bps)
+        (address lsa1, DataTypes.LoanData memory loanData1) = _createStandardLoanWithData();
+
+        // Increase flash loan premium to 100 bps (1%)
+        mockAavePool.setPremium(100);
+
+        // Create second loan for different borrower (avoid CREATE2 collision)
+        address borrower2 = makeAddr("borrower2_premium_test");
+        address lsa2 = _createLoanForBorrower(borrower2, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT);
+        DataTypes.LoanData memory loanData2 = loan.getLoanByLSA(lsa2);
+
+        // Assert: higher flash loan premium produces higher EMI
+        assertGt(
+            loanData2.estimatedMonthlyPayment,
+            loanData1.estimatedMonthlyPayment,
+            "higher flash loan premium should produce higher EMI"
+        );
+    }
+
+    /// @notice Test that getLoanDetails preview EMI accounts for flash loan premium
+    /// @dev Verifies the preview path also includes the flash loan premium
+    function test_getLoanDetails_EMI_IncludesFlashLoanPremium() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Get preview with default premium (5 bps)
+        (, uint256 emiLowPremium,) = loan.getLoanDetails(collateral, duration);
+
+        // Increase flash loan premium to 100 bps (1%)
+        mockAavePool.setPremium(100);
+
+        (, uint256 emiHighPremium,) = loan.getLoanDetails(collateral, duration);
+
+        // Assert: higher premium produces higher preview EMI
+        assertGt(emiHighPremium, emiLowPremium, "preview EMI should increase with higher flash loan premium");
+    }
 }

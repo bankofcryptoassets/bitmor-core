@@ -39,6 +39,9 @@ contract LoanMathFuzzTest is Test {
     /// @dev Minimum price difference to avoid rounding issues in strike price calculation
     uint256 constant MIN_PRICE_DIFFERENCE = 1e8;
 
+    /// @dev Flash loan premium in basis points (matches MockAaveV3Pool default: 5 = 0.05%)
+    uint256 constant FLASH_LOAN_PREMIUM_BPS = 5;
+
     function setUp() public {
         harness = new LoanMathHarness();
     }
@@ -204,7 +207,8 @@ contract LoanMathFuzzTest is Test {
             USDC_DECIMALS,
             interestRate,
             duration,
-            FC.MIN_DEPOSIT_BPS
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         // Total payments should cover at least the loan amount
@@ -241,11 +245,27 @@ contract LoanMathFuzzTest is Test {
         uint256 rate2 = bound(rate2Seed, rate1 + MIN_MEANINGFUL_INTEREST_RATE, FC.MAX_INTEREST_RATE);
 
         (, uint256 payment1,) = harness.exposed_calculateLoanDetails(
-            collateral, btcPrice, CBBTC_DECIMALS, FC.USDC_PRICE, USDC_DECIMALS, rate1, duration, FC.MIN_DEPOSIT_BPS
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            rate1,
+            duration,
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         (, uint256 payment2,) = harness.exposed_calculateLoanDetails(
-            collateral, btcPrice, CBBTC_DECIMALS, FC.USDC_PRICE, USDC_DECIMALS, rate2, duration, FC.MIN_DEPOSIT_BPS
+            collateral,
+            btcPrice,
+            CBBTC_DECIMALS,
+            FC.USDC_PRICE,
+            USDC_DECIMALS,
+            rate2,
+            duration,
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         assertLe(payment1, payment2, "higher interest rate should result in higher payment");
@@ -288,7 +308,8 @@ contract LoanMathFuzzTest is Test {
             USDC_DECIMALS,
             interestRate,
             duration1,
-            FC.MIN_DEPOSIT_BPS
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         (, uint256 payment2,) = harness.exposed_calculateLoanDetails(
@@ -299,7 +320,8 @@ contract LoanMathFuzzTest is Test {
             USDC_DECIMALS,
             interestRate,
             duration2,
-            FC.MIN_DEPOSIT_BPS
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         assertGe(payment1, payment2, "longer duration should result in lower monthly payment");
@@ -331,7 +353,8 @@ contract LoanMathFuzzTest is Test {
             USDC_DECIMALS,
             interestRate,
             duration,
-            FC.MIN_DEPOSIT_BPS
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         assertGt(loanAmount, 0, "loan amount should be positive for valid collateral");
@@ -369,7 +392,8 @@ contract LoanMathFuzzTest is Test {
             USDC_DECIMALS,
             interestRate,
             duration,
-            FC.MIN_DEPOSIT_BPS
+            FC.MIN_DEPOSIT_BPS,
+            FLASH_LOAN_PREMIUM_BPS
         );
 
         if (loanAmount > 0) {
