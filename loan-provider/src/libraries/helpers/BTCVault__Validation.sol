@@ -96,7 +96,8 @@ library BTCVault__Validation {
 
     /**
      * @notice Validates a new withdraw queue configuration
-     * @dev Ensures withdraw queue length doesn't exceed total strategies
+     * @dev Ensures the new withdraw queue length does not exceed the current queue length,
+     *      since strategies can only be retained or removed — not added — via this function.
      * @param s The strategy state storage reference
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
      */

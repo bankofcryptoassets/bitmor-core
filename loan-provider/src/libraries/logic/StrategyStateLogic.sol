@@ -91,6 +91,11 @@ library StrategyStateLogic {
      * @notice Updates the withdraw queue and removes strategies not included in the new queue
      * @dev Validates that removed strategies have zero cap and balance before deletion.
      *      Revokes token approval for removed strategies to prevent unauthorized asset transfers.
+     *      Clears `strategyToIndex` for removed strategies to allow re-addition.
+     *
+     *      IMPORTANT: This function does NOT clean the supply queue. After removing a strategy,
+     *      the admin MUST call `updateSupplyQueue` to remove stale entries. Stale supply queue
+     *      entries are safely skipped (deleted strategy has `cap == 0`), but waste gas.
      * @param s The strategy state storage reference
      * @param newQueue Array of indices referencing positions in current withdraw queue
      * @param asset The underlying asset address used to revoke approval for removed strategies
