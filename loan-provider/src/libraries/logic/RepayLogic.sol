@@ -114,7 +114,10 @@ library RepayLogic {
             loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
             uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;
             if (periods > 0) {
-                loan.duration = loan.duration.zeroFloorSub(periods);
+                uint256 newDuration = loan.duration.zeroFloorSub(periods);
+
+                /// @dev Duration stays `1` till the complete debt is repaid.
+                loan.duration = newDuration == 0 ? 1 : newDuration;
                 loan.amountRepaidInCurrentPeriod -= periods * loan.estimatedMonthlyPayment;
                 loan.lastPaymentTimestamp = block.timestamp;
             }
