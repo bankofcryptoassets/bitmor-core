@@ -292,17 +292,21 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Updates the order in which strategies are drained for withdrawals
      * @dev Queue determines priority for fund withdrawal. Strategies excluded from `newWithdrawQueue`
-     *      are deleted (requires cap = 0 and balance = 0). After removal, the admin MUST also call
-     *      `updateSupplyQueue` to remove stale entries pointing to the deleted strategy.
+     *      are deleted (requires cap = 0 and balance = 0). Automatically cleans stale entries from
+     *      the supply queue when strategies are removed.
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
+        bool supplyQueueCleaned = s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
+
+        if (supplyQueueCleaned) {
+            emit BTCVault__SupplyQueueUpdated(s_strategy.supplyQueue);
+        }
     }
 
     /**
@@ -725,7 +729,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         for (i; i < supplyQueue.length; ++i) {
             DataTypes.Strategy memory strategy = s_strategy.strategies[supplyQueue[i]];
 
-            // Skip strategies with zero cap
+            // Skip strategies with zero cap (defense-in-depth: also handles any
+            // stale supply queue entries pointing to deleted strategies)
             if (strategy.cap == 0) continue;
 
             // Get current asset balance in the strategy

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {ERC20} from "@solady/tokens/ERC20.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
@@ -15,6 +16,8 @@ import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 /// @dev Verifies queue reordering, revert conditions, and that strategy token approvals
 ///      are properly revoked when strategies are removed from the withdraw queue
 contract WithdrawQueue is BaseTestForBTCVault {
+    event BTCVault__SupplyQueueUpdated(uint256[] indexed newSupplyQueue);
+
     modifier addStrategies() {
         _addStrategies();
         _;
@@ -210,10 +213,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
         keepFirst[0] = 0;
         _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
 
-        // Clean up supply queue
-        uint256[] memory newSupplyQueue = new uint256[](1);
-        newSupplyQueue[0] = 0;
-        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateSupplyQueue, (newSupplyQueue)));
+        // No manual updateSupplyQueue needed — auto-cleaned
 
         // Deposit and redeem
         uint256 depositAmount = DEPOSIT_AMOUNT;
@@ -310,8 +310,8 @@ contract WithdrawQueue is BaseTestForBTCVault {
         manager.execute(address(vault), data);
     }
 
-    /// @notice Deposits work even with stale supplyQueue entries after strategy removal
-    function test_SupplyQueue_StaleEntry_SkippedSafely() public {
+    /// @notice Supply queue is auto-cleaned when strategy is removed via updateWithdrawQueue
+    function test_SupplyQueue_AutoCleanedOnStrategyRemoval() public {
         MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
         MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(yieldSource), address(vault));
 
@@ -322,23 +322,181 @@ contract WithdrawQueue is BaseTestForBTCVault {
             bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
         );
 
-        // Remove strategyB from withdraw queue only (supplyQueue stays stale)
+        // Remove strategyB from withdraw queue
         _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
         uint256[] memory keepFirst = new uint256[](1);
         keepFirst[0] = 0;
         _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
 
-        // supplyQueue still has stale entry
-        assertEq(vault.getSupplyQueueLength(), 2, "supply queue should still have stale entry");
+        // Supply queue should be auto-cleaned (no stale entry)
+        assertEq(vault.getSupplyQueueLength(), 1, "supply queue should be auto-cleaned after removal");
 
-        // Deposit should succeed — stale entry skipped via cap == 0
+        // Deposit should still succeed
         uint256 depositAmount = DEPOSIT_AMOUNT;
         vm.startPrank(user);
         mockUSDC.approve(address(vault), depositAmount);
         uint256 shares = vault.deposit(depositAmount, user);
         vm.stopPrank();
 
-        assertGt(shares, 0, "deposit should succeed with stale supply queue entry");
+        assertGt(shares, 0, "deposit should succeed after auto-cleaned supply queue");
+    }
+
+    /// @notice Auto-clean removes multiple stale entries from supply queue
+    function test_updateWithdrawQueue_AutoCleansSupplyQueue_MultipleRemovals() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+        MockYieldSource ysC = new MockYieldSource();
+        MockTokenizedStrategy stratC = new MockTokenizedStrategy(address(ysC), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratC), STANDARD_STRATEGY_CAP))
+        );
+
+        assertEq(vault.getSupplyQueueLength(), 3, "supply queue should have 3 entries");
+
+        // Remove B and C
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratC), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Assert — supply queue should have only stratA
+        assertEq(vault.getSupplyQueueLength(), 1, "supply queue should be auto-cleaned to 1 entry");
+    }
+
+    /// @notice Auto-clean preserves relative order of surviving supply queue entries
+    function test_updateWithdrawQueue_SupplyQueueOrderPreserved() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+        MockYieldSource ysC = new MockYieldSource();
+        MockTokenizedStrategy stratC = new MockTokenizedStrategy(address(ysC), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratC), STANDARD_STRATEGY_CAP))
+        );
+
+        // Supply queue is [0, 1, 2] (stratA, stratB, stratC)
+        uint256[] memory sqBefore = vault.getSupplyQueue();
+        assertEq(sqBefore.length, 3, "supply queue should have 3 entries");
+
+        // Remove stratB (index 1 in withdraw queue)
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepAC = new uint256[](2);
+        keepAC[0] = 0; // stratA
+        keepAC[1] = 2; // stratC
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepAC)));
+
+        // Supply queue should be [0, 2] — stratA first, then stratC (order preserved)
+        uint256[] memory sqAfter = vault.getSupplyQueue();
+        assertEq(sqAfter.length, 2, "supply queue should have 2 entries");
+        assertEq(sqAfter[0], sqBefore[0], "first supply queue entry should be stratA index");
+        assertEq(sqAfter[1], sqBefore[2], "second supply queue entry should be stratC index");
+    }
+
+    /// @notice Reorder-only updateWithdrawQueue does not touch supply queue
+    function test_updateWithdrawQueue_NoRemoval_SupplyQueueUnchanged() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        uint256[] memory sqBefore = vault.getSupplyQueue();
+
+        // Reorder withdraw queue (swap positions, no removal)
+        uint256[] memory reversed = new uint256[](2);
+        reversed[0] = 1; // stratB first
+        reversed[1] = 0; // stratA second
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (reversed)));
+
+        // Supply queue should be unchanged
+        uint256[] memory sqAfter = vault.getSupplyQueue();
+        assertEq(sqAfter.length, sqBefore.length, "supply queue length should be unchanged");
+        for (uint256 i = 0; i < sqAfter.length; i++) {
+            assertEq(sqAfter[i], sqBefore[i], "supply queue entry should be unchanged");
+        }
+    }
+
+    /// @notice Deposits work without manual supply queue cleanup after removal
+    function test_updateWithdrawQueue_DepositWorksWithoutManualCleanup() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove stratB
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // NO manual updateSupplyQueue call — auto-clean should handle it
+
+        // Deposit should succeed and all assets go to stratA
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        assertGt(shares, 0, "deposit should succeed without manual supply queue cleanup");
+        assertEq(vault.getSupplyQueueLength(), 1, "supply queue should have 1 entry after auto-clean");
+    }
+
+    /// @notice BTCVault__SupplyQueueUpdated event is emitted when supply queue is auto-cleaned
+    function test_updateWithdrawQueue_EmitsSupplyQueueUpdated() public {
+        MockTokenizedStrategy strat = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove strategy
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strat), 0)));
+
+        // Record logs to check for SupplyQueueUpdated event
+        // (vm.expectEmit doesn't work here because _scheduleAndExecute emits OperationScheduled first)
+        vm.recordLogs();
+
+        uint256[] memory emptyQueue = new uint256[](0);
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (emptyQueue)));
+
+        // Check that BTCVault__SupplyQueueUpdated was emitted
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 supplyQueueUpdatedTopic = keccak256("BTCVault__SupplyQueueUpdated(uint256[])");
+        bool found = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == supplyQueueUpdatedTopic) {
+                found = true;
+                break;
+            }
+        }
+        assertTrue(found, "BTCVault__SupplyQueueUpdated event should be emitted");
     }
 
     /// @notice Removing a strategy with non-zero asset balance reverts
