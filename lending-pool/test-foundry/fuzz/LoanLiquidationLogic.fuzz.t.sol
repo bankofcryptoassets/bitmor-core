@@ -34,6 +34,7 @@ interface ILoanLiquidationLogicHarness {
     function setReserveConfigData(address asset, uint256 configData) external;
     function setReserveVariableDebtToken(address asset, address token) external;
     function setReserveStableDebtToken(address asset, address token) external;
+    function setReserveAToken(address asset, address token) external;
     function checkTypeOfLiquidation(
         address user,
         uint256 hf,
@@ -48,6 +49,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
     IMockLoanForLiquidation mockLoan;
     IMockBalanceToken stableDebtToken;
     IMockBalanceToken variableDebtToken;
+    IMockBalanceToken collateralAToken;
 
     address constant USER = address(0xBEEF);
     address collateralAsset;
@@ -95,6 +97,11 @@ contract LoanLiquidationLogicFuzzTest is Test {
         );
         variableDebtToken = IMockBalanceToken(variableAddr);
 
+        address collateralATokenAddr = deployCode(
+            "LoanLiquidationLogicHarness.sol:MockBalanceToken"
+        );
+        collateralAToken = IMockBalanceToken(collateralATokenAddr);
+
         // Deploy harness
         address harnessAddr = deployCode(
             "LoanLiquidationLogicHarness.sol:LoanLiquidationLogicHarness"
@@ -119,6 +126,9 @@ contract LoanLiquidationLogicFuzzTest is Test {
         // Set debt token addresses
         h.setReserveStableDebtToken(debtAsset, address(stableDebtToken));
         h.setReserveVariableDebtToken(debtAsset, address(variableDebtToken));
+
+        // Set collateral aToken address (required by Helpers.getUserCurrentCollateral)
+        h.setReserveAToken(collateralAsset, address(collateralAToken));
 
         // Default oracle prices: BTC = $60,000 (8 decimals), USDC = $1 (8 decimals)
         oracle.setAssetPrice(collateralAsset, 60_000e8);
@@ -145,6 +155,9 @@ contract LoanLiquidationLogicFuzzTest is Test {
             lastPaymentTimestamp,
             STATUS_ACTIVE
         );
+
+        // Mirror collateral in the aToken so Helpers.getUserCurrentCollateral reads the correct value
+        collateralAToken.setBalance(USER, collateralAmount);
     }
 
     // ============================================================

@@ -125,6 +125,11 @@ contract LoanLiquidationLogicHarness {
         _reservesData[asset].stableDebtTokenAddress = token;
     }
 
+    /// @dev Set the aToken address for a reserve
+    function setReserveAToken(address asset, address token) external {
+        _reservesData[asset].aTokenAddress = token;
+    }
+
     function checkTypeOfLiquidation(
         address user,
         uint256 hf,

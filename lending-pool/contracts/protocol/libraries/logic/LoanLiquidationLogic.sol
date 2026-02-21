@@ -96,9 +96,10 @@ library LoanLiquidationLogic {
         v.debtUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.debtAsset);
 
         // collateral value in quote (USD if your oracle is USD)
-        v.collateralValueInUSD = loanData.collateralAmount.mul(v.collateralUnitPrice).div(
-            10 ** v.collateralDecimals
-        );
+        v.collateralValueInUSD = Helpers
+            .getUserCurrentCollateral(user, collateralReserve)
+            .mul(v.collateralUnitPrice)
+            .div(10 ** v.collateralDecimals);
 
         // current debt = balance of VARIABLE debt token
         (, v.currentDebtBalance) = Helpers.getUserCurrentDebt(user, debtReserve);
