@@ -14,6 +14,7 @@ import {DataTypes} from "../../libraries/types/DataTypes.sol";
 import {VaultStateLogic} from "../../libraries/logic/VaultStateLogic.sol";
 import {StrategyStateLogic} from "../../libraries/logic/StrategyStateLogic.sol";
 import {TokenizedStrategyLogic} from "../../libraries/logic/TokenizedStrategyLogic.sol";
+import {SimpleTokenizedStrategy} from "./TokenizedStrategy/SimpleTokenizedStrategy.sol";
 
 import {BTCVault__Storage} from "./BTCVault__Storage.sol";
 
@@ -54,7 +55,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     using StrategyStateLogic for DataTypes.StrategyState;
     using VaultStateLogic for DataTypes.VaultState;
     using TokenizedStrategyLogic for address;
-    using TokenizedStrategyLogic for DataTypes.StrategyState;
 
     /**
      * @notice Initializes the vault with the specified underlying asset
@@ -251,11 +251,25 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Emergency function to withdraw all funds from all strategies back to the vault
-     * @dev Used in emergency situations to secure assets
+     * @dev Iterates the withdraw queue and attempts `withdrawAll()` on each strategy.
+     *      Individual failures are caught and emit `BTCVault__EmergencyWithdrawFailed` so a
+     *      single broken strategy does not block emergency recovery of all other strategies.
      * @custom:access Requires BVM_FAST role
+     * @custom:security Critical safety mechanism — must never be blocked by a single strategy failure
      */
     function emergencyWithdrawFunds() external restricted {
-        s_strategy.emergencyWithdraw();
+        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+
+        for (uint256 i; i < withdrawQueue.length; i++) {
+            address strategyAddress = s_strategy.strategies[withdrawQueue[i]].strategy;
+
+            try SimpleTokenizedStrategy(strategyAddress).withdrawAll() {
+            // Success — funds returned to vault
+            }
+            catch (bytes memory reason) {
+                emit BTCVault__EmergencyWithdrawFailed(withdrawQueue[i], reason);
+            }
+        }
 
         emit BTCVault__EmergencyWithdrawFunds();
     }
@@ -782,8 +796,14 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Reallocates funds across strategies according to specified allocations
-     * @dev Processes withdrawals first, then deposits, ensuring total balance consistency
+     * @dev Processes withdrawals first, then deposits, ensuring total balance consistency.
+     *      Individual strategy withdrawals are wrapped in try/catch so a single failing
+     *      strategy (e.g., paused underlying protocol) does not block the entire reallocation.
+     *      Failed withdrawals emit `BTCVault__StrategyWithdrawFailed` and are skipped.
+     *      The `totalSupplied != totalWithdrawn` invariant still enforces balance consistency.
      * @param allocations Array of allocation instructions specifying target amounts per strategy
+     * @custom:security Deposits are NOT wrapped in try/catch — deposit failures revert the
+     *      transaction, which is correct: admins should not silently lose funds into broken strategies
      */
     function _reallocateFunds(DataTypes.Allocation[] memory allocations) internal {
         uint256 totalSupplied;
@@ -801,12 +821,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             uint256 toWithdraw = currentBalance.zeroFloorSub(newAllocation);
 
             if (toWithdraw > 0) {
-                // Withdraw excess funds from strategy
-                strategy.strategy.withdraw(toWithdraw);
+                // Withdraw excess funds from strategy — wrapped in try/catch so a single
+                // broken strategy does not block reallocation of all other strategies
+                try SimpleTokenizedStrategy(strategy.strategy).withdraw(toWithdraw, address(this), address(this)) {
+                    totalWithdrawn += toWithdraw;
 
-                totalWithdrawn += toWithdraw;
-
-                emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
+                    emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
+                } catch (bytes memory reason) {
+                    emit BTCVault__StrategyWithdrawFailed(allocation.index, toWithdraw, reason);
+                }
             } else {
                 // Calculate assets to supply (target > current)
                 // Special case: type(uint256).max means allocate all remaining withdrawn funds
