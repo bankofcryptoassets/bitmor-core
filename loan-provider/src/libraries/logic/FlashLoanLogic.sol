@@ -7,6 +7,7 @@ import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 import {LSALogic} from "./LSALogic.sol";
@@ -14,6 +15,7 @@ import {SwapLogic} from "./SwapLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
+import {ILoan} from "../../interfaces/ILoan.sol";
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 
 /**
@@ -209,9 +211,13 @@ library FlashLoanLogic {
         // =========== Withdraw collateral asset ==========
 
         vars.totalDebtRemaining = ctx.bitmorPool.getVDTTokenAmount(ctx.debtAsset, vars.lsa);
-        if (vars.totalDebtRemaining == 0) {
+        if (vars.totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
+
+            if (vars.totalDebtRemaining > 0) {
+                emit ILoan.Loan__DustDebtAbsorbed(vars.lsa, vars.totalDebtRemaining);
+            }
 
             vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, vars.lsa);
 

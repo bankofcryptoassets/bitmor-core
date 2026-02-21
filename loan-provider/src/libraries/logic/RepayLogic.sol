@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
-import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
-import { DataTypes } from "../types/DataTypes.sol";
-import { ILoan } from "../../interfaces/ILoan.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
 
-import { Errors } from "../helpers/Errors.sol";
-import { LoanMath } from "../helpers/LoanMath.sol";
+import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
+import {LoanMath} from "../helpers/LoanMath.sol";
 
-import { LSALogic } from "./LSALogic.sol";
-import { BitmorLendingPoolLogic } from "./BitmorLendingPoolLogic.sol";
+import {LSALogic} from "./LSALogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
 /**
  * @title RepayLogic
@@ -86,28 +87,23 @@ library RepayLogic {
         uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
 
         // Advance schedule only if loan remains active
-        if (totalDebtRemaining == 0) {
-            // Fully repaid
+        if (totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
+            // Fully repaid (or negligible dust remaining)
 
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 
+            if (totalDebtRemaining > 0) {
+                emit ILoan.Loan__DustDebtAbsorbed(params.lsa, totalDebtRemaining);
+            }
+
             /// @dev Withdraw Collateral `bvBTC` shares to `lsa`
-            uint256 amountWithdrawn = params.lsa.withdrawCollateral(
-                bitmorPool,
-                collateralAsset,
-                params.lsa
-            );
+            uint256 amountWithdrawn = params.lsa.withdrawCollateral(bitmorPool, collateralAsset, params.lsa);
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
-            params.lsa.redeemBTC(
-                collateralAsset,
-                amountWithdrawn,
-                loan.borrower,
-                params.slippage_sharesToAsset
-            );
+            params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
             emit ILoan.Loan__Completed(params.lsa);
         } else {

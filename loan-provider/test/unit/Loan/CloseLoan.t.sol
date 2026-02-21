@@ -753,4 +753,107 @@ contract CloseLoanTest is BaseLoanTest {
         // Clean up
         mockSwapAdapter.setSlippage(0);
     }
+
+    // ============ Dust Debt Tests (vuln-27) ============
+
+    /// @notice Close loan succeeds when repayment leaves dust debt (1 wei)
+    /// @dev Simulates Aave V2 rounding that leaves 1 wei of residual debt after repay.
+    ///      Uses setRepaymentShortfall to make mock repay burn (amount - 1) instead of amount.
+    function test_closeLoan_succeedsWithDustDebt_1wei() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate Aave V2 rounding: repay burns 1 wei less than requested
+        mockBitmorPool.setRepaymentShortfall(1);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // Loan should be completed despite 1 wei dust
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "Loan should be completed with 1 wei dust"
+        );
+        assertEq(loanData.duration, 0, "Duration should be 0");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        // Clean up
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan succeeds when repayment leaves dust debt at exact threshold (10 wei)
+    /// @dev Boundary test: debt == DUST_THRESHOLD should still complete
+    function test_closeLoan_succeedsWithDustDebt_atThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate worst-case rounding at exact threshold
+        mockBitmorPool.setRepaymentShortfall(10);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed at threshold"
+        );
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan reverts when remaining debt exceeds dust threshold
+    /// @dev 11 wei > DUST_THRESHOLD(10) — collateral withdrawal is skipped, causing
+    ///      the subsequent fee transfer to revert (no BTC available). The entire tx reverts,
+    ///      leaving the loan unchanged.
+    function test_closeLoan_revertsWhenDebtExceedsThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // 11 wei exceeds the 10 wei threshold
+        mockBitmorPool.setRepaymentShortfall(11);
+
+        // Close loan reverts because collateral isn't withdrawn when debt > threshold,
+        // so the fee transfer fails with ERC20InsufficientBalance
+        vm.prank(user);
+        vm.expectRevert();
+        loan.closeLoan(lsa, true);
+
+        // Loan remains unchanged (tx reverted)
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should remain active");
+        assertGt(_getCollateralBalance(lsa), 0, "Collateral should NOT be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan with zero remaining debt still works (no regression)
+    /// @dev Exact zero is within threshold — must not regress
+    function test_closeLoan_exactZeroDebt_noRegression() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // No shortfall — debt clears exactly to zero
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
+        assertEq(_getDebtBalance(lsa), 0, "Debt should be exactly 0");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+    }
+
+    /// @notice Close loan with dust debt works for withdrawInBTC=false path too
+    function test_closeLoan_dustDebt_withdrawInUSDC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        mockBitmorPool.setRepaymentShortfall(2);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, false);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
 }
