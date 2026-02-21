@@ -33,8 +33,7 @@ library BTCVault__Validation {
      */
     function validateReallocateFunds(DataTypes.StrategyState storage s, uint256 totalAssets, address asset)
         internal
-        view
-    {
+        view {
         //! TODO: Implement validation logic for fund reallocation
     }
 
