@@ -336,6 +336,7 @@ interface ILoan {
 
     /**
      * @notice Updates the grace period for monthly payment overdue checks
+     * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
      * @custom:access Restricted to `LPM_SLOW` role
      */

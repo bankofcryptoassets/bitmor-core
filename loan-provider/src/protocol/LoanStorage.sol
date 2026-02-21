@@ -139,6 +139,9 @@ contract LoanStorage {
     /// @notice Basis point scale (10000 bps = 100%), used as upper bound for all BPS parameters
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
+    /// @notice Maximum allowed grace period (45 days)
+    uint256 internal constant MAX_GRACE_PERIOD = 45 days;
+
     // ============ Constructor ============
 
     /**

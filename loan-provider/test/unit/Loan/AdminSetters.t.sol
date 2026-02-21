@@ -250,6 +250,24 @@ contract AdminSettersTest is BaseLoanTest {
         );
     }
 
+    /// @notice Test setting grace period at exactly MAX_GRACE_PERIOD (45 days) succeeds
+    function test_setGracePeriod_AtMaxValue() public {
+        uint256 maxValue = TC.MAX_GRACE_PERIOD;
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getGracePeriod(), maxValue, "Should accept max grace period");
+    }
+
+    /// @notice Test that setting grace period above MAX_GRACE_PERIOD reverts
+    function test_setGracePeriod_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.MAX_GRACE_PERIOD + 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
+        );
+    }
+
     /// @notice Test setting slippage for swap at just below BASIS_POINT_SCALE succeeds
     function test_setSlippageForSwap_AtMaxValue() public {
         uint256 maxValue = TC.BASIS_POINT_SCALE - 1;

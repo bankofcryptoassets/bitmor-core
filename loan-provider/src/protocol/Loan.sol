@@ -82,6 +82,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         if (_swapper == address(0) || _premiumCollector == address(0)) {
             revert Errors.ZeroAddress();
         }
+        if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
+        if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
 
         s_swapper = _swapper;
         s_premiumCollector = _premiumCollector;
@@ -492,6 +494,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function setGracePeriod(uint256 gracePeriod) external whenNotPaused restricted {
+        if (gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
         s_gracePeriod = gracePeriod;
         emit Loan__GracePeriodUpdated(gracePeriod);
     }

@@ -38,6 +38,9 @@ library TestConstants {
     // ============ Basis Point Scale ============
     uint256 internal constant BASIS_POINT_SCALE = 100_00;
 
+    // ============ Grace Period ============
+    uint256 internal constant MAX_GRACE_PERIOD = 45 days;
+
     // ============ Insurance Constants ============
     uint256 internal constant DEFAULT_INSURANCE_ID = 1;
     uint256 internal constant INSURANCE_BONUS_BPS = 300; // 3% bonus
