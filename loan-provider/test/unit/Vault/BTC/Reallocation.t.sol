@@ -226,12 +226,15 @@ contract ReallocationTest is BaseTestForBTCVault {
 
         _depositAsUser(5000e6);
 
+        uint256 inStrategy1 = vault.getAssetInStrategy(address(strategy));
+
         // Break strategy1's withdraw
         yieldSource.setShouldRevertOnWithdraw(true);
 
-        // Expect the failure event (only check indexed strategyIndex)
-        vm.expectEmit(true, false, false, false, address(vault));
-        emit BTCVault__StrategyWithdrawFailed(0, 0, "");
+        // Expect the failure event — check indexed strategyIndex and non-indexed data (amount + reason)
+        bytes memory expectedReason = abi.encodeWithSignature("Error(string)", "MockYieldSource: paused");
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit BTCVault__StrategyWithdrawFailed(0, inStrategy1, expectedReason);
 
         // Act — use max sentinel so the overall reallocation succeeds despite the failure
         DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
@@ -368,9 +371,10 @@ contract ReallocationTest is BaseTestForBTCVault {
         // Break strategy's withdraw
         yieldSource.setShouldRevertOnWithdraw(true);
 
-        // Assert + Act — expect the failure event
-        vm.expectEmit(true, false, false, false, address(vault));
-        emit BTCVault__EmergencyWithdrawFailed(0, "");
+        // Assert + Act — expect the failure event with all parameters checked
+        bytes memory expectedReason = abi.encodeWithSignature("Error(string)", "MockYieldSource: paused");
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit BTCVault__EmergencyWithdrawFailed(0, expectedReason);
 
         _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
     }
