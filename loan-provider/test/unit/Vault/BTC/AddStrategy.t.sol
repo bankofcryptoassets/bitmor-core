@@ -31,10 +31,10 @@ contract AddStrategy__BTCVaultHarness is BaseTestForBTCVault {
 
         assertEq(currentStrategyIndex, expectedStrategyIndex);
 
-        uint256 currentTotalStrategies = vault.getTotalStrategies();
-        uint256 expectedTotalStrategies = 1;
+        uint256 currentNextIndex = vault.getNextStrategyIndex();
+        uint256 expectedNextIndex = 1;
 
-        assertEq(currentTotalStrategies, expectedTotalStrategies);
+        assertEq(currentNextIndex, expectedNextIndex);
 
         uint256[] memory currentSupplyQueue = vault.getSupplyQueue();
         uint256[] memory expectedQueue = new uint256[](1);

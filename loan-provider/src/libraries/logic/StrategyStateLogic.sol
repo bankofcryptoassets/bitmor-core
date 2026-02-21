@@ -51,19 +51,19 @@ library StrategyStateLogic {
 
     /**
      * @notice Adds a new strategy to the vault with the specified allocation cap
-     * @dev Adds strategy to both supply and withdraw queues, increments total strategies count
+     * @dev Adds strategy to both supply and withdraw queues, increments next strategy index
      * @param s The strategy state storage reference
      * @param newStrategy The address of the strategy to add
      * @param cap The maximum allocation cap for the strategy
      */
     function addStrategy(DataTypes.StrategyState storage s, address newStrategy, uint256 cap) internal {
-        s.strategies[s.totalStrategies] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
+        s.strategies[s.nextStrategyIndex] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
 
-        s.supplyQueue.push(s.totalStrategies);
-        s.withdrawQueue.push(s.totalStrategies);
+        s.supplyQueue.push(s.nextStrategyIndex);
+        s.withdrawQueue.push(s.nextStrategyIndex);
 
         // Store index + 1 to differentiate between unset (0) and first strategy (1)
-        s.strategyToIndex[newStrategy] = ++s.totalStrategies;
+        s.strategyToIndex[newStrategy] = ++s.nextStrategyIndex;
     }
 
     /**
@@ -132,6 +132,7 @@ library StrategyStateLogic {
                 }
 
                 asset.safeApprove(strategy.strategy, 0);
+                delete s.strategyToIndex[strategy.strategy];
                 delete s.strategies[id];
             }
         }

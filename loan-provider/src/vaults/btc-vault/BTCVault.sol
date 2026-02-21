@@ -105,12 +105,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         strategy = s_strategy.strategies[strategyIndex];
     }
 
-    /**
-     * @notice Returns the total number of strategies added to the vault
-     * @return The count of strategies currently managed by the vault
-     */
-    function getTotalStrategies() external view returns (uint256) {
-        return s_strategy.totalStrategies;
+    /// @notice Returns the next available strategy index (monotonic counter, never decremented)
+    /// @return The next index that will be assigned when a new strategy is added
+    function getNextStrategyIndex() external view returns (uint256) {
+        return s_strategy.nextStrategyIndex;
     }
 
     /**
@@ -413,8 +411,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     function totalAssets() public view override returns (uint256 assets) {
         assets = ERC20(i_asset).balanceOf(address(this));
 
-        for (uint256 i = 0; i < s_strategy.totalStrategies; i++) {
-            assets = assets.rawAdd(s_strategy.strategies[i].strategy.getAssetBalanceInStrategy());
+        uint256[] memory wq = s_strategy.withdrawQueue;
+        for (uint256 i = 0; i < wq.length; i++) {
+            assets = assets.rawAdd(s_strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
         }
     }
 

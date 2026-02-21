@@ -596,7 +596,13 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
 
         assetsClaimed = LoanLogic.executeClaimRemainingCollateral(
-            _lsa, loanData.borrower, loanData.status, i_BITMOR_POOL, i_DEBT_ASSET, i_COLLATERAL_ASSET, s_slippage_sharesToAsset
+            _lsa,
+            loanData.borrower,
+            loanData.status,
+            i_BITMOR_POOL,
+            i_DEBT_ASSET,
+            i_COLLATERAL_ASSET,
+            s_slippage_sharesToAsset
         );
 
         emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower, assetsClaimed);
