@@ -5,7 +5,9 @@ import {console2} from "forge-std/console2.sol";
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20Errors} from "@openzeppelin/interfaces/draft-IERC6093.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
@@ -765,6 +767,10 @@ contract CloseLoanTest is BaseLoanTest {
         // Simulate Aave V2 rounding: repay burns 1 wei less than requested
         mockBitmorPool.setRepaymentShortfall(1);
 
+        // Expect Loan__DustDebtAbsorbed event with 1 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 1);
+
         vm.prank(user);
         loan.closeLoan(lsa, true);
 
@@ -790,6 +796,10 @@ contract CloseLoanTest is BaseLoanTest {
         // Simulate worst-case rounding at exact threshold
         mockBitmorPool.setRepaymentShortfall(10);
 
+        // Expect Loan__DustDebtAbsorbed event with 10 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 10);
+
         vm.prank(user);
         loan.closeLoan(lsa, true);
 
@@ -809,13 +819,21 @@ contract CloseLoanTest is BaseLoanTest {
     function test_closeLoan_revertsWhenDebtExceedsThreshold() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
+        // Compute expected pre-closure fee (the safeTransfer target amount)
+        uint256 collateral = _getCollateralBalance(lsa);
+        uint256 expectedFee = _calculatePreClosureFee(collateral);
+
         // 11 wei exceeds the 10 wei threshold
         mockBitmorPool.setRepaymentShortfall(11);
 
         // Close loan reverts because collateral isn't withdrawn when debt > threshold,
-        // so the fee transfer fails with ERC20InsufficientBalance
+        // so the fee transfer fails with ERC20InsufficientBalance(loan, 0, expectedFee)
         vm.prank(user);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientBalance.selector, address(loan), uint256(0), expectedFee
+            )
+        );
         loan.closeLoan(lsa, true);
 
         // Loan remains unchanged (tx reverted)
