@@ -96,6 +96,7 @@ library LoanLogic {
                 ctx.oracle,
                 ctx.collateralAsset,
                 ctx.debtAsset,
+                ctx.aavePool,
                 params.depositAmount,
                 IERC20Metadata(ctx.debtAsset).decimals(),
                 params.collateralAmount,
@@ -256,6 +257,9 @@ library LoanLogic {
         uint256 maxInterestRate =
             IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
 
+        // Fetch flash loan premium from Aave V3
+        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(data.aavePool);
+
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
             DataTypes.CalculateLoanAmt(
@@ -267,7 +271,8 @@ library LoanLogic {
                 debtPriceUSD,
                 maxInterestRate,
                 data.duration,
-                data.minDepositBps
+                data.minDepositBps,
+                flashLoanPremiumBps
             )
         );
     }
@@ -279,6 +284,7 @@ library LoanLogic {
      * @param ctx Context containing collateral bounds and minimum deposit BPS
      * @param bitmorPool Bitmor Lending Pool address for interest rate data
      * @param _oracle Price oracle address for asset valuations
+     * @param aavePool Aave V3 pool address for fetching flash loan premium
      * @param collateralAsset Collateral asset address (cbBTC)
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
@@ -291,6 +297,7 @@ library LoanLogic {
         DataTypes.CalculateLoanDetailsContext memory ctx,
         address bitmorPool,
         address _oracle,
+        address aavePool,
         address collateralAsset,
         address debtAsset,
         uint256 collateralAmount,
@@ -312,6 +319,9 @@ library LoanLogic {
         uint256 interestRate =
             IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
 
+        // Fetch flash loan premium from Aave V3
+        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(aavePool);
+
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
             collateralAmount,
@@ -321,7 +331,8 @@ library LoanLogic {
             IERC20Metadata(debtAsset).decimals(),
             interestRate,
             duration,
-            ctx.minDepositBps
+            ctx.minDepositBps,
+            flashLoanPremiumBps
         );
     }
 

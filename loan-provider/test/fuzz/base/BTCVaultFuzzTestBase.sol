@@ -102,9 +102,9 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
     /// @notice Configures vault with default fees and max strategies via AccessManager
     function _configureVault() internal {
         _scheduleAndExecuteLocal(bvc, BVC_ID(), abi.encodeCall(BTCVault.setMaxStrategies, (FC.MAX_STRATEGIES)));
+        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
         _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setEntryFee, (FC.DEFAULT_ENTRY_FEE)));
         _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setExitFee, (FC.DEFAULT_EXIT_FEE)));
-        _scheduleAndExecuteLocal(bvm_slow, BVM_SLOW_ID(), abi.encodeCall(BTCVault.setFeeRecipient, (feeRecipient)));
     }
 
     /// @notice Adds strategy1 with default cap and sets up supply/withdraw queues

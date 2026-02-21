@@ -243,6 +243,9 @@ library Errors {
     /// @notice Thrown when cbBTC-to-USDC swap output is insufficient to cover flash loan repayment.
     error InsufficientSwapOutput();
 
+    /// @notice Thrown when a non-zero fee is set while the fee recipient is still address(0)
+    error Vault__FeeRecipientNotSet();
+
     // ============ LoanVault Errors ============
 
     /// @notice Thrown when LoanVault owner address is zero during initialization

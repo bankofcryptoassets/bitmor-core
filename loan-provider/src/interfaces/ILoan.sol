@@ -352,6 +352,7 @@ interface ILoan {
 
     /**
      * @notice Updates the grace period for monthly payment overdue checks
+     * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -371,6 +372,7 @@ interface ILoan {
 
     /**
      * @notice Updates the pre-closure fee
+     * @dev Reverts with `InvalidFee` if `newFee` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newFee New pre-closure fee in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -391,6 +393,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for `bvBTC` shares-to-asset conversion
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -402,6 +405,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for token swaps
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -440,6 +444,7 @@ interface ILoan {
 
     /**
      * @notice Updates the minimum deposit percentage
+     * @dev Reverts with `InvalidInputs` if `newMinDepositBps` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newMinDepositBps New minimum deposit in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
