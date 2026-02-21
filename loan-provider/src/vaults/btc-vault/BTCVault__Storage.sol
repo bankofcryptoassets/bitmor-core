@@ -78,6 +78,21 @@ contract BTCVault__Storage {
     event BTCVault__EmergencyWithdrawFunds();
 
     /**
+     * @notice Emitted when a strategy withdrawal fails during reallocation and is skipped
+     * @param strategyIndex The index of the strategy that failed
+     * @param amount The amount that was attempted to withdraw
+     * @param reason The revert reason bytes from the failed call
+     */
+    event BTCVault__StrategyWithdrawFailed(uint256 indexed strategyIndex, uint256 amount, bytes reason);
+
+    /**
+     * @notice Emitted when a strategy withdrawal fails during emergency withdraw and is skipped
+     * @param strategyIndex The index of the strategy that failed
+     * @param reason The revert reason bytes from the failed call
+     */
+    event BTCVault__EmergencyWithdrawFailed(uint256 indexed strategyIndex, bytes reason);
+
+    /**
      * @notice Emitted when the supply queue order is updated
      * @param newSupplyQueue The new supply queue array with strategy indices
      */

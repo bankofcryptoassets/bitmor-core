@@ -20,6 +20,10 @@ contract ReallocationTest is BaseTestForBTCVault {
     // ============ Constants ============
     uint256 constant STRATEGY_CAP = 10000e6;
 
+    // ============ Events for Testing ============
+    event BTCVault__StrategyWithdrawFailed(uint256 indexed strategyIndex, uint256 amount, bytes reason);
+    event BTCVault__EmergencyWithdrawFailed(uint256 indexed strategyIndex, bytes reason);
+
     // ============ Setup ============
 
     function setUp() public override {
@@ -179,5 +183,125 @@ contract ReallocationTest is BaseTestForBTCVault {
         uint256 totalAfter = vault.totalAssets();
 
         assertEq(totalAfter, totalBefore, "totalAssets should not change after reallocation");
+    }
+
+    // ============ Strategy Failure Resilience Tests ============
+
+    /// @notice When one strategy's withdraw reverts, the strategy revert is caught (not propagated),
+    ///         but with explicit deposit amounts the function still fails because the vault lacks idle balance.
+    ///         This proves the try/catch works: the revert is TransferFromFailed (from deposit), not
+    ///         the original "MockYieldSource: paused" error.
+    function test_reallocateFunds_SkipsFailingStrategy_RevertsOnDeposit() public {
+        // Arrange
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+
+        _depositAsUser(5000e6);
+
+        uint256 inStrategy1 = vault.getAssetInStrategy(address(strategy));
+        assertGt(inStrategy1, 0, "strategy1 should have funds");
+
+        // Make strategy1's yield source revert on withdraw
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Reallocate: try to move 2000 from strategy1 to strategy2
+        // Strategy1 withdraw is caught by try/catch (skipped), but vault has no idle balance
+        // for the deposit into strategy2, so the deposit's transferFrom fails
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: inStrategy1 - 2000e6});
+        allocations[1] = DataTypes.Allocation({index: 1, amount: 2000e6});
+
+        // The revert is TransferFromFailed (from deposit), NOT the strategy's own revert
+        bytes memory data = abi.encodeCall(BTCVault.reallocateFunds, (allocations));
+        _scheduleAndExpectRevertLocal(
+            bva_fast, BVA_FAST_ID(), data, abi.encodeWithSelector(bytes4(keccak256("TransferFromFailed()")))
+        );
+    }
+
+    /// @notice When a failing strategy is skipped and allocations use type(uint256).max, partial reallocation succeeds
+    function test_reallocateFunds_PartialReallocationWithMaxSentinel() public {
+        // Arrange — set up 3 strategies
+        MockYieldSource yieldSource3 = new MockYieldSource();
+        MockTokenizedStrategy strategy3 = new MockTokenizedStrategy(address(yieldSource3), address(vault));
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+        _addStrategy(address(strategy3), STRATEGY_CAP);
+
+        _depositAsUser(6000e6);
+
+        uint256 inStrategy1 = vault.getAssetInStrategy(address(strategy));
+        assertGt(inStrategy1, 0, "strategy1 should have funds");
+
+        // Break strategy1's withdraw
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Since strategy1 fails, totalWithdrawn=0.
+        // strategy2 deposit uses max => totalWithdrawn - totalSupplied = 0
+        // strategy3 deposit uses max => still 0
+        // totalSupplied=0 == totalWithdrawn=0 => passes!
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](3);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: 0}); // withdraw all from s1
+        allocations[1] = DataTypes.Allocation({index: 1, amount: type(uint256).max}); // deposit remaining
+        allocations[2] = DataTypes.Allocation({index: 2, amount: type(uint256).max}); // deposit remaining
+
+        // Act
+        _reallocate(allocations);
+
+        // Assert — strategy1 still has its funds (withdraw was skipped)
+        uint256 inStrategy1After = vault.getAssetInStrategy(address(strategy));
+        assertEq(inStrategy1After, inStrategy1, "strategy1 should be unchanged (withdraw skipped)");
+    }
+
+    // ============ Emergency Withdraw Resilience Tests ============
+
+    /// @notice Emergency withdraw should skip failing strategies and continue
+    function test_emergencyWithdrawFunds_SkipsFailingStrategy() public {
+        // Arrange
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+
+        _depositAsUser(5000e6);
+
+        uint256 inStrategy1Before = vault.getAssetInStrategy(address(strategy));
+
+        // Reallocate some funds to strategy2
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: inStrategy1Before - 2000e6});
+        allocations[1] = DataTypes.Allocation({index: 1, amount: 2000e6});
+        _reallocate(allocations);
+
+        uint256 inStrategy2After = vault.getAssetInStrategy(address(strategy2));
+        assertEq(inStrategy2After, 2000e6, "strategy2 should have 2000e6");
+
+        // Break strategy1's withdraw
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Act — emergency withdraw should still succeed, pulling funds from strategy2
+        _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
+
+        // Assert
+        // Strategy1 still has its funds (withdraw was skipped)
+        uint256 strategy1Final = vault.getAssetInStrategy(address(strategy));
+        assertEq(strategy1Final, inStrategy1Before - 2000e6, "strategy1 should be unchanged (withdraw failed)");
+
+        // Strategy2 should be drained
+        uint256 strategy2Final = vault.getAssetInStrategy(address(strategy2));
+        assertEq(strategy2Final, 0, "strategy2 should be fully drained");
+    }
+
+    /// @notice Emergency withdraw emits failure event for broken strategy
+    function test_emergencyWithdrawFunds_EmitsFailureEvent() public {
+        // Arrange
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _depositAsUser(5000e6);
+
+        // Break strategy's withdraw
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Assert + Act — expect the failure event
+        vm.expectEmit(true, false, false, false, address(vault));
+        emit BTCVault__EmergencyWithdrawFailed(0, "");
+
+        _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
     }
 }
