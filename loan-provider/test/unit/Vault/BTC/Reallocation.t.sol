@@ -327,4 +327,40 @@ contract ReallocationTest is BaseTestForBTCVault {
 
         _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
     }
+
+    /// @notice Emergency withdraw completes without revert even when ALL strategies fail
+    function test_emergencyWithdrawFunds_AllStrategiesFail_StillCompletes() public {
+        // Arrange — both strategies have funds
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+
+        _depositAsUser(5000e6);
+
+        uint256 inStrategy1Before = vault.getAssetInStrategy(address(strategy));
+
+        // Reallocate some to strategy2
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](2);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: inStrategy1Before - 2000e6});
+        allocations[1] = DataTypes.Allocation({index: 1, amount: 2000e6});
+        _reallocate(allocations);
+
+        // Break BOTH strategies
+        yieldSource.setShouldRevertOnWithdraw(true);
+        yieldSource2.setShouldRevertOnWithdraw(true);
+
+        uint256 vaultBalanceBefore = mockUSDC.balanceOf(address(vault));
+
+        // Act — should NOT revert, even though everything failed
+        _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
+
+        // Assert — vault idle balance unchanged (nothing recovered)
+        uint256 vaultBalanceAfter = mockUSDC.balanceOf(address(vault));
+        assertEq(vaultBalanceAfter, vaultBalanceBefore, "vault balance should be unchanged when all strategies fail");
+
+        // Both strategies still have their funds
+        uint256 strategy1Final = vault.getAssetInStrategy(address(strategy));
+        uint256 strategy2Final = vault.getAssetInStrategy(address(strategy2));
+        assertEq(strategy1Final, inStrategy1Before - 2000e6, "strategy1 should be unchanged");
+        assertEq(strategy2Final, 2000e6, "strategy2 should be unchanged");
+    }
 }
