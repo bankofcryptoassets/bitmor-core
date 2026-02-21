@@ -46,6 +46,7 @@ contract LoanMathHarness {
      * @param interestRate Interest rate from Aave V2 reserve (27 decimals - RAY)
      * @param duration Loan duration in months
      * @param minDepositBps Minimum deposit in basis points
+     * @param flashLoanPremiumBps Aave V3 flash loan premium in basis points
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
@@ -58,7 +59,8 @@ contract LoanMathHarness {
         uint256 debtAssetDecimals,
         uint256 interestRate,
         uint256 duration,
-        uint256 minDepositBps
+        uint256 minDepositBps,
+        uint256 flashLoanPremiumBps
     ) external pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         return LoanMath.calculateLoanDetails(
             collateralAmount,
@@ -68,7 +70,8 @@ contract LoanMathHarness {
             debtAssetDecimals,
             interestRate,
             duration,
-            minDepositBps
+            minDepositBps,
+            flashLoanPremiumBps
         );
     }
 
