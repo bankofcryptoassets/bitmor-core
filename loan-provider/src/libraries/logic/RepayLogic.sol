@@ -9,6 +9,7 @@ import {DataTypes} from "../types/DataTypes.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
 
 import {LSALogic} from "./LSALogic.sol";
@@ -86,11 +87,15 @@ library RepayLogic {
         uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
 
         // Advance schedule only if loan remains active
-        if (totalDebtRemaining == 0) {
-            // Fully repaid
+        if (totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
+            // Fully repaid (or negligible dust remaining)
 
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
+
+            if (totalDebtRemaining > 0) {
+                emit ILoan.Loan__DustDebtAbsorbed(params.lsa, totalDebtRemaining);
+            }
 
             /// @dev Withdraw Collateral `bvBTC` shares to `lsa`
             uint256 amountWithdrawn = params.lsa.withdrawCollateral(bitmorPool, collateralAsset, params.lsa);
