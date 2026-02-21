@@ -291,7 +291,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Updates the order in which strategies are drained for withdrawals
-     * @dev Queue determines priority for fund withdrawal
+     * @dev Queue determines priority for fund withdrawal. Strategies excluded from `newWithdrawQueue`
+     *      are deleted (requires cap = 0 and balance = 0). After removal, the admin MUST also call
+     *      `updateSupplyQueue` to remove stale entries pointing to the deleted strategy.
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
@@ -405,7 +407,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Returns the total amount of assets under management
      * @inheritdoc ERC4626
-     * @dev Delegates to the strategy contract to calculate total assets across all positions
+     * @dev Sums the vault's idle balance (`balanceOf(address(this))`) and all strategy
+     *      balances in the withdraw queue. Only active strategies (those in the withdraw
+     *      queue) are counted — removed strategies are excluded.
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {

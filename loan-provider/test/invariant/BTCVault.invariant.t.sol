@@ -126,9 +126,10 @@ contract BTCVaultInvariantTest is Test {
 
         for (uint256 i = 0; i < wq.length; i++) {
             DataTypes.Strategy memory strat = vault.getStrategyDetails(wq[i]);
-            if (strat.strategy != address(0)) {
-                sumStrategyAssets += vault.getAssetInStrategy(strat.strategy);
-            }
+            // Withdraw queue entries must always point to valid (non-deleted) strategies.
+            // If this fires, the removal logic has a bug allowing stale entries.
+            assertTrue(strat.strategy != address(0), "INV-BTC-03: withdraw queue contains deleted strategy reference");
+            sumStrategyAssets += vault.getAssetInStrategy(strat.strategy);
         }
 
         assertEq(vault.totalAssets(), sumStrategyAssets, "INV-BTC-03: totalAssets != sum of strategy balances");
