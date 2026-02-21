@@ -92,16 +92,15 @@ library StrategyStateLogic {
      * @dev Validates that removed strategies have zero cap and balance before deletion.
      *      Revokes token approval for removed strategies to prevent unauthorized asset transfers.
      *      Clears `strategyToIndex` for removed strategies to allow re-addition.
-     *
-     *      IMPORTANT: This function does NOT clean the supply queue. After removing a strategy,
-     *      the admin MUST call `updateSupplyQueue` to remove stale entries. Stale supply queue
-     *      entries are safely skipped (deleted strategy has `cap == 0`), but waste gas.
+     *      Automatically removes stale entries from the supply queue when strategies are deleted.
      * @param s The strategy state storage reference
      * @param newQueue Array of indices referencing positions in current withdraw queue
      * @param asset The underlying asset address used to revoke approval for removed strategies
+     * @return supplyQueueCleaned True if the supply queue was modified during cleanup
      */
     function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue, address asset)
         internal
+        returns (bool supplyQueueCleaned)
     {
         uint256[] memory currentWithdrawQueue = s.withdrawQueue;
         uint256 newLength = newQueue.length;
@@ -143,5 +142,32 @@ library StrategyStateLogic {
         }
 
         s.withdrawQueue = newWithdrawQueue;
+
+        // Auto-clean supply queue: remove entries pointing to deleted strategies
+        if (newLength < currLength) {
+            uint256[] memory currentSupplyQueue = s.supplyQueue;
+            uint256 supplyLen = currentSupplyQueue.length;
+
+            // Count survivors
+            uint256 survivors;
+            for (uint256 j; j < supplyLen; ++j) {
+                if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
+                    ++survivors;
+                }
+            }
+
+            // Only rebuild if entries were actually removed
+            if (survivors < supplyLen) {
+                uint256[] memory cleanedSupplyQueue = new uint256[](survivors);
+                uint256 writeIdx;
+                for (uint256 j; j < supplyLen; ++j) {
+                    if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
+                        cleanedSupplyQueue[writeIdx++] = currentSupplyQueue[j];
+                    }
+                }
+                s.supplyQueue = cleanedSupplyQueue;
+                supplyQueueCleaned = true;
+            }
+        }
     }
 }

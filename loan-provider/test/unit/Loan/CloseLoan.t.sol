@@ -257,7 +257,7 @@ contract CloseLoanTest is BaseLoanTest {
                 address(loan), // receiver
                 debtAsset, // asset
                 debtAmt // amount - the debt amount
-                    // params and referralCode are variable, so we only check the key parameters
+                // params and referralCode are variable, so we only check the key parameters
             )
         );
 
