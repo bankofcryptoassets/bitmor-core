@@ -5,6 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {ILendingPool} from "@bitmor/interfaces/ILendingPool.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title RepayLoanTest
@@ -564,5 +565,78 @@ contract RepayLoanTest is BaseLoanTest {
 
         // Reset for other tests
         mockBitmorPool.setWithdrawalFailure(lsa, false);
+    }
+
+    // ============ Dust Debt Tests (vuln-27) ============
+
+    /// @notice Full repayment succeeds when Aave V2 rounding leaves 1 wei of dust debt
+    /// @dev Uses setRepaymentShortfall(1) to simulate rounding: repay burns (totalDebt - 1)
+    function test_repay_fullRepayment_succeedsWithDustDebt_1wei() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+
+        // Simulate Aave V2 rounding: repay burns 1 wei less
+        mockBitmorPool.setRepaymentShortfall(1);
+
+        // Expect Loan__DustDebtAbsorbed event with 1 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 1);
+
+        vm.prank(user);
+        loan.repay(lsa, totalDebt);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "Loan should be completed with 1 wei dust"
+        );
+        assertEq(loanData.duration, 0, "Duration should be 0");
+
+        // Collateral should be withdrawn to borrower
+        assertEq(_getCollateralBalance(lsa), 0, "LSA collateral should be 0");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Full repayment succeeds at exact dust threshold (10 wei)
+    function test_repay_fullRepayment_succeedsWithDustDebt_atThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+
+        mockBitmorPool.setRepaymentShortfall(10);
+
+        // Expect Loan__DustDebtAbsorbed event with 10 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 10);
+
+        vm.prank(user);
+        loan.repay(lsa, totalDebt);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed at threshold"
+        );
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Repayment does NOT complete loan when remaining debt exceeds threshold
+    function test_repay_fullRepayment_doesNotCompleteAboveThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+
+        // 11 wei exceeds the 10 wei threshold
+        mockBitmorPool.setRepaymentShortfall(11);
+
+        vm.prank(user);
+        loan.repay(lsa, totalDebt);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should remain active above threshold"
+        );
+
+        mockBitmorPool.setRepaymentShortfall(0);
     }
 }
