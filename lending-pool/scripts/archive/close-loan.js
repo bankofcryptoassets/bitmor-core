@@ -57,7 +57,7 @@ async function main() {
     console.log("  Borrower:", loanData.borrower);
     console.log("  Deposit Amount:", ethers.utils.formatUnits(loanData.depositAmount, 6), "USDC");
     console.log("  Loan Amount:", ethers.utils.formatUnits(loanData.loanAmount, 6), "USDC");
-    console.log("  Collateral Amount:", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
+    console.log("  Collateral Amount:", ethers.utils.formatUnits(loanData.btcAmount, 8), "cbBTC");
     console.log("  Duration:", loanData.duration.toString(), "months");
     console.log("  Status:", loanData.status === 0 ? "Active" : loanData.status === 1 ? "Completed" : "Liquidated");
     console.log();
@@ -68,7 +68,7 @@ async function main() {
     }
 
     console.log("Close Loan Configuration:");
-    console.log("  Expected Collateral Return:", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
+    console.log("  Expected Collateral Return:", ethers.utils.formatUnits(loanData.btcAmount, 8), "cbBTC");
     console.log("  Withdraw in collateral asset (cbBTC): true");
     console.log();
 

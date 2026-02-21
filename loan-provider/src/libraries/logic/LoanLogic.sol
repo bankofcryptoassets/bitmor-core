@@ -69,7 +69,7 @@ library LoanLogic {
         DataTypes.InitializeLoanContext memory ctx,
         DataTypes.ExecuteInitializeLoanParams memory params
     ) internal returns (address lsa) {
-        if (params.depositAmount == 0 || params.collateralAmount == 0) {
+        if (params.depositAmount == 0 || params.btcAmount == 0) {
             revert Errors.ZeroAmount();
         }
 
@@ -77,11 +77,11 @@ library LoanLogic {
             revert Errors.Loan__InvalidDuration();
         }
 
-        if (params.collateralAmount < ctx.minCollateralAmt) {
+        if (params.btcAmount < ctx.minCollateralAmt) {
             revert Errors.LessThanMinimumCollateralAllowed();
         }
 
-        if (params.collateralAmount > ctx.maxCollateralAmt) {
+        if (params.btcAmount > ctx.maxCollateralAmt) {
             revert Errors.GreaterThanMaxCollateralAllowed();
         }
 
@@ -94,7 +94,7 @@ library LoanLogic {
                 ctx.aavePool,
                 params.depositAmount,
                 IERC20Metadata(ctx.debtAsset).decimals(),
-                params.collateralAmount,
+                params.btcAmount,
                 IERC20Metadata(ctx.collateralAsset).decimals(),
                 params.duration,
                 ctx.minDepositBps
@@ -109,7 +109,7 @@ library LoanLogic {
             borrower: params.user,
             depositAmount: params.depositAmount,
             loanAmount: loanAmount,
-            collateralAmount: params.collateralAmount,
+            btcAmount: params.btcAmount,
             estimatedMonthlyPayment: monthlyPayment,
             duration: params.duration,
             createdAt: block.timestamp,
@@ -137,7 +137,7 @@ library LoanLogic {
 
         // Flash loan execution flow
         bool initializingLoan = true;
-        bytes memory flData = abi.encode(lsa, params.collateralAmount);
+        bytes memory flData = abi.encode(lsa, params.btcAmount);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
         AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
@@ -149,7 +149,7 @@ library LoanLogic {
         if (surplus > 0) IERC20(ctx.debtAsset).safeTransfer(params.user, surplus);
 
         // Emit loan creation event
-        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
+        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.btcAmount, params.data);
         return lsa;
     }
 
@@ -260,7 +260,7 @@ library LoanLogic {
             DataTypes.CalculateLoanAmt(
                 data.depositAmount,
                 data.debtAssetDecimals,
-                data.collateralAmount,
+                data.btcAmount,
                 data.collateralAssetDecimals,
                 collateralPriceUSD,
                 debtPriceUSD,
@@ -282,7 +282,7 @@ library LoanLogic {
      * @param aavePool Aave V3 pool address for fetching flash loan premium
      * @param collateralAsset Collateral asset address (bvBTC)
      * @param debtAsset Debt asset address (USDC)
-     * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
+     * @param btcAmount Amount of collateral (8 decimals for cbBTC)
      * @param duration Loan duration in months
      * @return exactLoanAmt The loan amount in debt asset (6 decimals for USDC)
      * @return monthlyPayAmt The estimated monthly payment (6 decimals)
@@ -295,11 +295,11 @@ library LoanLogic {
         address aavePool,
         address collateralAsset,
         address debtAsset,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
-        if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
-        if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
+        if (btcAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
+        if (btcAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
         if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
         // Get oracle prices
@@ -319,7 +319,7 @@ library LoanLogic {
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
-            collateralAmount,
+            btcAmount,
             collateralPriceUSD,
             IERC20Metadata(collateralAsset).decimals(),
             debtPriceUSD,

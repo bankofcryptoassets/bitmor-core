@@ -38,7 +38,7 @@ contract LoanMathHarness {
 
     /**
      * @notice Exposes LoanMath.calculateLoanDetails for testing
-     * @param collateralAmount Desired BTC collateral amount (8 decimals)
+     * @param btcAmount Desired BTC collateral amount (8 decimals)
      * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
      * @param collateralAssetDecimals Number of decimals for collateral asset
      * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
@@ -52,7 +52,7 @@ contract LoanMathHarness {
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
     function exposed_calculateLoanDetails(
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 collateralPriceUSD,
         uint256 collateralAssetDecimals,
         uint256 debtPriceUSD,
@@ -63,7 +63,7 @@ contract LoanMathHarness {
         uint256 flashLoanPremiumBps
     ) external pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         return LoanMath.calculateLoanDetails(
-            collateralAmount,
+            btcAmount,
             collateralPriceUSD,
             collateralAssetDecimals,
             debtPriceUSD,

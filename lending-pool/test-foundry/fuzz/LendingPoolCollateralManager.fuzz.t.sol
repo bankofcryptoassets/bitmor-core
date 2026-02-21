@@ -18,7 +18,7 @@ interface ILendingPoolCollateralManagerHarness {
         address debtAsset,
         uint256 debtToCover,
         uint256 userCollateralBalance
-    ) external view returns (uint256 collateralAmount, uint256 debtAmountNeeded, uint256 liquidationBonus);
+    ) external view returns (uint256 btcAmount, uint256 debtAmountNeeded, uint256 liquidationBonus);
 
     function exposed_calculateProtocolFee(
         uint256 maxCollateralToLiquidate,
@@ -103,7 +103,7 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
         _setOraclePrices(collateralPrice, debtAssetPrice);
         h.setupState(addressesProvider, COLLATERAL_ASSET, DEBT_ASSET, BTC_DECIMALS, USDC_DECIMALS, liquidationBonus);
 
-        (uint256 collateralAmount, uint256 debtNeeded,) = h
+        (uint256 btcAmount, uint256 debtNeeded,) = h
             .exposed_calculateAvailableCollateralToLiquidate(
                 COLLATERAL_ASSET,
                 DEBT_ASSET,
@@ -111,7 +111,7 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
                 userCollateralBalance
             );
 
-        assertEq(collateralAmount, 0, "zero debt should give zero collateral");
+        assertEq(btcAmount, 0, "zero debt should give zero collateral");
         assertEq(debtNeeded, 0, "zero debt should give zero debt needed");
     }
 
@@ -232,12 +232,12 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
 
         _setOraclePrices(BTC_PRICE, USDC_PRICE);
 
-        (uint256 collateralAmount,,) = h.exposed_calculateAvailableCollateralToLiquidate(
+        (uint256 btcAmount,,) = h.exposed_calculateAvailableCollateralToLiquidate(
             COLLATERAL_ASSET, DEBT_ASSET, debtToCover, userCollateralBalance
         );
 
         assertLe(
-            collateralAmount,
+            btcAmount,
             userCollateralBalance,
             "collateral seized should never exceed user balance"
         );
@@ -277,7 +277,7 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
         _setOraclePrices(price, price);
         h.setupState(addressesProvider, COLLATERAL_ASSET, DEBT_ASSET, decimals, decimals, STANDARD_BONUS);
 
-        (uint256 collateralAmount, uint256 debtNeeded,) = h
+        (uint256 btcAmount, uint256 debtNeeded,) = h
             .exposed_calculateAvailableCollateralToLiquidate(
                 COLLATERAL_ASSET, DEBT_ASSET, debtToCover, userCollateralBalance
             );
@@ -288,7 +288,7 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
 
         // Allow small rounding tolerance
         assertApproxEqAbs(
-            collateralAmount,
+            btcAmount,
             expectedCollateral,
             2,
             "equal prices/decimals: collateral should be debt * bonus"
@@ -308,15 +308,15 @@ contract LendingPoolCollateralManagerFuzzTest is Test {
 
         _setOraclePrices(btcPrice, USDC_PRICE);
 
-        (uint256 collateralAmount, uint256 debtNeeded,) = h
+        (uint256 btcAmount, uint256 debtNeeded,) = h
             .exposed_calculateAvailableCollateralToLiquidate(
                 COLLATERAL_ASSET, DEBT_ASSET, debtToCover, userCollateralBalance
             );
 
         // Basic sanity: amounts should be reasonable
-        assertLe(collateralAmount, userCollateralBalance, "collateral capped by user balance");
+        assertLe(btcAmount, userCollateralBalance, "collateral capped by user balance");
         assertLe(debtNeeded, debtToCover, "debt needed capped by debt to cover");
-        assertGe(collateralAmount, 0, "collateral should be non-negative");
+        assertGe(btcAmount, 0, "collateral should be non-negative");
         assertGe(debtNeeded, 0, "debt needed should be non-negative");
     }
 

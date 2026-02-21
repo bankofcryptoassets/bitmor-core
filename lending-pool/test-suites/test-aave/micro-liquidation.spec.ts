@@ -25,7 +25,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   async function setupUserWithDebt(
     testEnv: TestEnv,
     userIndex: number,
-    collateralAmount: string,
+    btcAmount: string,
     borrowAmount: string
   ) {
     const { users, pool, usdc, btcVault, addressesProvider, mockBitmorUSDCVault, deployer } = testEnv;
@@ -39,7 +39,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     await pool.connect(deployer.signer).deposit(getContractAddress(usdc), liquidityAmount, deployer.address, '0');
 
     // Mint and deposit bvBTC (vault shares) as collateral
-    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), collateralAmount);
+    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), btcAmount);
     await btcVault.mint(user.address, bvBTCAmount);
     await btcVault.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
@@ -64,7 +64,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   async function setupUserWithVaultDebt(
     testEnv: TestEnv,
     userIndex: number,
-    collateralAmount: string,
+    btcAmount: string,
     borrowAmount: string
   ) {
     const { users, pool, usdc, btcVault, addressesProvider, mockBitmorUSDCVault, mockLoanProvider, deployer } = testEnv;
@@ -78,7 +78,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     await pool.connect(deployer.signer).deposit(getContractAddress(usdc), liquidityAmount, deployer.address, '0');
 
     // 2. Deposit bvBTC (vault shares) as collateral via mockLoanProvider
-    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), collateralAmount);
+    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), btcAmount);
     await btcVault.mint(user.address, bvBTCAmount);
     await btcVault.connect(user.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await addressesProvider.setBitmorLoan(getContractAddress(mockLoanProvider));
@@ -462,7 +462,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await cbBTCAggregator.updateAnswer((currentPrice * 50n) / 100n);
 
       // With the vuln-21 fix, checkTypeOfLiquidation now reads real aToken balance (0.05 bvBTC)
-      // instead of stale loanData.collateralAmount (1 bvBTC). At 50% price drop, the real
+      // instead of stale loanData.btcAmount (1 bvBTC). At 50% price drop, the real
       // collateral value ($2,500) cannot cover the monthly payment + bonus ($10,500), so the
       // function correctly returns type 1 (full liquidation) instead of type 2.
       const liquidationType = await pool.checkTypeOfLiquidation(user.address);

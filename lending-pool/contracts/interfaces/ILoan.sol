@@ -18,14 +18,14 @@ interface ILoan {
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
      * @param loanAmount Total loan amount in USDC (6 decimals)
-     * @param collateralAmount Amount of cbBTC collateral (8 decimals)
+     * @param btcAmount Amount of cbBTC collateral (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
         address indexed borrower,
         address indexed lsa,
         uint256 loanAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         bytes data
     );
 
@@ -174,7 +174,7 @@ interface ILoan {
      * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow
      * @param depositAmount USDC deposit amount (6 decimals)
      * @param premiumAmount USDC premium amount (6 decimals)
-     * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
+     * @param btcAmount Target cbBTC amount user wants to achieve (8 decimals)
      * @param duration Loan duration in months
      * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
@@ -183,7 +183,7 @@ interface ILoan {
     function initializeLoan(
         uint256 depositAmount,
         uint256 premiumAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration,
         bytes calldata data
     ) external returns (address lsa);
@@ -351,15 +351,15 @@ interface ILoan {
     function setPreClosureFee(uint256 newFee) external;
 
     /**
-     * @notice Calculates loan details based on `collateralAmount` and `duration`
-     * @param collateralAmount Collateral asset amount in cbBTC (8 decimals)
+     * @notice Calculates loan details based on `btcAmount` and `duration`
+     * @param btcAmount Collateral asset amount in cbBTC (8 decimals)
      * @param duration Duration of the loan in months
      * @return loanAmount Debt asset amount in USDC (6 decimals)
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
     function getLoanDetails(
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration
     )
         external

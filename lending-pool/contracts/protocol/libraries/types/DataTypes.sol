@@ -59,7 +59,7 @@ library DataTypes {
    * @param loanAmount Total amount borrowed via flash loan (6 decimals).
    *        Historical record only — does not track accrued interest.
    *        For live debt, read the variable debt token balance.
-   * @param collateralAmount cbBTC amount user wants to achieve (8 decimals)
+   * @param btcAmount cbBTC amount user wants to achieve (8 decimals)
    * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals).
    *        Computed once using max variable borrow rate; not updated during loan lifetime.
    * @param duration Loan term length in months
@@ -73,7 +73,7 @@ library DataTypes {
     address borrower;
     uint256 depositAmount;
     uint256 loanAmount;
-    uint256 collateralAmount;
+    uint256 btcAmount;
     uint256 estimatedMonthlyPayment;
     uint256 duration;
     uint256 createdAt;

@@ -69,7 +69,7 @@ abstract contract Utilities is Test {
     /// @notice Create a loan and return LSA address with loan data
     /// @param loanContract The Loan contract instance
     /// @param loanUser The user creating the loan
-    /// @param collateralAmount Amount of collateral for the loan
+    /// @param btcAmount Amount of collateral for the loan
     /// @param duration Loan duration in months
     /// @param premiumAmount Premium amount for insurance
     /// @param data Additional loan data
@@ -78,31 +78,31 @@ abstract contract Utilities is Test {
     function _utilCreateLoan(
         Loan loanContract,
         address loanUser,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration,
         uint256 premiumAmount,
         bytes memory data
     ) internal returns (address lsa, DataTypes.LoanData memory loanData) {
-        (,, uint256 minDepositRequired) = loanContract.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loanContract.getLoanDetails(btcAmount, duration);
 
         vm.prank(loanUser);
-        lsa = loanContract.initializeLoan(minDepositRequired, premiumAmount, collateralAmount, duration, data);
+        lsa = loanContract.initializeLoan(minDepositRequired, premiumAmount, btcAmount, duration, data);
 
         loanData = loanContract.getLoanByLSA(lsa);
     }
 
     /// @notice Get loan parameters for given collateral and duration
     /// @param loanContract The Loan contract instance
-    /// @param collateralAmount Amount of collateral
+    /// @param btcAmount Amount of collateral
     /// @param duration Loan duration in months
     /// @return loanAmount The calculated loan amount
     /// @return minDepositRequired The minimum deposit required
-    function _utilGetLoanParams(Loan loanContract, uint256 collateralAmount, uint256 duration)
+    function _utilGetLoanParams(Loan loanContract, uint256 btcAmount, uint256 duration)
         internal
         view
         returns (uint256 loanAmount, uint256 minDepositRequired)
     {
-        (loanAmount,, minDepositRequired) = loanContract.getLoanDetails(collateralAmount, duration);
+        (loanAmount,, minDepositRequired) = loanContract.getLoanDetails(btcAmount, duration);
     }
 
     /// @notice Mint debt tokens to user and approve spending

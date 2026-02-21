@@ -51,12 +51,12 @@
 
 ## Liquidation Logic (LoanLiquidationLogic)
 - `checkTypeOfLiquidation` in `LoanLiquidationLogic.sol` determines liquidation type (0/1/2)
-- After vuln-21 fix: uses `Helpers.getUserCurrentCollateral(user, collateralReserve)` (aToken balance) instead of stale `loanData.collateralAmount`
+- After vuln-21 fix: uses `Helpers.getUserCurrentCollateral(user, collateralReserve)` (aToken balance) instead of stale `loanData.btcAmount`
 - `_calculateAvailableCollateralToLiquidate` in `LendingPoolCollateralManager.sol` and `checkTypeOfLiquidation` use mathematically equivalent collateral checks -- if type 2 passes, capping won't trigger in execution
 - bvBTC liquidation bonus: 10500 (5%), USDC: 10300 (3%)
 - Oracle prices in tests: cbBTC=$100,000, USDC=$1 (8 decimal oracle, via `MOCK_CHAINLINK_AGGREGATORS_PRICES`)
 - `validateMicroLiquidationCall` check order: active reserve -> type==2 check (error 82) -> collateral enabled (error 43) -> has debt (error 83)
-- Tests that mismatch mockLoan data vs real pool positions will break after vuln-21 fix -- always align mock collateralAmount with actual deposits
+- Tests that mismatch mockLoan data vs real pool positions will break after vuln-21 fix -- always align mock btcAmount with actual deposits
 
 ## Micro-Liquidation Tests
 - `micro-liquidation.spec.ts` in `test-suites/test-aave/`

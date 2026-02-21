@@ -115,7 +115,7 @@ library LoanMath {
     {
         // Convert collateral amount to USD value
         uint256 collateralValueUSD =
-            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
+            data.btcAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
 
         // Convert deposit amount to USD value
         uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
@@ -158,7 +158,7 @@ library LoanMath {
      * 4. Include flash loan premium in total debt
      * 5. Calculate monthly payment using EMI formula
      *
-     * @param collateralAmount Desired BTC collateral amount (8 decimals)
+     * @param btcAmount Desired BTC collateral amount (8 decimals)
      * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
      * @param collateralAssetDecimals Number of decimals for collateral asset
      * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
@@ -172,7 +172,7 @@ library LoanMath {
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
     function calculateLoanDetails(
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 collateralPriceUSD,
         uint256 collateralAssetDecimals,
         uint256 debtPriceUSD,
@@ -183,7 +183,7 @@ library LoanMath {
         uint256 flashLoanPremiumBps
     ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
+        uint256 collateralValueUSD = btcAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
 
         uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
 

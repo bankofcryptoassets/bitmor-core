@@ -126,7 +126,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function initializeLoan(
         uint256 depositAmount,
         uint256 premiumAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration,
         bytes calldata data
     ) external whenNotPaused restricted nonReentrant returns (address lsa) {
@@ -150,7 +150,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             s_userLoanAtIndex,
             ctx,
             DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, collateralAmount, duration, INITIAL_INSURANCE_ID, data
+                msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
             )
         );
     }
@@ -361,7 +361,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /**
      * @inheritdoc ILoan
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(uint256 btcAmount, uint256 duration)
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
@@ -373,7 +373,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_AAVE_V3_POOL,
             i_COLLATERAL_ASSET,
             i_DEBT_ASSET,
-            collateralAmount,
+            btcAmount,
             duration
         );
     }

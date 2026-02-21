@@ -629,7 +629,7 @@ contract LendingPoolCollateralManager is
      * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
      * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
      * @param userCollateralBalance The collateral balance for the specific `collateralAsset` of the user being liquidated
-     * @return collateralAmount: The maximum amount that is possible to liquidate given all the liquidation constraints
+     * @return btcAmount: The maximum amount that is possible to liquidate given all the liquidation constraints
      *                           (user balance, close factor)
      *         debtAmountNeeded: The amount to repay with the liquidation
      *
@@ -642,7 +642,7 @@ contract LendingPoolCollateralManager is
         uint256 debtToCover,
         uint256 userCollateralBalance
     ) internal view returns (uint256, uint256, uint256) {
-        uint256 collateralAmount = 0;
+        uint256 btcAmount = 0;
         uint256 debtAmountNeeded = 0;
         IPriceOracleGetter oracle = IPriceOracleGetter(_addressesProvider.getPriceOracle());
 
@@ -666,18 +666,18 @@ contract LendingPoolCollateralManager is
             .div(vars.collateralPrice.mul(10 ** vars.debtAssetDecimals));
 
         if (vars.maxAmountCollateralToLiquidate > userCollateralBalance) {
-            collateralAmount = userCollateralBalance;
+            btcAmount = userCollateralBalance;
             debtAmountNeeded = vars
                 .collateralPrice
-                .mul(collateralAmount)
+                .mul(btcAmount)
                 .mul(10 ** vars.debtAssetDecimals)
                 .div(vars.debtAssetPrice.mul(10 ** vars.collateralDecimals))
                 .percentDiv(vars.liquidationBonus);
         } else {
-            collateralAmount = vars.maxAmountCollateralToLiquidate;
+            btcAmount = vars.maxAmountCollateralToLiquidate;
             debtAmountNeeded = debtToCover;
         }
-        return (collateralAmount, debtAmountNeeded, vars.liquidationBonus);
+        return (btcAmount, debtAmountNeeded, vars.liquidationBonus);
     }
 
     /**

@@ -82,9 +82,9 @@ contract CloseLoanTest is BaseLoanTest {
         return loan.getPreClosureFee();
     }
 
-    /// @notice Calculates the expected pre-closure fee in BTC for a given `collateralAmount` of vault shares
-    function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
-        return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
+    /// @notice Calculates the expected pre-closure fee in BTC for a given `btcAmount` of vault shares
+    function _calculatePreClosureFee(uint256 btcAmount) internal view returns (uint256) {
+        return (ERC4626(mockBTCVault).previewRedeem(btcAmount) * _getPreClosureFeeBps()) / 10000;
     }
 
     // ============ Close Loan Tests ============

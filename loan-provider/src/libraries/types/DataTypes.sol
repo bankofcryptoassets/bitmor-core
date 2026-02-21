@@ -169,7 +169,7 @@ library DataTypes {
         /**
          * @dev Target collateral amount (cbBTC, 8 decimals)
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
          * @dev Loan duration in months
          */
@@ -434,7 +434,7 @@ library DataTypes {
         /**
          * @dev Target collateral amount
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
          * @dev Collateral asset decimals
          */
@@ -463,7 +463,7 @@ library DataTypes {
         /**
          * @dev Target collateral amount
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
          * @dev Collateral asset decimals
          */
@@ -500,7 +500,7 @@ library DataTypes {
      * @dev `loanAmount` is a historical record set at creation. It does not track accrued
      *      interest or reflect partial repayments. For live outstanding debt, read the variable
      *      debt token balance via `BitmorLendingPoolLogic.getVDTTokenAmount()`.
-     * @param collateralAmount cbBTC amount user wants to achieve (8 decimals)
+     * @param btcAmount cbBTC amount user wants to achieve (8 decimals)
      * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals)
      * @dev `estimatedMonthlyPayment` is computed once using the max variable borrow rate at loan
      *      creation time. It is not recalculated during the loan lifetime. It serves as the
@@ -516,7 +516,7 @@ library DataTypes {
         address borrower;
         uint256 depositAmount;
         uint256 loanAmount;
-        uint256 collateralAmount;
+        uint256 btcAmount;
         uint256 estimatedMonthlyPayment;
         uint256 duration;
         uint256 createdAt;

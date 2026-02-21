@@ -390,7 +390,7 @@ contract MockBitmorLendingPool is ILendingPool {
         // Calculate collateral to seize with liquidation bonus using oracle prices
         // debtValueUSD = debtToCover * debtPriceUSD / debtDecimals
         // collateralWithBonus = debtValueUSD * LIQUIDATION_BONUS_BPS / 10000
-        // collateralAmount = collateralWithBonus / collateralPriceUSD * collateralDecimals
+        // btcAmount = collateralWithBonus / collateralPriceUSD * collateralDecimals
         address oracle = _addressesProvider.getPriceOracle();
         uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
         uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
