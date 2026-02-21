@@ -6,6 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title LoanContractTest
 /// @author Bitmor Protocol
@@ -166,6 +167,48 @@ contract LoanContract is BaseLoanTest {
                 gracePeriod
             );
         }
+    }
+
+    /// @notice Constructor reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
+    function test_loan_constructor_invalidPreClosureFee_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.InvalidFee.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            p.aaveAddressesProvider,
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            TC.BASIS_POINT_SCALE, // _preClosureFeeBps == BASIS_POINT_SCALE
+            p.gracePeriod
+        );
+    }
+
+    /// @notice Constructor reverts with InvalidInputs when `_gracePeriod` > MAX_GRACE_PERIOD
+    function test_loan_constructor_invalidGracePeriod_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.InvalidInputs.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            p.aaveAddressesProvider,
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            p.preClosureFeeBps,
+            TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
+        );
     }
 
     /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).

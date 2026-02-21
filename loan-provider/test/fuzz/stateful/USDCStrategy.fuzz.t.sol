@@ -331,10 +331,8 @@ contract USDCStrategyFuzzTest is USDCVaultFuzzTestBase {
         // Set a high minimum delta threshold (50-100% of target balance)
         uint256 highThreshold = bound(deltaThreshold, FC.MAX_DELTA_THRESHOLD_BPS, FC.MAX_ALLOCATION_BPS);
 
-        // Update minimum delta required via UVM_SLOW role (delayed operation)
-        _scheduleAndExecuteLocal(
-            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(vault.updateMinimumDeltaRequired, (highThreshold))
-        );
+        // Update minimum delta required via UVC role (delayed operation)
+        _scheduleAndExecuteLocal(uvc, UVC_ID(), abi.encodeCall(vault.updateMinimumDeltaRequired, (highThreshold)));
 
         // Record balances before reallocation attempt
         uint256 aaveBefore = _getAaveBalance();

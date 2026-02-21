@@ -78,6 +78,7 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())), when);
 
         // Loan parameter configuration (required for loan creation to work)
         // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)

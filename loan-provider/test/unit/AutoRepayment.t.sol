@@ -7,6 +7,7 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {MockERC20} from "../mock/MockERC20.sol";
 
 /// @title AutoRepaymentTest
 /// @author Bitmor Protocol
@@ -160,6 +161,201 @@ contract AutoRepaymentTest is BaseLoanTest {
         vm.expectEmit(true, true, false, true);
         emit IAutoRepayment.AutoRepayment__RepaymentExecuted(lsa, user, repayAmount, repayAmount);
         autoRepay.executeAutoRepayment(lsa, user, repayAmount);
+    }
+
+    // ============ rescueTokens Tests ============
+
+    /// @notice Tests that executor can rescue stuck USDC from the contract
+    function test_rescueTokens_TransfersTokens() public {
+        // Arrange - simulate tokens stuck in contract
+        uint256 stuckAmount = 1000e6;
+        mockUSDC.mint(address(autoRepay), stuckAmount);
+        address recipient = makeAddr("recipient");
+
+        uint256 recipientBalanceBefore = IERC20(debtAsset).balanceOf(recipient);
+
+        // Act
+        vm.prank(autoRepaymentExecutor);
+        autoRepay.rescueTokens(debtAsset, recipient, stuckAmount);
+
+        // Assert
+        uint256 recipientBalanceAfter = IERC20(debtAsset).balanceOf(recipient);
+        assertEq(recipientBalanceAfter - recipientBalanceBefore, stuckAmount, "recipient should receive stuck tokens");
+        assertEq(IERC20(debtAsset).balanceOf(address(autoRepay)), 0, "contract should have zero balance after rescue");
+    }
+
+    /// @notice Tests that rescueTokens emits the correct event
+    function test_rescueTokens_EmitsEvent() public {
+        // Arrange
+        uint256 stuckAmount = 500e6;
+        mockUSDC.mint(address(autoRepay), stuckAmount);
+        address recipient = makeAddr("recipient");
+
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectEmit(true, true, true, true);
+        emit IAutoRepayment.AutoRepayment__TokensRescued(debtAsset, recipient, stuckAmount);
+        autoRepay.rescueTokens(debtAsset, recipient, stuckAmount);
+    }
+
+    /// @notice Tests that executor can rescue a partial amount, leaving the rest
+    function test_rescueTokens_PartialAmount() public {
+        // Arrange
+        uint256 stuckAmount = 1000e6;
+        uint256 rescueAmount = 400e6;
+        mockUSDC.mint(address(autoRepay), stuckAmount);
+        address recipient = makeAddr("recipient");
+
+        // Act
+        vm.prank(autoRepaymentExecutor);
+        autoRepay.rescueTokens(debtAsset, recipient, rescueAmount);
+
+        // Assert
+        assertEq(IERC20(debtAsset).balanceOf(recipient), rescueAmount, "recipient should receive partial amount");
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(autoRepay)),
+            stuckAmount - rescueAmount,
+            "contract should retain remaining balance"
+        );
+    }
+
+    /// @notice Tests that executor can rescue non-debt tokens (e.g., accidentally sent cbBTC)
+    function test_rescueTokens_NonDebtAsset() public {
+        // Arrange
+        uint256 stuckAmount = 1e8; // 1 BTC
+        mockCbBTC.mint(address(autoRepay), stuckAmount);
+        address recipient = makeAddr("recipient");
+
+        // Act
+        vm.prank(autoRepaymentExecutor);
+        autoRepay.rescueTokens(address(mockCbBTC), recipient, stuckAmount);
+
+        // Assert
+        assertEq(mockCbBTC.balanceOf(recipient), stuckAmount, "recipient should receive rescued cbBTC");
+        assertEq(mockCbBTC.balanceOf(address(autoRepay)), 0, "contract should have zero cbBTC after rescue");
+    }
+
+    /// @notice Tests that rescueTokens reverts when token address is zero
+    function test_RevertWhen_RescueTokens_ZeroTokenAddress() public {
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        autoRepay.rescueTokens(address(0), makeAddr("recipient"), 1000e6);
+    }
+
+    /// @notice Tests that rescueTokens reverts when recipient address is zero
+    function test_RevertWhen_RescueTokens_ZeroRecipient() public {
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        autoRepay.rescueTokens(debtAsset, address(0), 1000e6);
+    }
+
+    /// @notice Tests that rescueTokens reverts when amount is zero
+    function test_RevertWhen_RescueTokens_ZeroAmount() public {
+        // Act & Assert
+        vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        autoRepay.rescueTokens(debtAsset, makeAddr("recipient"), 0);
+    }
+
+    /// @notice Tests that rescueTokens reverts when called by non-executor
+    function test_RevertWhen_RescueTokens_CallerNotAuthorized() public {
+        // Arrange
+        uint256 stuckAmount = 1000e6;
+        mockUSDC.mint(address(autoRepay), stuckAmount);
+        address nonExecutor = makeAddr("nonExecutor");
+
+        // Act & Assert - AccessManaged reverts with AccessManagedUnauthorized
+        vm.prank(nonExecutor);
+        vm.expectRevert();
+        autoRepay.rescueTokens(debtAsset, nonExecutor, stuckAmount);
+    }
+
+    /// @notice Tests that rescueTokens reverts when contract has insufficient balance
+    function test_RevertWhen_RescueTokens_InsufficientBalance() public {
+        // Arrange - contract has no tokens
+        address recipient = makeAddr("recipient");
+
+        // Act & Assert - ERC20 transfer will revert due to insufficient balance
+        vm.prank(autoRepaymentExecutor);
+        vm.expectRevert();
+        autoRepay.rescueTokens(debtAsset, recipient, 1000e6);
+    }
+
+    // ============ Excess Refund Tests ============
+
+    /// @notice Tests that excess repayment funds are refunded directly to the user
+    /// @dev Amount must exceed totalDebt to trigger the excess refund branch.
+    ///      RepayLogic caps pulls at min(amount, totalDebt), so only amount > totalDebt
+    ///      leaves excess in AutoRepayment that needs refunding.
+    function test_executeAutoRepayment_RefundsExcessToUser() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Get the actual total debt for this loan
+        uint256 totalDebt = _getDebtBalance(lsa);
+        // Overpay beyond total debt to trigger the excess refund branch
+        uint256 excessAmount = 1000e6;
+        uint256 overpayAmount = totalDebt + excessAmount;
+
+        // Ensure user has enough USDC and has approved the autoRepay contract
+        _fundUSDC(user, overpayAmount);
+        vm.prank(user);
+        IERC20(debtAsset).approve(address(autoRepay), overpayAmount);
+
+        uint256 userBalanceBefore = IERC20(debtAsset).balanceOf(user);
+
+        // Act
+        vm.prank(autoRepaymentExecutor);
+        autoRepay.executeAutoRepayment(lsa, user, overpayAmount);
+
+        // Assert - no tokens stuck in AutoRepayment contract
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(autoRepay)),
+            0,
+            "AutoRepayment contract should have zero USDC balance after execution"
+        );
+
+        // User should only be debited totalDebt (the excess was refunded)
+        uint256 userBalanceAfter = IERC20(debtAsset).balanceOf(user);
+        uint256 actualCost = userBalanceBefore - userBalanceAfter;
+        assertLe(actualCost, totalDebt, "user should not pay more than totalDebt");
+        assertGt(actualCost, 0, "user should pay something");
+    }
+
+    /// @notice Tests that ExcessRefunded event is emitted when overpaying beyond totalDebt
+    function test_executeAutoRepayment_EmitsExcessRefundedEvent() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        uint256 totalDebt = _getDebtBalance(lsa);
+        uint256 excessAmount = 500e6;
+        uint256 overpayAmount = totalDebt + excessAmount;
+
+        _fundUSDC(user, overpayAmount);
+        vm.prank(user);
+        IERC20(debtAsset).approve(address(autoRepay), overpayAmount);
+
+        // Act & Assert - expect ExcessRefunded event
+        vm.prank(autoRepaymentExecutor);
+        vm.expectEmit(true, false, false, true);
+        emit IAutoRepayment.AutoRepayment__ExcessRefunded(user, excessAmount);
+        autoRepay.executeAutoRepayment(lsa, user, overpayAmount);
+    }
+
+    /// @notice Tests that Loan approval is cleaned up after executeAutoRepayment
+    function test_executeAutoRepayment_CleansUpApproval() public setUpAutoRepayment {
+        // Arrange
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        // Act
+        vm.prank(autoRepaymentExecutor);
+        autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
+
+        // Assert - approval should be zeroed out
+        uint256 allowance = IERC20(debtAsset).allowance(address(autoRepay), address(loan));
+        assertEq(allowance, 0, "Loan allowance should be zero after execution");
     }
 
     // ============ Internal Helper Functions ============

@@ -29,13 +29,7 @@ contract UniswapV4Swapper is ISwapAdaptor {
     int24 public immutable i_TICK_SPACING;
     address public immutable i_HOOKS;
 
-    constructor(
-        address _universalRouter,
-        address _quoter,
-        uint24 _fee,
-        int24 _tickSpacing,
-        address _hooks
-    ) {
+    constructor(address _universalRouter, address _quoter, uint24 _fee, int24 _tickSpacing, address _hooks) {
         i_UNIVERSAL_ROUTER = IUniversalRouter(_universalRouter);
         i_QUOTER = IV4Quoter(_quoter);
         i_FEE = _fee;
@@ -50,10 +44,11 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @return poolKey The constructed PoolKey struct
      * @return zeroForOne True if tokenIn is currency0, false otherwise
      */
-    function _buildPoolKey(
-        address tokenIn,
-        address tokenOut
-    ) internal view returns (PoolKey memory poolKey, bool zeroForOne) {
+    function _buildPoolKey(address tokenIn, address tokenOut)
+        internal
+        view
+        returns (PoolKey memory poolKey, bool zeroForOne)
+    {
         // Uniswap V4 requires currency0 < currency1 (sorted by address)
         if (tokenIn < tokenOut) {
             poolKey = PoolKey({
@@ -84,20 +79,16 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @param exactAmountOut Exact amount of output tokens desired
      * @return maxAmountIn Maximum input tokens required (with 0.5% slippage buffer)
      */
-    function getMaxTokenInAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountOut
-    ) external returns (uint256 maxAmountIn) {
+    function getMaxTokenInAmount(address tokenIn, address tokenOut, uint256 exactAmountOut)
+        external
+        returns (uint256 maxAmountIn)
+    {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Use Quoter to simulate exact output swap
-        (maxAmountIn, ) = i_QUOTER.quoteExactOutputSingle(
+        (maxAmountIn,) = i_QUOTER.quoteExactOutputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey,
-                zeroForOne: zeroForOne,
-                exactAmount: uint128(exactAmountOut),
-                hookData: bytes("")
+                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: uint128(exactAmountOut), hookData: bytes("")
             })
         );
     }
@@ -110,20 +101,16 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @param exactAmountIn Exact amount of input tokens to swap
      * @return minAmountOut Minimum output tokens expected (with 0.5% slippage buffer)
      */
-    function getMinTokenOutAmount(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountIn
-    ) external returns (uint256 minAmountOut) {
+    function getMinTokenOutAmount(address tokenIn, address tokenOut, uint256 exactAmountIn)
+        external
+        returns (uint256 minAmountOut)
+    {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Use Quoter to simulate exact input swap
-        (minAmountOut, ) = i_QUOTER.quoteExactInputSingle(
+        (minAmountOut,) = i_QUOTER.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey,
-                zeroForOne: zeroForOne,
-                exactAmount: uint128(exactAmountIn),
-                hookData: bytes("")
+                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: uint128(exactAmountIn), hookData: bytes("")
             })
         );
     }
@@ -205,20 +192,14 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @notice Internal function to execute exact input swap via UniversalRouter
      * @dev Uses V4_SWAP command with Actions encoding
      */
-    function _executeSwapExactIn(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountIn,
-        uint256 minAmountOut
-    ) internal {
+    function _executeSwapExactIn(address tokenIn, address tokenOut, uint256 exactAmountIn, uint256 minAmountOut)
+        internal
+    {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         // Build the actions sequence: SWAP -> SETTLE -> TAKE
-        bytes memory actions = abi.encodePacked(
-            uint8(Actions.SWAP_EXACT_IN_SINGLE),
-            uint8(Actions.SETTLE),
-            uint8(Actions.TAKE_ALL)
-        );
+        bytes memory actions =
+            abi.encodePacked(uint8(Actions.SWAP_EXACT_IN_SINGLE), uint8(Actions.SETTLE), uint8(Actions.TAKE_ALL));
 
         // Build params for each action
         bytes[] memory params = new bytes[](3);
@@ -247,34 +228,24 @@ contract UniswapV4Swapper is ISwapAdaptor {
         inputs[0] = abi.encode(actions, params);
 
         // Execute via UniversalRouter with 1 hour deadline
-        i_UNIVERSAL_ROUTER.execute(
-            abi.encodePacked(uint8(Commands.V4_SWAP)),
-            inputs,
-            block.timestamp + 3600
-        );
+        i_UNIVERSAL_ROUTER.execute(abi.encodePacked(uint8(Commands.V4_SWAP)), inputs, block.timestamp + 3600);
     }
 
     /**
      * @notice Internal function to execute exact output swap via UniversalRouter
      * @dev Uses V4_SWAP command followed by SWEEP command
      */
-    function _executeSwapExactOut(
-        address tokenIn,
-        address tokenOut,
-        uint256 exactAmountOut,
-        uint256 maxAmountIn
-    ) internal {
+    function _executeSwapExactOut(address tokenIn, address tokenOut, uint256 exactAmountOut, uint256 maxAmountIn)
+        internal
+    {
         (PoolKey memory poolKey, bool zeroForOne) = _buildPoolKey(tokenIn, tokenOut);
 
         Currency inputCurrency = zeroForOne ? poolKey.currency0 : poolKey.currency1;
         Currency outputCurrency = zeroForOne ? poolKey.currency1 : poolKey.currency0;
 
         // Build V4 actions: SWAP -> SETTLE -> TAKE
-        bytes memory actions = abi.encodePacked(
-            uint8(Actions.SWAP_EXACT_OUT_SINGLE),
-            uint8(Actions.SETTLE),
-            uint8(Actions.TAKE_ALL)
-        );
+        bytes memory actions =
+            abi.encodePacked(uint8(Actions.SWAP_EXACT_OUT_SINGLE), uint8(Actions.SETTLE), uint8(Actions.TAKE_ALL));
 
         // Build params for each V4 action
         bytes[] memory v4Params = new bytes[](3);
@@ -312,10 +283,7 @@ contract UniswapV4Swapper is ISwapAdaptor {
      * @notice Internal function to handle refund of unused input tokens
      * @return amountIn Actual amount of input tokens used
      */
-    function _handleRefund(
-        address tokenIn,
-        uint256 maxAmountIn
-    ) internal returns (uint256 amountIn) {
+    function _handleRefund(address tokenIn, uint256 maxAmountIn) internal returns (uint256 amountIn) {
         uint256 remainingBalance = IERC20(tokenIn).balanceOf(address(this));
         amountIn = maxAmountIn - remainingBalance;
 

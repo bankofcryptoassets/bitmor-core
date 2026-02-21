@@ -69,8 +69,12 @@ library LoanLogic {
         DataTypes.InitializeLoanContext memory ctx,
         DataTypes.ExecuteInitializeLoanParams memory params
     ) internal returns (address lsa) {
-        if (params.depositAmount == 0 || params.collateralAmount == 0 || params.duration == 0) {
+        if (params.depositAmount == 0 || params.collateralAmount == 0) {
             revert Errors.ZeroAmount();
+        }
+
+        if (params.duration == 0 || params.duration > ctx.maxDuration) {
+            revert Errors.Loan__InvalidDuration();
         }
 
         if (params.collateralAmount < ctx.minCollateralAmt) {
@@ -87,6 +91,7 @@ library LoanLogic {
                 ctx.oracle,
                 ctx.collateralAsset,
                 ctx.debtAsset,
+                ctx.aavePool,
                 params.depositAmount,
                 IERC20Metadata(ctx.debtAsset).decimals(),
                 params.collateralAmount,
@@ -119,6 +124,9 @@ library LoanLogic {
         userLoanAtIndex[params.user][loanIndex] = lsa;
         userLoanCount[params.user] = loanIndex + 1;
 
+        /// @dev Snapshot balance before deposit+flash loan to refund exactOut swap surplus
+        uint256 balBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
+
         // Transfer deposit from user to contract
         IERC20(ctx.debtAsset).safeTransferFrom(params.user, address(this), params.depositAmount);
 
@@ -133,6 +141,12 @@ library LoanLogic {
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
         AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
+
+        /// @dev Refund any USDC surplus from the exactOut swap to the user.
+        /// The swap consumes at most `deposit + loanAmount` but typically less,
+        /// leaving a surplus that belongs to the depositing user.
+        uint256 surplus = IERC20(ctx.debtAsset).balanceOf(address(this)) - balBefore;
+        if (surplus > 0) IERC20(ctx.debtAsset).safeTransfer(params.user, surplus);
 
         // Emit loan creation event
         emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
@@ -176,6 +190,25 @@ library LoanLogic {
     }
 
     /**
+     * @notice Completes the loan after the final micro-liquidation when `duration == 1`
+     * @dev Sets `duration` to 0, updates `lastPaymentTimestamp`, and marks `status` as `Completed`.
+     * Called by the lending pool when the last remaining period is micro-liquidated,
+     * after which remaining collateral is returned to the borrower.
+     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param lsa The Loan Specific Address being completed
+     */
+    function updateLoanForMicroLiquidationCompletion(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal {
+        DataTypes.LoanData storage loan = loansByLSA[lsa];
+
+        loan.duration = 0;
+        loan.lastPaymentTimestamp = block.timestamp;
+        loan.status = DataTypes.LoanStatus.Completed;
+    }
+
+    /**
      * @notice Updates loan data after a full liquidation event
      * @dev Sets duration to 0 and status to Liquidated.
      * Full liquidation occurs when collateral value drops below debt threshold.
@@ -213,11 +246,14 @@ library LoanLogic {
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch current variable borrow rate from Aave V2 USDC reserve
+        // Fetch max variable borrow rate from interest rate strategy
         DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
 
         uint256 maxInterestRate =
             IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+
+        // Fetch flash loan premium from Aave V3
+        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(data.aavePool);
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
@@ -230,7 +266,8 @@ library LoanLogic {
                 debtPriceUSD,
                 maxInterestRate,
                 data.duration,
-                data.minDepositBps
+                data.minDepositBps,
+                flashLoanPremiumBps
             )
         );
     }
@@ -242,6 +279,7 @@ library LoanLogic {
      * @param ctx Context containing collateral bounds and minimum deposit BPS
      * @param bitmorPool Bitmor Lending Pool address for interest rate data
      * @param _oracle Price oracle address for asset valuations
+     * @param aavePool Aave V3 pool address for fetching flash loan premium
      * @param collateralAsset Collateral asset address (cbBTC)
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
@@ -254,6 +292,7 @@ library LoanLogic {
         DataTypes.CalculateLoanDetailsContext memory ctx,
         address bitmorPool,
         address _oracle,
+        address aavePool,
         address collateralAsset,
         address debtAsset,
         uint256 collateralAmount,
@@ -261,7 +300,7 @@ library LoanLogic {
     ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
         if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
-        if (duration == 0) revert Errors.ZeroAmount();
+        if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
@@ -270,9 +309,13 @@ library LoanLogic {
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch current variable borrow rate from Aave V2 USDC reserve
+        // Fetch max variable borrow rate from interest rate strategy (matches executeInitializeLoan)
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-        uint256 interestRate = reserveData.currentVariableBorrowRate;
+        uint256 interestRate =
+            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+
+        // Fetch flash loan premium from Aave V3
+        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(aavePool);
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
@@ -283,7 +326,8 @@ library LoanLogic {
             IERC20Metadata(debtAsset).decimals(),
             interestRate,
             duration,
-            ctx.minDepositBps
+            ctx.minDepositBps,
+            flashLoanPremiumBps
         );
     }
 }

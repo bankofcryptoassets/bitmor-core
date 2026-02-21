@@ -40,6 +40,11 @@ library Errors {
     error LoanIsNotActive();
 
     /**
+     * @notice Thrown when loan duration is zero or exceeds the maximum allowed
+     */
+    error Loan__InvalidDuration();
+
+    /**
      * @notice Thrown when array index is out of valid bounds
      */
     error IndexOutOfBounds();
@@ -229,8 +234,60 @@ library Errors {
     /// @notice Thrown when a fee parameter is set to an invalid value
     error InvalidFee();
 
+    /// @notice Thrown when the exact-output swap requires more input tokens than available.
     error LessAmountForExactOutSwap();
 
     /// @notice Thrown when slippage exceeds the allowed value.
     error InvalidSlippage();
+
+    /// @notice Thrown when cbBTC-to-USDC swap output is insufficient to cover flash loan repayment.
+    error InsufficientSwapOutput();
+
+    // ============ LoanVault Errors ============
+
+    /// @notice Thrown when LoanVault owner address is zero during initialization
+    error LoanVault__InvalidOwner();
+
+    /// @notice Thrown when LoanVault borrower address is zero during initialization
+    error LoanVault__InvalidBorrower();
+
+    /// @notice Thrown when LoanVault token address is zero
+    error LoanVault__InvalidToken();
+
+    /// @notice Thrown when LoanVault spender address is zero
+    error LoanVault__InvalidSpender();
+
+    /// @notice Thrown when LoanVault recipient address is zero
+    error LoanVault__InvalidToAddress();
+
+    /// @notice Thrown when LoanVault execute target address is zero
+    error LoanVault__InvalidTarget();
+
+    /// @notice Thrown when LoanVault external call execution fails
+    error LoanVault__ExecutionFailed();
+
+    /// @notice Thrown when LoanVault has already been initialized
+    error LoanVault__AlreadyInitialized();
+
+    /// @notice Thrown when caller is not the LoanVault owner
+    error LoanVault__CallerIsNotOwner();
+
+    // ============ LSALogic Errors ============
+
+    /// @notice Thrown when variable debt token address is zero
+    error LSALogic__InvalidDebtToken();
+
+    /// @notice Thrown when surplus collateral claim is attempted while the LSA still has outstanding debt
+    error LSALogic__OutstandingDebtExists();
+
+    // ============ Loan Surplus Claim Errors ============
+
+    /// @notice Thrown when `claimSurplusCollateral` is called by an address other than the loan borrower
+    error Loan__OnlyBorrower();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called on a loan that is still Active
+    error Loan__InvalidLoanStatus();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called and either BLP or BTC vault returns 0.
+    error Loan__ClaimingSurplusCollateralFailed();
 }

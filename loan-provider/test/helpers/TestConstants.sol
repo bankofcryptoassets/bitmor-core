@@ -18,7 +18,7 @@ library TestConstants {
     uint256 internal constant MAX_COLLATERAL = 10e8; // 10 BTC
     uint256 internal constant STANDARD_DURATION = 12; // 12 months
     uint256 internal constant MIN_DURATION = 1; // 1 month
-    uint256 internal constant MAX_DURATION = 12; // 12 months
+    uint256 internal constant MAX_DURATION = 60; // 60 months (5 years)
     uint256 internal constant PREMIUM_AMOUNT = 1000e6; // 1000 USDC
     uint256 internal constant OVERPAY_AMOUNT = 500e6; // 500 USDC
 
@@ -37,6 +37,12 @@ library TestConstants {
     // ============ Liquidation Fee ============
     uint256 internal constant MAX_LIQUIDATION_FEE_BPS = 20_00;
     uint256 internal constant DEFAULT_LIQUIDATION_FEE_BPS = 500;
+
+    // ============ Basis Point Scale ============
+    uint256 internal constant BASIS_POINT_SCALE = 100_00;
+
+    // ============ Grace Period ============
+    uint256 internal constant MAX_GRACE_PERIOD = 45 days;
 
     // ============ Insurance Constants ============
     uint256 internal constant DEFAULT_INSURANCE_ID = 1;

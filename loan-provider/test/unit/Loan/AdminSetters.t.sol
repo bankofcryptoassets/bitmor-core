@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
@@ -136,6 +137,28 @@ contract AdminSettersTest is BaseLoanTest {
         assertEq(loan.getMinDepositBps(), newValue, "MinDepositBps should be updated");
     }
 
+    /// @notice Test successfully setting the maximum loan duration and emitting event
+    function test_setMaxDuration() public {
+        uint256 newValue = 36; // 3 years
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, newValue);
+
+        // Schedule first, then expect event before execute
+        uint64 roleId = LPM_SLOW_ID();
+        (, uint32 delay,,) = manager.getAccess(roleId, lpm_slow);
+        uint48 when = uint48(block.timestamp + delay);
+
+        vm.startPrank(lpm_slow);
+        manager.schedule(address(loan), data, when);
+        vm.warp(when);
+
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__MaxDurationUpdated(newValue);
+        manager.execute(address(loan), data);
+        vm.stopPrank();
+
+        assertEq(loan.getMaxDuration(), newValue, "MaxDuration should be updated");
+    }
+
     /// @notice Test successfully setting the liquidation fee in basis points
     function test_setLiquidationFeeBps() public {
         uint256 newValue = TC.DEFAULT_LIQUIDATION_FEE_BPS;
@@ -165,6 +188,104 @@ contract AdminSettersTest is BaseLoanTest {
         );
     }
 
+    /// @notice Test that setting max duration to zero reverts
+    function test_setMaxDuration_RevertWhen_Zero() public {
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, 0);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAmount.selector)
+        );
+    }
+
+    /// @notice Test setting pre-closure fee at just below BASIS_POINT_SCALE succeeds
+    function test_setPreClosureFee_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getPreClosureFee(), maxValue, "Should accept max valid pre-closure fee");
+    }
+
+    /// @notice Test that setting pre-closure fee at BASIS_POINT_SCALE reverts
+    function test_setPreClosureFee_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidFee.selector)
+        );
+    }
+
+    /// @notice Test setting min deposit BPS at just below BASIS_POINT_SCALE succeeds
+    function test_setMinDepositBps_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getMinDepositBps(), maxValue, "Should accept max valid min deposit BPS");
+    }
+
+    /// @notice Test that setting min deposit BPS at BASIS_POINT_SCALE reverts
+    function test_setMinDepositBps_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
+        );
+    }
+
+    /// @notice Test setting slippage for shares-to-asset at just below BASIS_POINT_SCALE succeeds
+    function test_setSlippageForSharesToAsset_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSharesToAsset(), maxValue, "Should accept max valid shares-to-asset slippage");
+    }
+
+    /// @notice Test that setting slippage for shares-to-asset at BASIS_POINT_SCALE reverts
+    function test_setSlippageForSharesToAsset_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
+        );
+    }
+
+    /// @notice Test setting grace period at exactly MAX_GRACE_PERIOD (45 days) succeeds
+    function test_setGracePeriod_AtMaxValue() public {
+        uint256 maxValue = TC.MAX_GRACE_PERIOD;
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getGracePeriod(), maxValue, "Should accept max grace period");
+    }
+
+    /// @notice Test that setting grace period above MAX_GRACE_PERIOD reverts
+    function test_setGracePeriod_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.MAX_GRACE_PERIOD + 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
+        );
+    }
+
+    /// @notice Test setting slippage for swap at just below BASIS_POINT_SCALE succeeds
+    function test_setSlippageForSwap_AtMaxValue() public {
+        uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, maxValue);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+
+        assertEq(loan.getSlippageForSwap(), maxValue, "Should accept max valid swap slippage");
+    }
+
+    /// @notice Test that setting slippage for swap at BASIS_POINT_SCALE reverts
+    function test_setSlippageForSwap_RevertWhen_ExceedsMax() public {
+        uint256 invalidValue = TC.BASIS_POINT_SCALE;
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, invalidValue);
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
+        );
+    }
+
     // ============ Setters Without Role Revert ============
 
     /// @notice Test that setters revert when caller lacks the required role
@@ -182,6 +303,9 @@ contract AdminSettersTest is BaseLoanTest {
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setLiquidationFeeCollector(newAddress);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
+        loan.setMaxDuration(60);
 
         vm.stopPrank();
     }
@@ -241,5 +365,19 @@ contract AdminSettersTest is BaseLoanTest {
         _setMinDepositBps(newBps);
 
         assertEq(loan.getMinDepositBps(), newBps, "Min deposit BPS should be updated");
+    }
+
+    /// @notice Test that changing max duration affects loan creation validation
+    function test_setMaxDuration_affectsLoanCreation() public {
+        uint256 newMax = 6;
+        _setMaxDuration(newMax);
+
+        // Duration at new max should work
+        (uint256 loanAmt,,) = loan.getLoanDetails(TC.STANDARD_COLLATERAL, 6);
+        assertGt(loanAmt, 0, "Duration at new max should be valid");
+
+        // Duration above new max should revert
+        vm.expectRevert(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(TC.STANDARD_COLLATERAL, 7);
     }
 }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-import {SafeMath} from "../../dependencies/openzeppelin/contracts/SafeMath.sol";
-import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
-import {WadRayMath} from "../libraries/math/WadRayMath.sol";
-import {PercentageMath} from "../libraries/math/PercentageMath.sol";
-import {ILendingPoolAddressesProvider} from "../../interfaces/ILendingPoolAddressesProvider.sol";
-import {ILendingRateOracle} from "../../interfaces/ILendingRateOracle.sol";
-import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+import { SafeMath } from "../../dependencies/openzeppelin/contracts/SafeMath.sol";
+import { IReserveInterestRateStrategy } from "../../interfaces/IReserveInterestRateStrategy.sol";
+import { WadRayMath } from "../libraries/math/WadRayMath.sol";
+import { PercentageMath } from "../libraries/math/PercentageMath.sol";
+import { ILendingPoolAddressesProvider } from "../../interfaces/ILendingPoolAddressesProvider.sol";
+import { ILendingRateOracle } from "../../interfaces/ILendingRateOracle.sol";
+import { IUSDCVault } from "../../interfaces/IUSDCVault.sol";
 
 /**
  * @title USDCReserveInterestRateStrategy contract
@@ -102,7 +102,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
     /**
      * @dev Calculates the interest rates depending on the reserve's state and configurations
-     * The `availableLiquidity` is considered to be the `totalAssets()` present in the `vault`.
+     * The `totalAssets` is considered to be the `totalAssets()` present in the `vault` including `totalDebt`.
      * This creates a virtual utilization where underlying asset is accessible to the lending pool, but
      * not present in it to generate additional yield.
      * @param reserve The address of the reserve
@@ -129,13 +129,20 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
         require(reserve == IUSDCVault(vaultAddress).asset(), "WA");
 
-        uint256 availableLiquidity = IUSDCVault(vaultAddress).totalAssets();
+        /// @dev USDCVault.totalAssets() includes the `totalDebt`.
+        uint256 totalAssets = IUSDCVault(vaultAddress).totalAssets();
         //avoid stack too deep
-        availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
+        totalAssets = totalAssets.add(liquidityAdded).sub(liquidityTaken);
 
-        return calculateInterestRates(
-            reserve, availableLiquidity, totalStableDebt, totalVariableDebt, averageStableBorrowRate, reserveFactor
-        );
+        return
+            calculateInterestRates(
+                reserve,
+                totalAssets,
+                totalStableDebt,
+                totalVariableDebt,
+                averageStableBorrowRate,
+                reserveFactor
+            );
     }
 
     struct CalcInterestRatesLocalVars {
@@ -151,7 +158,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
      * NOTE This function is kept for compatibility with the previous DefaultInterestRateStrategy interface.
      * New protocol implementation uses the new calculateInterestRates() interface
      * @param reserve The address of the reserve
-     * @param availableLiquidity The liquidity available in the corresponding aToken
+     * @param totalAssets The total assets in the USDC Vault including the `totalDebt`
      * @param totalStableDebt The total borrowed from the reserve a stable rate
      * @param totalVariableDebt The total borrowed from the reserve at a variable rate
      * @param averageStableBorrowRate The weighted average of all the stable rate loans
@@ -161,7 +168,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
      */
     function calculateInterestRates(
         address reserve,
-        uint256 availableLiquidity,
+        uint256 totalAssets,
         uint256 totalStableDebt,
         uint256 totalVariableDebt,
         uint256 averageStableBorrowRate,
@@ -174,34 +181,56 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;
 
-        vars.utilizationRate = vars.totalDebt == 0 ? 0 : vars.totalDebt.rayDiv(availableLiquidity.add(vars.totalDebt));
+        if (vars.totalDebt == 0) {
+            vars.utilizationRate = 0;
+        } else if (totalAssets == 0) {
+            vars.utilizationRate = WadRayMath.ray(); // 100%
+        } else {
+            vars.utilizationRate = vars.totalDebt.rayDiv(totalAssets);
+            if (vars.utilizationRate > WadRayMath.ray()) {
+                vars.utilizationRate = WadRayMath.ray();
+            }
+        }
 
-
-        vars.currentStableBorrowRate =
-            ILendingRateOracle(addressesProvider.getLendingRateOracle()).getMarketBorrowRate(reserve);
+        vars.currentStableBorrowRate = ILendingRateOracle(addressesProvider.getLendingRateOracle())
+            .getMarketBorrowRate(reserve);
 
         if (vars.utilizationRate > OPTIMAL_UTILIZATION_RATE) {
-            uint256 excessUtilizationRateRatio =
-                vars.utilizationRate.sub(OPTIMAL_UTILIZATION_RATE).rayDiv(EXCESS_UTILIZATION_RATE);
+            uint256 excessUtilizationRateRatio = vars
+                .utilizationRate
+                .sub(OPTIMAL_UTILIZATION_RATE)
+                .rayDiv(EXCESS_UTILIZATION_RATE);
 
-            vars.currentStableBorrowRate = vars.currentStableBorrowRate.add(_stableRateSlope1)
-                .add(_stableRateSlope2.rayMul(excessUtilizationRateRatio));
+            vars.currentStableBorrowRate = vars.currentStableBorrowRate.add(_stableRateSlope1).add(
+                _stableRateSlope2.rayMul(excessUtilizationRateRatio)
+            );
 
-            vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(_variableRateSlope1)
-                .add(_variableRateSlope2.rayMul(excessUtilizationRateRatio));
+            vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(_variableRateSlope1).add(
+                _variableRateSlope2.rayMul(excessUtilizationRateRatio)
+            );
         } else {
-            vars.currentStableBorrowRate = vars.currentStableBorrowRate
-                .add(_stableRateSlope1.rayMul(vars.utilizationRate.rayDiv(OPTIMAL_UTILIZATION_RATE)));
+            vars.currentStableBorrowRate = vars.currentStableBorrowRate.add(
+                _stableRateSlope1.rayMul(vars.utilizationRate.rayDiv(OPTIMAL_UTILIZATION_RATE))
+            );
             vars.currentVariableBorrowRate = _baseVariableBorrowRate.add(
                 vars.utilizationRate.rayMul(_variableRateSlope1).rayDiv(OPTIMAL_UTILIZATION_RATE)
             );
         }
 
         vars.currentLiquidityRate = _getOverallBorrowRate(
-                totalStableDebt, totalVariableDebt, vars.currentVariableBorrowRate, averageStableBorrowRate
-            ).rayMul(vars.utilizationRate).percentMul(PercentageMath.PERCENTAGE_FACTOR.sub(reserveFactor));
+            totalStableDebt,
+            totalVariableDebt,
+            vars.currentVariableBorrowRate,
+            averageStableBorrowRate
+        ).rayMul(vars.utilizationRate).percentMul(
+                PercentageMath.PERCENTAGE_FACTOR.sub(reserveFactor)
+            );
 
-        return (vars.currentLiquidityRate, vars.currentStableBorrowRate, vars.currentVariableBorrowRate);
+        return (
+            vars.currentLiquidityRate,
+            vars.currentStableBorrowRate,
+            vars.currentVariableBorrowRate
+        );
     }
 
     /**
@@ -223,11 +252,17 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
 
         if (totalDebt == 0) return 0;
 
-        uint256 weightedVariableRate = totalVariableDebt.wadToRay().rayMul(currentVariableBorrowRate);
+        uint256 weightedVariableRate = totalVariableDebt.wadToRay().rayMul(
+            currentVariableBorrowRate
+        );
 
-        uint256 weightedStableRate = totalStableDebt.wadToRay().rayMul(currentAverageStableBorrowRate);
+        uint256 weightedStableRate = totalStableDebt.wadToRay().rayMul(
+            currentAverageStableBorrowRate
+        );
 
-        uint256 overallBorrowRate = weightedVariableRate.add(weightedStableRate).rayDiv(totalDebt.wadToRay());
+        uint256 overallBorrowRate = weightedVariableRate.add(weightedStableRate).rayDiv(
+            totalDebt.wadToRay()
+        );
 
         return overallBorrowRate;
     }

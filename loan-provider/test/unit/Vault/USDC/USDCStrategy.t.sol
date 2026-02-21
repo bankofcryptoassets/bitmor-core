@@ -7,7 +7,6 @@ import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategyHarness} from "../../../harness/USDCStrategyHarness.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /// @title USDCStrategyTest
 /// @author Bitmor Protocol
@@ -97,23 +96,25 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
     // ============ SECTION: _reallocateAssets EDGE CASES
     // ============================================
 
-    /// @notice Test that reallocateAssets completes successfully when target Aave is zero
-    /// @dev This tests the branch where targetBalanceInAave == 0. With mocks, the actual
-    ///      funds movement depends on mock implementation. This verifies no revert occurs.
-    function test_reallocateAssets_zeroTargetAave_reverts() public {
+    /// @notice Test that reallocateAssets moves all funds from Aave to BLP when target is 0%
+    /// @dev Tests the early-return branch where targetBalanceInAave == 0
+    function test_reallocateAssets_zeroTargetAave_movesToBLP() public {
         // Fund and deposit first
         _fundLenderWithUsdc(lender, LARGE_DEPOSIT);
         _deposit(lender, LARGE_DEPOSIT);
 
+        uint256 aaveBefore = _getAaveBalance();
+        assertGt(aaveBefore, 0, "should have funds in Aave before reallocation");
+
         // Set allocation to 0% (target is all in BLP)
-        // With s_externalAllocation == 0, _reallocateAssets computes
-        // targetBalanceInAave == 0 and mulDivUp divides by zero → MulDivFailed()
         _setAllocation(0);
 
-        // Trigger reallocation directly via vault prank to avoid schedule/execute complexity
+        // Trigger reallocation - should move all Aave funds to BLP without reverting
         vm.prank(address(vault));
-        vm.expectRevert(FixedPointMathLib.MulDivFailed.selector);
         strategy.reallocateAssets();
+
+        uint256 aaveAfter = _getAaveBalance();
+        assertEq(aaveAfter, 0, "all Aave funds should be moved to BLP");
     }
 
     // ============================================

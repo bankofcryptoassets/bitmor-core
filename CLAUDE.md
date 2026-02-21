@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Bitmor is a BTC-collateralized lending protocol built on Aave V2. The repository has two main modules:
+Bitmor is a BTC-collateralized lending protocol built on Aave V2. The repository has three modules:
 
-- **`lending-pool/`**: Aave V2-based lending pool (Hardhat + TypeScript)
-- **`loan-provider/`**: BTC loan system using flash loans and per-user vaults (Foundry + Solidity)
+- **`lending-pool/`**: Aave V2-based lending pool (Hardhat + TypeScript, Solidity 0.6.12)
+- **`loan-provider/`**: BTC loan system using flash loans and per-user vaults (Foundry + Solidity 0.8.30)
+- **`swap-routers/`**: Uniswap V4 swap router integration (Foundry)
 
 Users deposit USDC, flash loan additional USDC from Aave V3, swap to cbBTC as collateral, deposit into the Bitmor Lending Pool, and repay monthly.
 
@@ -23,26 +24,47 @@ Users deposit USDC, flash loan additional USDC from Aave V3, swap to cbBTC as co
    - If user asks to write a plan → use `/superpowers:writing-plans` skill
    - If parallel agents are requested → include `/superpowers:dispatching-parallel-agents` in the plan
 
+## Rules
+
+1. When a new session is started, always use `/superpowers:using-superpowers` skill PROACTIVELY.
+2. When ask to AUDIT, always use `/trailofbits` skill PROACTIVELY.
+
 ## Commands
 
-### lending-pool/ (Hardhat)
+### Root Makefile (preferred)
 
 ```bash
-cd lending-pool
+# Setup
+make install                 # Install all deps + configure git hooks
+make build                   # Build all contracts (lending-pool + loan-provider + swap-routers)
+make clean                   # Clean all build artifacts
 
-# Build
-npm run compile
+# Formatting
+make format                  # Format all code (Prettier + Forge)
+make format-check            # Check formatting without changes
 
-# Test
-npm test                    # Aave tests
-npm run test-bitmor         # Bitmor-specific tests
-npm run test-scenarios      # Protocol scenario tests
+# Local Development
+make anvil                   # Start Anvil (port 8545, chainId 31337)
+make anvil-stop              # Stop Anvil
+make deploy-local            # Deploy full protocol to Anvil (run in separate terminal)
 
-# Deploy to Base Sepolia
-npm run aave:baseSepolia:full:migration
+# Testing (loan-provider)
+make test                    # Unit tests (default, no RPC needed)
+make test:unit               # Unit tests with mocks
+make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
+make test:loan:unit          # Loan contract unit tests
+make test:vault:unit         # Vault unit tests
+make test:liquidation:unit   # Liquidation unit tests
+make test:fuzz               # Fuzz tests (FOUNDRY_PROFILE=fuzz)
+make test:invariant          # Invariant tests (FOUNDRY_PROFILE=invariant)
 
-# Format
-npm run prettier:write
+# Testing (lending-pool)
+make test:lp                 # Bitmor-specific tests
+make test:lp:aave            # Core Aave tests
+make test:lp:scenarios       # Protocol scenario tests
+
+# Combined
+make test:all                # Run all tests (unit + lending-pool)
 ```
 
 ### loan-provider/ (Foundry)
@@ -53,14 +75,10 @@ cd loan-provider
 # Build
 forge build
 
-# Test
-make test                    # Unit tests (default, no RPC needed)
-make test:unit               # Unit tests with mocks
-make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
-make test:loan:unit          # Loan contract unit tests
-make test:vault:unit         # Vault unit tests
-make test:liquidation:unit   # Liquidation unit tests
+# Test (additional targets beyond root Makefile)
+make test:strategy:unit      # Strategy unit tests
 make test:single TEST=test_functionName  # Single test by name
+make test:contract CONTRACT=Name         # Tests for a contract
 
 # Deploy full system to Base Sepolia
 make setup
@@ -80,20 +98,19 @@ make verifyAll
 make coverage                # Uses FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
 make coverage-lcov           # Generate lcov report
 make coverage-html           # Generate HTML coverage report
-make gasReport
+make gas-report
 ```
 
-### Local Development (Root)
+### lending-pool/ (Hardhat)
 
 ```bash
-# Start local Anvil node
-make anvil
-
-# Deploy full system to local Anvil (run in separate terminal)
-make deploy-local
-
-# Verify deployment
-cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
+cd lending-pool
+npm run compile              # Build
+npm test                     # Aave tests
+npm run test-bitmor          # Bitmor-specific tests
+npm run test-scenarios       # Protocol scenario tests
+npm run aave:baseSepolia:full:migration  # Deploy to Base Sepolia
+npm run prettier:write       # Format
 ```
 
 The local deployment runs an optimized multi-phase orchestration:
@@ -135,11 +152,18 @@ make deploy-local (FOUNDRY_PROFILE=local)
 - `protocol/AutoRepayment.sol` - Scheduled repayment automation
 
 **Logic Libraries** (`libraries/logic/`):
-- `LoanLogic.sol` - Loan initialization and calculations
-- `RepayLogic.sol` - Repayment execution
-- `CloseLoanLogic.sol` - Loan closure/settlement
-- `FlashLoanLogic.sol` - Flash loan callback handling
-- `SwapLogic.sol` - Token swap execution
+- `LoanLogic.sol` - Loan initialization, validation, state updates for liquidations
+- `FlashLoanLogic.sol` - Aave V3 flash loan callback handling for init and close flows
+- `RepayLogic.sol` - Monthly repayment execution
+- `CloseLoanLogic.sol` - Pre-closure flow with flash loan coordination
+- `SwapLogic.sol` - Token swaps with slippage protection (zQuoter or oracle-based)
+- `LSALogic.sol` - Credit delegation setup and collateral withdrawal
+- `BitmorLendingPoolLogic.sol` - Bitmor Pool operations (deposit, borrow, repay, withdraw)
+- `AavePoolLogic.sol` - Flash loan wrapper for Aave V3
+- `TokenizedStrategyLogic.sol` - Strategy deposit/withdraw interactions
+- `StrategyStateLogic.sol` - Queue management for multi-strategy vaults
+- `VaultStateLogic.sol` - Vault configuration and state
+- `BTCVaultLogic.sol` - BTC vault specific operations
 
 **Vault System** (`vaults/`):
 - `btc-vault/BTCVault.sol` - ERC-4626 vault with multi-strategy support
@@ -221,8 +245,19 @@ Key test files in `test/unit/`:
 - `Loan/BaseLoan.t.sol` - Shared test base with helpers and setup
 - `Loan/InitializeLoan.t.sol`, `RepayLoan.t.sol`, `CloseLoan.t.sol`
 - `MicroLiquidation.t.sol`, `FullLiquidation.t.sol`
-- `Vault/BTC/*.t.sol` - BTCVault tests (45 tests, mock-based)
-- `Vault/USDC/*.t.sol` - USDCVault tests (21 tests, mock-based)
+- `Vault/BTC/*.t.sol` - BTCVault tests (mock-based)
+- `Vault/USDC/*.t.sol` - USDCVault tests (mock-based)
+- `Strategy/AaveTokenizedStrategy.t.sol`, `SimpleTokenizedStrategy.t.sol` - Strategy tests
+- `AccessControls.t.sol`, `LSAExploit.t.sol`, `AutoRepayment.t.sol`
+
+**Invariant tests** (`test/invariant/`):
+- `BTCVault.invariant.t.sol`, `USDCVault.invariant.t.sol` with handler contracts
+
+**Fuzz tests** (`test/fuzz/`):
+- `stateful/` - BTCVault, USDCVault, Loan, USDCStrategy fuzz tests
+- `pure/LoanMath.fuzz.t.sol` - Pure math fuzz testing
+- `base/` - Shared fuzz bases (`FuzzTestBase`, `BTCVaultFuzzTestBase`, `USDCVaultFuzzTestBase`)
+- `helpers/FuzzConstants.sol` - Import as `FC`
 
 **Test Base Classes** (`test/base/`):
 - `BitmorTestBase.sol` - Core: AccessManager, roles, actors, `_scheduleAndExecute()`
@@ -244,16 +279,7 @@ Key test files in `test/unit/`:
 | `MockInterestRateStrategy.sol` | Fixed interest rate strategy |
 | `MockChainlinkOracle.sol` | Chainlink AggregatorV3Interface mock |
 
-Helpful make targets:
-```bash
-make test                    # Unit tests (default, no RPC needed)
-make test:unit               # All unit tests with mock infrastructure
-make test:fork               # Fork tests with real protocols
-make test:loan:unit          # Loan contract unit tests
-make test:vault:unit         # Vault unit tests
-make test:liquidation:unit   # Liquidation unit tests
-make test:single TEST=test_initializeLoan  # Single test by name
-```
+**Foundry profiles** (`foundry.toml`): `default`, `unit`, `fork`, `fuzz`, `invariant`, `coverage`, `local`, `security`. Use `FOUNDRY_PROFILE=<name>` to select (make targets handle this automatically).
 
 ### Hardhat Tests (lending-pool/)
 
@@ -368,24 +394,36 @@ Guardian roles can cancel delayed operations for their protected roles:
 ## Documentation
 
 - **Deployment guide**: `DEPLOYMENT_SETUP.md` - Comprehensive deployment instructions
-- **Session plans**: `docs/plans/SESSION_CONTINUATION.md` - Tracks implementation progress and completed work
-- **Implementation plans**: `docs/plans/` - Detailed architecture and design decisions
-- **Test setup plan**: `docs/plans/2026-01-23-test-setup-fixes.md` - Current test infrastructure migration
+- **Implementation plans**: `docs/plans/` - Architecture and design decisions
 
 ## Recent Production Fixes
 
+### FlashLoanLogic InsufficientSwapOutput Guard (PR #67)
+
+**Location:** `loan-provider/src/libraries/logic/FlashLoanLogic.sol`
+
+Added `InsufficientSwapOutput` guard and refund init surplus to prevent flash loan callback from accepting inadequate swap outputs.
+
+### CloseLoanLogic Balance Sweep Fix (PR #67)
+
+**Location:** `loan-provider/src/libraries/logic/CloseLoanLogic.sol`
+
+Used snapshot-diff pattern to prevent `closeLoan` from sweeping other users' residual balances.
+
+### Tokenized Strategy Access Control (PR #68)
+
+**Location:** `loan-provider/src/vaults/btc-vault/TokenizedStrategy/`
+
+Added `onlyVault` modifier to ERC-4626 functions (`deposit`, `mint`, `withdraw`, `redeem`) that were previously unprotected.
+
+### Full Liquidation Debt Coverage (PR #66)
+
+**Location:** `loan-provider/src/protocol/Loan.sol` (liquidation logic)
+
+Enforced full debt coverage requirement in `liquidationCall` - partial liquidation amounts no longer incorrectly set status to Liquidated.
+
 ### USDCStrategy.withdraw() Bug (2026-01-23)
 
-**Location:** `loan-provider/src/vaults/usdc-vault/USDCStrategy.sol:178-182`
+**Location:** `loan-provider/src/vaults/usdc-vault/USDCStrategy.sol`
 
-**Issue:** The `withdraw()` function called `_withdrawFunds(amount)` which withdrew assets to the strategy contract, but never transferred them to the vault. This caused vault's `maxWithdraw()` to return 0.
-
-**Fix:** Added `i_asset.safeTransfer(msg.sender, amount)` after `_withdrawFunds()` to transfer assets to the vault.
-
-```solidity
-function withdraw(uint256 amount) external onlyVault {
-    _withdrawFunds(amount);
-    // Transfer withdrawn assets to vault (msg.sender)
-    i_asset.safeTransfer(msg.sender, amount);
-}
-```
+Added `i_asset.safeTransfer(msg.sender, amount)` after `_withdrawFunds()` to transfer assets to the vault.

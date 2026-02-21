@@ -112,8 +112,8 @@ contract EmergencyOpsTest is BaseTestForBTCVault {
         assertEq(vault.totalAssets(), 0, "totalAssets should be 0 with no strategies");
     }
 
-    /// @notice After emergency withdraw, totalAssets should be zero
-    function test_emergencyWithdrawFunds_TotalAssetsBecomesZero() public {
+    /// @notice After emergency withdraw, totalAssets should be preserved (funds move to idle)
+    function test_emergencyWithdrawFunds_PreservesTotalAssets() public {
         // Arrange
         _addStrategy(address(strategy), EMERGENCY_STRATEGY_CAP);
         _depositAsUser(EMERGENCY_DEPOSIT_AMOUNT);
@@ -121,12 +121,18 @@ contract EmergencyOpsTest is BaseTestForBTCVault {
         uint256 totalBefore = vault.totalAssets();
         assertGt(totalBefore, 0, "should have assets before emergency");
 
+        uint256 inStrategyBefore = vault.getAssetInStrategy(address(strategy));
+        assertGt(inStrategyBefore, 0, "strategy should have funds before emergency");
+
         // Act
         _scheduleAndExecuteLocal(bvm_fast, BVM_FAST_ID(), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
 
-        // Assert
+        // Assert - funds moved from strategy to vault idle balance, totalAssets preserved
         uint256 totalAfter = vault.totalAssets();
-        assertEq(totalAfter, 0, "totalAssets should be 0 after emergency withdraw");
+        assertEq(totalAfter, totalBefore, "totalAssets should be preserved after emergency withdraw");
+
+        uint256 inStrategyAfter = vault.getAssetInStrategy(address(strategy));
+        assertEq(inStrategyAfter, 0, "strategy should be empty after emergency withdraw");
     }
 
     // ============ Pause Tests ============

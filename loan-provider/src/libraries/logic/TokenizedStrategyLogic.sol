@@ -66,9 +66,7 @@ library TokenizedStrategyLogic {
      * @param asset The address of the underlying asset for approval reset
      */
     function withdrawMaxFunds(address strategy, address asset) internal {
-        uint256 maxWithdrawable = getMaxWithdrawable(strategy);
-
-        withdraw(strategy, maxWithdrawable);
+        withdrawAll(strategy);
 
         // Reset asset approval for the strategy
         asset.safeApprove(strategy, 0);
@@ -84,12 +82,9 @@ library TokenizedStrategyLogic {
         uint256[] memory withdrawQueue = s.withdrawQueue;
         for (i; i < withdrawQueue.length; i++) {
             address strategyAddress = s.strategies[withdrawQueue[i]].strategy;
-            uint256 maxWithdrawable = SimpleTokenizedStrategy(strategyAddress).maxWithdraw(address(this));
 
-            // Skip strategies with no withdrawable balance
-            if (maxWithdrawable == 0) continue;
-
-            SimpleTokenizedStrategy(strategyAddress).withdraw(maxWithdrawable, address(this), address(this));
+            // Use withdrawAll to prevent orphaned yield
+            SimpleTokenizedStrategy(strategyAddress).withdrawAll();
         }
     }
 
@@ -108,9 +103,21 @@ library TokenizedStrategyLogic {
      * @dev Calls the strategy's withdraw function with vault as receiver and owner
      * @param strategy The address of the strategy to withdraw from
      * @param amount The amount of assets to withdraw
-     * @return finalWithdrawn The actual amount of assets withdrawn
      */
-    function withdraw(address strategy, uint256 amount) internal returns (uint256 finalWithdrawn) {
-        finalWithdrawn = SimpleTokenizedStrategy(strategy).withdraw(amount, address(this), address(this));
+    function withdraw(address strategy, uint256 amount) internal {
+        // ERC-4626 withdraw() returns shares burned, not assets.
+        // The call guarantees exactly `amount` assets are transferred on success.
+        SimpleTokenizedStrategy(strategy).withdraw(amount, address(this), address(this));
+    }
+
+    /**
+     * @notice Withdraws ALL assets from a strategy, bypassing share conversion
+     * @dev Used when draining a full position to prevent orphaned yield from
+     *      Solady's virtual offset in low-share scenarios.
+     * @param strategy The address of the strategy to fully drain
+     * @return assets The total assets withdrawn
+     */
+    function withdrawAll(address strategy) internal returns (uint256 assets) {
+        assets = SimpleTokenizedStrategy(strategy).withdrawAll();
     }
 }

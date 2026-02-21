@@ -495,5 +495,12 @@ abstract contract BitmorTestBase is Test {
             LPM_SLOW_ID(),
             abi.encodeWithSignature("setSlippageForSharesToAsset(uint256)", TestConstants.SLIPPAGE_SHARES_TO_ASSET)
         );
+
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setMaxDuration(uint256)", TestConstants.MAX_DURATION)
+        );
     }
 }

@@ -47,6 +47,12 @@ interface ILoan {
     event Loan__ClosedLoan(address indexed lsa);
 
     /**
+     * @notice Emitted when a loan is completed.
+     * @param lsa Address of the completed Loan Specific Address
+     */
+    event Loan__Completed(address indexed lsa);
+
+    /**
      * @notice Emitted when the LoanVaultFactory address is updated
      * @param newFactory Address of the new factory contract
      */
@@ -151,6 +157,20 @@ interface ILoan {
      */
     event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
 
+    /**
+     * @notice Emitted when the maximum loan duration is updated
+     * @param newMaxDuration New maximum duration in months
+     */
+    event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
+
+    /**
+     * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
+     * @param lsa Address of the Loan Specific Address
+     * @param borrower Address of the borrower who received the collateral
+     * @param assetsClaimed Amount of assets claimed by the borrower
+     */
+    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
+
     // ============ Main Functions ============
 
     /**
@@ -189,8 +209,18 @@ interface ILoan {
     function updateLoanDataForMicroLiquidation(address _lsa) external;
 
     /**
+     * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
+     * @param _lsa The Loan Specific Address
+     * @custom:access Restricted to `LPCM` role
+     */
+    function updateLoanForMicroLiquidationCompletion(address _lsa) external;
+
+    /**
      * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp` to `block.timestamp`.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @custom:access Restricted to `LPCM` role
      */
@@ -267,6 +297,16 @@ interface ILoan {
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
 
+    /**
+     * @notice Allows the borrower to claim surplus collateral after liquidation or micro-liquidation completion
+     * @dev Only callable by the loan's borrower when loan is no longer Active (i.e., Liquidated or Completed).
+     *      Withdraws aToken collateral from the Bitmor Lending Pool, redeems bvBTC shares, and transfers
+     *      the underlying cbBTC to the borrower. Reverts if outstanding debt exists or no collateral remains.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     * @return assetsClaimed The amount of assets claimed by the borrower
+     */
+    function claimSurplusCollateral(address _lsa) external returns (uint256 assetsClaimed);
+
     // ============ Admin Functions ============
 
     /**
@@ -296,6 +336,7 @@ interface ILoan {
 
     /**
      * @notice Updates the grace period for monthly payment overdue checks
+     * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -315,6 +356,7 @@ interface ILoan {
 
     /**
      * @notice Updates the pre-closure fee
+     * @dev Reverts with `InvalidFee` if `newFee` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newFee New pre-closure fee in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -335,6 +377,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for `bvBTC` shares-to-asset conversion
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -346,6 +389,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for token swaps
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -384,6 +428,7 @@ interface ILoan {
 
     /**
      * @notice Updates the minimum deposit percentage
+     * @dev Reverts with `InvalidInputs` if `newMinDepositBps` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newMinDepositBps New minimum deposit in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -404,6 +449,18 @@ interface ILoan {
     /// @notice Returns the `s_liquidationFeeCollector` address.
     /// @return The address that receives liquidation fees
     function getLiquidationFeeCollector() external view returns (address);
+
+    /**
+     * @notice Updates the maximum allowed loan duration
+     * @dev Reverts if `newMaxDuration` is zero
+     * @param newMaxDuration New maximum duration in months
+     * @custom:access Restricted to `LPM_SLOW` role
+     */
+    function setMaxDuration(uint256 newMaxDuration) external;
+
+    /// @notice Returns the `s_maxDuration` value in months.
+    /// @return The maximum loan duration in months
+    function getMaxDuration() external view returns (uint256);
 
     /**
      * @notice Updates the liquidation fee collector address

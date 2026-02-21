@@ -16,26 +16,41 @@ contract RolesData {
     /// @notice Guardian role configuration for operations that can be cancelled
     /// @dev Guardians provide security by being able to cancel delayed operations before execution
     struct RoleGuardian {
-        address grantee; /// @dev The address assigned the guardian role
-        uint64 id; /// @dev The guardian role ID (follows pattern 9XXX where XXX is the role being guarded)
-        bool isContract; /// @dev True if grantee is a contract (multisig), false if EOA
+        address grantee;
+        /// @dev The address assigned the guardian role
+        uint64 id;
+        /// @dev The guardian role ID (follows pattern 9XXX where XXX is the role being guarded)
+        bool isContract;
     }
+
+    /// @dev True if grantee is a contract (multisig), false if EOA
 
     /// @notice Complete role configuration for access control
     /// @dev Defines permissions, delays, and guardianship for protocol functions
     struct RoleData {
-        address target; /// @dev The target contract this role can interact with
-        bool isContract; /// @dev True if the role grantee should be a contract
-        uint32 executionDelay; /// @dev Time delay before operations can be executed (0 = immediate, 1 DAY = delayed)
-        uint32 grantDelay; /// @dev Time delay before role can be granted (typically 0)
-        uint64 id; /// @dev Unique role identifier matching README specifications
-        string label; /// @dev Human-readable role name matching README labels
-        bytes4[] selectors; /// @dev Function selectors this role is authorized to call
-        bool isGuarded; /// @dev True if this role has guardian protection for cancelling operations
-        RoleGuardian guardian; /// @dev Guardian configuration if isGuarded is true
-        address grantee; /// @dev Initial address to be granted this role (typically initial admin)
-        uint64 adminRoleId; /// @dev Role ID that can manage this role (typically 0 for ADMIN)
+        address target;
+        /// @dev The target contract this role can interact with
+        bool isContract;
+        /// @dev True if the role grantee should be a contract
+        uint32 executionDelay;
+        /// @dev Time delay before operations can be executed (0 = immediate, 1 DAY = delayed)
+        uint32 grantDelay;
+        /// @dev Time delay before role can be granted (typically 0)
+        uint64 id;
+        /// @dev Unique role identifier matching README specifications
+        string label;
+        /// @dev Human-readable role name matching README labels
+        bytes4[] selectors;
+        /// @dev Function selectors this role is authorized to call
+        bool isGuarded;
+        /// @dev True if this role has guardian protection for cancelling operations
+        RoleGuardian guardian;
+        /// @dev Guardian configuration if isGuarded is true
+        address grantee;
+        /// @dev Initial address to be granted this role (typically initial admin)
+        uint64 adminRoleId;
     }
+    /// @dev Role ID that can manage this role (typically 0 for ADMIN)
 
     /// @notice Initial admin address for the AccessManager deployment
     /// @dev This address gets the ADMIN role (0) and can grant all other roles
@@ -384,9 +399,10 @@ contract RolesData {
     /// @dev Selectors for updateLoanData function
     /// @return selectors Array of function selectors
     function getLPCM_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](3);
         selectors[0] = ILoan.updateLoanDataForFullLiquidation.selector;
         selectors[1] = ILoan.updateLoanDataForMicroLiquidation.selector;
+        selectors[2] = ILoan.updateLoanForMicroLiquidationCompletion.selector;
     }
 
     /// @notice Returns function selectors for LPM_FAST role
@@ -402,7 +418,7 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](13);
+        selectors = new bytes4[](14);
         selectors[0] = ILoan.setLoanVaultFactory.selector;
         selectors[1] = ILoan.setPremiumCollector.selector;
         selectors[2] = ILoan.setGracePeriod.selector;
@@ -416,14 +432,16 @@ contract RolesData {
         selectors[10] = ILoan.setLiquidationFeeBps.selector;
         selectors[11] = ILoan.setLiquidationFeeCollector.selector;
         selectors[12] = ILoan.setSwapper.selector;
+        selectors[13] = ILoan.setMaxDuration.selector;
     }
 
     /// @notice Returns function selectors for ARE role
-    /// @dev Selectors for executeAutoRepayment function
+    /// @dev Selectors for executeAutoRepayment and rescueTokens functions
     /// @return selectors Array of function selectors
     function getARE_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
+        selectors = new bytes4[](2);
         selectors[0] = IAutoRepayment.executeAutoRepayment.selector;
+        selectors[1] = IAutoRepayment.rescueTokens.selector;
     }
 
     /// @notice Returns function selectors for BVM_FAST role

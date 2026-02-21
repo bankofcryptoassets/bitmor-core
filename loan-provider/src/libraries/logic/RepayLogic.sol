@@ -100,12 +100,15 @@ library RepayLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
             params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
-            emit ILoan.Loan__ClosedLoan(params.lsa);
+            emit ILoan.Loan__Completed(params.lsa);
         } else {
             loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
             uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;
             if (periods > 0) {
-                loan.duration -= periods;
+                uint256 newDuration = loan.duration.zeroFloorSub(periods);
+
+                /// @dev Duration stays `1` till the complete debt is repaid.
+                loan.duration = newDuration == 0 ? 1 : newDuration;
                 loan.amountRepaidInCurrentPeriod -= periods * loan.estimatedMonthlyPayment;
                 loan.lastPaymentTimestamp = block.timestamp;
             }

@@ -2,14 +2,14 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import {SafeMath} from "../../../dependencies/openzeppelin/contracts/SafeMath.sol";
-import {PercentageMath} from "../math/PercentageMath.sol";
-import {DataTypes} from "../types/DataTypes.sol";
-import {IPriceOracleGetter} from "../../../interfaces/IPriceOracleGetter.sol";
-import {ReserveConfiguration} from "../configuration/ReserveConfiguration.sol";
-import {GenericLogic} from "./GenericLogic.sol";
-import {ILoan} from "../../../interfaces/ILoan.sol";
-import {Helpers} from "../helpers/Helpers.sol";
+import { SafeMath } from "../../../dependencies/openzeppelin/contracts/SafeMath.sol";
+import { PercentageMath } from "../math/PercentageMath.sol";
+import { DataTypes } from "../types/DataTypes.sol";
+import { IPriceOracleGetter } from "../../../interfaces/IPriceOracleGetter.sol";
+import { ReserveConfiguration } from "../configuration/ReserveConfiguration.sol";
+import { GenericLogic } from "./GenericLogic.sol";
+import { ILoan } from "../../../interfaces/ILoan.sol";
+import { Helpers } from "../helpers/Helpers.sol";
 
 library LoanLiquidationLogic {
     using SafeMath for uint256;
@@ -61,14 +61,18 @@ library LoanLiquidationLogic {
         }
 
         // If user is uninsured AND HF < threshold → full liquidation
-        if ((loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
+        if (
+            (loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)
+        ) {
             return 1;
         }
 
         // If the EMI is not overdue → no liquidation
         if (
-            loanData.lastPaymentTimestamp + bitmorLoan.getGracePeriod() + bitmorLoan.getRepaymentInterval()
-                >= block.timestamp
+            loanData.lastPaymentTimestamp +
+                bitmorLoan.getGracePeriod() +
+                bitmorLoan.getRepaymentInterval() >=
+            block.timestamp
         ) {
             return 0;
         }
@@ -92,19 +96,28 @@ library LoanLiquidationLogic {
         v.debtUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.debtAsset);
 
         // collateral value in quote (USD if your oracle is USD)
-        v.collateralValueInUSD = loanData.collateralAmount.mul(v.collateralUnitPrice).div(10 ** v.collateralDecimals);
+        v.collateralValueInUSD = Helpers
+            .getUserCurrentCollateral(user, collateralReserve)
+            .mul(v.collateralUnitPrice)
+            .div(10 ** v.collateralDecimals);
 
         // current debt = balance of VARIABLE debt token
         (, v.currentDebtBalance) = Helpers.getUserCurrentDebt(user, debtReserve);
 
         // compute capped principal payment for this micro-liq
-        v.amountToBeDeducted = _min(loanData.estimatedMonthlyPayment, v.currentDebtBalance);
-
+        if (loanData.duration == 1) {
+            /// @dev If the loan duration is 1 month, the amount to be deducted is the entire debt balance.
+            v.amountToBeDeducted = v.currentDebtBalance;
+        } else {
+            v.amountToBeDeducted = _min(loanData.estimatedMonthlyPayment, v.currentDebtBalance);
+        }
         // total USDC leaving user’s position (principal paid + bonus to liquidator), but never exceed debt + bonus policy
         v.totalAmtToBeDeducted = v.amountToBeDeducted.percentMul(v.collateralLiquidationBonus);
 
         // convert the outflow to USD (or quote)
-        v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(10 ** v.debtDecimals);
+        v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(
+            10 ** v.debtDecimals
+        );
 
         // If the collateral cannot even cover this micro-liq outflow → full liquidation
         if (v.collateralValueInUSD <= v.amountToBeDeductedInUSD) {

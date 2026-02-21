@@ -98,6 +98,9 @@ contract LoanStorage {
     /// @notice Min % of deposit user need to make of the BTC amount.
     uint256 internal s_minDeposit;
 
+    /// @notice Maximum loan duration in months
+    uint256 internal s_maxDuration;
+
     // ============ Storage Mappings ============
 
     /**
@@ -133,8 +136,11 @@ contract LoanStorage {
     /// @notice 20% is the Max Liqudiation Fee on liquidation bonus.
     uint256 internal constant MAX_LIQUIDATION_FEE = 20_00;
 
-    /// @notice Maximum allowed slippage in basis points to prevent underflow in swap calculations (10000 bps = 100%)
-    uint256 internal constant MAX_SLIPPAGE = 100_00;
+    /// @notice Basis point scale (10000 bps = 100%), used as upper bound for all BPS parameters
+    uint256 internal constant BASIS_POINT_SCALE = 100_00;
+
+    /// @notice Maximum allowed grace period (45 days)
+    uint256 internal constant MAX_GRACE_PERIOD = 45 days;
 
     // ============ Constructor ============
 

@@ -22,8 +22,8 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
     /// @notice Small deposit for edge cases (1 USDC)
     uint256 constant SMALL_DEPOSIT = 1e6;
 
-    /// @notice Tiny deposit (1 wei)
-    uint256 constant TINY_DEPOSIT = 1;
+    /// @notice Tiny deposit below MIN_STRATEGY_DEPOSIT but large enough to mint shares
+    uint256 constant TINY_DEPOSIT = 100;
 
     /// @notice Large deposit for precision tests (1M USDC)
     uint256 constant LARGE_DEPOSIT = 1_000_000e6;
@@ -230,19 +230,19 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
 
     // ============ Edge Case Tests ============
 
-    /// @notice Tiny deposit (1 wei) returns 0 or 1 share due to rounding
-    /// @dev ERC4626 allows dust deposits. With 1:1 initial exchange rate, 1 wei may mint 0-1 shares
-    function test_deposit_TinyAmount_ReturnsMinimalShares() public {
+    /// @notice Tiny deposit stays idle in vault instead of going to strategies
+    /// @dev Deposits below MIN_STRATEGY_DEPOSIT (10,000 sat) are accepted but held
+    ///      as idle balance in the vault. They are counted in totalAssets via balanceOf.
+    function test_deposit_TinyAmount_StaysIdleInVault() public {
         vm.startPrank(user);
         mockUSDC.approve(address(vault), TINY_DEPOSIT);
-
-        // 1 wei deposit should succeed (ERC4626 allows dust)
-        uint256 shares = vault.deposit(TINY_DEPOSIT, user);
+        vault.deposit(TINY_DEPOSIT, user);
         vm.stopPrank();
 
-        // With standard ERC4626 math, 1 wei should mint 0 or 1 share
-        // (depends on offset and current exchange rate)
-        assertLe(shares, 1, "1 wei deposit should mint at most 1 share");
+        // Shares should be minted
+        assertGt(vault.balanceOf(user), 0, "shares should be minted for tiny deposit");
+        // totalAssets includes idle balance (deposit minus entry fee)
+        assertGt(vault.totalAssets(), 0, "totalAssets should include idle balance");
     }
 
     /// @notice `maxDeposit` should return remaining strategy cap
@@ -260,6 +260,14 @@ contract ShareCalculationsTest is BaseTestForBTCVault {
         uint256 maxWith = vault.maxWithdraw(noBalanceUser);
 
         assertEq(maxWith, 0, "maxWithdraw for zero balance user should be 0");
+    }
+
+    /// @notice `maxRedeem` with zero balance should return zero
+    function test_maxRedeem_ZeroBalance_ReturnsZero() public {
+        address noBalanceUser = makeAddr("noBalanceUser");
+        uint256 maxRed = vault.maxRedeem(noBalanceUser);
+
+        assertEq(maxRed, 0, "maxRedeem for zero balance user should be 0");
     }
 
     /// @notice `maxDeposit` should decrease after a deposit

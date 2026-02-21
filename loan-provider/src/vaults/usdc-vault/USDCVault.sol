@@ -74,8 +74,10 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
         // Withdraw all funds from current strategy if one exists
-        if (address(s_strategy) != address(0) && s_strategy.getTotalBalanceInMarkets() > 0) {
-            s_strategy.withdrawAllFunds();
+        if (address(s_strategy) != address(0)) {
+            if (s_strategy.getTotalBalanceInMarkets() > 0) {
+                s_strategy.withdrawAllFunds();
+            }
             i_asset.safeApprove(address(s_strategy), 0);
         }
 
@@ -288,15 +290,15 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
         maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
     function maxDeposit(address) public view override returns (uint256) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 
-    /// @notice Returns 0 when paused per ERC-4626 spec.
+    /// @notice Returns 0 when paused or when strategy is not set as per ERC-4626 spec.
     function maxMint(address) public view override returns (uint256) {
-        if (paused()) return 0;
+        if (paused() || address(s_strategy) == address(0)) return 0;
         return type(uint256).max;
     }
 

@@ -127,12 +127,12 @@
       ]
     },
     {
-      "description": "User 0 deposits 1 cbBTC in an empty reserve",
+      "description": "User 0 deposits 1 bvBTC in an empty reserve",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "0"
           },
@@ -141,7 +141,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "0"
           },
           "expected": "success"
@@ -149,7 +149,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "0"
           },
@@ -158,12 +158,12 @@
       ]
     },
     {
-      "description": "User 1 deposits 1 cbBTC after user 0",
+      "description": "User 1 deposits 1 bvBTC after user 0",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -173,7 +173,7 @@
         {
           "name": "approve",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "user": "1"
           },
           "expected": "success"
@@ -181,7 +181,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "1"
           },
@@ -190,12 +190,12 @@
       ]
     },
     {
-      "description": "User 1 deposits 0 cbBTC (revert expected)",
+      "description": "User 1 deposits 0 bvBTC (revert expected)",
       "actions": [
         {
           "name": "mint",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "1",
             "user": "0"
           },
@@ -204,7 +204,7 @@
         {
           "name": "deposit",
           "args": {
-            "reserve": "cbBTC",
+            "reserve": "bvBTC",
             "amount": "0",
             "user": "1"
           },

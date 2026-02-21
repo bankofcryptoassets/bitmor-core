@@ -225,6 +225,12 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
     }
 
+    /// @notice Sets maximum loan duration via LPM_SLOW role
+    function _setMaxDuration(uint256 newMax) internal {
+        bytes memory data = abi.encodeCall(loan.setMaxDuration, (newMax));
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    }
+
     // ============ Loan Creation Helpers ============
 
     /// @notice Creates a custom loan with explicit `deposit`, `premium`, `collateral`, and `duration`

@@ -43,4 +43,14 @@ library BTCVaultLogic {
     function previewRedeem(address btcVault, uint256 sharesAmount) internal view returns (uint256 assets) {
         assets = ERC4626(btcVault).previewRedeem(sharesAmount);
     }
+
+    /**
+     * @notice Returns the maximum amount of bvBTC shares that can be redeemed by `owner`
+     * @param btcVault Address of the BTC Vault (ERC-4626)
+     * @param owner Address of owner of bvBTC shares
+     * @return shares Maximum redeemable bvBTC shares
+     */
+    function maxRedeem(address btcVault, address owner) internal view returns (uint256 shares) {
+        shares = ERC4626(btcVault).maxRedeem(owner);
+    }
 }

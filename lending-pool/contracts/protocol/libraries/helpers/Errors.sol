@@ -111,6 +111,7 @@ library Errors {
     string public constant LP_FLASHLOAN_DISABLED = "86"; // Flash loans are disabled
     string public constant LPCM_CANNOT_RECEIVE_ATOKEN = "87"; // Receiving aToken is not allowed
     string public constant LPCM_SLIPPAGE_EXCEEDED = "88";
+    string public constant LPCM_INSUFFICIENT_DEBT_COVERAGE = "89"; // 'Liquidator must cover full debt for full liquidation'
 
     enum CollateralManagerErrors {
         NO_ERROR,
@@ -126,6 +127,7 @@ library Errors {
         CANNOT_MICRO_LIQUIDATE,
         CANNOT_FULL_LIQUIDATE,
         CANNOT_RECEIVE_ATOKEN,
-        SLIPPAGE_EXCEEDED
+        SLIPPAGE_EXCEEDED,
+        INSUFFICIENT_DEBT_COVERAGE
     }
 }

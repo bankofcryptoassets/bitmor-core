@@ -119,9 +119,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return assets The amount of underlying assets held by the specified strategy
      */
     function getAssetInStrategy(address strategy) external view returns (uint256 assets) {
-        assets = TokenizedStrategyLogic.getAssetBalanceInStrategy(
-            s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy
-        );
+        assets = s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy.getAssetBalanceInStrategy();
     }
 
     /**
@@ -285,7 +283,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        s_strategy.updateWithdrawQueue(newWithdrawQueue);
+        s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
     }
@@ -396,19 +394,21 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
-        uint256 i = 0;
+        assets = ERC20(i_asset).balanceOf(address(this));
 
-        for (i; i < s_strategy.totalStrategies; i++) {
-            assets = assets.rawAdd(TokenizedStrategyLogic.getAssetBalanceInStrategy(s_strategy.strategies[i].strategy));
+        for (uint256 i = 0; i < s_strategy.totalStrategies; i++) {
+            assets = assets.rawAdd(s_strategy.strategies[i].strategy.getAssetBalanceInStrategy());
         }
     }
 
     /**
-     * @notice Returns max amount of assets any `user` can deposit.
-     * @dev It returns the sum of remaining `cap` of each `strategy`.
-     * @param user Address of the user
+     * @notice Returns max amount of assets any `owner` can deposit
+     * @param owner Address of the depositor
+     * @return maxAssets 0 when paused per ERC-4626 spec. Otherwise returns the sum of remaining `cap` of each strategy in the supply queue.
      */
-    function maxDeposit(address user) public view override returns (uint256 maxAssets) {
+    function maxDeposit(address owner) public view override returns (uint256 maxAssets) {
+        if (paused()) return 0;
+
         uint256 i = 0;
         uint256[] memory supplyQueue = s_strategy.supplyQueue;
         for (i; i < supplyQueue.length; i++) {
@@ -418,25 +418,56 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
             if (cap == 0) continue;
 
-            uint256 currentBalance = TokenizedStrategyLogic.getAssetBalanceInStrategy(strategy.strategy);
+            uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
 
             maxAssets = maxAssets.rawAdd(cap.zeroFloorSub(currentBalance));
         }
     }
 
     /**
-     * @notice Returns max amount of assets `user` can withdraw after applicable `fee`.
-     * @param user Address of the user
+     * @notice Returns max shares any `owner` can mint
+     * @dev Returns 0 when paused per ERC-4626 spec. Otherwise converts `maxDeposit` to shares for ERC-4626 compliance.
+     * @param owner Address of the minter
+     * @return maxShares Maximum number of shares that can be minted
      */
-    function maxWithdraw(address user) public view override returns (uint256 maxAssets) {
-        uint256 balanceOfUser = convertToAssets(balanceOf(user));
+    function maxMint(address owner) public view override returns (uint256 maxShares) {
+        if (paused()) return 0;
+        maxShares = convertToShares(maxDeposit(owner));
+    }
+
+    /**
+     * @notice Returns max amount of assets `owner` can withdraw after applicable exit fee
+     * @dev Caps the ERC-4626 default at actual available liquidity across strategies.
+     * Returns 0 when paused per ERC-4626 spec. The returned value MUST NOT cause a revert when passed to `withdraw`.
+     * @param owner Address of the withdrawer
+     * @return maxAssets Maximum amount of assets withdrawable by `owner` after exit fee
+     */
+    function maxWithdraw(address owner) public view override returns (uint256 maxAssets) {
+        if (paused()) return 0;
+        uint256 ownerAssets = convertToAssets(balanceOf(owner));
+        uint256 availableLiquidity = _getAvailableLiquidity();
+        uint256 withdrawable = ownerAssets < availableLiquidity ? ownerAssets : availableLiquidity;
+
         uint256 fee = getExitFee();
+        if (fee == 0) return withdrawable;
 
-        if (fee == 0) return balanceOfUser;
+        maxAssets = withdrawable.rawSub(_feeOnTotal(withdrawable, fee));
+    }
 
-        uint256 feeOnWithdraw = _feeOnTotal(balanceOfUser, fee);
+    /**
+     * @notice Returns max shares `owner` can redeem
+     * @dev Caps at actual available liquidity converted to shares. Returns 0 when paused per ERC-4626 spec.
+     * @param owner Address of the user
+     * @return maxShares Maximum number of shares redeemable by `owner`
+     */
+    function maxRedeem(address owner) public view override returns (uint256 maxShares) {
+        if (paused()) return 0;
 
-        maxAssets = balanceOfUser.rawSub(feeOnWithdraw);
+        uint256 ownerShares = balanceOf(owner);
+        uint256 availableLiquidity = _getAvailableLiquidity();
+        uint256 maxRedeemableShares = convertToShares(availableLiquidity);
+
+        maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }
 
     /**
@@ -539,6 +570,17 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param shares The amount of shares to mint.
      */
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
+        // Lazy cleanup: burn ghost dust shares from previous drain.
+        // When the vault fully drains (totalAssets == 0), some holders may retain
+        // worthless shares. Burning them here on next interaction prevents stale
+        // shares from diluting new depositors.
+        uint256 recipientDust = balanceOf(to);
+        if (recipientDust > 0 && totalAssets() == 0) {
+            _burn(to, recipientDust);
+        }
+
+        if (shares == 0) revert Errors.ZeroAmount();
+
         uint256 fee = getEntryFee();
 
         super._deposit(by, to, assets, shares);
@@ -550,11 +592,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             if (feeAmount > 0 && s_vault.feeRecipient != address(this)) {
                 i_asset.safeTransfer(s_vault.feeRecipient, feeAmount);
             }
-
-            assets = assets.rawSub(feeAmount);
         }
 
-        _depositFunds(assets);
+        // Deposit all idle vault balance (current + accumulated dust) to strategies
+        // if it meets the minimum threshold. Otherwise, assets stay idle in the vault
+        // and are still counted by totalAssets() via balanceOf(address(this)).
+        uint256 toDeposit = ERC20(i_asset).balanceOf(address(this));
+        if (toDeposit >= MIN_STRATEGY_DEPOSIT) {
+            _depositFunds(toDeposit);
+        }
     }
 
     /**
@@ -569,28 +615,51 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         uint256 fee = getExitFee();
+        uint256 feeAmount = 0;
         uint256 totalToWithdraw = assets;
 
         if (fee != 0) {
-            // Calculate fee on the amount user will receive
-            uint256 feeAmount = _feeOnRaw(assets, fee);
-            // Withdraw assets PLUS fee from strategies
+            feeAmount = _feeOnRaw(assets, fee);
             totalToWithdraw = assets.rawAdd(feeAmount);
+        }
 
-            // Withdraw total amount needed
-            _withdrawFunds(totalToWithdraw);
+        // Use idle vault balance first, then pull remainder from strategies
+        uint256 vaultBalance = ERC20(i_asset).balanceOf(address(this));
+        if (totalToWithdraw > vaultBalance) {
+            _withdrawFunds(totalToWithdraw - vaultBalance);
+        }
 
-            // Send fee to recipient
-            if (feeAmount > 0 && s_vault.feeRecipient != address(this)) {
-                i_asset.safeTransfer(s_vault.feeRecipient, feeAmount);
-            }
-        } else {
-            // No fee, just withdraw the assets
-            _withdrawFunds(assets);
+        // Send fee to recipient
+        if (feeAmount > 0 && s_vault.feeRecipient != address(this)) {
+            i_asset.safeTransfer(s_vault.feeRecipient, feeAmount);
         }
 
         // Send exact 'assets' amount to user as per ERC4626 spec
         super._withdraw(by, to, owner, assets, shares);
+
+        // Burn owner's remaining dust shares if vault is fully drained.
+        // After many deposit/yield/withdraw cycles, double-layer ERC-4626 rounding
+        // can drain all strategy shares while leaving a few vault shares (dust).
+        // These dust shares are worthless (convertToAssets returns 0) so burning
+        // them maintains the solvency invariant: totalSupply > 0 → totalAssets > 0.
+        uint256 ownerDust = balanceOf(owner);
+        if (ownerDust > 0 && totalAssets() == 0) {
+            _burn(owner, ownerDust);
+        }
+    }
+
+    /**
+     * @notice Returns the total available liquidity for withdrawals
+     * @dev Sums idle vault balance and max withdrawable from each strategy in the withdraw queue
+     * @return liquidity The total amount of assets available for immediate withdrawal
+     */
+    function _getAvailableLiquidity() internal view returns (uint256 liquidity) {
+        liquidity = ERC20(i_asset).balanceOf(address(this));
+
+        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+        for (uint256 i = 0; i < withdrawQueue.length; i++) {
+            liquidity = liquidity.rawAdd(s_strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
+        }
     }
 
     /**
@@ -663,7 +732,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Withdraws assets from strategies following the withdraw queue order
-     * @dev Processes withdrawals across strategies until requested amount is obtained
+     * @dev When draining a strategy's full position (`assets >= maxWithdrawable`), uses
+     *      `withdrawAll()` to prevent orphaned yield from Solady's virtual offset rounding.
+     *      Any excess from `withdrawAll()` is re-deposited to keep strategy accounting clean.
+     *      For partial withdrawals, uses standard ERC-4626 `withdraw()`.
      * @param assets The total amount of assets to withdraw
      */
     function _withdrawFunds(uint256 assets) internal {
@@ -675,15 +747,29 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             // Get maximum withdrawable amount from this strategy
             uint256 maxWithdrawable = strategy.strategy.getMaxWithdrawable();
 
-            // Withdraw the minimum of needed and available
-            uint256 amountToWithdraw = maxWithdrawable.min(assets);
+            if (maxWithdrawable == 0) continue;
 
-            if (amountToWithdraw > 0) {
-                uint256 finalAmountWithdrawn = strategy.strategy.withdraw(amountToWithdraw);
+            if (assets >= maxWithdrawable) {
+                // Full position drain — use withdrawAll to prevent orphaned yield
+                uint256 actualWithdrawn = strategy.strategy.withdrawAll();
 
-                assets = assets.zeroFloorSub(finalAmountWithdrawn);
+                // Re-deposit any excess to keep strategy-based accounting clean
+                uint256 needed = assets.min(actualWithdrawn);
+                uint256 excess = actualWithdrawn - needed;
+                if (excess > 0) {
+                    strategy.strategy.deposit(excess);
+                }
 
-                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], finalAmountWithdrawn);
+                assets = assets.zeroFloorSub(needed);
+
+                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], needed);
+            } else {
+                // Partial withdrawal — standard ERC-4626 path
+                strategy.strategy.withdraw(assets);
+
+                emit BTCVault__WithdrewFromStrategy(withdrawQueue[i], assets);
+
+                assets = 0;
             }
 
             // Exit if all required assets have been withdrawn
@@ -708,7 +794,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             DataTypes.Allocation memory allocation = allocations[i];
             DataTypes.Strategy memory strategy = s_strategy.strategies[allocation.index];
 
-            uint256 currentBalance = TokenizedStrategyLogic.getAssetBalanceInStrategy(strategy.strategy);
+            uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
             uint256 newAllocation = allocation.amount;
 
             // Calculate if we need to withdraw (current > target)
@@ -716,11 +802,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
             if (toWithdraw > 0) {
                 // Withdraw excess funds from strategy
-                uint256 withdrawn = strategy.strategy.withdraw(toWithdraw);
+                strategy.strategy.withdraw(toWithdraw);
 
-                totalWithdrawn += withdrawn;
+                totalWithdrawn += toWithdraw;
 
-                emit BTCVault__WithdrewFromStrategy(allocation.index, withdrawn);
+                emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
             } else {
                 // Calculate assets to supply (target > current)
                 // Special case: type(uint256).max means allocate all remaining withdrawn funds

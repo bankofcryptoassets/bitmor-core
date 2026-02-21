@@ -92,9 +92,7 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
 
         // Set a very high minimum delta required (50% = 5000 bps)
         uint256 highMinDelta = 5000;
-        _scheduleAndExecute(
-            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta))
-        );
+        _scheduleAndExecute(uvc, UVC_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (highMinDelta)));
 
         // Capture initial state
         VaultState memory stateBefore = _captureVaultState();
@@ -302,8 +300,8 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, lender));
         vault.setStrategy(address(newStrategy));
 
-        // Manager CAN set strategy (via schedule/execute)
-        _scheduleAndExecute(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
+        // UVC role holder CAN set strategy (via schedule/execute)
+        _scheduleAndExecute(uvc, UVC_ID(), abi.encodeCall(USDCVault.setStrategy, (address(newStrategy))));
 
         // Verify strategy was updated
         assertEq(vault.getStrategy(), address(newStrategy), "Strategy should be updated");
@@ -415,10 +413,8 @@ contract USDCVaultReallocationAndSecurityTest is BaseTestForUSDCVault {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vault.updateMinimumDeltaRequired(newMinDelta);
 
-        // Manager CAN update min delta
-        _scheduleAndExecute(
-            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta))
-        );
+        // UVC role holder CAN update min delta
+        _scheduleAndExecute(uvc, UVC_ID(), abi.encodeCall(USDCVault.updateMinimumDeltaRequired, (newMinDelta)));
 
         // Note: No getter for minimum delta, but the call should succeed without revert
     }

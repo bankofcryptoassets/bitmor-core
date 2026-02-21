@@ -134,7 +134,7 @@ fs_permissions = [
 ]
 
 [profile.fuzz.fuzz]
-runs = 1000
+runs = 10000
 seed = "0x1234"
 
 # Invariant test profile
@@ -156,7 +156,7 @@ fs_permissions = [
 ]
 
 [profile.invariant.invariant]
-runs = 256
+runs = 10000
 depth = 50
 
 # Coverage profile - excludes scripts to avoid stack depth issues

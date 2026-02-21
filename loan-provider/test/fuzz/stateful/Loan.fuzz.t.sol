@@ -119,8 +119,8 @@ contract LoanFuzzTest is LoanUnitTestBase {
 
         _fundUSDCAndApprove(user, address(loan), deposit);
 
-        // Zero collateral should trigger LessThanMinimumCollateralAllowed error
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        // Zero collateral triggers ZeroAmount before the min collateral check
+        vm.expectRevert(Errors.ZeroAmount.selector);
         vm.prank(user);
         loan.initializeLoan(deposit, 0, 0, duration, "");
     }
@@ -256,25 +256,18 @@ contract LoanFuzzTest is LoanUnitTestBase {
 
     /**
      * @notice Creates a loan with specified collateral amount
-     * @dev Calculates required deposit and creates the loan
+     * @dev Uses `loan.getLoanDetails()` to get exact minimum deposit from the contract,
+     *      which internally uses `s_minDeposit` (the min deposit BPS variable)
      * @param collateral The collateral amount in cbBTC (8 decimals)
      * @return lsa The created Loan Specific Address
      */
     function _createLoanWithCollateral(uint256 collateral) internal returns (address) {
-        uint256 btcPrice = mockOracle.getAssetPrice(address(mockCbBTC));
-        uint256 collateralValueUsd = _getCollateralValueUsd(collateral, btcPrice);
+        (,, uint256 minDeposit) = loan.getLoanDetails(collateral, FC.MIN_DURATION);
 
-        // Calculate minimum deposit (30% of collateral value)
-        uint256 minDepositUsd = (collateralValueUsd * FC.MIN_DEPOSIT_BPS) / FC.BPS_DENOMINATOR;
-        uint256 depositUsdc = (minDepositUsd * 1e6) / 1e8;
-
-        // Add buffer for fees and rounding
-        depositUsdc = depositUsdc + FC.MAX_USDC_AMOUNT;
-
-        _fundUSDCAndApprove(user, address(loan), depositUsdc);
+        _fundUSDCAndApprove(user, address(loan), minDeposit);
 
         vm.prank(user);
-        return loan.initializeLoan(depositUsdc, 0, collateral, FC.MIN_DURATION, "");
+        return loan.initializeLoan(minDeposit, 0, collateral, FC.MIN_DURATION, "");
     }
 
     /**
@@ -295,7 +288,8 @@ contract LoanFuzzTest is LoanUnitTestBase {
      */
     function _boundDeposit(uint256 collateralValueUsd, uint256 raw) internal pure returns (uint256) {
         uint256 minDepositUsd = (collateralValueUsd * FC.MIN_DEPOSIT_BPS) / FC.BPS_DENOMINATOR;
-        uint256 maxDepositUsd = collateralValueUsd;
+        // Cap at 90% of collateral to ensure non-zero loan amount
+        uint256 maxDepositUsd = (collateralValueUsd * 90) / 100;
 
         // Convert to USDC (6 decimals) from USD (8 decimals)
         uint256 minDepositUsdc = (minDepositUsd * 1e6) / 1e8;

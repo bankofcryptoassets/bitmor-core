@@ -19,6 +19,12 @@ contract MockSwapAdapter is ISwapAdaptor {
     /// @notice Whether swaps should revert
     bool public shouldRevert;
 
+    /// @notice When set, swapExactInput returns this value instead of calculating from oracle
+    uint256 public fixedOutput;
+
+    /// @notice Whether to use fixed output mode
+    bool public useFixedOutput;
+
     /// @notice Emitted when a swap is executed
     event Swap(address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut);
 
@@ -38,6 +44,19 @@ contract MockSwapAdapter is ISwapAdaptor {
     /// @param _shouldRevert True to make swaps revert
     function setSwapReverts(bool _shouldRevert) external {
         shouldRevert = _shouldRevert;
+    }
+
+    /// @notice Set a fixed output amount for swapExactInput (bypasses oracle calculation)
+    /// @param _output The exact amount to return from swapExactInput
+    function setFixedOutput(uint256 _output) external {
+        fixedOutput = _output;
+        useFixedOutput = true;
+    }
+
+    /// @notice Clear fixed output mode, returning to oracle-based pricing
+    function clearFixedOutput() external {
+        useFixedOutput = false;
+        fixedOutput = 0;
     }
 
     /// @inheritdoc ISwapAdaptor
@@ -70,14 +89,21 @@ contract MockSwapAdapter is ISwapAdaptor {
     ) external override returns (uint256 amountOut) {
         require(!shouldRevert, "Swap reverted");
 
-        amountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
+        if (useFixedOutput) {
+            amountOut = fixedOutput;
+        } else {
+            amountOut = _calculateOutput(tokenIn, tokenOut, exactAmountIn);
 
-        // Apply slippage
-        if (slippageBps > 0) {
-            amountOut = (amountOut * (10000 - slippageBps)) / 10000;
+            // Apply slippage
+            if (slippageBps > 0) {
+                amountOut = (amountOut * (10000 - slippageBps)) / 10000;
+            }
         }
 
-        require(amountOut >= minAmountOut, "Slippage exceeded");
+        // Skip minAmountOut check in fixed output mode (we're testing protocol-level guards)
+        if (!useFixedOutput) {
+            require(amountOut >= minAmountOut, "Slippage exceeded");
+        }
 
         // Execute transfer
         IERC20(tokenIn).transferFrom(msg.sender, address(this), exactAmountIn);

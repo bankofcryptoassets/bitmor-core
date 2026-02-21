@@ -6,6 +6,7 @@ import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
 import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
+import {LSALogic} from "../libraries/logic/LSALogic.sol";
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {RepayLogic} from "../libraries/logic/RepayLogic.sol";
@@ -42,6 +43,7 @@ import {LoanStorage} from "./LoanStorage.sol";
  */
 contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, AccessManaged, Pausable {
     using LoanLogic for mapping(address => DataTypes.LoanData);
+    using LSALogic for address;
 
     // ============ Constructor ============
 
@@ -80,6 +82,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         if (_swapper == address(0) || _premiumCollector == address(0)) {
             revert Errors.ZeroAddress();
         }
+        if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
+        if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
 
         s_swapper = _swapper;
         s_premiumCollector = _premiumCollector;
@@ -137,7 +141,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             minCollateralAmt: s_minBTCAmt,
             maxCollateralAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
-            minDepositBps: s_minDeposit
+            minDepositBps: s_minDeposit,
+            maxDuration: s_maxDuration
         });
 
         lsa = s_loansByLSA.executeInitializeLoan(
@@ -211,11 +216,33 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }
 
+    /// @inheritdoc ILoan
+    function updateLoanForMicroLiquidationCompletion(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
+        s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
+
+        emit Loan__Completed(_lsa);
+    }
+
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForFullLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForFullLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
         s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
+
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
 
@@ -340,9 +367,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
         (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
-            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit),
+            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit, s_maxDuration),
             i_BITMOR_POOL,
             i_ORACLE,
+            i_AAVE_V3_POOL,
             i_COLLATERAL_ASSET,
             i_DEBT_ASSET,
             collateralAmount,
@@ -418,6 +446,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     /// @inheritdoc ILoan
+    function getMaxDuration() external view returns (uint256) {
+        return s_maxDuration;
+    }
+
+    /// @inheritdoc ILoan
     function getLiquidationFeeBps() external view returns (uint256) {
         return s_liquidationFee;
     }
@@ -462,6 +495,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function setGracePeriod(uint256 gracePeriod) external whenNotPaused restricted {
+        if (gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
         s_gracePeriod = gracePeriod;
         emit Loan__GracePeriodUpdated(gracePeriod);
     }
@@ -470,41 +504,50 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function setPreClosureFee(uint256 newFee) external whenNotPaused restricted {
+        if (newFee >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
         s_preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
     /// @inheritdoc ILoan
     function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
+        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
         s_slippage_sharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
     function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= MAX_SLIPPAGE) revert Errors.InvalidSlippage();
+        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
         s_slippage_swap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
-        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidFee();
+        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidInputs();
         s_maxBTCAmt = newMaxBTCAmt;
         emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
     }
 
     /// @inheritdoc ILoan
     function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
-        if (newMinBTCAmt > s_maxBTCAmt) revert Errors.InvalidFee();
+        if (newMinBTCAmt > s_maxBTCAmt) revert Errors.InvalidInputs();
         s_minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }
 
     /// @inheritdoc ILoan
     function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
+        if (newMinDepositBps >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
         s_minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
+    }
+
+    /// @inheritdoc ILoan
+    function setMaxDuration(uint256 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
+        s_maxDuration = newMaxDuration;
+        emit Loan__MaxDurationUpdated(newMaxDuration);
     }
 
     /// @inheritdoc ILoan
@@ -539,6 +582,35 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      */
     function unpause() external whenPaused restricted {
         _unpause();
+    }
+
+    /// @inheritdoc ILoan
+    function claimSurplusCollateral(address _lsa)
+        external
+        whenNotPaused
+        nonReentrant
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+        returns (uint256 assetsClaimed)
+    {
+        DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
+
+        if (loanData.status == DataTypes.LoanStatus.Active) {
+            revert Errors.Loan__InvalidLoanStatus();
+        }
+        if (msg.sender != loanData.borrower) {
+            revert Errors.Loan__OnlyBorrower();
+        }
+
+        assetsClaimed = _lsa.claimSurplusCollateral({
+            bitmorPool: i_BITMOR_POOL,
+            collateralAsset: i_COLLATERAL_ASSET,
+            debtAsset: i_DEBT_ASSET,
+            borrower: loanData.borrower,
+            slippage_sharesToAsset: s_slippage_sharesToAsset
+        });
+
+        emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower, assetsClaimed);
     }
 
     // ============ Internal Functions ============

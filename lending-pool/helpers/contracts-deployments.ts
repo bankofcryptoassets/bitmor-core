@@ -3,7 +3,6 @@ import {
   eContractid,
   AavePools,
   TokenContractId,
-  eEthereumNetwork,
 } from './types.js';
 import type {
   tEthereumAddress,
@@ -40,34 +39,21 @@ import {
   MockStableDebtToken__factory,
   MockVariableDebtToken__factory,
   MockUniswapV2Router02__factory,
-  // ParaSwapLiquiditySwapAdapter__factory,
   PriceOracle__factory,
   ReserveLogic__factory,
   SelfdestructTransfer__factory,
   StableDebtToken__factory,
-  // UniswapLiquiditySwapAdapter__factory,
-  // UniswapRepayAdapter__factory,
   VariableDebtToken__factory,
-  // WalletBalanceProvider__factory,
   WETH9Mocked__factory,
-  // WETHGateway__factory,
-  // FlashLiquidationAdapter__factory,
-  // UiPoolDataProviderV2__factory,
-  // UiPoolDataProviderV2V3__factory,
-  // UiIncentiveDataProviderV2__factory,
   MockBTCVault__factory,
   MockLoan__factory,
 } from '../types/ethers-contracts/index.js';
-// Import MockUSDCVault from vault/ to get the correct 2-arg constructor
 import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
-// import type { UiIncentiveDataProviderV2V3 } from '../types/ethers-contracts/index.js';
 import {
   withSaveAndVerify,
   registerContractInJsonDb,
   linkBytecode,
   insertContractAddressInDb,
-  deployContract,
-  verifyContract,
   getOptionalParamAddressPerNetwork,
   getContractAddress,
 } from './contracts-helpers.js';
@@ -75,7 +61,6 @@ import { StableAndVariableTokensHelper__factory } from '../types/ethers-contract
 import type { MintableDelegationERC20, DelegationAwareAToken } from '../types/ethers-contracts/index.js';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import type { LendingPoolLibraryAddresses } from '../types/ethers-contracts/factories/protocol/lendingpool/LendingPool__factory.js';
-// import type { UiPoolDataProvider } from '../types/ethers-contracts/index.js';
 import { eNetwork } from './types.js';
 
 // export const deployUiIncentiveDataProviderV2 = async (verify?: boolean) =>

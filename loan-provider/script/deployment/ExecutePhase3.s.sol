@@ -47,6 +47,7 @@ contract ExecutePhase3 is Script, DeploymentHelper {
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())));
         manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())));
+        manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())));
 
         // Loan parameter configuration (required for loan creation to work)
         // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)

@@ -145,27 +145,9 @@ abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
     }
 
     /// @notice Sets function permissions for USDC vault roles
+    /// @dev Delegates to BitmorTestBase._setUSDCVaultTargetSelectors which reads from RolesData.sol
     function _setTargetSelectorsLocal() internal {
-        address target = address(vault);
-
-        // UVM_SLOW functions (require 1 day delay)
-        bytes4[] memory uvmSlowSelectors = new bytes4[](4);
-        uvmSlowSelectors[0] = USDCVault.setStrategy.selector;
-        uvmSlowSelectors[1] = USDCVault.updateMinimumDeltaRequired.selector;
-        uvmSlowSelectors[2] = USDCVault.unpause.selector;
-        uvmSlowSelectors[3] = USDCVault.updateExternalAllocation.selector;
-        manager.setTargetFunctionRole(target, uvmSlowSelectors, UVM_SLOW_ID());
-
-        // UVM_FAST functions (no delay)
-        bytes4[] memory uvmFastSelectors = new bytes4[](1);
-        uvmFastSelectors[0] = USDCVault.pause.selector;
-        manager.setTargetFunctionRole(target, uvmFastSelectors, UVM_FAST_ID());
-
-        // UVA functions - use function signature for overloaded function
-        bytes4[] memory uvaSelectors = new bytes4[](2);
-        uvaSelectors[0] = bytes4(keccak256("reallocateAssets()"));
-        uvaSelectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
-        manager.setTargetFunctionRole(target, uvaSelectors, UVA_ID());
+        _setUSDCVaultTargetSelectors(address(vault));
 
         // Grant UVA role to BLP for reallocateAssets(uint256)
         manager.grantRole(UVA_ID(), address(mockBitmorPool), 0);
@@ -173,7 +155,7 @@ abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
 
     /// @notice Sets the strategy on the vault and configures default allocation
     function _setStrategyOnVault() internal {
-        _scheduleAndExecuteLocal(uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
+        _scheduleAndExecuteLocal(uvc, UVC_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategy))));
 
         // Set default 80% Aave allocation
         vm.prank(address(vault));

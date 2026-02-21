@@ -112,45 +112,18 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     }
 
     /// @notice Set target function selectors for BTCVault roles
-    /// @dev Uses actual BTCVault selectors. Some functions not in RolesData are included here.
+    /// @dev Delegates to BitmorTestBase._setBTCVaultTargetSelectors which reads from RolesData.sol,
+    ///      then patches in test-only selectors not present in production RolesData
     function _setTargetSelectorsLocal() internal {
-        address target = address(vault);
+        _setBTCVaultTargetSelectors(address(vault));
 
-        // BVM_SLOW selectors (includes functions not in RolesData)
-        bytes4[] memory bvmSlowSelectors = new bytes4[](5);
-        bvmSlowSelectors[0] = BTCVault.setFeeRecipient.selector;
-        bvmSlowSelectors[1] = BTCVault.setEntryFee.selector;
-        bvmSlowSelectors[2] = BTCVault.setExitFee.selector;
-        bvmSlowSelectors[3] = BTCVault.setMaxStrategies.selector;
-        bvmSlowSelectors[4] = BTCVault.unpause.selector;
-        manager.setTargetFunctionRole(target, bvmSlowSelectors, BVM_SLOW_ID());
-
-        // BVM_FAST selectors
-        bytes4[] memory bvmFastSelectors = new bytes4[](1);
-        bvmFastSelectors[0] = BTCVault.pause.selector;
-        manager.setTargetFunctionRole(target, bvmFastSelectors, BVM_FAST_ID());
-
-        // BVC selectors
-        bytes4[] memory bvcSelectors = new bytes4[](2);
-        bvcSelectors[0] = BTCVault.addStrategy.selector;
-        bvcSelectors[1] = BTCVault.changeStrategyCap.selector;
-        manager.setTargetFunctionRole(target, bvcSelectors, BVC_ID());
-
-        // BVA_SLOW selectors
-        bytes4[] memory bvaSlowSelectors = new bytes4[](2);
-        bvaSlowSelectors[0] = BTCVault.updateSupplyQueue.selector;
-        bvaSlowSelectors[1] = BTCVault.updateWithdrawQueue.selector;
-        manager.setTargetFunctionRole(target, bvaSlowSelectors, BVA_SLOW_ID());
-
-        // BVA_FAST selectors
-        bytes4[] memory bvaFastSelectors = new bytes4[](1);
-        bvaFastSelectors[0] = BTCVault.reallocateFunds.selector;
-        manager.setTargetFunctionRole(target, bvaFastSelectors, BVA_FAST_ID());
-
-        // BVD selectors
-        bytes4[] memory bvdSelectors = new bytes4[](1);
-        bvdSelectors[0] = BTCVault.deposit.selector;
-        manager.setTargetFunctionRole(target, bvdSelectors, BVD_ID());
+        // Patch: RolesData.getBVM_SLOW_SELECTORS() only includes setFeeRecipient and unpause.
+        // Tests also need setEntryFee, setExitFee, and setMaxStrategies under BVM_SLOW.
+        bytes4[] memory testOnlySelectors = new bytes4[](3);
+        testOnlySelectors[0] = BTCVault.setEntryFee.selector;
+        testOnlySelectors[1] = BTCVault.setExitFee.selector;
+        testOnlySelectors[2] = BTCVault.setMaxStrategies.selector;
+        manager.setTargetFunctionRole(address(vault), testOnlySelectors, BVM_SLOW_ID());
     }
 
     /// @notice Configure vault with fees using delayed operations

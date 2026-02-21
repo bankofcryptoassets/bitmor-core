@@ -215,25 +215,44 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
     }
 
-    /// @notice Tests duration validation behavior.
-    /// @dev KNOWN: Protocol does NOT enforce a maximum duration limit -
-    ///         duration 13+ is accepted by getLoanDetails.
-    function test_initializeLoan_RevertWhen_DurationInvalid() public mintDebtAssetToUser {
+    /// @notice Reverts when duration is zero
+    function test_initializeLoan_RevertWhen_DurationIsZero() public mintDebtAssetToUser {
         uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
 
-        _expectRevertSelector(Errors.ZeroAmount.selector);
-        loan.getLoanDetails(collateralAmount, 0); // PANICS with division by zero
+        // getLoanDetails reverts for duration 0
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(collateralAmount, 0);
 
-        // CURRENT BEHAVIOR: Protocol does NOT enforce max duration
-        // Duration 13 is accepted by getLoanDetails (no validation)
-        (uint256 loanAmount,,) = loan.getLoanDetails(collateralAmount, 13);
-        assertGt(loanAmount, 0, "Duration 13 is allowed by protocol (no max validation)");
-
-        // Duration 0 in initializeLoan also causes issues - skip
+        // initializeLoan reverts for duration 0
         uint256 bigDeposit = 500_000e6;
         vm.prank(user);
-        _expectRevertSelector(Errors.ZeroAmount.selector);
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
         loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
+    }
+
+    /// @notice Reverts when duration exceeds the maximum allowed
+    function test_initializeLoan_RevertWhen_DurationExceedsMax() public mintDebtAssetToUser {
+        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 maxDuration = loan.getMaxDuration();
+
+        // One above max reverts in getLoanDetails
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(collateralAmount, maxDuration + 1);
+
+        // type(uint256).max reverts in initializeLoan (the exploit case)
+        uint256 bigDeposit = 500_000e6;
+        vm.prank(user);
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, type(uint256).max, DATA);
+    }
+
+    /// @notice Successfully calculates loan details at the maximum allowed duration
+    function test_initializeLoan_AtMaxDuration() public {
+        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 maxDuration = loan.getMaxDuration();
+
+        (uint256 loanAmt,,) = loan.getLoanDetails(collateralAmount, maxDuration);
+        assertGt(loanAmt, 0, "Max duration should return valid loan details");
     }
 
     /// @notice Successfully calculates loan details with minimum duration (1 month)
@@ -304,6 +323,7 @@ contract InitializeLoanTest is BaseLoanTest {
         loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
         loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
         loan2.setMinDepositBps(TC.MIN_DEPOSIT);
+        loan2.setMaxDuration(TC.MAX_DURATION);
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);

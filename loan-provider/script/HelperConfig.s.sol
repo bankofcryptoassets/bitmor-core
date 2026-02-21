@@ -44,6 +44,7 @@ contract HelperConfig is Script {
     uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
+    uint256 constant MAX_DURATION = 60; // 5 years in months
     // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
@@ -146,6 +147,10 @@ contract HelperConfig is Script {
 
     function getGracePeriod() public pure returns (uint256) {
         return GRACE_PERIOD;
+    }
+
+    function getMaxDuration() public pure returns (uint256) {
+        return MAX_DURATION;
     }
 
     function getPremiumCollector() public pure returns (address) {
