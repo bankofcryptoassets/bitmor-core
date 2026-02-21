@@ -52,7 +52,7 @@ library BTCVault__Validation {
         uint256 maxStrategies
     ) internal view {
         if (strategy == address(0)) revert Errors.ZeroAddress();
-        if (s.totalStrategies >= maxStrategies) revert Errors.MaxStrategiesReached();
+        if (s.withdrawQueue.length >= maxStrategies) revert Errors.MaxStrategiesReached();
         if (strategy.getAsset() != asset) revert Errors.WrongBaseAsset();
         if (s.strategyToIndex[strategy] != 0) revert Errors.StrategyAlreadyAdded();
     }
@@ -95,7 +95,8 @@ library BTCVault__Validation {
 
     /**
      * @notice Validates a new withdraw queue configuration
-     * @dev Ensures withdraw queue length doesn't exceed total strategies
+     * @dev Ensures the new withdraw queue length does not exceed the current queue length,
+     *      since strategies can only be retained or removed — not added — via this function.
      * @param s The strategy state storage reference
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
      */
@@ -103,6 +104,6 @@ library BTCVault__Validation {
         internal
         view
     {
-        if (newWithdrawQueue.length > s.totalStrategies) revert Errors.WrongLength();
+        if (newWithdrawQueue.length > s.withdrawQueue.length) revert Errors.WrongLength();
     }
 }

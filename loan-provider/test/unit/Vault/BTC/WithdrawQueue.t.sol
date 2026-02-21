@@ -5,7 +5,9 @@ import {ERC20} from "@solady/tokens/ERC20.sol";
 
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {MockTokenizedStrategy, BaseTestForBTCVault} from "../BaseTestForBTCVault.t.sol";
+import {MockYieldSource} from "../../../mock/MockYieldSource.sol";
 
 /// @title WithdrawQueue
 /// @author Bitmor Protocol
@@ -33,8 +35,8 @@ contract WithdrawQueue is BaseTestForBTCVault {
         assertEq(withdrawQueue, newWithdrawQueue);
     }
 
-    function test_RevertWhen_newWithdrawLengthIsGreaterThanTotalStrategies() public addStrategies {
-        uint256[] memory newWithdrawQueue = new uint256[](vault.getTotalStrategies() + 1);
+    function test_RevertWhen_newWithdrawLengthIsGreaterThanCurrentQueueLength() public addStrategies {
+        uint256[] memory newWithdrawQueue = new uint256[](vault.getWithdrawQueueLength() + 1);
         bytes memory data = abi.encodeCall(BTCVault.updateWithdrawQueue, (newWithdrawQueue));
 
         _scheduleAndExpectRevert(bva_slow, bva_slow_id(), data, abi.encodeWithSelector(Errors.WrongLength.selector));
@@ -130,6 +132,334 @@ contract WithdrawQueue is BaseTestForBTCVault {
         assertEq(
             ERC20(vault.asset()).allowance(address(vault), address(strategyC)), 0, "strategyC approval should be 0"
         );
+    }
+
+    // ============ Strategy Removal Scenario Tests ============
+
+    /// @notice totalAssets() returns correct value after removing a strategy
+    function test_TotalAssets_AfterStrategyRemoval() public {
+        // Arrange — add two strategies
+        MockTokenizedStrategy strategyA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockTokenizedStrategy strategyB = new MockTokenizedStrategy(address(yieldSource), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategyA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategyB), STANDARD_STRATEGY_CAP))
+        );
+
+        uint256 totalBefore = vault.totalAssets();
+
+        // Remove strategyB
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strategyB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Assert — totalAssets still works
+        uint256 totalAfter = vault.totalAssets();
+        assertEq(totalAfter, totalBefore, "totalAssets should be unchanged after removing empty strategy");
+    }
+
+    /// @notice totalAssets() works after removing multiple strategies
+    function test_TotalAssets_AfterMultipleRemovals() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockTokenizedStrategy stratC = new MockTokenizedStrategy(address(yieldSource), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratC), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove B and C
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratC), 0)));
+
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Assert
+        uint256 totalAfter = vault.totalAssets();
+        assertEq(totalAfter, 0, "totalAssets should be 0 with no deposits");
+        assertEq(vault.getWithdrawQueueLength(), 1, "withdraw queue should have 1 entry");
+    }
+
+    /// @notice Full ERC-4626 deposit/withdraw cycle works after strategy removal
+    function test_DepositAndWithdraw_AfterStrategyRemoval() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(yieldSource), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove stratB
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Clean up supply queue
+        uint256[] memory newSupplyQueue = new uint256[](1);
+        newSupplyQueue[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateSupplyQueue, (newSupplyQueue)));
+
+        // Deposit and redeem
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount, user);
+        assertGt(shares, 0, "should receive shares on deposit");
+
+        uint256 redeemed = vault.redeem(shares, user, user);
+        vm.stopPrank();
+
+        assertGt(redeemed, 0, "should receive assets on redeem");
+    }
+
+    /// @notice Re-adding a previously removed strategy address works
+    function test_AddStrategy_AfterRemoval_SameAddress() public {
+        MockTokenizedStrategy strat = new MockTokenizedStrategy(address(yieldSource), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove it
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strat), 0)));
+        uint256[] memory emptyQueue = new uint256[](0);
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (emptyQueue)));
+
+        // Re-add same address
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        // Assert — new index, not old
+        uint256 newIndex = vault.getStrategyIndex(address(strat));
+        assertEq(newIndex, 1, "re-added strategy should get next index (1), not old index (0)");
+        assertEq(vault.getWithdrawQueueLength(), 1, "withdraw queue should have 1 entry");
+        assertEq(vault.getNextStrategyIndex(), 2, "nextStrategyIndex should be 2");
+    }
+
+    /// @notice Adding a new strategy after removal doesn't hit MaxStrategiesReached
+    function test_AddStrategy_AfterRemoval_CapacityRestored() public {
+        // Fill to MAX_STRATEGIES
+        MockTokenizedStrategy[] memory strats = new MockTokenizedStrategy[](MAX_STRATEGIES);
+        for (uint256 i = 0; i < MAX_STRATEGIES; i++) {
+            MockYieldSource ys = new MockYieldSource();
+            strats[i] = new MockTokenizedStrategy(address(ys), address(vault));
+            _scheduleAndExecute(
+                bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strats[i]), STANDARD_STRATEGY_CAP))
+            );
+        }
+
+        // Remove last strategy
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strats[MAX_STRATEGIES - 1]), 0))
+        );
+        uint256[] memory keepQueue = new uint256[](MAX_STRATEGIES - 1);
+        for (uint256 i = 0; i < MAX_STRATEGIES - 1; i++) {
+            keepQueue[i] = i;
+        }
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepQueue)));
+
+        // Add a new strategy — should succeed
+        MockYieldSource newYs = new MockYieldSource();
+        MockTokenizedStrategy newStrat = new MockTokenizedStrategy(address(newYs), address(vault));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(newStrat), STANDARD_STRATEGY_CAP))
+        );
+
+        assertEq(vault.getWithdrawQueueLength(), MAX_STRATEGIES, "should be at max strategies again");
+    }
+
+    /// @notice Reallocating to a removed strategy index reverts
+    /// @dev After deletion, strategy.strategy is address(0), so getAssetBalanceInStrategy()
+    ///      reverts with a low-level "call to non-contract address" error
+    function test_ReallocateFunds_RemovedStrategyIndex_Reverts() public {
+        MockTokenizedStrategy strat = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strat), 0)));
+        uint256[] memory emptyQueue = new uint256[](0);
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (emptyQueue)));
+
+        // Try to reallocate to removed index 0
+        DataTypes.Allocation[] memory allocs = new DataTypes.Allocation[](1);
+        allocs[0] = DataTypes.Allocation({index: 0, amount: 1000e6});
+
+        bytes memory data = abi.encodeCall(BTCVault.reallocateFunds, (allocs));
+        // Generic revert: call to address(0) triggers a low-level EVM revert
+        // with no custom Solidity error selector
+        vm.expectRevert();
+        vm.prank(bva_fast);
+        manager.execute(address(vault), data);
+    }
+
+    /// @notice Deposits work even with stale supplyQueue entries after strategy removal
+    function test_SupplyQueue_StaleEntry_SkippedSafely() public {
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(yieldSource), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        // Remove strategyB from withdraw queue only (supplyQueue stays stale)
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // supplyQueue still has stale entry
+        assertEq(vault.getSupplyQueueLength(), 2, "supply queue should still have stale entry");
+
+        // Deposit should succeed — stale entry skipped via cap == 0
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        assertGt(shares, 0, "deposit should succeed with stale supply queue entry");
+    }
+
+    /// @notice Removing a strategy with non-zero asset balance reverts
+    function test_RevertWhen_RemovingStrategyWithNonZeroBalance() public {
+        // Arrange — add strategy and deposit funds into it
+        MockTokenizedStrategy strat = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        // Deposit funds that will flow into the strategy
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        // Set cap to 0 (pre-requisite for removal)
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(strat), 0)));
+
+        // Act + Assert — removal must revert because strategy still has assets
+        uint256[] memory emptyQueue = new uint256[](0);
+        bytes memory data = abi.encodeCall(BTCVault.updateWithdrawQueue, (emptyQueue));
+        _scheduleAndExpectRevert(
+            bva_slow,
+            bva_slow_id(),
+            data,
+            abi.encodeWithSelector(Errors.InvalidStrategyRemovalWithNonZeroAssetBalance.selector, uint256(0))
+        );
+    }
+
+    /// @notice Removing a strategy with non-zero cap reverts
+    function test_RevertWhen_RemovingStrategyWithNonZeroCap() public {
+        // Arrange — add strategy but do NOT set cap to 0
+        MockTokenizedStrategy strat = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strat), STANDARD_STRATEGY_CAP))
+        );
+
+        // Act + Assert — removal must revert because cap is still non-zero
+        uint256[] memory emptyQueue = new uint256[](0);
+        bytes memory data = abi.encodeCall(BTCVault.updateWithdrawQueue, (emptyQueue));
+        _scheduleAndExpectRevert(
+            bva_slow,
+            bva_slow_id(),
+            data,
+            abi.encodeWithSelector(Errors.InvalidStrategyRemovalWithNonZeroCap.selector, uint256(0))
+        );
+    }
+
+    /// @notice emergencyWithdrawFunds works correctly after a strategy has been removed
+    function test_EmergencyWithdrawFunds_AfterStrategyRemoval() public {
+        // Arrange — add two strategies, deposit into first
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        // Deposit funds that will flow into stratA via supply queue
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        // Remove stratB (empty, cap=0)
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Act — emergency withdraw should recover funds from remaining strategy
+        vm.prank(bvm_fast);
+        manager.execute(address(vault), abi.encodeCall(BTCVault.emergencyWithdrawFunds, ()));
+
+        // Assert — vault should hold all assets idle now
+        uint256 vaultBalance = mockUSDC.balanceOf(address(vault));
+        assertGt(vaultBalance, 0, "vault should hold recovered assets after emergency withdraw");
+    }
+
+    /// @notice maxWithdraw and maxRedeem return correct values after strategy removal
+    function test_MaxWithdrawAndMaxRedeem_AfterStrategyRemoval() public {
+        // Arrange — add two strategies, deposit
+        MockTokenizedStrategy stratA = new MockTokenizedStrategy(address(yieldSource), address(vault));
+        MockYieldSource ysB = new MockYieldSource();
+        MockTokenizedStrategy stratB = new MockTokenizedStrategy(address(ysB), address(vault));
+
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratA), STANDARD_STRATEGY_CAP))
+        );
+        _scheduleAndExecute(
+            bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(stratB), STANDARD_STRATEGY_CAP))
+        );
+
+        uint256 depositAmount = DEPOSIT_AMOUNT;
+        vm.startPrank(user);
+        mockUSDC.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        // Remove stratB
+        _scheduleAndExecute(bvc, bvc_id(), abi.encodeCall(BTCVault.changeStrategyCap, (address(stratB), 0)));
+        uint256[] memory keepFirst = new uint256[](1);
+        keepFirst[0] = 0;
+        _scheduleAndExecute(bva_slow, bva_slow_id(), abi.encodeCall(BTCVault.updateWithdrawQueue, (keepFirst)));
+
+        // Assert — maxWithdraw and maxRedeem should be non-zero for user with shares
+        uint256 maxW = vault.maxWithdraw(user);
+        uint256 maxR = vault.maxRedeem(user);
+        assertGt(maxW, 0, "maxWithdraw should be non-zero after strategy removal");
+        assertGt(maxR, 0, "maxRedeem should be non-zero after strategy removal");
+
+        // Verify user can actually withdraw the reported max
+        vm.prank(user);
+        vault.withdraw(maxW, user, user);
     }
 
     /// @notice Deploys and adds 5 strategies with `STANDARD_STRATEGY_CAP` to the vault

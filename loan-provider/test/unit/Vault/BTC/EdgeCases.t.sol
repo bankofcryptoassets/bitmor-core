@@ -337,20 +337,20 @@ contract EdgeCasesTest is BaseTestForBTCVault {
 
     // ============ View Function Tests ============
 
-    /// @notice getTotalStrategies should return correct count
-    function test_getTotalStrategies_ReturnsCorrectCount() public {
+    /// @notice getNextStrategyIndex should return correct monotonic counter
+    function test_getNextStrategyIndex_ReturnsCorrectCounter() public {
         // Assert initial state
-        assertEq(vault.getTotalStrategies(), 0, "should start with 0 strategies");
+        assertEq(vault.getNextStrategyIndex(), 0, "should start at index 0");
 
         // Add first strategy
         _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
-        assertEq(vault.getTotalStrategies(), 1, "should have 1 strategy after adding");
+        assertEq(vault.getNextStrategyIndex(), 1, "should be 1 after adding first strategy");
 
         // Add second strategy
         MockYieldSource ys2 = new MockYieldSource();
         MockTokenizedStrategy strat2 = new MockTokenizedStrategy(address(ys2), address(vault));
         _addStrategy(address(strat2), EDGE_STRATEGY_CAP);
-        assertEq(vault.getTotalStrategies(), 2, "should have 2 strategies");
+        assertEq(vault.getNextStrategyIndex(), 2, "should be 2 after adding second strategy");
     }
 
     /// @notice getMaxStrategies should return configured value

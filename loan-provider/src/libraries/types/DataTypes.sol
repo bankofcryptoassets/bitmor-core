@@ -584,9 +584,9 @@ library DataTypes {
      */
     struct StrategyState {
         /**
-         * @notice Total number of strategies currently managed by the vault
+         * @notice Next available index for strategy assignment (monotonic counter, never decremented)
          */
-        uint256 totalStrategies;
+        uint256 nextStrategyIndex;
         /**
          * @notice Mapping from index to strategy details
          */

@@ -133,7 +133,7 @@ contract AccessControl__BTCVaultHarness is BaseTestForBTCVault {
             bvc, bvc_id(), abi.encodeCall(BTCVault.addStrategy, (address(strategy), STANDARD_STRATEGY_CAP))
         );
 
-        assertEq(vault.getTotalStrategies(), 1);
+        assertEq(vault.getNextStrategyIndex(), 1);
     }
 
     function test_RevertWhen_AddStrategy_AsUnauthorized() public {

@@ -51,19 +51,19 @@ library StrategyStateLogic {
 
     /**
      * @notice Adds a new strategy to the vault with the specified allocation cap
-     * @dev Adds strategy to both supply and withdraw queues, increments total strategies count
+     * @dev Adds strategy to both supply and withdraw queues, increments next strategy index
      * @param s The strategy state storage reference
      * @param newStrategy The address of the strategy to add
      * @param cap The maximum allocation cap for the strategy
      */
     function addStrategy(DataTypes.StrategyState storage s, address newStrategy, uint256 cap) internal {
-        s.strategies[s.totalStrategies] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
+        s.strategies[s.nextStrategyIndex] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
 
-        s.supplyQueue.push(s.totalStrategies);
-        s.withdrawQueue.push(s.totalStrategies);
+        s.supplyQueue.push(s.nextStrategyIndex);
+        s.withdrawQueue.push(s.nextStrategyIndex);
 
         // Store index + 1 to differentiate between unset (0) and first strategy (1)
-        s.strategyToIndex[newStrategy] = ++s.totalStrategies;
+        s.strategyToIndex[newStrategy] = ++s.nextStrategyIndex;
     }
 
     /**
@@ -91,6 +91,11 @@ library StrategyStateLogic {
      * @notice Updates the withdraw queue and removes strategies not included in the new queue
      * @dev Validates that removed strategies have zero cap and balance before deletion.
      *      Revokes token approval for removed strategies to prevent unauthorized asset transfers.
+     *      Clears `strategyToIndex` for removed strategies to allow re-addition.
+     *
+     *      IMPORTANT: This function does NOT clean the supply queue. After removing a strategy,
+     *      the admin MUST call `updateSupplyQueue` to remove stale entries. Stale supply queue
+     *      entries are safely skipped (deleted strategy has `cap == 0`), but waste gas.
      * @param s The strategy state storage reference
      * @param newQueue Array of indices referencing positions in current withdraw queue
      * @param asset The underlying asset address used to revoke approval for removed strategies
@@ -130,6 +135,7 @@ library StrategyStateLogic {
                 }
 
                 asset.safeApprove(strategy.strategy, 0);
+                delete s.strategyToIndex[strategy.strategy];
                 delete s.strategies[id];
             }
         }
