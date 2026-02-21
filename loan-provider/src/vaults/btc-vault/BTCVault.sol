@@ -256,6 +256,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @dev Iterates the withdraw queue and attempts `withdrawAll()` on each strategy.
      *      Individual failures are caught and emit `BTCVault__EmergencyWithdrawFailed` so a
      *      single broken strategy does not block emergency recovery of all other strategies.
+     *      Emits `BTCVault__EmergencyWithdrawFunds` with the total amount successfully recovered.
      * @custom:access Requires BVM_FAST role
      * @custom:security Critical safety mechanism — must never be blocked by a single strategy failure
      */
