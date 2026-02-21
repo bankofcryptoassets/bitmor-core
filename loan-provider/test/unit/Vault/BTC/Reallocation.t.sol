@@ -275,6 +275,53 @@ contract ReallocationTest is BaseTestForBTCVault {
         assertEq(inStrategy1After, inStrategy1, "strategy1 should be unchanged (withdraw skipped)");
     }
 
+    /// @notice Partial reallocation: strategy A fails withdraw, strategy B succeeds, funds move to strategy C
+    function test_reallocateFunds_PartialSuccess_FundsStillMove() public {
+        // Arrange — set up 3 strategies, all with funds
+        MockYieldSource yieldSource3 = new MockYieldSource();
+        MockTokenizedStrategy strategy3 = new MockTokenizedStrategy(address(yieldSource3), address(vault));
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _addStrategy(address(strategy2), STRATEGY_CAP);
+        _addStrategy(address(strategy3), STRATEGY_CAP);
+
+        _depositAsUser(9000e6);
+
+        // Move some funds to strategy2 so it has a balance to withdraw from
+        uint256 inStrategy1 = vault.getAssetInStrategy(address(strategy));
+        DataTypes.Allocation[] memory setupAllocations = new DataTypes.Allocation[](2);
+        setupAllocations[0] = DataTypes.Allocation({index: 0, amount: inStrategy1 - 3000e6});
+        setupAllocations[1] = DataTypes.Allocation({index: 1, amount: 3000e6});
+        _reallocate(setupAllocations);
+
+        uint256 inStrategy1After = vault.getAssetInStrategy(address(strategy));
+        uint256 inStrategy2After = vault.getAssetInStrategy(address(strategy2));
+        assertEq(inStrategy2After, 3000e6, "strategy2 should have 3000e6");
+
+        // Break strategy1's withdraw (strategy2 still works)
+        yieldSource.setShouldRevertOnWithdraw(true);
+
+        // Act — withdraw from both s1 (fails) and s2 (succeeds), deposit into s3 using max sentinel
+        DataTypes.Allocation[] memory allocations = new DataTypes.Allocation[](3);
+        allocations[0] = DataTypes.Allocation({index: 0, amount: 0}); // try withdraw all from s1 (will fail)
+        allocations[1] = DataTypes.Allocation({index: 1, amount: 0}); // withdraw all from s2 (succeeds)
+        allocations[2] = DataTypes.Allocation({index: 2, amount: type(uint256).max}); // deposit whatever was withdrawn
+
+        _reallocate(allocations);
+
+        // Assert
+        // Strategy1 unchanged — withdraw was skipped
+        uint256 strategy1Final = vault.getAssetInStrategy(address(strategy));
+        assertEq(strategy1Final, inStrategy1After, "strategy1 should be unchanged (withdraw failed)");
+
+        // Strategy2 fully drained — withdraw succeeded
+        uint256 strategy2Final = vault.getAssetInStrategy(address(strategy2));
+        assertEq(strategy2Final, 0, "strategy2 should be fully drained");
+
+        // Strategy3 received strategy2's funds
+        uint256 strategy3Final = vault.getAssetInStrategy(address(strategy3));
+        assertEq(strategy3Final, 3000e6, "strategy3 should have received strategy2's funds");
+    }
+
     // ============ Emergency Withdraw Resilience Tests ============
 
     /// @notice Emergency withdraw should skip failing strategies and continue
