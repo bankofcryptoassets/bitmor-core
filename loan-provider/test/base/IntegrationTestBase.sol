@@ -205,13 +205,16 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     /// @notice Seeds BTCVault with initial cbBTC so oracle price is computable
     /// @dev BTCVault.deposit() requires BVD role - only the Loan contract has it.
-    ///      We prank as the Loan contract to bootstrap the vault.
+    ///      We prank as the Loan contract to make the deposit, but send the resulting
+    ///      bvBTC shares to a dedicated seeder address (NOT the Loan contract) to avoid
+    ///      leaving residual bvBTC in the Loan contract that pollutes token balance assertions.
     function _seedBTCVault() internal {
+        address vaultSeeder = makeAddr("vaultSeeder");
         uint256 seedAmount = TC.STANDARD_COLLATERAL;
         _fundCbBTC(address(loanContract), seedAmount);
         vm.startPrank(address(loanContract));
         cbBTC.approve(address(btcVault), seedAmount);
-        btcVault.deposit(seedAmount, address(loanContract));
+        btcVault.deposit(seedAmount, vaultSeeder);
         vm.stopPrank();
     }
 
@@ -640,7 +643,11 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     }
 
     /// @notice Sets the BTCVault exit fee via AccessManager role setup
+    /// @dev Automatically sets a default fee recipient if feeBps > 0 and none is configured
     function _setExitFee(uint256 feeBps) internal {
+        if (feeBps > 0 && btcVault.getFeeRecipient() == address(0)) {
+            _setFeeRecipient(makeAddr("defaultFeeCollector"));
+        }
         bytes4[] memory selectors = new bytes4[](1);
         selectors[0] = btcVault.setExitFee.selector;
         uint64 bvmFastId = BVM_FAST_ID();
@@ -650,6 +657,20 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         vm.stopPrank();
         vm.prank(admin);
         btcVault.setExitFee(feeBps);
+    }
+
+    /// @notice Sets the BTCVault fee recipient via AccessManager role setup
+    /// @dev Remaps setFeeRecipient.selector to BVM_FAST for zero-delay access in tests
+    function _setFeeRecipient(address recipient) internal {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = btcVault.setFeeRecipient.selector;
+        uint64 bvmFastId = BVM_FAST_ID();
+        vm.startPrank(admin);
+        manager.setTargetFunctionRole(address(btcVault), selectors, bvmFastId);
+        manager.grantRole(bvmFastId, admin, 0);
+        vm.stopPrank();
+        vm.prank(admin);
+        btcVault.setFeeRecipient(recipient);
     }
 
     /// @notice Sets the liquidation fee and collector via schedule-and-execute

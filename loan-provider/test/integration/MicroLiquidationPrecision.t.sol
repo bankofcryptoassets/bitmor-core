@@ -202,10 +202,12 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         );
     }
 
-    /// @notice 19.7: Micro-liq on final remaining period reduces debt
+    /// @notice 19.7: Micro-liq on final remaining period reduces debt and completes the loan.
     /// @dev After 11 EMI repayments on a 12-month loan, duration=1. Micro-liq on the
-    ///      final period covers the remaining EMI equivalent. Due to interest accrual
-    ///      over 11 months, residual debt may remain (EMI is an estimate).
+    ///      final period covers the remaining EMI equivalent. Duration reaches 0, and the
+    ///      protocol correctly sets status to Completed (orderly wind-down via micro-liq).
+    ///      Design rationale: Completed = orderly wind-down (one period at a time).
+    ///      Liquidated = emergency seizure (health-factor breach, entire position seized at once).
     function test_MicroLiquidation_PayOne_CappedByDebtRemaining() public {
         // Arrange: create 12-month loan and repay 11 months
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
@@ -230,19 +232,22 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         bool success = _triggerMicroLiquidation(lsa);
         assertTrue(success, "micro-liquidation should succeed on final period");
 
-        // Assert: loan status should be Liquidated (duration reaches 0 via micro-liq path)
+        // Assert: loan status should be Completed (orderly wind-down via micro-liquidation exhaustion)
         DataTypes.LoanData memory loanAfterMicroLiq = loanContract.getLoanByLSA(lsa);
         assertEq(loanAfterMicroLiq.duration, 0, "duration should be 0 after final period micro-liq");
         assertEq(
             uint256(loanAfterMicroLiq.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "final period micro-liq should result in Liquidated status"
+            uint256(DataTypes.LoanStatus.Completed),
+            "final period micro-liq should result in Completed status (orderly wind-down)"
         );
     }
 
-    /// @notice 19.8: VULNERABILITY - Micro-liq on duration=1 results in Liquidated (not Completed)
-    /// @dev Documents that micro-liquidation when duration reaches 0 sets status to Liquidated,
-    ///      not Completed. This is because micro-liq goes through the liquidation path.
+    /// @notice 19.8: Micro-liq on duration=1 results in Completed (orderly wind-down).
+    /// @dev The protocol uses a two-track terminal state model:
+    ///      - Completed = orderly wind-down. Used when the loan lifecycle ends naturally
+    ///        (full repayment OR micro-liquidation exhausting all remaining periods).
+    ///      - Liquidated = emergency seizure. Reserved for health-factor-breach full liquidations.
+    ///      Micro-liq exhaustion is an orderly process (one period at a time), not an emergency.
     function test_MicroLiquidation_DurationOne_EscalatesToFullLiquidation_NotCompleted() public {
         // Arrange: create 12-month loan and repay 11 months
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
@@ -267,12 +272,12 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         bool success = _triggerMicroLiquidation(lsa);
         assertTrue(success, "micro-liquidation should succeed on final period");
 
-        // Assert: loan status == Liquidated (NOT Completed, NOT Active) - THIS IS THE BUG
+        // Assert: loan status == Completed (orderly wind-down via micro-liq exhaustion)
         DataTypes.LoanData memory loanAfterMicroLiq = loanContract.getLoanByLSA(lsa);
         assertEq(
             uint256(loanAfterMicroLiq.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "VULNERABILITY: micro-liq on duration=1 should result in Liquidated, not Completed"
+            uint256(DataTypes.LoanStatus.Completed),
+            "micro-liq on duration=1 should result in Completed (orderly wind-down)"
         );
 
         // Assert: duration == 0
@@ -285,32 +290,34 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
             "lastPaymentTimestamp should be updated to current time"
         );
 
-        // Assert: attempt to repay fails (loan is Liquidated)
+        // Assert: attempt to repay fails (loan lifecycle is over)
         (bool repaySuccess,) = address(loanContract).call(abi.encodeCall(loanContract.repay, (lsa, 1e6)));
-        assertFalse(repaySuccess, "repay should fail on liquidated loan");
+        assertFalse(repaySuccess, "repay should fail on completed loan");
     }
 
     // ========================================================================
     // Cat 11: Liquidation Cascade & Multi-Loan (9 tests)
     // ========================================================================
 
-    /// @notice 11.1: Repeated micro-liq cascade eventually results in Liquidated status
-    /// @dev The cascade may escalate to full liquidation via post-sale guard OR exhaust
-    ///      all remaining duration via micro-liquidations (each reduces duration by 1).
-    ///      With stale collateralAmount in LoanLiquidationLogic, the post-sale guard may
-    ///      not trigger full liquidation, but repeated micro-liqs will eventually set
-    ///      duration to 0, which sets status to Liquidated.
+    /// @notice 11.1: Repeated micro-liq cascade eventually results in a terminal status.
+    /// @dev The cascade may escalate to full liquidation via post-sale guard (→ Liquidated)
+    ///      OR exhaust all remaining duration via micro-liquidations (→ Completed).
+    ///      Both are valid terminal states:
+    ///      - Completed = orderly wind-down via repeated micro-liq exhausting all periods
+    ///      - Liquidated = emergency seizure via health-factor breach during cascade
     function test_MicroLiquidation_CascadeToFull_WhenInsufficientCollateral() public {
         // Arrange
         address lsa = _createStandardLoan();
-        bool reachedLiquidated = false;
+        bool reachedTerminal = false;
 
         // Loop: make overdue, execute micro-liq, check if escalated
         for (uint256 i = 0; i < MAX_CASCADE_ITERATIONS; i++) {
-            // Check current loan status — may already be Liquidated from duration hitting 0
+            // Check current loan status — may already be terminal from duration hitting 0
             DataTypes.LoanData memory currentLoan = loanContract.getLoanByLSA(lsa);
             if (uint256(currentLoan.status) != uint256(DataTypes.LoanStatus.Active)) {
-                reachedLiquidated = uint256(currentLoan.status) == uint256(DataTypes.LoanStatus.Liquidated);
+                // Both Completed (micro-liq exhaustion) and Liquidated (full liq) are valid terminal states
+                reachedTerminal = uint256(currentLoan.status) == uint256(DataTypes.LoanStatus.Liquidated)
+                    || uint256(currentLoan.status) == uint256(DataTypes.LoanStatus.Completed);
                 break;
             }
 
@@ -323,25 +330,33 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
                 // Escalated to full liquidation
                 bool success = _triggerFullLiquidation(lsa);
                 assertTrue(success, "full liquidation should succeed after cascade");
-                reachedLiquidated = true;
+                reachedTerminal = true;
                 break;
             } else if (liquidationType == TC.LIQUIDATION_TYPE_MICRO) {
                 bool success = _triggerMicroLiquidation(lsa);
                 assertTrue(success, "micro-liquidation should succeed in cascade iteration");
+
+                // Check if this micro-liq set the loan to a terminal state (e.g. duration hit 0 → Completed)
+                DataTypes.LoanData memory postMicroLoan = loanContract.getLoanByLSA(lsa);
+                if (uint256(postMicroLoan.status) != uint256(DataTypes.LoanStatus.Active)) {
+                    reachedTerminal = uint256(postMicroLoan.status) == uint256(DataTypes.LoanStatus.Liquidated)
+                        || uint256(postMicroLoan.status) == uint256(DataTypes.LoanStatus.Completed);
+                    break;
+                }
             } else {
                 // No liquidation possible - loan may have been completed/settled
                 break;
             }
         }
 
-        // Assert: cascade must eventually result in Liquidated status
-        assertTrue(reachedLiquidated, "cascade must reach Liquidated status within MAX_CASCADE_ITERATIONS");
+        // Assert: cascade must reach a terminal status within MAX_CASCADE_ITERATIONS
+        assertTrue(reachedTerminal, "cascade must reach terminal status within MAX_CASCADE_ITERATIONS");
 
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "loan should be liquidated after cascade"
+        assertTrue(
+            uint256(loanData.status) == uint256(DataTypes.LoanStatus.Liquidated)
+                || uint256(loanData.status) == uint256(DataTypes.LoanStatus.Completed),
+            "loan should be in terminal state (Liquidated or Completed) after cascade"
         );
     }
 

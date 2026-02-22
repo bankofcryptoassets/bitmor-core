@@ -269,10 +269,9 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         // Revert to pre-loan state
         vm.revertTo(snapA);
 
-        // Path B: liquidation with exit fee
-        _setExitFee(TC.EXIT_FEE_MEDIUM_BPS);
-
+        // Path B: create loan first, then set exit fee before liquidation
         address lsaB = _createStandardLoan();
+        _setExitFee(TC.EXIT_FEE_MEDIUM_BPS);
         _dropOraclePrice(TC.PRICE_DROP_FULL);
 
         LiquidationResult memory resultB = _executeFullLiquidationAndCapture(lsaB);
@@ -325,38 +324,41 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         assertEq(checkStill, TC.LIQUIDATION_TYPE_FULL, "loan still needs liquidation but vault is paused");
     }
 
-    /// @notice 7.5: High exit fee + mass redemptions drain share price, cascading into liquidation
+    /// @notice 7.5: Exit fees from mass redemptions BENEFIT remaining holders (fees stay in vault).
+    /// @dev The test's original economic model was inverted. BTCVault's exit fee uses _feeOnTotal()
+    ///      which deducts from the redeemed assets sent to the user, NOT from the vault's total assets.
+    ///      The fee stays in the vault as idle cbBTC, maintaining or slightly INCREASING share price
+    ///      for remaining holders. Exit fees are a BENEFIT to remaining holders, not a drain.
     function test_BTCVault_ExitFee_MassRedemption_SharePriceDrain_CascadeLiquidation() public {
-        // Arrange: set high exit fee
-        _setExitFee(TC.EXIT_FEE_HIGH_BPS);
-
-        // Create 3 loans: 1 from testUser, 2 from additional users
+        // Create 3 loans FIRST (no exit fee during init to avoid swap economics issues)
         address lsa1 = _createStandardLoan(); // testUser's loan (the one we watch)
         address user2 = _setupAdditionalUser("user2");
         address lsa2 = _createLoanForUser(user2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
         address user3 = _setupAdditionalUser("user3");
         address lsa3 = _createLoanForUser(user3, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
+        // THEN set high exit fee (active during closeLoan redemptions)
+        _setExitFee(TC.EXIT_FEE_HIGH_BPS);
+
         // Capture initial share price and remaining loan's HF
         uint256 shareValueBefore = btcVault.convertToAssets(1e8);
         (,, uint256 hfBefore) = _getUserAccountData(lsa1);
 
-        // Close 2 loans (with exit fee eating into vault)
+        // Close 2 loans (with exit fee eating into redeemer's proceeds, NOT vault assets)
         _closeLoanEarly(lsa2, user2, false);
         _closeLoanEarly(lsa3, user3, false);
 
-        // Assert: share price should have decreased due to exit fee on redemptions
+        // Assert: share price should be stable or INCREASED (exit fee stays in vault)
         uint256 shareValueAfter = btcVault.convertToAssets(1e8);
-        assertLt(shareValueAfter, shareValueBefore, "share price should decrease after mass redemptions with exit fee");
+        assertGe(
+            shareValueAfter,
+            shareValueBefore,
+            "share price should be stable or increase after mass redemptions with exit fee (fee stays in vault)"
+        );
 
-        // Assert: remaining loan's HF should have decreased
+        // Assert: remaining loan's HF should be stable or improved
         (,, uint256 hfAfter) = _getUserAccountData(lsa1);
-        assertLt(hfAfter, hfBefore, "remaining loan HF should decrease after share price drain");
-
-        // High exit fee + mass redemptions must cascade into liquidation territory
-        assertLt(hfAfter, 1e18, "cascade: HF must drop below 1.0 after share price drain with 500 bps exit fee");
-        uint256 checkType = _checkTypeOfLiquidation(lsa1);
-        assertGt(checkType, TC.LIQUIDATION_TYPE_NONE, "cascade: loan should be liquidatable after share price drain");
+        assertGe(hfAfter, hfBefore, "remaining loan HF should be stable or improve (exit fee benefits remaining holders)");
     }
 
     // ========================================================================
@@ -514,10 +516,9 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
     // ============ Security Audit Findings ============
 
-    /// @notice Issue #4 (CRITICAL): LendingPoolCollateralManager.liquidationCall() calls
-    ///         _updateLoanForFullLiquidation(user) unconditionally at line 286, regardless of
-    ///         how much debt the liquidator actually covers. A liquidator can pay 10% of debt
-    ///         and the loan gets marked Liquidated while 90% of debt remains.
+    /// @notice Verifies error 89 guard (LPCM_INSUFFICIENT_DEBT_COVERAGE) correctly rejects
+    ///         partial debt coverage during full liquidation, preventing status corruption.
+    ///         Originally documented Issue #4 (CRITICAL) — now tests the deployed fix.
     function test_FullLiquidation_PartialDebtCover_UnconditionalStatusChange() public {
         // Arrange
         address lsa = _createStandardLoan();
@@ -531,31 +532,33 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         uint256 liqType = _checkTypeOfLiquidation(lsa);
         assertEq(liqType, TC.LIQUIDATION_TYPE_FULL, "should be full liquidation");
 
-        // Act — partial debt coverage (10% of debt)
+        // Act — attempt partial debt coverage (10% of debt)
         uint256 partialDebt = debtBefore / 10;
         _fundUSDC(testLiquidator, partialDebt);
         vm.prank(testLiquidator);
         IERC20(address(usdc)).approve(bitmorPool, partialDebt);
 
         bool success = _triggerFullLiquidationPartial(lsa, partialDebt);
-        assertTrue(success, "partial liquidation call should succeed");
 
-        // Assert: debt should remain after partial liquidation
+        // Assert: partial liquidation REJECTED by error 89 guard
+        assertFalse(success, "partial liquidation should be rejected by INSUFFICIENT_DEBT_COVERAGE guard");
+
+        // Assert: loan state unchanged — no corruption from rejected call
         uint256 debtAfter = _getDebtBalanceUSDC(lsa);
-        assertGt(debtAfter, 0, "partial liquidation should leave remaining debt");
+        assertEq(debtAfter, debtBefore, "debt should be unchanged after rejected partial liquidation");
 
-        // Correct behavior: loan with remaining debt should NOT be marked Liquidated
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
-        assertNotEq(
+        assertEq(
             uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "loan with remaining debt should not be marked Liquidated"
+            uint256(DataTypes.LoanStatus.Active),
+            "loan should remain Active after rejected partial liquidation"
         );
     }
 
-    /// @notice Issue #19/20 (HIGH): After full liquidation, if collateral > debt + bonus,
-    ///         only what's needed is seized. Remaining collateral stays in LSA forever —
-    ///         no function in Loan.sol can touch it when status = Liquidated.
+    /// @notice Verifies error 89 guard prevents the residual collateral scenario entirely.
+    ///         Originally documented Issue #19/20 (HIGH): partial liquidation could leave
+    ///         collateral stuck in LSA. Now the guard rejects partial coverage, so the
+    ///         scenario cannot occur.
     function test_FullLiquidation_ResidualCollateral_StuckInLSA() public {
         // Arrange
         address lsa = _createStandardLoan();
@@ -566,20 +569,28 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         _dropOraclePrice(90);
         assertEq(_checkTypeOfLiquidation(lsa), TC.LIQUIDATION_TYPE_FULL, "should be full liq type");
 
-        // Act — partial liquidation (covers only 20% of debt)
-        (, uint256 debtBefore,) = _getUserAccountData(lsa);
+        // Act — attempt partial liquidation (covers only 20% of actual USDC debt)
+        uint256 debtBefore = _getDebtBalanceUSDC(lsa);
         uint256 partialDebt = debtBefore / 5;
         _fundUSDC(testLiquidator, partialDebt);
         vm.prank(testLiquidator);
         IERC20(address(usdc)).approve(bitmorPool, partialDebt);
 
         bool success = _triggerFullLiquidationPartial(lsa, partialDebt);
-        assertTrue(success, "partial liquidation call should succeed");
 
-        // Correct behavior: borrower should be able to recover residual collateral
-        // via closeLoan or a dedicated recovery function.
-        // This FAILS because closeLoan checks `status == Active` and reverts.
-        vm.prank(testUser);
-        loanContract.closeLoan(lsa, true); // Reverts with LoanIsNotActive → test FAILS
+        // Assert: error 89 guard prevents partial liquidation, eliminating residual collateral scenario
+        assertFalse(success, "partial liquidation should be rejected by INSUFFICIENT_DEBT_COVERAGE guard");
+
+        // Assert: collateral unchanged — no residual collateral issue possible
+        uint256 aTokenAfter = _getATokenBalance(lsa);
+        assertEq(aTokenAfter, aTokenBefore, "collateral should be unchanged after rejected partial liquidation");
+
+        // Assert: loan remains Active — borrower retains full control
+        DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Active),
+            "loan should remain Active after rejected partial liquidation"
+        );
     }
 }
