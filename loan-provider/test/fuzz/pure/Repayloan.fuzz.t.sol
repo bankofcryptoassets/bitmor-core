@@ -56,7 +56,7 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         uint256 totalDebt = _getDebtBalance(lsa);
         uint256 collateralBefore = _getCollateralBalance(lsa);
 
-        uint256 repayAmount = bound(repayAmountSeed, 1, totalDebt - 1);
+        uint256 repayAmount = bound(repayAmountSeed, 1, totalDebt - 11);
 
         _fundUserForRepay(repayAmount);
         vm.prank(user);
@@ -183,7 +183,7 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         uint256 initialDuration = loanData.duration;
 
         // Total must be >= 2 (splittable) and < totalDebt (both paths stay partial)
-        uint256 totalAmount = bound(totalAmountSeed, 2, totalDebt - 1);
+        uint256 totalAmount = bound(totalAmountSeed, 2, totalDebt - 11);
         uint256 firstPayment = bound(splitSeed, 1, totalAmount - 1);
         uint256 secondPayment = totalAmount - firstPayment;
 
@@ -224,10 +224,11 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         address lsa = _createStandardLoan();
         uint256 initialDebt = _getDebtBalance(lsa);
 
-        // First repay: always partial
-        uint256 amount1 = bound(amount1Seed, 1, initialDebt - 1);
-        // Second repay: any amount (capped to remaining debt by RepayLogic)
-        uint256 amount2 = bound(amount2Seed, 1, initialDebt);
+        // First repay: always partial, leave enough that second repay won't hit dust path
+        uint256 amount1 = bound(amount1Seed, 1, initialDebt - 12);
+        uint256 remainingAfter1 = initialDebt - amount1;
+        // Second repay: either clearly partial (leaving > 10 wei) or clearly full (>= remaining)
+        uint256 amount2 = bound(amount2Seed, remainingAfter1, initialDebt);
 
         _fundUserForRepay(amount1 + amount2);
         uint256 userBalanceBefore = mockUSDC.balanceOf(user);

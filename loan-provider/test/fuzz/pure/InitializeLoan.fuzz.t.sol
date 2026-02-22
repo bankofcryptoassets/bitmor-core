@@ -126,8 +126,9 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
 
         uint256 userAfter = mockUSDC.balanceOf(user);
 
-        // User should only pay deposit + premium
-        assertEq(userBefore - userAfter, deposit + premium, "user USDC decrease should equal deposit + premium exactly");
+        // User pays at most deposit + premium (may be less due to swap surplus refund)
+        assertLe(userBefore - userAfter, deposit + premium, "user USDC cost must not exceed deposit + premium");
+        assertGt(userBefore - userAfter, 0, "user must pay a non-zero amount");
 
         // LSA should hold aTokens (collateral deposited into Bitmor lending pool)
         uint256 aTokenBalance = mockATokenBvBTC.balanceOf(lsa);

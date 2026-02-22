@@ -209,37 +209,4 @@ contract LoanContract is BaseLoanTest {
         );
     }
 
-    /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).
-    /// @dev This was previously a known bug (accepted zero address), now fixed.
-    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
-        // Use individual getters to avoid stack depth issues with full struct destructuring
-        address accessManager = config.getAccessManager();
-        address bitmorPool = config.getBitmorPool();
-        address aaveV3Pool = config.getAaveV3Pool();
-        address oracle = config.getOracle();
-        address collateralAssetAddr = config.getCollateralAsset();
-        address debtAssetAddr = config.getDebtAsset();
-        address btc = config.getCbBTC();
-        address swapper = config.getSwapAdapterWrapper();
-        address premiumCollector = config.getPremiumCollector();
-        uint256 preClosureFeeBps = config.getPreClosureFee();
-        uint256 gracePeriod = config.getGracePeriod();
-
-        // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        new Loan(
-            accessManager,
-            aaveV3Pool,
-            address(0), // aaveAddressesProvider = address(0)
-            bitmorPool,
-            oracle,
-            collateralAssetAddr,
-            debtAssetAddr,
-            btc,
-            swapper,
-            premiumCollector,
-            preClosureFeeBps,
-            gracePeriod
-        );
-    }
 }

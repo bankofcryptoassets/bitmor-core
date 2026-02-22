@@ -143,10 +143,10 @@ contract LoanFuzzTest is LoanUnitTestBase {
 
         // Get debt before repayment
         uint256 debtBefore = _getDebtBalance(lsa);
-        vm.assume(debtBefore > FC.MIN_USDC_AMOUNT);
+        vm.assume(debtBefore > FC.MIN_USDC_AMOUNT + 11);
 
-        // Bound repayment to valid range
-        uint256 repayment = bound(repaymentSeed, FC.MIN_USDC_AMOUNT, debtBefore);
+        // Bound repayment to valid range (leave > DEBT_DUST_THRESHOLD to stay in partial-repay path)
+        uint256 repayment = bound(repaymentSeed, FC.MIN_USDC_AMOUNT, debtBefore - 11);
 
         // Fund user and advance time to allow repayment
         _fundUSDCAndApprove(user, address(loan), repayment);

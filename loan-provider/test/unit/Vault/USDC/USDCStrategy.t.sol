@@ -379,7 +379,7 @@ contract USDCStrategyTest is BaseTestForUSDCVault {
     function test_harness_getBalanceInAave() public {
         // Switch vault's strategy to the harness so depositToBLP allows calls from it
         _scheduleAndExecuteLocal(
-            uvm_slow, UVM_SLOW_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategyHarness)))
+            uvc, UVC_ID(), abi.encodeCall(USDCVault.setStrategy, (address(strategyHarness)))
         );
 
         // Fund vault with USDC
