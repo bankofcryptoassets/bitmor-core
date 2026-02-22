@@ -332,6 +332,7 @@ contract WithdrawQueue is BaseTestForBTCVault {
         assertEq(vault.getSupplyQueueLength(), 1, "supply queue should be auto-cleaned after removal");
 
         // Deposit should still succeed
+
         uint256 depositAmount = DEPOSIT_AMOUNT;
         vm.startPrank(user);
         mockUSDC.approve(address(vault), depositAmount);

@@ -159,7 +159,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function setEntryFee(uint256 newEntryFee) external restricted {
         if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
-        if (newEntryFee > 0 && s_vault.feeRecipient == address(0)) revert Errors.Vault__FeeRecipientNotSet();
+        if (newEntryFee > 0 && s_vault.feeRecipient == address(0)) {
+            revert Errors.Vault__FeeRecipientNotSet();
+        }
 
         s_vault.updateEntryFee(newEntryFee);
 
@@ -173,7 +175,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function setExitFee(uint256 newExitFee) external restricted {
         if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
-        if (newExitFee > 0 && s_vault.feeRecipient == address(0)) revert Errors.Vault__FeeRecipientNotSet();
+        if (newExitFee > 0 && s_vault.feeRecipient == address(0)) {
+            revert Errors.Vault__FeeRecipientNotSet();
+        }
 
         s_vault.updateExitFee(newExitFee);
 

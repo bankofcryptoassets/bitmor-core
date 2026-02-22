@@ -28,7 +28,7 @@ contract LSALogicHarness {
     /// @notice Exposes LSALogic.withdrawCollateral for testing
     /// @param lsa The Loan Specific Address holding the collateral position
     /// @param bitmorPool Bitmor Lending Pool address
-    /// @param collateralAsset Collateral asset address (e.g., cbBTC)
+    /// @param collateralAsset Collateral asset address (e.g., bvBTC)
     /// @param recipient Address to receive the withdrawn collateral
     /// @return amountWithdrawn The actual amount of collateral withdrawn
     function exposed_withdrawCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)

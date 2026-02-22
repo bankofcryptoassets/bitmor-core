@@ -38,44 +38,17 @@ contract LoanMathHarness {
 
     /**
      * @notice Exposes LoanMath.calculateLoanDetails for testing
-     * @param collateralAmount Desired BTC collateral amount (8 decimals)
-     * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
-     * @param collateralAssetDecimals Number of decimals for collateral asset
-     * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
-     * @param debtAssetDecimals Number of decimals for debt asset
-     * @param interestRate Interest rate from Aave V2 reserve (27 decimals - RAY)
-     * @param duration Loan duration in months
-     * @param minDepositBps Minimum deposit in basis points
-     * @param flashLoanPremiumBps Aave V3 flash loan premium in basis points
+     * @param p Struct containing all loan detail calculation parameters
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    function exposed_calculateLoanDetails(
-        uint256 collateralAmount,
-        uint256 collateralPriceUSD,
-        uint256 collateralAssetDecimals,
-        uint256 debtPriceUSD,
-        uint256 debtAssetDecimals,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 minDepositBps,
-        uint256 flashLoanPremiumBps
-    ) external pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
-        return LoanMath.calculateLoanDetails(
-            DataTypes.CalculateLoanAmt({
-                depositAmount: 0,
-                debtAssetDecimals: debtAssetDecimals,
-                collateralAmount: collateralAmount,
-                collateralAssetDecimals: collateralAssetDecimals,
-                collateralPriceUSD: collateralPriceUSD,
-                debtPriceUSD: debtPriceUSD,
-                interestRate: interestRate,
-                duration: duration,
-                minDepositBps: minDepositBps,
-                flashLoanPremiumBps: flashLoanPremiumBps
-            })
-        );
+    function exposed_calculateLoanDetails(DataTypes.CalculateLoanAmt memory p)
+        external
+        pure
+        returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
+        return LoanMath.calculateLoanDetails(p);
     }
 
     /**

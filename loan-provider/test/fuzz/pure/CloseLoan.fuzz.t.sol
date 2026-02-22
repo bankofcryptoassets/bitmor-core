@@ -39,7 +39,7 @@ contract CloseLoanFuzzTest is LoanFuzzTestBase {
 
     /**
      * @notice Creates a loan with specified collateral and duration using minimum deposit
-     * @param collateral Collateral amount in cbBTC (8 decimals)
+     * @param collateral Target cbBTC amount (8 decimals)
      * @param duration Loan duration in months
      * @return lsa The deployed Loan Smart Account address
      */
@@ -140,7 +140,9 @@ contract CloseLoanFuzzTest is LoanFuzzTestBase {
 
         address lsa = _createLoanWithParams(collateral, duration);
 
-        // Drop collateral asset (bvBTC) oracle price
+        // Drop both cbBTC price (production oracle queries) and bvBTC price (mock lending pool valuation)
+        // In production, bvBTC price tracks cbBTC since vault shares are backed by cbBTC
+        mockOracle.dropPrice(address(mockCbBTC), priceDrop);
         mockOracle.dropPrice(address(mockBTCVault), priceDrop);
 
         vm.expectRevert(Errors.InsufficientCollateral.selector);

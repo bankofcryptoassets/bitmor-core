@@ -272,12 +272,12 @@ contract LoanFuzzTest is LoanUnitTestBase {
 
     /**
      * @notice Calculates collateral value in USD
-     * @param collateralAmount BTC amount (8 decimals)
+     * @param btcAmount BTC amount (8 decimals)
      * @param btcPrice BTC price in USD (8 decimals)
      * @return Collateral value in USD (8 decimals)
      */
-    function _getCollateralValueUsd(uint256 collateralAmount, uint256 btcPrice) internal pure returns (uint256) {
-        return (collateralAmount * btcPrice) / 1e8;
+    function _getCollateralValueUsd(uint256 btcAmount, uint256 btcPrice) internal pure returns (uint256) {
+        return (btcAmount * btcPrice) / 1e8;
     }
 
     /**

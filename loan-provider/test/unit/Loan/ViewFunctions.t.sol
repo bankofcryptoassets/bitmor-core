@@ -94,7 +94,7 @@ contract ViewFunctionsTest is BaseLoanTest {
 
         // Verify exact values for inputs
         assertEq(data.borrower, user, "Borrower should match");
-        assertEq(data.collateralAmount, collateral, "Collateral should match exact input");
+        assertEq(data.btcAmount, collateral, "Collateral should match exact input");
         assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
         assertEq(data.duration, duration, "Duration should match exact input");
         // Monthly payment is recalculated based on actual borrowed amount, so just verify it's positive
@@ -181,13 +181,13 @@ contract ViewFunctionsTest is BaseLoanTest {
         DataTypes.LoanData[] memory userLoans = loan.getUserAllLoans(user);
         assertEq(userLoans.length, 1, "User should have 1 loan");
         assertEq(userLoans[0].borrower, user, "Loan borrower should match user");
-        assertEq(userLoans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+        assertEq(userLoans[0].btcAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
 
         // Verify borrower2's loans
         DataTypes.LoanData[] memory borrower2Loans = loan.getUserAllLoans(borrower2);
         assertEq(borrower2Loans.length, 1, "Borrower2 should have 1 loan");
         assertEq(borrower2Loans[0].borrower, borrower2, "Loan borrower should match borrower2");
-        assertEq(borrower2Loans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
+        assertEq(borrower2Loans[0].btcAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
     }
 
     // ============ Flash Loan Premium in EMI (vuln-22) ============

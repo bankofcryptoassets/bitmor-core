@@ -77,7 +77,7 @@ struct LoanData {
     address borrower;
     uint256 depositAmount;        // Initial USDC deposit (6 decimals)
     uint256 loanAmount;           // Flash loan amount (6 decimals)
-    uint256 collateralAmount;     // cbBTC collateral (8 decimals)
+    uint256 btcAmount;     // cbBTC collateral (8 decimals)
     uint256 estimatedMonthlyPayment;
     uint256 duration;             // Loan term in months
     uint256 createdAt;

@@ -16,7 +16,7 @@ interface IMockLoanForLiquidation {
         address borrower,
         uint256 depositAmount,
         uint256 loanAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 estimatedMonthlyPayment,
         uint256 duration,
         uint256 createdAt,
@@ -138,7 +138,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
 
     /// @dev Helper to build an active loan with standard parameters
     function _setActiveLoan(
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 estimatedMonthlyPayment,
         uint256 duration,
         uint256 insuranceID,
@@ -148,7 +148,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
             USER,
             1000e6, // depositAmount
             10000e6, // loanAmount
-            collateralAmount,
+            btcAmount,
             estimatedMonthlyPayment,
             duration,
             block.timestamp - 60 days, // createdAt
@@ -159,7 +159,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         );
 
         // Mirror collateral in the aToken so Helpers.getUserCurrentCollateral reads the correct value
-        collateralAToken.setBalance(USER, collateralAmount);
+        collateralAToken.setBalance(USER, btcAmount);
     }
 
     // ============================================================
@@ -286,20 +286,20 @@ contract LoanLiquidationLogicFuzzTest is Test {
     // ============================================================
 
     function testFuzz_sufficientCollateralReturnsMicro(
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 monthlyPayment
     ) public {
         // Large collateral relative to debt → micro liquidation (2)
         // Guard check requires: remainingCollateral >= (debt - monthly) * bonus
         // So we need enough collateral to cover total debt * bonus after micro-liq
-        collateralAmount = bound(collateralAmount, 1e8, 10e8); // 1 to 10 BTC ($60k-$600k)
+        btcAmount = bound(btcAmount, 1e8, 10e8); // 1 to 10 BTC ($60k-$600k)
         monthlyPayment = bound(monthlyPayment, 100e6, 500e6); // $100 - $500
 
         // Make loan overdue: lastPayment far in the past
         uint256 lastPayment = block.timestamp - 60 days;
 
         _setActiveLoan(
-            collateralAmount,
+            btcAmount,
             monthlyPayment,
             6, // 6 months duration → debt = monthly * 6
             1, // insured (skip uninsured+HF check)
@@ -332,11 +332,11 @@ contract LoanLiquidationLogicFuzzTest is Test {
         monthlyPayment = bound(monthlyPayment, 50_000e6, 100_000e6); // $50k - $100k
 
         // Very small collateral: 0.001 BTC = $60 at $60,000/BTC
-        uint256 collateralAmount = 0.001e8;
+        uint256 btcAmount = 0.001e8;
         uint256 lastPayment = block.timestamp - 60 days;
 
         _setActiveLoan(
-            collateralAmount,
+            btcAmount,
             monthlyPayment,
             12,
             1, // insured
@@ -393,7 +393,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
     function testFuzz_resultIsAlwaysZeroOneOrTwo(
         uint256 hf,
         uint256 insuranceID,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 monthlyPayment,
         uint256 currentDebt,
         uint256 elapsedDays
@@ -401,7 +401,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         // checkTypeOfLiquidation can only return 0, 1, or 2
         hf = bound(hf, 0, type(uint128).max);
         insuranceID = bound(insuranceID, 0, 10);
-        collateralAmount = bound(collateralAmount, 1e5, 10e8); // 0.001 to 10 BTC
+        btcAmount = bound(btcAmount, 1e5, 10e8); // 0.001 to 10 BTC
         monthlyPayment = bound(monthlyPayment, 100e6, 10_000e6);
         currentDebt = bound(currentDebt, 100e6, 100_000e6);
         elapsedDays = bound(elapsedDays, 0, 300);
@@ -409,7 +409,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         uint256 lastPayment = block.timestamp - elapsedDays * ONE_DAY;
 
         _setActiveLoan(
-            collateralAmount,
+            btcAmount,
             monthlyPayment,
             12,
             insuranceID,

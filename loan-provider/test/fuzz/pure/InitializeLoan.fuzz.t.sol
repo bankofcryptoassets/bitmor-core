@@ -41,7 +41,7 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
      * @notice Creates a loan with explicit parameters, funding user as needed
      * @param deposit Deposit amount in USDC
      * @param premium Premium amount in USDC
-     * @param collateral Collateral amount in cbBTC
+     * @param collateral Target cbBTC amount
      * @param duration Loan duration in months
      */
     function _createLoanFull(uint256 deposit, uint256 premium, uint256 collateral, uint256 duration)
@@ -135,7 +135,7 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
     }
 
     /**
-     * @notice `depositAmount` and `collateralAmount` stored in LoanData must exactly
+     * @notice `depositAmount` and `btcAmount` stored in LoanData must exactly
      *         match the input parameters across all valid combinations.
      * @dev Catches storage truncation or precision loss at large values.
      * @param collateralSeed Seed for bounded collateral amount
@@ -158,7 +158,7 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
         DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
 
         assertEq(data.depositAmount, deposit, "stored depositAmount must match input");
-        assertEq(data.collateralAmount, collateral, "stored collateralAmount must match input");
+        assertEq(data.btcAmount, collateral, "stored btcAmount must match input");
         assertEq(data.duration, duration, "stored duration must match input");
         assertEq(data.borrower, user, "stored borrower must match caller");
         assertEq(uint256(data.status), uint256(DataTypes.LoanStatus.Active), "status must be Active");

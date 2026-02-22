@@ -48,7 +48,7 @@ library RepayLogic {
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param params Repayment parameters containing LSA and amount
      * @param loansByLSA Storage mapping of all loans by LSA
      * @return finalAmountRepaid The actual amount repaid to the pool
@@ -105,7 +105,7 @@ library RepayLogic {
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to the `borrower` address
             params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
             emit ILoan.Loan__Completed(params.lsa);

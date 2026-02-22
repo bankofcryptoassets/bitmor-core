@@ -63,7 +63,7 @@ contract Loan is ILoan, AccessManaged {}
  * @dev Executes flash loan -> swap -> collateral deposit flow
  * @param deposit User's USDC down payment amount
  * @param premium Total premium over loan duration
- * @param collateralAmount Target cbBTC collateral amount
+ * @param btcAmount Target cbBTC collateral amount
  * @param duration Loan duration in months (1-60)
  * @param data Additional swap parameters
  * @return lsa Address of the created LoanVault
@@ -72,7 +72,7 @@ contract Loan is ILoan, AccessManaged {}
 function initializeLoan(
     uint256 deposit,
     uint256 premium,
-    uint256 collateralAmount,
+    uint256 btcAmount,
     uint256 duration,
     bytes calldata data
 ) external returns (address lsa);
@@ -108,13 +108,13 @@ error Loan__InvalidDuration(uint256 provided, uint256 maximum);
  * @notice Emitted when a new loan is initialized
  * @param borrower Address of the loan borrower
  * @param lsa Address of the created LoanVault
- * @param collateralAmount Amount of cbBTC collateral
+ * @param btcAmount Amount of cbBTC collateral
  * @param duration Loan duration in months
  */
 event LoanInitialized(
     address indexed borrower,
     address indexed lsa,
-    uint256 collateralAmount,
+    uint256 btcAmount,
     uint256 duration
 );
 ```
@@ -130,7 +130,7 @@ struct LoanData {
     /// @dev Address of the loan borrower
     address borrower;
     /// @dev Amount of collateral in cbBTC (8 decimals)
-    uint256 collateralAmount;
+    uint256 btcAmount;
     /// @dev Monthly payment amount in USDC (6 decimals)
     uint256 monthlyPayment;
     /// @dev Loan start timestamp

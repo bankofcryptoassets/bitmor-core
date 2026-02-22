@@ -100,7 +100,7 @@ library LoanMath {
      * 5. Computes EMI using standard amortization formula
      *
      * ## Validation
-     * - Reverts with `InsufficientCollateral` if deposit exceeds collateral value
+     * - Reverts with `InsufficientCollateral` if deposit value exceeds cbBTC value (no loan needed)
      * - Reverts with `InsufficientDeposit` if deposit is below 33% of collateral
      *
      * @param data Struct containing all calculation parameters
@@ -113,24 +113,23 @@ library LoanMath {
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        // Convert collateral amount to USD value
-        uint256 collateralValueUSD =
-            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
+        // Convert BTC amount to USD value
+        uint256 btcValueUSD = data.btcAmount.fullMulDivUp(data.btcPriceUSD, (10 ** data.btcAssetDecimals));
 
         // Convert deposit amount to USD value
         uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
 
-        // Ensure collateral value exceeds deposit
-        if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
+        // Ensure BTC value exceeds deposit
+        if (depositValueUSD > btcValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = btcValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
         minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
-        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+        uint256 loanValueUSD = btcValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
@@ -158,38 +157,37 @@ library LoanMath {
      * 4. Include flash loan premium in total debt
      * 5. Calculate monthly payment using EMI formula
      *
-     * @param data Struct containing collateral amount, prices, decimals, interest rate, duration, and deposit/premium params
+     * @param p Struct containing all loan detail calculation parameters
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    function calculateLoanDetails(DataTypes.CalculateLoanAmt memory data)
+    function calculateLoanDetails(DataTypes.CalculateLoanAmt memory p)
         internal
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        // Convert collateral amount to USD value
-        uint256 collateralValueUSD =
-            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
+        // Convert BTC amount to USD value
+        uint256 btcValueUSD = p.btcAmount.fullMulDivUp(p.btcPriceUSD, (10 ** p.btcAssetDecimals));
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = btcValueUSD.fullMulDivUp(p.minDepositBps, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** p.debtAssetDecimals), p.debtPriceUSD);
 
         // Calculate loan amount in USD
-        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+        uint256 loanValueUSD = btcValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
-        loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
+        loanAmount = loanValueUSD.fullMulDivUp((10 ** p.debtAssetDecimals), p.debtPriceUSD);
 
         // Include flash loan premium in EMI principal (matches CloseLoanLogic pattern)
-        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(data.flashLoanPremiumBps, BASIS_POINTS);
+        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(p.flashLoanPremiumBps, BASIS_POINTS);
         uint256 totalDebt = loanAmount + flashLoanPremiumAmt;
 
         // Calculate monthly payment on total debt (loanAmount + flash loan premium)
-        monthlyPayAmt = _calculateEMI(totalDebt, data.interestRate, data.duration);
+        monthlyPayAmt = _calculateEMI(totalDebt, p.interestRate, p.duration);
     }
 
     /**

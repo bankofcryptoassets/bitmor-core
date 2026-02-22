@@ -36,11 +36,11 @@ contract InsuranceTest is BaseLoanTest {
         loanData = loan.getLoanByLSA(lsa);
     }
 
-    /// @notice Converts a `collateralAmount` (8 decimals) to USDC (6 decimals) using oracle prices
-    function _collateralToUsdc(uint256 collateralAmount) internal view returns (uint256) {
+    /// @notice Converts a `btcAmount` (8 decimals) to USDC (6 decimals) using oracle prices
+    function _collateralToUsdc(uint256 btcAmount) internal view returns (uint256) {
         uint256 btcPrice = _getBtcPrice();
         uint256 usdcPrice = _getUsdcPrice();
-        return (collateralAmount * btcPrice * 1e6) / (usdcPrice * 1e8);
+        return (btcAmount * btcPrice * 1e6) / (usdcPrice * 1e8);
     }
 
     /// @notice Creates an insured loan and sets the insurance ID in mock

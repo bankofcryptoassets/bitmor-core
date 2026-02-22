@@ -305,9 +305,8 @@ contract MockBitmorLendingPool is ILendingPool {
             uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
             uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
-            collateralToSeize =
-                (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
-                    / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+            collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
         }
 
         // Transfer debt from liquidator
@@ -324,9 +323,8 @@ contract MockBitmorLendingPool is ILendingPool {
                 aToken.mint(msg.sender, actualCollateralSeized);
             } else {
                 aToken.burn(user, actualCollateralSeized);
-                IERC20(collateralAsset).transferFrom(
-                    _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
-                );
+                IERC20(collateralAsset)
+                    .transferFrom(_reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized);
             }
 
             // Update loan status in Loan contract (like real LendingPool does)
@@ -410,9 +408,8 @@ contract MockBitmorLendingPool is ILendingPool {
             uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
             uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
 
-            collateralToSeize =
-                (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
-                    / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+            collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+                / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
         }
 
         // Transfer debt from liquidator
@@ -425,9 +422,8 @@ contract MockBitmorLendingPool is ILendingPool {
             uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
 
             aToken.burn(user, actualCollateralSeized);
-            IERC20(collateralAsset).transferFrom(
-                _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
-            );
+            IERC20(collateralAsset)
+                .transferFrom(_reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized);
 
             // Update loan status in Loan contract for micro liquidation
             address bitmorLoan = _addressesProvider.getBitmorLoan();
