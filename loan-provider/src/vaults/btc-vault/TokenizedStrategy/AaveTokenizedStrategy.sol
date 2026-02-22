@@ -28,10 +28,7 @@ contract AaveTokenizedStrategy is SimpleTokenizedStrategy {
      * @param _yieldSource The address of the Aave lending pool
      * @param _vault The address of the vault that will manage this strategy
      */
-    constructor(
-        address _yieldSource,
-        address _vault
-    ) SimpleTokenizedStrategy(_yieldSource, _vault) {}
+    constructor(address _yieldSource, address _vault) SimpleTokenizedStrategy(_yieldSource, _vault) {}
 
     /**
      * @notice Returns the name of the strategy token

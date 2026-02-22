@@ -105,7 +105,13 @@ contract LoanStorage {
 
     /**
      * @notice Maps LSA addresses to their loan data
-     * @dev Primary storage for all loan information
+     * @dev Primary storage for all loan information.
+     *
+     * Status transition invariants on `s_loansByLSA[lsa].status`:
+     * - MUST be set to `Active` upon loan creation
+     * - Transitions MUST be monotonic: Active -> Completed or Active -> Liquidated
+     * - MUST NOT transition from Completed or Liquidated back to Active
+     * - MUST NOT transition from Completed to Liquidated or vice versa
      */
     mapping(address => DataTypes.LoanData) internal s_loansByLSA;
 

@@ -117,7 +117,12 @@ contract USDCStrategy is ISimpleStrategy {
 
     /**
      * @notice Returns the total assets under management across all positions
-     * @dev Sums vault balance and deployed assets in external protocols
+     * @dev Sums vault balance and deployed assets in external protocols.
+     *
+     * USDC Vault invariant:
+     * - The tracked aUSDC balance MUST equal the actual aUSDC held by this strategy;
+     *   that is, the value returned here MUST reflect real Aave aToken and BLP aToken
+     *   balances, not a cached or stale amount
      * @return totalBalance The total amount of assets managed by this strategy
      */
     function totalAssets() public view returns (uint256 totalBalance) {
@@ -199,8 +204,14 @@ contract USDCStrategy is ISimpleStrategy {
         i_asset.safeTransfer(msg.sender, amount);
     }
 
-    /// @notice Rebalances assets between Aave and BLP to match the configured `s_externalAllocation` ratio.
-    /// @custom:access Only callable by the vault
+    /**
+     * @notice Rebalances assets between Aave and BLP to match the configured `s_externalAllocation` ratio
+     * @dev USDC Vault invariants:
+     * - Rebalancing MUST follow the target ratio set via `s_externalAllocation`
+     * - MUST NOT change the total assets under management; totalAssets() before
+     *   MUST equal totalAssets() after (excluding accrued interest during the call)
+     * @custom:access Only callable by the vault
+     */
     function reallocateAssets() external onlyVault {
         _reallocateAssets();
     }

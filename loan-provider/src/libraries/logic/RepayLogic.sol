@@ -46,6 +46,18 @@ library RepayLogic {
      * - If partial period: `amountRepaidInCurrentPeriod` accumulates; duration unchanged
      * - If accumulated amount covers full period(s): duration reduced, remainder carried over
      *
+     * ## Repayment Invariants
+     * - MUST revert if loan status is `Completed` or `Liquidated` (Invariant 2.1.3)
+     * - MUST reduce outstanding debt, MUST NOT increase it (Invariant 3.1)
+     * - MUST cap: `finalAmountRepaid` = min(`params.amount`, `getVDTTokenAmount(lsa)`) (Invariant 3.2)
+     * - Real debt after repayment MUST be strictly less than before (Invariant 3.3)
+     * - Pool available liquidity MUST increase by `finalAmountRepaid` (Invariant 3.4)
+     * - When accumulated repayment covers full period(s), `lastPaymentTimestamp` MUST advance (Invariant 3.5)
+     * - If `params.amount` < `estimatedMonthlyPayment` and accumulated amount does not cover a full
+     *   period, due date MUST NOT advance (Invariant 3.8)
+     * - On final payment: debt remaining MUST be exactly 0 (or below dust threshold),
+     *   MUST NOT be negative (Invariant 3.7)
+     *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAsset Collateral asset address (bvBTC)
@@ -70,7 +82,6 @@ library RepayLogic {
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
-        // Cap the requested amount to outstanding principal so we never custody more than needed
         uint256 totalDebt = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
         uint256 maxRepayableAmt = LoanMath.min(params.amount, totalDebt);
 
@@ -80,16 +91,12 @@ library RepayLogic {
         // Approve Aave V2 pool (the spender) to pull from THIS contract
         IERC20(debtAsset).forceApprove(bitmorPool, maxRepayableAmt);
 
-        // Execute repayment on Aave V2; pool will pull up to `maxRepayableAmt`
         finalAmountRepaid = bitmorPool.executeLoanRepayment(debtAsset, params.lsa, maxRepayableAmt);
 
-        // Update accounting
         uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
 
         // Advance schedule only if loan remains active
         if (totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
-            // Fully repaid (or negligible dust remaining)
-
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
 

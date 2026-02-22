@@ -2,14 +2,14 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import { SafeMath } from "../../../dependencies/openzeppelin/contracts/SafeMath.sol";
-import { PercentageMath } from "../math/PercentageMath.sol";
-import { DataTypes } from "../types/DataTypes.sol";
-import { IPriceOracleGetter } from "../../../interfaces/IPriceOracleGetter.sol";
-import { ReserveConfiguration } from "../configuration/ReserveConfiguration.sol";
-import { GenericLogic } from "./GenericLogic.sol";
-import { ILoan } from "../../../interfaces/ILoan.sol";
-import { Helpers } from "../helpers/Helpers.sol";
+import {SafeMath} from "../../../dependencies/openzeppelin/contracts/SafeMath.sol";
+import {PercentageMath} from "../math/PercentageMath.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+import {IPriceOracleGetter} from "../../../interfaces/IPriceOracleGetter.sol";
+import {ReserveConfiguration} from "../configuration/ReserveConfiguration.sol";
+import {GenericLogic} from "./GenericLogic.sol";
+import {ILoan} from "../../../interfaces/ILoan.sol";
+import {Helpers} from "../helpers/Helpers.sol";
 
 library LoanLiquidationLogic {
     using SafeMath for uint256;
@@ -41,6 +41,45 @@ library LoanLiquidationLogic {
      * 0 => No Liquidation
      * 1 => Full Liquidation in which case Liquidator can call `liquidationCall` function to liquidate complete position of the user
      * 2 => MicroLiquidate in which case Liquidator can `microLiquidationCall` function to micro liquidate user.
+     *
+     * @dev Liquidation invariants enforced by this function:
+     *
+     * Invariant 4.1 — MUST NOT trigger any liquidation before
+     *   `lastPaymentTimestamp + repaymentInterval + gracePeriod` has elapsed.
+     *   The early-return-0 at the timestamp check enforces this.
+     *
+     * Invariant 4.2 — Insured loans (insuranceID != 0) MUST NOT be fully price-liquidated.
+     *   The uninsured-AND-HF check only applies when `insuranceID == 0`, so insured loans
+     *   skip that branch entirely and can only reach full liquidation via the post-sale guard
+     *   or insufficient-collateral path (which are payment-default scenarios, not pure price drops).
+     *
+     * Invariant 4.3 — A current insured loan (payment not overdue) MUST revert (return 0)
+     *   on any liquidation attempt. The timestamp gate returns 0 before any liquidation
+     *   path is evaluated when the EMI is not yet overdue.
+     *
+     * Invariant 4.4 — Micro-liquidation (type 2) MUST only be returned when a payment
+     *   has been missed AND the grace period has expired. The timestamp check ensures this.
+     *
+     * Invariant 4.5 — MUST NOT allow a second micro-liquidation in the same billing cycle.
+     *   After a micro-liquidation, the Loan contract updates `lastPaymentTimestamp`, which
+     *   resets the deadline so the timestamp gate returns 0 until the next due + grace period.
+     *
+     * Invariant 4.6 — Micro-liquidation amount MUST equal exactly one `estimatedMonthlyPayment`
+     *   (capped at `currentDebtBalance`) plus the liquidation bonus. The `amountToBeDeducted`
+     *   calculation enforces this constraint.
+     *
+     * Invariant 4.7 — Post-sale guard: after a hypothetical micro-liquidation, the remaining
+     *   collateral value MUST be >= remaining debt plus liquidation bonus threshold.
+     *   If the guard fails (`remainingCollateralInUSD < guardAmountInUSD`), MUST escalate
+     *   to full liquidation (return 1).
+     *
+     * Invariant 4.10 — Full liquidation (type 1) MUST only be returned when:
+     *   (a) uninsured AND health factor < threshold, OR
+     *   (b) collateral cannot cover even one micro-liquidation outflow, OR
+     *   (c) post-sale guard fails (remaining collateral insufficient).
+     *   If collateral is sufficient AND payment is current, MUST return 0 (no liquidation).
+     *   When full liquidation succeeds, the caller MUST set loan status to Liquidated.
+     *
      * @param user The address of the LSA
      * @param reservesData Data of all the reserves
      * @param hf Health Factor of the user
@@ -61,18 +100,14 @@ library LoanLiquidationLogic {
         }
 
         // If user is uninsured AND HF < threshold → full liquidation
-        if (
-            (loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)
-        ) {
+        if ((loanData.insuranceID == 0) && !(hf >= GenericLogic.HEALTH_FACTOR_LIQUIDATION_THRESHOLD)) {
             return 1;
         }
 
         // If the EMI is not overdue → no liquidation
         if (
-            loanData.lastPaymentTimestamp +
-                bitmorLoan.getGracePeriod() +
-                bitmorLoan.getRepaymentInterval() >=
-            block.timestamp
+            loanData.lastPaymentTimestamp + bitmorLoan.getGracePeriod() + bitmorLoan.getRepaymentInterval()
+                >= block.timestamp
         ) {
             return 0;
         }
@@ -96,9 +131,7 @@ library LoanLiquidationLogic {
         v.debtUnitPrice = IPriceOracleGetter(oracle).getAssetPrice(v.debtAsset);
 
         // collateral value in quote (USD if your oracle is USD)
-        v.collateralValueInUSD = Helpers
-            .getUserCurrentCollateral(user, collateralReserve)
-            .mul(v.collateralUnitPrice)
+        v.collateralValueInUSD = Helpers.getUserCurrentCollateral(user, collateralReserve).mul(v.collateralUnitPrice)
             .div(10 ** v.collateralDecimals);
 
         // current debt = balance of VARIABLE debt token
@@ -115,9 +148,7 @@ library LoanLiquidationLogic {
         v.totalAmtToBeDeducted = v.amountToBeDeducted.percentMul(v.collateralLiquidationBonus);
 
         // convert the outflow to USD (or quote)
-        v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(
-            10 ** v.debtDecimals
-        );
+        v.amountToBeDeductedInUSD = v.totalAmtToBeDeducted.mul(v.debtUnitPrice).div(10 ** v.debtDecimals);
 
         // If the collateral cannot even cover this micro-liq outflow → full liquidation
         if (v.collateralValueInUSD <= v.amountToBeDeductedInUSD) {

@@ -44,8 +44,15 @@ library LSALogic {
 
     /**
      * @notice Approve credit delegation on LSA before borrowing
-     * @dev This MUST be called BEFORE Protocol borrows on behalf of LSA
-     *      Uses the existing execute() function in LoanVault
+     * @dev This MUST be called BEFORE Protocol borrows on behalf of LSA.
+     *      Uses the existing execute() function in LoanVault.
+     *
+     * Credit delegation invariants:
+     * - MUST only delegate to the Loan contract (Invariant 1.3);
+     *   only the Loan contract can supply bvBTC and borrow USDC from BLP on behalf of LSAs
+     * - Delegation MUST only apply to `debtAsset` (USDC) variable debt tokens;
+     *   bvBTC shares MUST NOT be borrowable in the BLP (Invariant 1.6)
+     *
      * @param lsa The LSA address
      * @param bitmorPool Bitmor Lending Pool
      * @param debtAsset USDC address
@@ -59,7 +66,6 @@ library LSALogic {
         uint256 amount,
         address delegatee
     ) internal {
-        // Get variable debt token address from Aave V2
         DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
         address variableDebtToken = reserveData.variableDebtTokenAddress;
 

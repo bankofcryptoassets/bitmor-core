@@ -182,7 +182,17 @@ interface ILoan {
 
     /**
      * @notice Initializes a new loan with `depositAmount` USDC deposit
-     * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow
+     * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow.
+     *
+     * Initialization invariants:
+     * - MUST be called by an account with the `EXECUTOR` role only
+     * - MUST NOT allow re-initialization of an existing LSA; each LoanVault is one-loan-only
+     * - MUST deploy a new LoanVault via the factory, and that vault MUST NOT have been previously initialized
+     * - MUST set `loanData.status` to `Active` for the newly created LSA
+     * - MUST revert if `depositAmount` or `btcAmount` is zero
+     * - MUST revert if `duration` is zero or exceeds `s_maxDuration`
+     * - MUST revert if `btcAmount` is outside `[s_minBTCAmt, s_maxBTCAmt]`
+     *
      * @param depositAmount USDC deposit amount (6 decimals)
      * @param premiumAmount USDC premium amount (6 decimals)
      * @param btcAmount Target cbBTC amount user wants to achieve (8 decimals)
@@ -201,6 +211,10 @@ interface ILoan {
 
     /**
      * @notice Updates the `insuranceID` for a given `lsa`
+     * @dev Insurance ID invariants:
+     * - MUST be called by an account with the `EXECUTOR` role only
+     * - MUST revert if the loan does not exist for the given `lsa`
+     *
      * @param lsa The LSA address
      * @param insuranceID New insurance ID for the `lsa`
      * @custom:access Restricted to `EXECUTOR` role
@@ -289,7 +303,15 @@ interface ILoan {
 
     /**
      * @notice Allows borrower to repay their loan with `amount` USDC
-     * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp)
+     * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp).
+     *
+     * Repayment invariants:
+     * - MUST reduce outstanding debt; can never increase it
+     * - MUST cap: `finalAmountRepaid` = min(`amount`, `getVDTTokenAmount(lsa)`)
+     * - MUST revert if loan status is `Completed` or `Liquidated`
+     * - MUST NOT allow repayment on any loan that is not `Active`
+     * - MUST refund excess payment (amount pulled minus amount actually repaid) to the caller
+     *
      * @param lsa The Loan Specific Address
      * @param amount Amount of USDC to repay (6 decimals)
      * @return finalAmountRepaid The actual amount repaid
@@ -298,7 +320,14 @@ interface ILoan {
 
     /**
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
-     * @dev Withdraws from escrow where excess collateral is locked
+     * @dev Withdraws from escrow where excess collateral is locked.
+     *
+     * Close-loan invariants:
+     * - MUST verify caller is `loanData.borrower`; only the borrower can close their own loan
+     * - MUST revert if loan status is not `Active`
+     * - Borrower MUST be able to close the loan at any time by paying the remaining debt (plus fees)
+     * - MUST transfer remaining collateral (or equivalent debt asset) to the borrower after debt repayment
+     *
      * @param lsa The Loan Specific Address
      * @param withdrawInBTC If true, the underlying cbBTC will be transferred to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
