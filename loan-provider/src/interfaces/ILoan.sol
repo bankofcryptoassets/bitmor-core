@@ -17,7 +17,7 @@ interface ILoan {
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
      * @param loanAmount Total loan amount in USDC (6 decimals)
-     * @param btcAmount Amount of cbBTC collateral (8 decimals)
+     * @param btcAmount Target cbBTC amount (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
@@ -135,14 +135,14 @@ interface ILoan {
     event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
 
     /**
-     * @notice Emitted when the maximum BTC collateral amount is updated
-     * @param newMaxBTCAmount New maximum BTC amount (8 decimals)
+     * @notice Emitted when the maximum cbBTC amount is updated
+     * @param newMaxBTCAmount New maximum cbBTC amount (8 decimals)
      */
     event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
 
     /**
-     * @notice Emitted when the minimum BTC collateral amount is updated
-     * @param newMinBTCAmount New minimum BTC amount (8 decimals)
+     * @notice Emitted when the minimum cbBTC amount is updated
+     * @param newMinBTCAmount New minimum cbBTC amount (8 decimals)
      */
     event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
 
@@ -300,7 +300,7 @@ interface ILoan {
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
      * @dev Withdraws from escrow where excess collateral is locked
      * @param lsa The Loan Specific Address
-     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the underlying cbBTC will be transferred to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
 
@@ -407,26 +407,26 @@ interface ILoan {
     function getSlippageForSwap() external view returns (uint256);
 
     /**
-     * @notice Updates the maximum BTC collateral amount
+     * @notice Updates the maximum cbBTC amount
      * @dev Reverts if `newMaxBTCAmt` is less than the current minimum
-     * @param newMaxBTCAmt New maximum BTC amount (8 decimals)
+     * @param newMaxBTCAmt New maximum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
 
     /// @notice Returns the `s_maxBTCAmt` value (8 decimals).
-    /// @return The maximum BTC collateral amount
+    /// @return The maximum cbBTC amount
     function getMaxBTCAmount() external view returns (uint256);
 
     /**
-     * @notice Updates the minimum BTC collateral amount
-     * @param newMinBTCAmt New minimum BTC amount (8 decimals)
+     * @notice Updates the minimum cbBTC amount
+     * @param newMinBTCAmt New minimum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
     function setMinBTCAmount(uint256 newMinBTCAmt) external;
 
     /// @notice Returns the `s_minBTCAmt` value (8 decimals).
-    /// @return The minimum BTC collateral amount
+    /// @return The minimum cbBTC amount
     function getMinBTCAmount() external view returns (uint256);
 
     /// @notice Returns the `s_minDeposit` value in basis points.

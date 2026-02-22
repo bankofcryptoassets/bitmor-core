@@ -83,12 +83,12 @@ library LoanLogic {
             revert Errors.Loan__InvalidDuration();
         }
 
-        if (params.btcAmount < ctx.minCollateralAmt) {
-            revert Errors.LessThanMinimumCollateralAllowed();
+        if (params.btcAmount < ctx.minBTCAmt) {
+            revert Errors.LessThanMinBTCAllowed();
         }
 
-        if (params.btcAmount > ctx.maxCollateralAmt) {
-            revert Errors.GreaterThanMaxCollateralAllowed();
+        if (params.btcAmount > ctx.maxBTCAmt) {
+            revert Errors.GreaterThanMaxBTCAllowed();
         }
 
         (uint256 loanAmount, uint256 monthlyPayment, ) = _calculateLoanAmountAndMonthlyPayment(
@@ -328,8 +328,8 @@ library LoanLogic {
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        if (btcAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
-        if (btcAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
+        if (btcAmount < ctx.minBTCAmt) revert Errors.LessThanMinBTCAllowed();
+        if (btcAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxBTCAllowed();
         if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
         return _fetchPricesAndCalculate(ctx, btcAmount, duration);

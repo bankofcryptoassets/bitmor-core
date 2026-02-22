@@ -60,7 +60,7 @@ library FlashLoanLogic {
         uint256 collateralAmountWithdrawn;
         /// @dev Remaining debt after repayment
         uint256 totalDebtRemaining;
-        /// @dev Amount of collateral to swap for flash loan repayment
+        /// @dev Amount of cbBTC to swap for flash loan repayment
         uint256 btcAmtToSwap;
         /// @dev Minimum output from swap (slippage protection)
         uint256 minimumAcceptable;
@@ -223,7 +223,7 @@ library FlashLoanLogic {
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
+            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
             vars.btcAmtReceived = vars.lsa.redeemBTC(

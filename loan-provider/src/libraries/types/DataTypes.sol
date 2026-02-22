@@ -167,7 +167,7 @@ library DataTypes {
          */
         uint256 premiumAmount;
         /**
-         * @dev Target collateral amount (cbBTC, 8 decimals)
+         * @dev Target cbBTC amount (8 decimals)
          */
         uint256 btcAmount;
         /**
@@ -218,13 +218,13 @@ library DataTypes {
          */
         address premiumCollector;
         /**
-         * @dev Minimum collateral amount allowed (0.01 BTC)
+         * @dev Minimum cbBTC amount allowed (0.01 BTC)
          */
-        uint256 minCollateralAmt;
+        uint256 minBTCAmt;
         /**
-         * @dev Maximum collateral amount allowed (1 BTC)
+         * @dev Maximum cbBTC amount allowed (1 BTC)
          */
-        uint256 maxCollateralAmt;
+        uint256 maxBTCAmt;
         /**
          * @dev Repayment interval in seconds (30 days)
          */
@@ -466,7 +466,7 @@ library DataTypes {
          */
         uint256 debtAssetDecimals;
         /**
-         * @dev Target collateral amount
+         * @dev Target cbBTC amount
          */
         uint256 btcAmount;
         /**

@@ -105,7 +105,7 @@ library RepayLogic {
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to the `borrower` address
             params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
             emit ILoan.Loan__Completed(params.lsa);

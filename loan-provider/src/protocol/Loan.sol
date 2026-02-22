@@ -156,8 +156,8 @@ contract Loan is
             aavePool: i_AAVE_V3_POOL,
             loanVaultFactory: s_loanVaultFactory,
             premiumCollector: s_premiumCollector,
-            minCollateralAmt: s_minBTCAmt,
-            maxCollateralAmt: s_maxBTCAmt,
+            minBTCAmt: s_minBTCAmt,
+            maxBTCAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
             minDepositBps: s_minDeposit,
             maxDuration: s_maxDuration

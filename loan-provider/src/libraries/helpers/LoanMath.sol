@@ -100,7 +100,7 @@ library LoanMath {
      * 5. Computes EMI using standard amortization formula
      *
      * ## Validation
-     * - Reverts with `InsufficientCollateral` if deposit exceeds collateral value
+     * - Reverts with `InsufficientCollateral` if deposit value exceeds cbBTC value (no loan needed)
      * - Reverts with `InsufficientDeposit` if deposit is below 33% of collateral
      *
      * @param data Struct containing all calculation parameters
