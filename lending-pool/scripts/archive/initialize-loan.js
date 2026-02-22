@@ -87,7 +87,7 @@ async function main() {
       console.log("  Borrower:", borrower);
       console.log("  LSA Address:", lsa);
       console.log("  Loan Amount:", ethers.utils.formatUnits(loanAmount, 6), "USDC");
-      console.log("  Collateral Amount:", ethers.utils.formatUnits(btcAmount, 8), "cbBTC");
+      console.log("  BTC Amount:", ethers.utils.formatUnits(btcAmount, 8), "cbBTC");
     }
     console.log();
 

@@ -25,7 +25,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   async function setupUserWithDebt(
     testEnv: TestEnv,
     userIndex: number,
-    btcAmount: string,
+    collateralAmount: string,
     borrowAmount: string
   ) {
     const { users, pool, usdc, btcVault, addressesProvider, mockBitmorUSDCVault, deployer } = testEnv;
@@ -39,7 +39,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     await pool.connect(deployer.signer).deposit(getContractAddress(usdc), liquidityAmount, deployer.address, '0');
 
     // Mint and deposit bvBTC (vault shares) as collateral
-    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), btcAmount);
+    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), collateralAmount);
     await btcVault.mint(user.address, bvBTCAmount);
     await btcVault.connect(user.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
@@ -64,7 +64,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   async function setupUserWithVaultDebt(
     testEnv: TestEnv,
     userIndex: number,
-    btcAmount: string,
+    collateralAmount: string,
     borrowAmount: string
   ) {
     const { users, pool, usdc, btcVault, addressesProvider, mockBitmorUSDCVault, mockLoanProvider, deployer } = testEnv;
@@ -78,7 +78,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
     await pool.connect(deployer.signer).deposit(getContractAddress(usdc), liquidityAmount, deployer.address, '0');
 
     // 2. Deposit bvBTC (vault shares) as collateral via mockLoanProvider
-    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), btcAmount);
+    const bvBTCAmount = await convertToCurrencyDecimals(getContractAddress(btcVault), collateralAmount);
     await btcVault.mint(user.address, bvBTCAmount);
     await btcVault.connect(user.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
     await addressesProvider.setBitmorLoan(getContractAddress(mockLoanProvider));

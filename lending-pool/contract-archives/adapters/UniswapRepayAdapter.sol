@@ -17,7 +17,7 @@ import {DataTypes} from '../protocol/libraries/types/DataTypes.sol';
 contract UniswapRepayAdapter is BaseUniswapAdapter {
   struct RepayParams {
     address collateralAsset;
-    uint256 btcAmount;
+    uint256 collateralAmount;
     uint256 rateMode;
     PermitSignature permitSignature;
     bool useEthPath;
@@ -41,7 +41,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
    * @param initiator Address of the user
    * @param params Additional variadic field to include extra params. Expected parameters:
    *   address collateralAsset Address of the reserve to be swapped
-   *   uint256 btcAmount Amount of reserve to be swapped
+   *   uint256 collateralAmount Amount of reserve to be swapped
    *   uint256 rateMode Rate modes of the debt to be repaid
    *   uint256 permitAmount Amount for the permit signature
    *   uint256 deadline Deadline for the permit signature
@@ -64,7 +64,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
       decodedParams.collateralAsset,
       assets[0],
       amounts[0],
-      decodedParams.btcAmount,
+      decodedParams.collateralAmount,
       decodedParams.rateMode,
       initiator,
       premiums[0],
@@ -82,7 +82,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
    * The user should give this contract allowance to pull the ATokens in order to withdraw the underlying asset
    * @param collateralAsset Address of asset to be swapped
    * @param debtAsset Address of debt asset
-   * @param btcAmount Amount of the collateral to be swapped
+   * @param collateralAmount Amount of the collateral to be swapped
    * @param debtRepayAmount Amount of the debt to be repaid
    * @param debtRateMode Rate mode of the debt to be repaid
    * @param permitSignature struct containing the permit signature
@@ -92,7 +92,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
   function swapAndRepay(
     address collateralAsset,
     address debtAsset,
-    uint256 btcAmount,
+    uint256 collateralAmount,
     uint256 debtRepayAmount,
     uint256 debtRateMode,
     PermitSignature calldata permitSignature,
@@ -110,7 +110,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
     uint256 amountToRepay = debtRepayAmount <= currentDebt ? debtRepayAmount : currentDebt;
 
     if (collateralAsset != debtAsset) {
-      uint256 maxCollateralToSwap = btcAmount;
+      uint256 maxCollateralToSwap = collateralAmount;
       if (amountToRepay < debtRepayAmount) {
         maxCollateralToSwap = maxCollateralToSwap.mul(amountToRepay).div(debtRepayAmount);
       }
@@ -158,7 +158,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
    * @param collateralAsset Address of token to be swapped
    * @param debtAsset Address of debt token to be received from the swap
    * @param amount Amount of the debt to be repaid
-   * @param btcAmount Amount of the reserve to be swapped
+   * @param collateralAmount Amount of the reserve to be swapped
    * @param rateMode Rate mode of the debt to be repaid
    * @param initiator Address of the user
    * @param premium Fee of the flash loan
@@ -168,7 +168,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
     address collateralAsset,
     address debtAsset,
     uint256 amount,
-    uint256 btcAmount,
+    uint256 collateralAmount,
     uint256 rateMode,
     address initiator,
     uint256 premium,
@@ -185,7 +185,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
     repaidAmount = repaidAmount.sub(IERC20(debtAsset).balanceOf(address(this)));
 
     if (collateralAsset != debtAsset) {
-      uint256 maxCollateralToSwap = btcAmount;
+      uint256 maxCollateralToSwap = collateralAmount;
       if (repaidAmount < amount) {
         maxCollateralToSwap = maxCollateralToSwap.mul(repaidAmount).div(amount);
       }
@@ -236,7 +236,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
    * @dev Decodes debt information encoded in the flash loan params
    * @param params Additional variadic field to include extra params. Expected parameters:
    *   address collateralAsset Address of the reserve to be swapped
-   *   uint256 btcAmount Amount of reserve to be swapped
+   *   uint256 collateralAmount Amount of reserve to be swapped
    *   uint256 rateMode Rate modes of the debt to be repaid
    *   uint256 permitAmount Amount for the permit signature
    *   uint256 deadline Deadline for the permit signature
@@ -249,7 +249,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
   function _decodeParams(bytes memory params) internal pure returns (RepayParams memory) {
     (
       address collateralAsset,
-      uint256 btcAmount,
+      uint256 collateralAmount,
       uint256 rateMode,
       uint256 permitAmount,
       uint256 deadline,
@@ -265,7 +265,7 @@ contract UniswapRepayAdapter is BaseUniswapAdapter {
     return
       RepayParams(
         collateralAsset,
-        btcAmount,
+        collateralAmount,
         rateMode,
         PermitSignature(permitAmount, deadline, v, r, s),
         useEthPath

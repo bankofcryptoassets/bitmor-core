@@ -1015,10 +1015,10 @@ makeSuite('ParaSwap adapters', (testEnv: TestEnv) => {
         await pool.deposit(getContractAddress(weth), parseEther('100'), userAddress, 0);
 
         // Add borrowing
-        const btcAmount = parseEther('10000000');
-        await dai.mint(btcAmount);
-        await dai.approve(getContractAddress(pool), btcAmount);
-        await pool.deposit(getContractAddress(dai), btcAmount, borrowerAddress, 0);
+        const collateralAmount = parseEther('10000000');
+        await dai.mint(collateralAmount);
+        await dai.approve(getContractAddress(pool), collateralAmount);
+        await pool.deposit(getContractAddress(dai), collateralAmount, borrowerAddress, 0);
         await pool.connect(borrower).borrow(getContractAddress(weth), parseEther('5000'), 2, 0, borrowerAddress);
       });
 
@@ -2114,10 +2114,10 @@ makeSuite('ParaSwap adapters', (testEnv: TestEnv) => {
         await pool.deposit(getContractAddress(weth), parseEther('100'), userAddress, 0);
 
         // Add borrowing
-        const btcAmount = parseEther('10000000');
-        await dai.mint(btcAmount);
-        await dai.approve(getContractAddress(pool), btcAmount);
-        await pool.deposit(getContractAddress(dai), btcAmount, borrowerAddress, 0);
+        const collateralAmount = parseEther('10000000');
+        await dai.mint(collateralAmount);
+        await dai.approve(getContractAddress(pool), collateralAmount);
+        await pool.deposit(getContractAddress(dai), collateralAmount, borrowerAddress, 0);
         await pool.connect(borrower).borrow(getContractAddress(weth), parseEther('5000'), 2, 0, borrowerAddress);
       });
 

@@ -113,24 +113,23 @@ library LoanMath {
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        // Convert collateral amount to USD value
-        uint256 collateralValueUSD =
-            data.btcAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
+        // Convert BTC amount to USD value
+        uint256 btcValueUSD = data.btcAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
 
         // Convert deposit amount to USD value
         uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
 
-        // Ensure collateral value exceeds deposit
-        if (depositValueUSD > collateralValueUSD) revert Errors.InsufficientCollateral();
+        // Ensure BTC value exceeds deposit
+        if (depositValueUSD > btcValueUSD) revert Errors.InsufficientCollateral();
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = btcValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
         minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
-        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+        uint256 loanValueUSD = btcValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
@@ -182,17 +181,17 @@ library LoanMath {
         uint256 minDepositBps,
         uint256 flashLoanPremiumBps
     ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
-        // Convert collateral amount to USD value
-        uint256 collateralValueUSD = btcAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
+        // Convert BTC amount to USD value
+        uint256 btcValueUSD = btcAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = btcValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
         minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
 
         // Calculate loan amount in USD
-        uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
+        uint256 loanValueUSD = btcValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
         loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);

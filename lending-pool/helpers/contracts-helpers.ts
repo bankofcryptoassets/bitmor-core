@@ -384,7 +384,7 @@ export const buildLiquiditySwapParams = (
 
 export const buildRepayAdapterParams = (
   collateralAsset: tEthereumAddress,
-  btcAmount: BigNumberish,
+  collateralAmount: BigNumberish,
   rateMode: BigNumberish,
   permitAmount: BigNumberish,
   deadline: BigNumberish,
@@ -395,7 +395,7 @@ export const buildRepayAdapterParams = (
 ) => {
   return utils.defaultAbiCoder.encode(
     ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint8', 'bytes32', 'bytes32', 'bool'],
-    [collateralAsset, btcAmount, rateMode, permitAmount, deadline, v, r, s, useEthPath]
+    [collateralAsset, collateralAmount, rateMode, permitAmount, deadline, v, r, s, useEthPath]
   );
 };
 
