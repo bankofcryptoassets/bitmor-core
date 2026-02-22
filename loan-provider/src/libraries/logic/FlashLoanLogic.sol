@@ -7,6 +7,7 @@ import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 import {LSALogic} from "./LSALogic.sol";
@@ -14,6 +15,7 @@ import {SwapLogic} from "./SwapLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
+import {ILoan} from "../../interfaces/ILoan.sol";
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 
 /**
@@ -58,7 +60,7 @@ library FlashLoanLogic {
         uint256 collateralAmountWithdrawn;
         /// @dev Remaining debt after repayment
         uint256 totalDebtRemaining;
-        /// @dev Amount of collateral to swap for flash loan repayment
+        /// @dev Amount of cbBTC to swap for flash loan repayment
         uint256 btcAmtToSwap;
         /// @dev Minimum output from swap (slippage protection)
         uint256 minimumAcceptable;
@@ -112,12 +114,13 @@ library FlashLoanLogic {
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
-        uint256 maxAmountIn = ctx.swapper.calculateMaxAmountIn(
-            ctx.debtAsset, // tokenIn
-            ctx.btc, // tokenOut
-            btcAmount,
-            ctx.maxSlippage
-        );
+        uint256 maxAmountIn = ctx.swapper
+            .calculateMaxAmountIn(
+                ctx.debtAsset, // tokenIn
+                ctx.btc, // tokenOut
+                btcAmount,
+                ctx.maxSlippage
+            );
 
         if (maxAmountIn > totalSwapAmount) revert Errors.LessAmountForExactOutSwap();
 
@@ -187,7 +190,6 @@ library FlashLoanLogic {
         if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
         // Flash loan execution logic will be implemented here
-        // Flow: Swap USDC → cbBTC → Deposit to Aave V2 → Borrow from Aave V2 → Repay flash loan
         LocalVarsCloseLoan memory vars;
 
         (vars.lsa, vars.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC) =
@@ -208,20 +210,27 @@ library FlashLoanLogic {
         // =========== Withdraw collateral asset ==========
 
         vars.totalDebtRemaining = ctx.bitmorPool.getVDTTokenAmount(ctx.debtAsset, vars.lsa);
-        if (vars.totalDebtRemaining == 0) {
+        if (vars.totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
+
+            // Repay dust debt so lending pool allows full collateral withdrawal
+            if (vars.totalDebtRemaining > 0) {
+                ctx.bitmorPool.repayDustDebt(ctx.debtAsset, vars.lsa, vars.totalDebtRemaining);
+                emit ILoan.Loan__DustDebtAbsorbed(vars.lsa, vars.totalDebtRemaining);
+            }
 
             vars.collateralAmountWithdrawn = vars.lsa.withdrawCollateral(ctx.bitmorPool, ctx.collateralAsset, vars.lsa);
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
+            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa.redeemBTC(
-                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-            );
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 
@@ -238,13 +247,19 @@ library FlashLoanLogic {
         // Approve SwapAdaptor to spend tokens
         IERC20(ctx.btc).forceApprove(ctx.swapper, vars.btcAmtToSwap);
 
-        vars.debtAssetAmtReceived = ctx.swapper.executeExactInSwap(
-            ctx.btc, //tokenIn
-            ctx.debtAsset, // tokenOut
-            vars.btcAmtToSwap, // amountIn
-            vars.minimumAcceptable,
-            address(this)
-        );
+        vars.debtAssetAmtReceived = ctx.swapper
+            .executeExactInSwap(
+                ctx.btc, //tokenIn
+                ctx.debtAsset, // tokenOut
+                vars.btcAmtToSwap, // amountIn
+                vars.minimumAcceptable,
+                address(this)
+            );
+
+        if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
+            revert Errors.InsufficientSwapOutput();
+        }
+
         // ===============================================================
 
         IERC20(ctx.debtAsset).forceApprove(ctx.aavePool, vars.totalFlashLoanBorrowedAmt);

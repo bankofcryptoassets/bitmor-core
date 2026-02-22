@@ -25,7 +25,7 @@ import {MockVariableDebtToken} from "../mock/MockVariableDebtToken.sol";
  * - INV-LOAN-06: Completed loans have zero debt
  * - INV-LOAN-07: Completed loans have zero collateral
  * - INV-LOAN-08: Active loans have collateral
- * - INV-LOAN-09: Immutable fields (borrower, loanAmount, collateralAmount) unchanged
+ * - INV-LOAN-09: Immutable fields (borrower, loanAmount, btcAmount) unchanged
  * - INV-LOAN-10: LSA address uniqueness
  * - INV-LOAN-11: Completed loans are sealed (zero debt + zero collateral)
  * - INV-LOAN-12: Duration monotonically decreases with repayments
@@ -224,7 +224,7 @@ contract LoanInvariantTest is Test {
 
     /**
      * @notice INV-LOAN-09: Immutable fields unchanged on active loans
-     * @dev For active LSAs: borrower, loanAmount, and collateralAmount must match ghost state
+     * @dev For active LSAs: borrower, loanAmount, and btcAmount must match ghost state
      */
     function invariant_LOAN_09_ImmutableFieldsUnchanged() public view {
         uint256 activeCount = handler.getActiveLSACount();
@@ -235,7 +235,7 @@ contract LoanInvariantTest is Test {
 
             assertEq(data.borrower, ghost.borrower, "INV-LOAN-09: borrower changed");
             assertEq(data.loanAmount, ghost.initialLoanAmount, "INV-LOAN-09: loanAmount changed");
-            assertEq(data.collateralAmount, ghost.collateral, "INV-LOAN-09: collateralAmount changed");
+            assertEq(data.btcAmount, ghost.collateral, "INV-LOAN-09: btcAmount changed");
         }
     }
 

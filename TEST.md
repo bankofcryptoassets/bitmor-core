@@ -36,6 +36,61 @@ make test:vault:unit          # BTCVault and USDCVault tests
 make test:liquidation:unit    # Micro and full liquidation tests
 ```
 
+### Integration Tests (loan-provider)
+
+Integration tests run against real deployed contracts on a local Anvil node. They require a running Anvil instance with the full system deployed.
+
+**Prerequisites:**
+
+```bash
+# Terminal 1: Start Anvil
+make anvil
+
+# Terminal 2: Deploy the full system
+make deploy-local
+```
+
+**Run all integration tests:**
+
+```bash
+make test:integration
+```
+
+**Run a specific test suite:**
+
+```bash
+make test:integration:setup        # SetUpState (deployment validation)
+make test:integration:access       # AccessControl (role-path coverage)
+make test:integration:liquidation  # Liquidation (full + micro execution)
+make test:integration:lifecycle    # LoanLifecycle (init, repay, close)
+make test:integration:vault        # VaultStrategy (deposits, strategies)
+make test:integration:initloan     # All InitLoan adversarial tests (31 tests)
+```
+
+**InitLoan adversarial test suites (per-domain):**
+
+```bash
+make test:integration:initloan:usdcvault   # USDCVault attack vectors (6 tests)
+make test:integration:initloan:btcvault    # BTCVault attack vectors (6 tests)
+make test:integration:initloan:oracle      # Oracle manipulation (4 tests)
+make test:integration:initloan:swap        # Swap adversarial (2 tests)
+make test:integration:initloan:accounting  # Accounting invariants (3 tests)
+make test:integration:initloan:irm         # Interest rate model (2 tests)
+make test:integration:initloan:erc4626     # ERC-4626 share attacks (3 tests)
+make test:integration:initloan:strategy    # Strategy manipulation (2 tests)
+make test:integration:initloan:timing      # Timing/ordering attacks (3 tests)
+```
+
+**Run a single test function or contract:**
+
+```bash
+# Single test by function name
+make test:integration:single TEST=test_FullLiquidation_ExecuteViaLendingPool
+
+# All tests in a contract
+make test:integration:contract CONTRACT=LiquidationTest
+```
+
 ### Fork Tests (loan-provider)
 
 Fork tests run against Base Sepolia and require `BASE_SEPOLIA_RPC_URL` in your environment.
@@ -107,7 +162,8 @@ test/
 │   ├── BitmorTestBase.sol       # Core: AccessManager, roles, actors
 │   ├── UnitTestBase.sol         # Unit tests with mocks
 │   ├── ForkTestBase.sol         # Fork tests with real protocols
-│   └── LoanUnitTestBase.sol     # Loan-specific unit test base
+│   ├── LoanUnitTestBase.sol     # Loan-specific unit test base
+│   └── IntegrationTestBase.sol  # Integration tests with pre-deployed contracts
 │
 ├── mock/                        # Mock contracts
 │   ├── MockBitmorLendingPool.sol
@@ -120,6 +176,22 @@ test/
 │
 ├── helpers/
 │   └── TestConstants.sol        # Shared test constants
+│
+├── integration/                 # Integration tests (require Anvil + deploy-local)
+│   ├── SetUpState.t.sol         # Deployment validation (15 tests)
+│   ├── AccessControl.t.sol      # Role-path coverage (25 tests)
+│   ├── Liquidation.t.sol        # Real liquidation execution (10 tests)
+│   ├── LoanLifecycle.t.sol      # Init, repay, close flows (10 tests)
+│   ├── VaultStrategy.t.sol      # Vault deposit and strategy tests (7 tests)
+│   ├── InitLoan_USDCVault.t.sol # USDC vault attack vectors (6 tests)
+│   ├── InitLoan_BTCVault.t.sol  # BTC vault attack vectors (6 tests)
+│   ├── InitLoan_Oracle.t.sol    # Oracle manipulation (4 tests)
+│   ├── InitLoan_Swap.t.sol      # Swap adversarial (2 tests)
+│   ├── InitLoan_Accounting.t.sol # Accounting invariants (3 tests)
+│   ├── InitLoan_IRM.t.sol       # Interest rate model (2 tests)
+│   ├── InitLoan_ERC4626.t.sol   # ERC-4626 share attacks (3 tests)
+│   ├── InitLoan_Strategy.t.sol  # Strategy manipulation (2 tests)
+│   └── InitLoan_Timing.t.sol    # Timing/ordering attacks (3 tests)
 │
 └── unit/                        # Unit test files
     ├── Loan/
@@ -207,6 +279,7 @@ The loan-provider uses different profiles for different test types:
 | Profile | Use Case |
 |---------|----------|
 | `unit` | Unit tests with mocks (default for `make test`) |
+| `integration` | Integration tests against local Anvil (`make test:integration`) |
 | `fork` | Fork tests against Base Sepolia |
 | `security` | Analysis builds with extra checks |
 | `local` | Local Anvil deployments |

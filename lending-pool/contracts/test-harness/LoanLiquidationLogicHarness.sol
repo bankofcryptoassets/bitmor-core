@@ -45,24 +45,26 @@ contract MockLoanForLiquidation {
         address borrower,
         uint256 depositAmount,
         uint256 loanAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 estimatedMonthlyPayment,
         uint256 duration,
         uint256 createdAt,
         uint256 insuranceID,
         uint256 lastPaymentTimestamp,
+        uint256 amountRepaidInCurrentPeriod,
         DataTypes.LoanStatus status
     ) external {
         _loanData = DataTypes.LoanData({
             borrower: borrower,
             depositAmount: depositAmount,
             loanAmount: loanAmount,
-            collateralAmount: collateralAmount,
+            btcAmount: btcAmount,
             estimatedMonthlyPayment: estimatedMonthlyPayment,
             duration: duration,
             createdAt: createdAt,
             insuranceID: insuranceID,
             lastPaymentTimestamp: lastPaymentTimestamp,
+            amountRepaidInCurrentPeriod: amountRepaidInCurrentPeriod,
             status: status
         });
     }
@@ -123,6 +125,11 @@ contract LoanLiquidationLogicHarness {
     /// @dev Set the stable debt token address for a reserve
     function setReserveStableDebtToken(address asset, address token) external {
         _reservesData[asset].stableDebtTokenAddress = token;
+    }
+
+    /// @dev Set the aToken address for a reserve
+    function setReserveAToken(address asset, address token) external {
+        _reservesData[asset].aTokenAddress = token;
     }
 
     function checkTypeOfLiquidation(

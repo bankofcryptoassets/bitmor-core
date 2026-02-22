@@ -104,6 +104,62 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         }
     }
 
+    // ============ Pause State Tests (ERC-4626 Compliance) ============
+
+    /// @notice maxDeposit should return 0 when vault is paused
+    function test_maxDeposit_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxDeposit(user), 0, "maxDeposit should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxDeposit(user), 0, "maxDeposit should be 0 when paused");
+    }
+
+    /// @notice maxMint should return 0 when vault is paused
+    function test_maxMint_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxMint(user), 0, "maxMint should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxMint(user), 0, "maxMint should be 0 when paused");
+    }
+
+    /// @notice maxWithdraw should return 0 when vault is paused
+    function test_maxWithdraw_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxWithdraw(user), 0, "maxWithdraw should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxWithdraw(user), 0, "maxWithdraw should be 0 when paused");
+    }
+
+    /// @notice maxRedeem should return 0 when vault is paused
+    function test_maxRedeem_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
+        _depositAsUser(EDGE_DEPOSIT_AMOUNT);
+
+        // Verify non-zero before pause
+        assertGt(vault.maxRedeem(user), 0, "maxRedeem should be > 0 before pause");
+
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxRedeem(user), 0, "maxRedeem should be 0 when paused");
+    }
+
     // ============ No Strategy Tests ============
 
     /// @notice Deposit with no strategies should revert - maxDeposit is 0
@@ -281,20 +337,20 @@ contract EdgeCasesTest is BaseTestForBTCVault {
 
     // ============ View Function Tests ============
 
-    /// @notice getTotalStrategies should return correct count
-    function test_getTotalStrategies_ReturnsCorrectCount() public {
+    /// @notice getNextStrategyIndex should return correct monotonic counter
+    function test_getNextStrategyIndex_ReturnsCorrectCounter() public {
         // Assert initial state
-        assertEq(vault.getTotalStrategies(), 0, "should start with 0 strategies");
+        assertEq(vault.getNextStrategyIndex(), 0, "should start at index 0");
 
         // Add first strategy
         _addStrategy(address(strategy), EDGE_STRATEGY_CAP);
-        assertEq(vault.getTotalStrategies(), 1, "should have 1 strategy after adding");
+        assertEq(vault.getNextStrategyIndex(), 1, "should be 1 after adding first strategy");
 
         // Add second strategy
         MockYieldSource ys2 = new MockYieldSource();
         MockTokenizedStrategy strat2 = new MockTokenizedStrategy(address(ys2), address(vault));
         _addStrategy(address(strat2), EDGE_STRATEGY_CAP);
-        assertEq(vault.getTotalStrategies(), 2, "should have 2 strategies");
+        assertEq(vault.getNextStrategyIndex(), 2, "should be 2 after adding second strategy");
     }
 
     /// @notice getMaxStrategies should return configured value
@@ -373,12 +429,14 @@ contract EdgeCasesTest is BaseTestForBTCVault {
         vm.prank(address(strategy));
         yieldSource.supply(address(mockUSDC), donation);
 
-        // Act & Assert - Direct strategy deposit that yields 0 shares
+        // Act & Assert - Strategy deposit as vault that yields 0 shares
         uint256 tinyAmount = 1;
-        mockUSDC.mint(address(this), tinyAmount);
+        mockUSDC.mint(address(vault), tinyAmount);
+        vm.startPrank(address(vault));
         mockUSDC.approve(address(strategy), tinyAmount);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        strategy.deposit(tinyAmount, address(this));
+        strategy.deposit(tinyAmount, address(vault));
+        vm.stopPrank();
     }
 
     // ============ Dust Share Cleanup Tests ============

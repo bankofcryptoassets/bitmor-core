@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-import {Ownable} from "../dependencies/openzeppelin/contracts/Ownable.sol";
-import {IERC20Detailed} from "../dependencies/openzeppelin/contracts/IERC20Detailed.sol";
-import {SafeMath} from "../dependencies/openzeppelin/contracts/SafeMath.sol";
+import { Ownable } from "../dependencies/openzeppelin/contracts/Ownable.sol";
+import { IERC20Detailed } from "../dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import { SafeMath } from "../dependencies/openzeppelin/contracts/SafeMath.sol";
 
-import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
-import {IChainlinkAggregator} from "../interfaces/IChainlinkAggregator.sol";
-import {IERC4626} from "../interfaces/IERC4626.sol";
+import { IPriceOracleGetter } from "../interfaces/IPriceOracleGetter.sol";
+import { IChainlinkAggregator } from "../interfaces/IChainlinkAggregator.sol";
+import { IERC4626 } from "../interfaces/IERC4626.sol";
 
 /// @title AaveOracle
 /// @author Aave
@@ -35,6 +35,8 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @notice Constructor
     /// @param assets The addresses of the assets
     /// @param sources The address of the source of each asset
+    /// @param btc The address of the BTC token used for price derivation
+    /// @param bvBTC The address of the bvBTC vault used for share-to-asset conversion
     /// @param fallbackOracle The address of the fallback oracle to use if the data of an
     ///        aggregator is not consistent
     /// @param baseCurrency the base currency used for the price quotes. If USD is used, base currency is 0x0
@@ -74,10 +76,14 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
         _setFallbackOracle(fallbackOracle);
     }
 
+    /// @notice Updates the BTC token address used for price derivation
+    /// @param _btc The new BTC token address
     function setBTC(address _btc) external onlyOwner {
         _setBTC(_btc);
     }
 
+    /// @notice Updates the bvBTC vault address used for share-to-asset conversion
+    /// @param _bvBTC The new bvBTC vault address
     function setbvBTC(address _bvBTC) external onlyOwner {
         _setbvBTC(_bvBTC);
     }
@@ -111,12 +117,14 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     }
 
     /// @notice Gets an asset price by address
+    /// @dev For bvBTC, uses `previewRedeem` instead of `convertToAssets` to account for
+    ///      exit fees, ensuring the oracle reflects the actual realizable value of collateral
     /// @param asset The asset address
     function getAssetPrice(address asset) public view override returns (uint256) {
         if (asset == s_bvBTC) {
             uint256 btcPrice = _getAssetPrice(s_btc);
-            uint256 oneShare = 10 **  uint256(IERC20Detailed(s_bvBTC).decimals());
-            uint256 assetPerShare = IERC4626(s_bvBTC).convertToAssets(oneShare);
+            uint256 oneShare = 10 ** uint256(IERC20Detailed(s_bvBTC).decimals());
+            uint256 assetPerShare = IERC4626(s_bvBTC).previewRedeem(oneShare);
 
             return btcPrice.mul(assetPerShare).div(10 ** uint256(IERC20Detailed(s_btc).decimals()));
         }

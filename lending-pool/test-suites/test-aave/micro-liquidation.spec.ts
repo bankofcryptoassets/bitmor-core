@@ -8,7 +8,7 @@ import { APPROVAL_AMOUNT_LENDING_POOL } from '../../helpers/constants.js';
 import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
 import { ProtocolErrors } from '../../helpers/types.js';
 import { DRE } from '../../helpers/misc-utils.js';
-import { parseEther, parseUnits, AbiCoder } from 'ethers';
+import { parseEther, parseUnits, AbiCoder, MaxUint256 } from 'ethers';
 import BigNumber from 'bignumber.js';
 import chai from 'chai';
 
@@ -166,7 +166,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       // Ensure uninsured (insuranceID = 0)
       await mockLoan.setInsuranceId(user.address, 0);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 30n) / 100n);
@@ -304,7 +304,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       expect(reverted).to.equal(true, 'Expected micro-liquidation to revert for non-overdue loan');
     });
 
-    it('Triggers full liquidation update when duration becomes 0 after micro-liquidation', async () => {
+    it('Completes loan when duration becomes 0 after micro-liquidation', async () => {
       const { pool, users, mockLoan, addressesProvider, cbBTC, btcVault, usdc, deployer } = testEnv;
       const borrower = users[6];
       const liquidator = deployer;
@@ -347,9 +347,13 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       // Execute micro-liquidation
       await pool.connect(liquidator.signer).microLiquidationCall(callData);
 
-      // When duration was 1, after micro-liq it becomes 0, triggering full liquidation update
+      // When duration was 1, micro-liquidation completes the loan (not full liquidation)
+      const completionCount = await mockLoan.microLiquidationCompletionCount(borrower.address);
+      expect(completionCount).to.equal(1n, 'micro-liquidation completion should be called once');
+
+      // Verify full liquidation was NOT called
       const fullLiqCount = await mockLoan.fullLiquidationCount(borrower.address);
-      expect(fullLiqCount).to.equal(1n);
+      expect(fullLiqCount).to.equal(0n, 'full liquidation should not be triggered');
     });
   });
 
@@ -361,9 +365,11 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
 
     it('Reverts micro-liquidation when collateral is not enabled for user', async () => {
       const { pool, users, mockLoan, addressesProvider, btcVault, usdc, deployer } = testEnv;
-      // Use user[0] who has NO pool position (never deposited/borrowed)
-      // checkTypeOfLiquidation still returns 2 because it reads from mockLoan data
       const user = users[0];
+
+      // Give user a real pool position (bvBTC collateral + USDC debt) so that
+      // checkTypeOfLiquidation reads real aToken balance and returns type 2.
+      await setupUserWithDebt(testEnv, 0, '1', '30000');
 
       await mockLoan.setCollateralAssetAddress(getContractAddress(btcVault));
       await mockLoan.setDebtAssetAddress(getContractAddress(usdc));
@@ -380,7 +386,9 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
 
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Pass USDC as collateral - user never deposited USDC, so it's not enabled as collateral
+      // Pass USDC as collateral - user deposited bvBTC not USDC, so USDC is not enabled as collateral.
+      // checkTypeOfLiquidation uses the real collateral asset (bvBTC) from mockLoan and returns type 2,
+      // but validateMicroLiquidationCall checks the passed collateral (USDC) which is not enabled.
       const callData = abiCoder.encode(
         ['address', 'address', 'address'],
         [getContractAddress(usdc), getContractAddress(usdc), user.address]
@@ -425,18 +433,14 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   });
 
   describe('LendingPoolCollateralManager: collateral capping in micro-liquidation', () => {
-    it('Caps debt and consumes all collateral when payment exceeds collateral value', async () => {
-      const { pool, users, mockLoan, addressesProvider, cbBTC, btcVault, usdc, deployer, helpersContract, aggregators } = testEnv;
+    it('Routes to full liquidation when payment exceeds collateral value (vuln-21 fix)', async () => {
+      const { pool, users, mockLoan, addressesProvider, btcVault, usdc, deployer, aggregators } = testEnv;
       const user = users[1];
 
       // Set up user[1] with small bvBTC collateral (0.05 bvBTC) and USDC debt
       await setupUserWithVaultDebt(testEnv, 1, '0.05', '3000');
 
-      // Get the bvBTC aToken for balance checks
-      const { aTokenAddress: abvBTCAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(btcVault));
-      const abvBTC = await DRE.ethers.getContractAt('AToken', abvBTCAddress);
-
-      // MockLoan: 1 bvBTC in loan data (sufficient for type=2 check), insured, large monthly payment
+      // MockLoan: insured, large monthly payment relative to actual collateral
       await mockLoan.setCollateralAssetAddress(getContractAddress(btcVault));
       await mockLoan.setDebtAssetAddress(getContractAddress(usdc));
       await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
@@ -452,35 +456,17 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 1);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price x previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 50n) / 100n);
 
+      // With the vuln-21 fix, checkTypeOfLiquidation now reads real aToken balance (0.05 bvBTC)
+      // instead of stale loanData.btcAmount (1 bvBTC). At 50% price drop, the real
+      // collateral value ($2,500) cannot cover the monthly payment + bonus ($10,500), so the
+      // function correctly returns type 1 (full liquidation) instead of type 2.
       const liquidationType = await pool.checkTypeOfLiquidation(user.address);
-      expect(liquidationType).to.equal(2n);
-
-      const collateralBefore = await abvBTC.balanceOf(user.address);
-      expect(collateralBefore).to.be.greaterThan(0n);
-
-      // Liquidator prepares USDC
-      await usdc.connect(deployer.signer).mint(parseUnits('10000', 6));
-      await usdc.connect(deployer.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
-
-      // Fund vault with cbBTC for redemption during micro-liquidation
-      const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
-      await cbBTC.mint(fundAmount);
-      await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
-
-      const callData = abiCoder.encode(
-        ['address', 'address', 'address'],
-        [getContractAddress(btcVault), getContractAddress(usdc), user.address]
-      );
-      await pool.connect(deployer.signer).microLiquidationCall(callData);
-
-      // All collateral consumed — covers lines 304-306 (debt capped) and 359-362 (collateral disabled)
-      const collateralAfter = await abvBTC.balanceOf(user.address);
-      expect(collateralAfter).to.equal(0n);
+      expect(liquidationType).to.equal(1n);
 
       // Restore price
       await cbBTCAggregator.updateAnswer(currentPrice);
@@ -532,7 +518,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await mockLoan.setInsuranceId(user.address, 0);
       await mockLoan.makeLoanOverdue(user.address, 1);
 
-      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × convertToAssets)
+      // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
       const cbBTCAggregator = aggregators['cbBTC'];
       const currentPrice = await cbBTCAggregator.latestAnswer();
       await cbBTCAggregator.updateAnswer((currentPrice * 25n) / 100n);
@@ -546,12 +532,14 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await usdc.connect(deployer.signer).mint(parseUnits('50000', 6));
       await usdc.connect(deployer.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
+      // Pass MaxUint256 to satisfy the full debt coverage check (contract caps to actual debt).
+      // The NOT_ENOUGH_LIQUIDITY error is hit after the debt coverage check passes.
       await expect(
         pool.liquidationCall(
           getContractAddress(btcVault),
           getContractAddress(usdc),
           user.address,
-          parseUnits('30000', 6),
+          MaxUint256,
           false
         )
       ).to.be.revertedWith(LPCM_NOT_ENOUGH_LIQUIDITY_TO_LIQUIDATE);

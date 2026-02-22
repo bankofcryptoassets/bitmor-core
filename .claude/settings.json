@@ -18,6 +18,8 @@
     "static-analysis@trailofbits": true,
     "variant-analysis@trailofbits": true,
     "ask-questions-if-underspecified@trailofbits": true,
-    "testing-handbook-skills@trailofbits": true
+    "testing-handbook-skills@trailofbits": true,
+    "github@claude-plugins-official": true,
+    "solskill@solskill-marketplace": true
   }
 }

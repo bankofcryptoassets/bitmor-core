@@ -52,6 +52,9 @@ contract MockLoan is ILoan {
     /// @notice Track full liquidation calls for testing
     mapping(address => uint256) public fullLiquidationCount;
 
+    /// @notice Track micro liquidation completion calls for testing
+    mapping(address => uint256) public microLiquidationCompletionCount;
+
     // ========== CONSTRUCTOR ==========
 
     constructor(address collateralAsset_, address debtAsset_) public {
@@ -141,6 +144,26 @@ contract MockLoan is ILoan {
         fullLiquidationCount[lsa]++;
     }
 
+    /**
+     * @notice Called by LendingPoolCollateralManager when duration == 1 micro-liquidation completes the loan
+     * @param lsa The loan smart account address
+     */
+    function updateLoanForMicroLiquidationCompletion(address lsa) external override {
+        require(_loanExists[lsa], "MockLoan: LOAN_NOT_EXISTS");
+
+        // Set duration to 0
+        _loanData[lsa].duration = 0;
+
+        // Set status to Completed (not Liquidated)
+        _loanData[lsa].status = DataTypes.LoanStatus.Completed;
+
+        // Update timestamp
+        _loanData[lsa].lastPaymentTimestamp = block.timestamp;
+
+        // Track call for testing
+        microLiquidationCompletionCount[lsa]++;
+    }
+
     // ========== STUB IMPLEMENTATIONS (not used in liquidation tests) ==========
 
     function initializeLoan(
@@ -186,11 +209,7 @@ contract MockLoan is ILoan {
         revert("MockLoan: NOT_IMPLEMENTED");
     }
 
-    function setSwapAdapter(address) external override {
-        revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function setZQuoter(address) external override {
+    function setSwapper(address) external override {
         revert("MockLoan: NOT_IMPLEMENTED");
     }
 
@@ -212,14 +231,6 @@ contract MockLoan is ILoan {
 
     function setPreClosureFee(uint256) external override {
         revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function setLiquidationBuffer(uint256) external override {
-        revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function getLiquidationBuffer() external view override returns (uint256) {
-        return 0;
     }
 
     function getLoanDetails(uint256, uint256)
@@ -293,7 +304,7 @@ contract MockLoan is ILoan {
      * @notice Create an active loan for testing
      * @param lsa The loan smart account address
      * @param borrower The borrower address
-     * @param collateralAmount Amount of collateral (bvBTC)
+     * @param btcAmount Amount of collateral (bvBTC)
      * @param loanAmount Total loan amount (USDC)
      * @param duration Loan duration in months
      * @param monthlyPayment Estimated monthly payment (USDC)
@@ -301,7 +312,7 @@ contract MockLoan is ILoan {
     function createActiveLoan(
         address lsa,
         address borrower,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 loanAmount,
         uint256 duration,
         uint256 monthlyPayment
@@ -310,12 +321,13 @@ contract MockLoan is ILoan {
             borrower: borrower,
             depositAmount: loanAmount / 3, // ~33% deposit
             loanAmount: loanAmount,
-            collateralAmount: collateralAmount,
+            btcAmount: btcAmount,
             estimatedMonthlyPayment: monthlyPayment,
             duration: duration,
             createdAt: block.timestamp,
             insuranceID: 0,
             lastPaymentTimestamp: block.timestamp,
+            amountRepaidInCurrentPeriod: 0,
             status: DataTypes.LoanStatus.Active
         });
         _loanExists[lsa] = true;
@@ -354,7 +366,7 @@ contract MockLoan is ILoan {
      * @notice Set collateral amount
      */
     function setCollateralAmount(address lsa, uint256 amount) external {
-        _loanData[lsa].collateralAmount = amount;
+        _loanData[lsa].btcAmount = amount;
     }
 
     /**

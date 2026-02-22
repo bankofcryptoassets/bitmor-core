@@ -60,8 +60,6 @@ library CloseLoanLogic {
         uint256 totalCollateralUSD;
         /// @dev Total debt value in USD (8 decimals from Chainlink)
         uint256 totalDebtUSD;
-        /// @dev Current bvBTC share price in USD (8 decimals)
-        uint256 collateralAssetPrice;
         /// @dev Current USDC price in USD (8 decimals)
         uint256 debtAssetPrice;
         /// @dev Current cbBTC price in USD (8 decimals)
@@ -123,16 +121,11 @@ library CloseLoanLogic {
         /// @dev Price is in 8 decimals as per Chainlink Price Feed.
         (vars.totalCollateralUSD, vars.totalDebtUSD) = ctx.bitmorPool.getUserPositions(params.lsa);
 
-        /**
-         * @dev `collateralAssetPrice` is the price of `bvBTC` shares.
-         * It is calculated by converting 1 `bvBTC` share into BTC and mutiplying it by `BTC` price.
-         */
-        vars.collateralAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.collateralAsset);
         vars.debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
         vars.btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
 
         /// @dev Here the decimals will be
-        /// decimals = IERC20Metadata(ctx.collaterlAsset).decimals();
+        /// decimals = IERC20Metadata(ctx.collateralAsset).decimals();
         vars.collateralAmt = ctx.bitmorPool.getATokenAmount(ctx.collateralAsset, params.lsa);
 
         /// @dev Here the decimals will be
@@ -155,7 +148,7 @@ library CloseLoanLogic {
         vars.flashLoanPremiumBps = ctx.aavePool.getFlashLoanPremium();
 
         /// @dev Flash Loan Premium Amount is calculated on the flash loan asset.
-        /// In this case its: `vars.debtAsset`
+        /// In this case its: `ctx.debtAsset`
         /// @dev Here the decimals will be same as `vars.debtAmt`
         vars.flashLoanPremiumAmount = vars.debtAmt.mulDivUp(vars.flashLoanPremiumBps, BASIS_POINTS);
 
@@ -199,10 +192,13 @@ library CloseLoanLogic {
             abi.encode(params.lsa, params.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
+        uint256 debtAssetBalBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
+        uint256 btcBalBefore = IERC20(ctx.btc).balanceOf(address(this));
+
         ctx.aavePool.executeFlashLoan(address(this), ctx.debtAsset, vars.debtAmt, paramsForFL);
 
-        vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this));
-        vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this));
+        vars.remainingDebtAssetBal = IERC20(ctx.debtAsset).balanceOf(address(this)) - debtAssetBalBefore;
+        vars.remainingBTCAmt = IERC20(ctx.btc).balanceOf(address(this)) - btcBalBefore;
 
         if (vars.remainingBTCAmt > 0) {
             IERC20(ctx.btc).safeTransfer(loan.borrower, vars.remainingBTCAmt);

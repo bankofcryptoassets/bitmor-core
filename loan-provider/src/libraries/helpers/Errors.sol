@@ -40,6 +40,11 @@ library Errors {
     error LoanIsNotActive();
 
     /**
+     * @notice Thrown when loan duration is zero or exceeds the maximum allowed
+     */
+    error Loan__InvalidDuration();
+
+    /**
      * @notice Thrown when array index is out of valid bounds
      */
     error IndexOutOfBounds();
@@ -88,14 +93,14 @@ library Errors {
     error InsufficientDeposit();
 
     /**
-     * @notice Thrown when requested collateral exceeds the maximum allowed (1 BTC)
+     * @notice Thrown when requested cbBTC amount exceeds the maximum allowed (1 BTC)
      */
-    error GreaterThanMaxCollateralAllowed();
+    error GreaterThanMaxBTCAllowed();
 
     /**
-     * @notice Thrown when requested collateral is below the minimum allowed (0.01 BTC)
+     * @notice Thrown when requested cbBTC amount is below the minimum allowed (0.01 BTC)
      */
-    error LessThanMinimumCollateralAllowed();
+    error LessThanMinBTCAllowed();
 
     /**
      * @notice Thrown when collateral withdrawal from Bitmor Pool fails
@@ -229,10 +234,17 @@ library Errors {
     /// @notice Thrown when a fee parameter is set to an invalid value
     error InvalidFee();
 
+    /// @notice Thrown when the exact-output swap requires more input tokens than available.
     error LessAmountForExactOutSwap();
 
     /// @notice Thrown when slippage exceeds the allowed value.
     error InvalidSlippage();
+
+    /// @notice Thrown when cbBTC-to-USDC swap output is insufficient to cover flash loan repayment.
+    error InsufficientSwapOutput();
+
+    /// @notice Thrown when a non-zero fee is set while the fee recipient is still address(0)
+    error Vault__FeeRecipientNotSet();
 
     // ============ LoanVault Errors ============
 
@@ -267,4 +279,18 @@ library Errors {
 
     /// @notice Thrown when variable debt token address is zero
     error LSALogic__InvalidDebtToken();
+
+    /// @notice Thrown when surplus collateral claim is attempted while the LSA still has outstanding debt
+    error LSALogic__OutstandingDebtExists();
+
+    // ============ Loan Surplus Claim Errors ============
+
+    /// @notice Thrown when `claimSurplusCollateral` is called by an address other than the loan borrower
+    error Loan__OnlyBorrower();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called on a loan that is still Active
+    error Loan__InvalidLoanStatus();
+
+    /// @notice Thrown when `claimSurplusCollateral` is called and either BLP or BTC vault returns 0.
+    error Loan__ClaimingSurplusCollateralFailed();
 }

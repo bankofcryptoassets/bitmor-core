@@ -215,6 +215,7 @@ export enum ProtocolErrors {
     LPAPR_INVALID_ADDRESSES_PROVIDER_ID = "72",
     LPCM_CANNOT_FULL_LIQUIDATE = "83",
     LP_FLASHLOAN_DISABLED = "86", // Flash loans are disabled in Bitmor
+    LPCM_INSUFFICIENT_DEBT_COVERAGE = "89", // Liquidator must cover full debt for full liquidation
 
     // old
 

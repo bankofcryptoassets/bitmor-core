@@ -94,7 +94,7 @@ contract ViewFunctionsTest is BaseLoanTest {
 
         // Verify exact values for inputs
         assertEq(data.borrower, user, "Borrower should match");
-        assertEq(data.collateralAmount, collateral, "Collateral should match exact input");
+        assertEq(data.btcAmount, collateral, "Collateral should match exact input");
         assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
         assertEq(data.duration, duration, "Duration should match exact input");
         // Monthly payment is recalculated based on actual borrowed amount, so just verify it's positive
@@ -116,6 +116,58 @@ contract ViewFunctionsTest is BaseLoanTest {
         assertEq(loan.getUserLoanCount(user), 1, "User should still have 1 loan");
     }
 
+    // ============ Preview vs Actual Rate Consistency ============
+
+    /// @notice Test that getLoanDetails preview monthly payment matches the actual loan's estimatedMonthlyPayment
+    /// @dev Regression test for vuln-38: getLoanDetails previously used currentVariableBorrowRate
+    ///      while initializeLoan used getMaxVariableBorrowRate, causing preview < actual
+    function test_getLoanDetails_MonthlyPaymentMatchesActualLoan() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Get preview values
+        (uint256 previewLoanAmt, uint256 previewMonthlyPay, uint256 minDeposit) =
+            loan.getLoanDetails(collateral, duration);
+
+        // Create the actual loan
+        _mintDebtAssetToUser();
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, collateral, duration, "");
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        // Preview loan amount must match actual loan amount
+        assertEq(previewLoanAmt, loanData.loanAmount, "preview loanAmount should equal actual loanAmount");
+
+        // Preview monthly payment must match actual monthly payment
+        assertEq(
+            previewMonthlyPay,
+            loanData.estimatedMonthlyPayment,
+            "preview monthlyPayment should equal actual estimatedMonthlyPayment"
+        );
+    }
+
+    /// @notice Test that getLoanDetails uses getMaxVariableBorrowRate, not currentVariableBorrowRate
+    /// @dev Sets divergent rates in mock to prove the preview reads from the strategy, not reserve data
+    function test_getLoanDetails_UsesMaxVariableBorrowRate() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Set a low currentVariableBorrowRate in the reserve (1%) — preview should NOT use this
+        mockBitmorPool.setVariableBorrowRate(address(mockUSDC), 0.01e27);
+
+        // Get preview with the default strategy max rate
+        (, uint256 previewMonthlyPayHigh,) = loan.getLoanDetails(collateral, duration);
+
+        // Lower the strategy's base rate, reducing getMaxVariableBorrowRate()
+        mockUSDCInterestRateStrategy.setBaseVariableBorrowRate(0.001e27);
+
+        (, uint256 previewMonthlyPayLow,) = loan.getLoanDetails(collateral, duration);
+
+        // Higher max rate must produce higher monthly payment (proving preview uses strategy, not reserve)
+        assertGt(previewMonthlyPayHigh, previewMonthlyPayLow, "higher max rate should produce higher monthly payment");
+    }
+
     /// @notice Test that getUserAllLoans returns correct loan data for each user
     function test_getUserAllLoans_ReturnsCorrectData() public {
         // Create loan for user
@@ -129,12 +181,72 @@ contract ViewFunctionsTest is BaseLoanTest {
         DataTypes.LoanData[] memory userLoans = loan.getUserAllLoans(user);
         assertEq(userLoans.length, 1, "User should have 1 loan");
         assertEq(userLoans[0].borrower, user, "Loan borrower should match user");
-        assertEq(userLoans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+        assertEq(userLoans[0].btcAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
 
         // Verify borrower2's loans
         DataTypes.LoanData[] memory borrower2Loans = loan.getUserAllLoans(borrower2);
         assertEq(borrower2Loans.length, 1, "Borrower2 should have 1 loan");
         assertEq(borrower2Loans[0].borrower, borrower2, "Loan borrower should match borrower2");
-        assertEq(borrower2Loans[0].collateralAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
+        assertEq(borrower2Loans[0].btcAmount, STANDARD_COLLATERAL_AMOUNT / 2, "Collateral should match");
+    }
+
+    // ============ Flash Loan Premium in EMI (vuln-22) ============
+
+    /// @notice Test that estimatedMonthlyPayment * duration covers the actual Bitmor Pool debt
+    /// @dev Regression test for vuln-22: EMI was previously computed on loanAmount only,
+    ///      but actual debt is loanAmount + flashLoanPremium
+    function test_estimatedMonthlyPayment_CoversActualDebt() public {
+        // Arrange
+        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
+        uint256 actualDebt = _getDebtBalance(lsa);
+
+        // Assert: total scheduled payments must cover the actual debt
+        // EMI * duration >= actualDebt (EMI includes interest, so it will exceed principal)
+        uint256 totalScheduledPayments = loanData.estimatedMonthlyPayment * loanData.duration;
+        assertGe(
+            totalScheduledPayments,
+            actualDebt,
+            "total scheduled payments (EMI * duration) must cover actual Bitmor Pool debt"
+        );
+    }
+
+    /// @notice Test that EMI is higher when flash loan premium is higher
+    /// @dev Proves the flash loan premium is factored into the EMI calculation
+    function test_estimatedMonthlyPayment_IncreasesWithHigherFlashLoanPremium() public {
+        // Arrange: create loan with default premium (5 bps)
+        (address lsa1, DataTypes.LoanData memory loanData1) = _createStandardLoanWithData();
+
+        // Increase flash loan premium to 100 bps (1%)
+        mockAavePool.setPremium(100);
+
+        // Create second loan for different borrower (avoid CREATE2 collision)
+        address borrower2 = makeAddr("borrower2_premium_test");
+        address lsa2 = _createLoanForBorrower(borrower2, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT);
+        DataTypes.LoanData memory loanData2 = loan.getLoanByLSA(lsa2);
+
+        // Assert: higher flash loan premium produces higher EMI
+        assertGt(
+            loanData2.estimatedMonthlyPayment,
+            loanData1.estimatedMonthlyPayment,
+            "higher flash loan premium should produce higher EMI"
+        );
+    }
+
+    /// @notice Test that getLoanDetails preview EMI accounts for flash loan premium
+    /// @dev Verifies the preview path also includes the flash loan premium
+    function test_getLoanDetails_EMI_IncludesFlashLoanPremium() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Get preview with default premium (5 bps)
+        (, uint256 emiLowPremium,) = loan.getLoanDetails(collateral, duration);
+
+        // Increase flash loan premium to 100 bps (1%)
+        mockAavePool.setPremium(100);
+
+        (, uint256 emiHighPremium,) = loan.getLoanDetails(collateral, duration);
+
+        // Assert: higher premium produces higher preview EMI
+        assertGt(emiHighPremium, emiLowPremium, "preview EMI should increase with higher flash loan premium");
     }
 }

@@ -21,7 +21,24 @@ help:
 	@echo "  make test:liquidation:unit  Run liquidation unit tests"
 	@echo "  make test:fuzz           Run fuzz tests (placeholder)"
 	@echo "  make test:invariant      Run invariant tests (placeholder)"
-	@echo "  make test:integration    Run integration tests (placeholder)"
+	@echo "  make test:integration              Run all integration tests"
+	@echo "  make test:integration:setup        SetUpState tests"
+	@echo "  make test:integration:access       AccessControl tests"
+	@echo "  make test:integration:liquidation  Liquidation tests"
+	@echo "  make test:integration:lifecycle    LoanLifecycle tests"
+	@echo "  make test:integration:vault        VaultStrategy tests"
+	@echo "  make test:integration:initloan           All InitLoan adversarial tests"
+	@echo "  make test:integration:initloan:usdcvault InitLoan USDCVault tests"
+	@echo "  make test:integration:initloan:btcvault  InitLoan BTCVault tests"
+	@echo "  make test:integration:initloan:oracle    InitLoan Oracle tests"
+	@echo "  make test:integration:initloan:swap      InitLoan Swap tests"
+	@echo "  make test:integration:initloan:accounting InitLoan Accounting tests"
+	@echo "  make test:integration:initloan:irm       InitLoan IRM tests"
+	@echo "  make test:integration:initloan:erc4626   InitLoan ERC4626 tests"
+	@echo "  make test:integration:initloan:strategy  InitLoan Strategy tests"
+	@echo "  make test:integration:initloan:timing    InitLoan Timing tests"
+	@echo "  make test:integration:single TEST=name  Single integration test"
+	@echo "  make test:integration:contract CONTRACT=Name  Integration tests by contract"
 	@echo ""
 	@echo "Single Test:"
 	@echo "  make test:single TEST=test_name    Run single test by name"
@@ -115,7 +132,74 @@ test\:invariant:
 	@echo "No invariant tests yet. Add tests to test/invariant/ to enable."
 
 test\:integration:
-	@echo "No integration tests yet. Add tests to test/integration/ to enable."
+	@echo "Running integration tests (requires running Anvil + make deploy-local)..."
+	@FOUNDRY_PROFILE=integration forge test --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:setup:
+	@echo "Running SetUpState integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/SetUpState.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:access:
+	@echo "Running AccessControl integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/AccessControl.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:liquidation:
+	@echo "Running Liquidation integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/Liquidation.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:lifecycle:
+	@echo "Running LoanLifecycle integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/LoanLifecycle.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:vault:
+	@echo "Running VaultStrategy integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/VaultStrategy.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan:
+	@echo "Running all InitLoan adversarial integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_*.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:usdcvault:
+	@echo "Running InitLoan USDCVault integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_USDCVault.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:btcvault:
+	@echo "Running InitLoan BTCVault integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_BTCVault.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:oracle:
+	@echo "Running InitLoan Oracle integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_Oracle.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:swap:
+	@echo "Running InitLoan Swap integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_Swap.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:accounting:
+	@echo "Running InitLoan Accounting integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_Accounting.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:irm:
+	@echo "Running InitLoan IRM integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_IRM.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:erc4626:
+	@echo "Running InitLoan ERC4626 integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_ERC4626.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:strategy:
+	@echo "Running InitLoan Strategy integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_Strategy.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:initloan\:timing:
+	@echo "Running InitLoan Timing integration tests..."
+	@FOUNDRY_PROFILE=integration forge test --match-path "test/integration/InitLoan_Timing.t.sol" --fork-url http://127.0.0.1:8545 -vvv
+
+test\:integration\:single:
+	@FOUNDRY_PROFILE=integration forge test --match-test $(TEST) --fork-url http://127.0.0.1:8545 -vvvv
+
+test\:integration\:contract:
+	@FOUNDRY_PROFILE=integration forge test --match-contract $(CONTRACT) --fork-url http://127.0.0.1:8545 -vvv
 
 # ============ Single Test Helpers ============
 

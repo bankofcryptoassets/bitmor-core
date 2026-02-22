@@ -155,23 +155,23 @@ abstract contract FuzzTestBase is UnitTestBase {
 
     /**
      * @notice Calculates collateral value in USD
-     * @param collateralAmount BTC amount (8 decimals)
+     * @param btcAmount BTC amount (8 decimals)
      * @param btcPrice BTC price in USD (8 decimals)
      * @return Collateral value in USD (8 decimals)
      */
-    function _getCollateralValueUsd(uint256 collateralAmount, uint256 btcPrice) internal pure returns (uint256) {
-        return (collateralAmount * btcPrice) / 1e8;
+    function _getCollateralValueUsd(uint256 btcAmount, uint256 btcPrice) internal pure returns (uint256) {
+        return (btcAmount * btcPrice) / 1e8;
     }
 
     /**
      * !TODO: Need to have a USDC price variable instead of using the constant 1 USDC = 1 USD
      * @notice Gets minimum deposit for a collateral amount at a given BTC price
-     * @param collateralAmount BTC amount (8 decimals)
+     * @param btcAmount BTC amount (8 decimals)
      * @param btcPrice BTC price in USD (8 decimals)
      * @return Minimum deposit in USDC (6 decimals)
      */
-    function _getMinDepositUsdc(uint256 collateralAmount, uint256 btcPrice) internal pure returns (uint256) {
-        uint256 collateralValueUsd = _getCollateralValueUsd(collateralAmount, btcPrice);
+    function _getMinDepositUsdc(uint256 btcAmount, uint256 btcPrice) internal pure returns (uint256) {
+        uint256 collateralValueUsd = _getCollateralValueUsd(btcAmount, btcPrice);
         uint256 minDepositUsd = (collateralValueUsd * FC.MIN_DEPOSIT_BPS) / FC.BPS_DENOMINATOR;
         return (minDepositUsd * 1e6) / 1e8;
     }

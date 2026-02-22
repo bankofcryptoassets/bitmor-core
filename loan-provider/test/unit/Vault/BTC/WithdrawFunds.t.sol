@@ -153,7 +153,7 @@ contract WithdrawFundsTest is BaseTestForBTCVault {
         vault.withdraw(excessWithdraw, user, user);
     }
 
-    /// @notice maxWithdraw should reflect actual liquidity
+    /// @notice maxWithdraw should reflect actual liquidity and exit fee
     function test_maxWithdraw_ReflectsActualLiquidity() public {
         _addStrategy(address(strategy), STRATEGY_CAP);
         _depositAsUser(LARGE_DEPOSIT_AMOUNT);
@@ -162,11 +162,54 @@ contract WithdrawFundsTest is BaseTestForBTCVault {
         uint256 userShares = vault.balanceOf(user);
         uint256 userAssets = vault.convertToAssets(userShares);
 
-        // maxWithdraw should be userAssets minus exit fee
+        // When liquidity >= userAssets, maxWithdraw should be userAssets minus exit fee
         uint256 exitFee = vault.getExitFee();
         uint256 expectedMax = userAssets - vault.feeOnTotal(userAssets, exitFee);
 
         assertEq(maxWithdrawable, expectedMax, "maxWithdraw should account for exit fee");
+
+        // Verify the returned value actually works (ERC-4626 guarantee)
+        vm.prank(user);
+        vault.withdraw(maxWithdrawable, user, user);
+    }
+
+    /// @notice maxWithdraw should return 0 when vault is paused
+    function test_maxWithdraw_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _depositAsUser(LARGE_DEPOSIT_AMOUNT);
+
+        // Pause the vault
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxWithdraw(user), 0, "maxWithdraw should be 0 when paused");
+    }
+
+    /// @notice maxRedeem should return 0 when vault is paused
+    function test_maxRedeem_ReturnsZero_WhenPaused() public {
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _depositAsUser(LARGE_DEPOSIT_AMOUNT);
+
+        // Pause the vault
+        vm.prank(bvm_fast);
+        vault.pause();
+
+        assertEq(vault.maxRedeem(user), 0, "maxRedeem should be 0 when paused");
+    }
+
+    /// @notice maxRedeem should return user's shares when liquidity is sufficient
+    function test_maxRedeem_ReturnsOwnerShares_WhenLiquiditySufficient() public {
+        _addStrategy(address(strategy), STRATEGY_CAP);
+        _depositAsUser(LARGE_DEPOSIT_AMOUNT);
+
+        uint256 maxRedeemable = vault.maxRedeem(user);
+        uint256 userShares = vault.balanceOf(user);
+
+        assertEq(maxRedeemable, userShares, "maxRedeem should equal user shares when liquidity sufficient");
+
+        // Verify the returned value actually works (ERC-4626 guarantee)
+        vm.prank(user);
+        vault.redeem(maxRedeemable, user, user);
     }
 
     /// @notice maxDeposit should reflect remaining caps

@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {TokenizedStrategyLogic} from "./TokenizedStrategyLogic.sol";
+import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 import {Errors} from "../helpers/Errors.sol";
@@ -29,6 +30,7 @@ import {Errors} from "../helpers/Errors.sol";
  */
 library StrategyStateLogic {
     using TokenizedStrategyLogic for address;
+    using SafeTransferLib for address;
 
     /**
      * @notice Retrieves the index of a strategy in the strategies array
@@ -49,19 +51,19 @@ library StrategyStateLogic {
 
     /**
      * @notice Adds a new strategy to the vault with the specified allocation cap
-     * @dev Adds strategy to both supply and withdraw queues, increments total strategies count
+     * @dev Adds strategy to both supply and withdraw queues, increments next strategy index
      * @param s The strategy state storage reference
      * @param newStrategy The address of the strategy to add
      * @param cap The maximum allocation cap for the strategy
      */
     function addStrategy(DataTypes.StrategyState storage s, address newStrategy, uint256 cap) internal {
-        s.strategies[s.totalStrategies] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
+        s.strategies[s.nextStrategyIndex] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
 
-        s.supplyQueue.push(s.totalStrategies);
-        s.withdrawQueue.push(s.totalStrategies);
+        s.supplyQueue.push(s.nextStrategyIndex);
+        s.withdrawQueue.push(s.nextStrategyIndex);
 
         // Store index + 1 to differentiate between unset (0) and first strategy (1)
-        s.strategyToIndex[newStrategy] = ++s.totalStrategies;
+        s.strategyToIndex[newStrategy] = ++s.nextStrategyIndex;
     }
 
     /**
@@ -87,11 +89,19 @@ library StrategyStateLogic {
 
     /**
      * @notice Updates the withdraw queue and removes strategies not included in the new queue
-     * @dev Validates that removed strategies have zero cap and balance before deletion
+     * @dev Validates that removed strategies have zero cap and balance before deletion.
+     *      Revokes token approval for removed strategies to prevent unauthorized asset transfers.
+     *      Clears `strategyToIndex` for removed strategies to allow re-addition.
+     *      Automatically removes stale entries from the supply queue when strategies are deleted.
      * @param s The strategy state storage reference
      * @param newQueue Array of indices referencing positions in current withdraw queue
+     * @param asset The underlying asset address used to revoke approval for removed strategies
+     * @return supplyQueueCleaned True if the supply queue was modified during cleanup
      */
-    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue) internal {
+    function updateWithdrawQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue, address asset)
+        internal
+        returns (bool supplyQueueCleaned)
+    {
         uint256[] memory currentWithdrawQueue = s.withdrawQueue;
         uint256 newLength = newQueue.length;
         uint256 currLength = currentWithdrawQueue.length;
@@ -125,10 +135,39 @@ library StrategyStateLogic {
                     revert Errors.InvalidStrategyRemovalWithNonZeroAssetBalance(id);
                 }
 
+                asset.safeApprove(strategy.strategy, 0);
+                delete s.strategyToIndex[strategy.strategy];
                 delete s.strategies[id];
             }
         }
 
         s.withdrawQueue = newWithdrawQueue;
+
+        // Auto-clean supply queue: remove entries pointing to deleted strategies
+        if (newLength < currLength) {
+            uint256[] memory currentSupplyQueue = s.supplyQueue;
+            uint256 supplyLen = currentSupplyQueue.length;
+
+            // Count survivors
+            uint256 survivors;
+            for (uint256 j; j < supplyLen; ++j) {
+                if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
+                    ++survivors;
+                }
+            }
+
+            // Only rebuild if entries were actually removed
+            if (survivors < supplyLen) {
+                uint256[] memory cleanedSupplyQueue = new uint256[](survivors);
+                uint256 writeIdx;
+                for (uint256 j; j < supplyLen; ++j) {
+                    if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
+                        cleanedSupplyQueue[writeIdx++] = currentSupplyQueue[j];
+                    }
+                }
+                s.supplyQueue = cleanedSupplyQueue;
+                supplyQueueCleaned = true;
+            }
+        }
     }
 }

@@ -149,7 +149,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
     // ============ Loan-Specific Bound Helpers ============
 
     /// @notice Bounds deposit between contract-computed minimum and 90% of collateral value
-    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param collateral Target cbBTC amount (8 decimals)
     /// @param duration Loan duration in months
     /// @param raw The raw fuzzed input
     /// @return deposit The bounded deposit amount in USDC (6 decimals)
@@ -315,7 +315,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
 
     /// @notice Creates a loan with custom parameters using the minimum required deposit
     /// @dev Caller must ensure `user` has sufficient USDC balance and approval
-    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param collateral Target cbBTC amount (8 decimals)
     /// @param duration Loan duration in months
     /// @param premium Premium amount in USDC (6 decimals)
     /// @return lsa The deployed LoanVault (Loan Smart Account) address
@@ -327,7 +327,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
 
     /// @notice Creates a loan and returns both the LSA address and the stored LoanData struct
     /// @dev Caller must ensure `user` has sufficient USDC balance and approval
-    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param collateral Target cbBTC amount (8 decimals)
     /// @param duration Loan duration in months
     /// @param premium Premium amount in USDC (6 decimals)
     /// @return lsa The deployed LoanVault address
@@ -372,13 +372,13 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
     /// @param dropPercent Percentage to drop (e.g., 50 = 50% drop)
     /// @return newPrice The new BTC price
     function _dropOraclePrice(uint256 dropPercent) internal returns (uint256 newPrice) {
-        newPrice = mockOracle.dropPrice(address(mockBTCVault), dropPercent);
+        newPrice = mockOracle.dropPrice(address(mockCbBTC), dropPercent);
     }
 
     /// @notice Sets the BTC price directly
     /// @param price New price in 8 decimals
     function _setBtcPrice(uint256 price) internal {
-        mockOracle.setAssetPrice(address(mockBTCVault), price);
+        mockOracle.setAssetPrice(address(mockCbBTC), price);
     }
 
     // ============ Liquidation Helpers ============

@@ -9,6 +9,7 @@ import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
+import {ILendingPool} from "../../interfaces/ILendingPool.sol";
 
 /**
  * @title USDCVault
@@ -109,6 +110,23 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
     function reallocateAssets(uint256 amountToWithdraw) external restricted whenNotPaused {
         if (msg.sender != i_blp) revert Errors.UnauthorizedCaller();
         s_strategy.reallocateAssets(amountToWithdraw);
+    }
+
+    /**
+     * @notice Routes a BLP deposit through the vault so `msg.sender` at the LendingPool is the vault
+     * @dev Called by the strategy to deposit assets into the Bitmor Lending Pool.
+     * The strategy transfers USDC to the vault first, then the vault deposits into BLP.
+     * This ensures the LendingPool sees USDCVault as the caller (not the strategy).
+     * @param amount The amount of USDC to deposit into BLP
+     * @param onBehalfOf The address that receives the aTokens
+     * @custom:access Only callable by the current strategy
+     */
+    function depositToBLP(uint256 amount, address onBehalfOf) external whenNotPaused {
+        if (msg.sender != address(s_strategy)) revert Errors.UnauthorizedCaller();
+        if (amount == 0) return;
+        i_asset.safeTransferFrom(msg.sender, address(this), amount);
+        i_asset.safeApprove(i_blp, amount);
+        ILendingPool(i_blp).deposit(i_asset, amount, onBehalfOf, 0);
     }
 
     /**

@@ -167,9 +167,9 @@ library DataTypes {
          */
         uint256 premiumAmount;
         /**
-         * @dev Target collateral amount (cbBTC, 8 decimals)
+         * @dev Target cbBTC amount (8 decimals)
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
          * @dev Loan duration in months
          */
@@ -198,9 +198,9 @@ library DataTypes {
          */
         address oracle;
         /**
-         * @dev Collateral asset address (cbBTC)
+         * @dev BTC asset address (cbBTC)
          */
-        address collateralAsset;
+        address btc;
         /**
          * @dev Debt asset address (USDC)
          */
@@ -218,13 +218,13 @@ library DataTypes {
          */
         address premiumCollector;
         /**
-         * @dev Minimum collateral amount allowed (0.01 BTC)
+         * @dev Minimum cbBTC amount allowed (0.01 BTC)
          */
-        uint256 minCollateralAmt;
+        uint256 minBTCAmt;
         /**
-         * @dev Maximum collateral amount allowed (1 BTC)
+         * @dev Maximum cbBTC amount allowed (1 BTC)
          */
-        uint256 maxCollateralAmt;
+        uint256 maxBTCAmt;
         /**
          * @dev Repayment interval in seconds (30 days)
          */
@@ -233,6 +233,10 @@ library DataTypes {
          * @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
          */
         uint256 minDepositBps;
+        /**
+         * @dev Maximum loan duration in months
+         */
+        uint256 maxDuration;
     }
 
     /**
@@ -348,7 +352,7 @@ library DataTypes {
          */
         address debtAsset;
         /**
-         * @dev Collateral asset address (cbBTC)
+         * @dev Collateral asset address (bvBTC)
          */
         address collateralAsset;
         /**
@@ -390,6 +394,13 @@ library DataTypes {
         uint256 maxBTCAmt;
         /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
         uint256 minDepositBps;
+        /// @dev Maximum loan duration in months
+        uint256 maxDuration;
+        address bitmorPool;
+        address oracle;
+        address aavePool;
+        address btc;
+        address debtAsset;
     }
 
     /**
@@ -406,13 +417,17 @@ library DataTypes {
          */
         address oracle;
         /**
-         * @dev Collateral asset address
+         * @dev BTC asset address
          */
-        address collateralAsset;
+        address btc;
         /**
          * @dev Debt asset address
          */
         address debtAsset;
+        /**
+         * @dev Aave V3 pool address for fetching flash loan premium
+         */
+        address aavePool;
         /**
          * @dev User's deposit amount
          */
@@ -422,13 +437,13 @@ library DataTypes {
          */
         uint256 debtAssetDecimals;
         /**
-         * @dev Target collateral amount
+         * @dev Target BTC amount
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
-         * @dev Collateral asset decimals
+         * @dev BTC asset decimals
          */
-        uint256 collateralAssetDecimals;
+        uint256 btcAssetDecimals;
         /**
          * @dev Loan duration in months
          */
@@ -451,17 +466,17 @@ library DataTypes {
          */
         uint256 debtAssetDecimals;
         /**
-         * @dev Target collateral amount
+         * @dev Target cbBTC amount
          */
-        uint256 collateralAmount;
+        uint256 btcAmount;
         /**
-         * @dev Collateral asset decimals
+         * @dev BTC asset decimals
          */
-        uint256 collateralAssetDecimals;
+        uint256 btcAssetDecimals;
         /**
-         * @dev Collateral price in USD (8 decimals)
+         * @dev BTC price in USD (8 decimals)
          */
-        uint256 collateralPriceUSD;
+        uint256 btcPriceUSD;
         /**
          * @dev Debt asset price in USD (8 decimals)
          */
@@ -476,6 +491,8 @@ library DataTypes {
         uint256 duration;
         /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
         uint256 minDepositBps;
+        /// @dev Aave V3 flash loan premium in basis points (e.g., 5 = 0.05%)
+        uint256 flashLoanPremiumBps;
     }
 
     // ============ Loan Data Structure ============
@@ -485,8 +502,14 @@ library DataTypes {
      * @param borrower The address that created and owns this loan
      * @param depositAmount Initial USDC deposit amount (6 decimals)
      * @param loanAmount Total amount borrowed via flash loan (6 decimals)
-     * @param collateralAmount cbBTC amount user wants to achieve (8 decimals)
+     * @dev `loanAmount` is a historical record set at creation. It does not track accrued
+     *      interest or reflect partial repayments. For live outstanding debt, read the variable
+     *      debt token balance via `BitmorLendingPoolLogic.getVDTTokenAmount()`.
+     * @param btcAmount cbBTC amount user wants to achieve (8 decimals)
      * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals)
+     * @dev `estimatedMonthlyPayment` is computed once using the max variable borrow rate at loan
+     *      creation time. It is not recalculated during the loan lifetime. It serves as the
+     *      billing-period divisor for duration tracking and micro-liquidation sizing.
      * @param duration Loan term length in months
      * @param createdAt Unix timestamp when loan was created
      * @param insuranceID Insurance/Order ID for tracking this loan
@@ -498,7 +521,7 @@ library DataTypes {
         address borrower;
         uint256 depositAmount;
         uint256 loanAmount;
-        uint256 collateralAmount;
+        uint256 btcAmount;
         uint256 estimatedMonthlyPayment;
         uint256 duration;
         uint256 createdAt;
@@ -566,9 +589,9 @@ library DataTypes {
      */
     struct StrategyState {
         /**
-         * @notice Total number of strategies currently managed by the vault
+         * @notice Next available index for strategy assignment (monotonic counter, never decremented)
          */
-        uint256 totalStrategies;
+        uint256 nextStrategyIndex;
         /**
          * @notice Mapping from index to strategy details
          */

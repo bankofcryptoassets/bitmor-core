@@ -9,6 +9,7 @@ import {DataTypes} from "../types/DataTypes.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
 
 import {LSALogic} from "./LSALogic.sol";
@@ -47,7 +48,7 @@ library RepayLogic {
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param params Repayment parameters containing LSA and amount
      * @param loansByLSA Storage mapping of all loans by LSA
      * @return finalAmountRepaid The actual amount repaid to the pool
@@ -86,26 +87,36 @@ library RepayLogic {
         uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
 
         // Advance schedule only if loan remains active
-        if (totalDebtRemaining == 0) {
-            // Fully repaid
+        if (totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {
+            // Fully repaid (or negligible dust remaining)
 
             loan.status = DataTypes.LoanStatus.Completed;
             loan.duration = 0;
+
+            // Repay dust debt so lending pool allows full collateral withdrawal
+            if (totalDebtRemaining > 0) {
+                uint256 dustRepaid = bitmorPool.repayDustDebt(debtAsset, params.lsa, totalDebtRemaining);
+                finalAmountRepaid += dustRepaid;
+                emit ILoan.Loan__DustDebtAbsorbed(params.lsa, totalDebtRemaining);
+            }
 
             /// @dev Withdraw Collateral `bvBTC` shares to `lsa`
             uint256 amountWithdrawn = params.lsa.withdrawCollateral(bitmorPool, collateralAsset, params.lsa);
 
             if (amountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to the `borrower` address
+            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to the `borrower` address
             params.lsa.redeemBTC(collateralAsset, amountWithdrawn, loan.borrower, params.slippage_sharesToAsset);
 
-            emit ILoan.Loan__ClosedLoan(params.lsa);
+            emit ILoan.Loan__Completed(params.lsa);
         } else {
             loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
             uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;
             if (periods > 0) {
-                loan.duration -= periods;
+                uint256 newDuration = loan.duration.zeroFloorSub(periods);
+
+                /// @dev Duration stays `1` till the complete debt is repaid.
+                loan.duration = newDuration == 0 ? 1 : newDuration;
                 loan.amountRepaidInCurrentPeriod -= periods * loan.estimatedMonthlyPayment;
                 loan.lastPaymentTimestamp = block.timestamp;
             }

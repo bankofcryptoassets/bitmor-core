@@ -37,13 +37,14 @@ contract HelperConfig is Script {
     uint256 public constant DECIMAL_CBBTC = 1e8;
     uint256 constant DEPOSIT_AMT = 1e8 * DECIMAL_USDC;
     uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
-    uint256 constant COLLATERL_AMT = 1e8 * DECIMAL_CBBTC;
+    uint256 constant CBBTC_AMT = 1e8 * DECIMAL_CBBTC;
     uint256 constant DURATION_IN_MONTHS = 12;
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
     uint256 constant INITIAL_INSURANCE_ID = 0;
     uint256 constant MAX_LOAN_AMOUNT_BASE_SEPOLIA = 70_000 * DECIMAL_USDC;
     uint256 constant GRACE_PERIOD = 7 days;
+    uint256 constant MAX_DURATION = 60; // 5 years in months
     // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
@@ -148,6 +149,10 @@ contract HelperConfig is Script {
         return GRACE_PERIOD;
     }
 
+    function getMaxDuration() public pure returns (uint256) {
+        return MAX_DURATION;
+    }
+
     function getPremiumCollector() public pure returns (address) {
         return PREMIUM_COLLECTOR;
     }
@@ -206,7 +211,7 @@ contract HelperConfig is Script {
     }
 
     function getCollateralAsset() public view returns (address) {
-        return _readAddress("bcbBTC");
+        return getBTCVault();
     }
 
     function getDebtAsset() public view returns (address) {
@@ -299,6 +304,12 @@ contract HelperConfig is Script {
         return _readDeployment("btcOracle");
     }
 
+    /// @notice Returns the deployed USDC/USD Chainlink oracle address (local only)
+    /// @return The USDC/USD mock oracle address from most recent deployment
+    function getUsdcUsdOracle() public view returns (address) {
+        return _readDeployment("usdcOracle");
+    }
+
     /// @notice Returns the path to loan-provider's deployments.json
     /// @return The absolute path to deployments.json
     function getDeploymentsJsonPath() public view returns (string memory) {
@@ -315,9 +326,10 @@ contract HelperConfig is Script {
     /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
     /// @return The absolute path to the broadcast directory
     function getBroadcastPath(string memory scriptName) public view returns (string memory) {
-        return string.concat(
-            vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
-        );
+        return
+            string.concat(
+                vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+            );
     }
 
     function getLoanConfig()
@@ -331,7 +343,7 @@ contract HelperConfig is Script {
             bytes memory data
         )
     {
-        return (DEPOSIT_AMT, PREMIUM_AMT, COLLATERL_AMT, DURATION_IN_MONTHS, DATA);
+        return (DEPOSIT_AMT, PREMIUM_AMT, CBBTC_AMT, DURATION_IN_MONTHS, DATA);
     }
 
     function _readAddress(string memory contractName) internal view returns (address addr) {
@@ -366,8 +378,8 @@ contract HelperConfig is Script {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
 
         try vm.readFile(path) returns (string memory json) {
-            // Build jsonpath: .deployments.<chainId>.s_networkConfig.<key>
-            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".s_networkConfig.", key);
+            // Build jsonpath: .deployments.<chainId>.networkConfig.<key>
+            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

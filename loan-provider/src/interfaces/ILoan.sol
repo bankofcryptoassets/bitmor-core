@@ -17,11 +17,11 @@ interface ILoan {
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
      * @param loanAmount Total loan amount in USDC (6 decimals)
-     * @param collateralAmount Amount of cbBTC collateral (8 decimals)
+     * @param btcAmount Target cbBTC amount (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 collateralAmount, bytes data
+        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 btcAmount, bytes data
     );
 
     /**
@@ -45,6 +45,19 @@ interface ILoan {
      * @param lsa Address of the closed Loan Specific Address
      */
     event Loan__ClosedLoan(address indexed lsa);
+
+    /**
+     * @notice Emitted when a loan is completed.
+     * @param lsa Address of the completed Loan Specific Address
+     */
+    event Loan__Completed(address indexed lsa);
+
+    /// @notice Emitted when a loan is completed with negligible dust debt remaining
+    /// @dev Dust debt arises from Aave V2 rayMul/rayDiv rounding during repayment.
+    ///      Amount is bounded by `Constants.DEBT_DUST_THRESHOLD` (10 wei).
+    /// @param lsa Address of the Loan Specific Address
+    /// @param dustAmount Amount of residual debt in wei
+    event Loan__DustDebtAbsorbed(address indexed lsa, uint256 dustAmount);
 
     /**
      * @notice Emitted when the LoanVaultFactory address is updated
@@ -122,14 +135,14 @@ interface ILoan {
     event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
 
     /**
-     * @notice Emitted when the maximum BTC collateral amount is updated
-     * @param newMaxBTCAmount New maximum BTC amount (8 decimals)
+     * @notice Emitted when the maximum cbBTC amount is updated
+     * @param newMaxBTCAmount New maximum cbBTC amount (8 decimals)
      */
     event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
 
     /**
-     * @notice Emitted when the minimum BTC collateral amount is updated
-     * @param newMinBTCAmount New minimum BTC amount (8 decimals)
+     * @notice Emitted when the minimum cbBTC amount is updated
+     * @param newMinBTCAmount New minimum cbBTC amount (8 decimals)
      */
     event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
 
@@ -151,6 +164,20 @@ interface ILoan {
      */
     event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
 
+    /**
+     * @notice Emitted when the maximum loan duration is updated
+     * @param newMaxDuration New maximum duration in months
+     */
+    event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
+
+    /**
+     * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
+     * @param lsa Address of the Loan Specific Address
+     * @param borrower Address of the borrower who received the collateral
+     * @param assetsClaimed Amount of assets claimed by the borrower
+     */
+    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
+
     // ============ Main Functions ============
 
     /**
@@ -158,7 +185,7 @@ interface ILoan {
      * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow
      * @param depositAmount USDC deposit amount (6 decimals)
      * @param premiumAmount USDC premium amount (6 decimals)
-     * @param collateralAmount Target cbBTC amount user wants to achieve (8 decimals)
+     * @param btcAmount Target cbBTC amount user wants to achieve (8 decimals)
      * @param duration Loan duration in months
      * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
@@ -167,7 +194,7 @@ interface ILoan {
     function initializeLoan(
         uint256 depositAmount,
         uint256 premiumAmount,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 duration,
         bytes calldata data
     ) external returns (address lsa);
@@ -189,8 +216,18 @@ interface ILoan {
     function updateLoanDataForMicroLiquidation(address _lsa) external;
 
     /**
+     * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
+     * @param _lsa The Loan Specific Address
+     * @custom:access Restricted to `LPCM` role
+     */
+    function updateLoanForMicroLiquidationCompletion(address _lsa) external;
+
+    /**
      * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp` to `block.timestamp`.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @custom:access Restricted to `LPCM` role
      */
@@ -229,7 +266,7 @@ interface ILoan {
 
     /**
      * @notice Gets the collateral asset address
-     * @return cbBTC address
+     * @return bvBTC address
      */
     function getCollateralAsset() external view returns (address);
 
@@ -263,9 +300,19 @@ interface ILoan {
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
      * @dev Withdraws from escrow where excess collateral is locked
      * @param lsa The Loan Specific Address
-     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the underlying cbBTC will be transferred to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
+
+    /**
+     * @notice Allows the borrower to claim surplus collateral after liquidation or micro-liquidation completion
+     * @dev Only callable by the loan's borrower when loan is no longer Active (i.e., Liquidated or Completed).
+     *      Withdraws aToken collateral from the Bitmor Lending Pool, redeems bvBTC shares, and transfers
+     *      the underlying cbBTC to the borrower. Reverts if outstanding debt exists or no collateral remains.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     * @return assetsClaimed The amount of assets claimed by the borrower
+     */
+    function claimSurplusCollateral(address _lsa) external returns (uint256 assetsClaimed);
 
     // ============ Admin Functions ============
 
@@ -296,6 +343,7 @@ interface ILoan {
 
     /**
      * @notice Updates the grace period for monthly payment overdue checks
+     * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -315,26 +363,28 @@ interface ILoan {
 
     /**
      * @notice Updates the pre-closure fee
+     * @dev Reverts with `InvalidFee` if `newFee` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newFee New pre-closure fee in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
     function setPreClosureFee(uint256 newFee) external;
 
     /**
-     * @notice Calculates loan details based on `collateralAmount` and `duration`
-     * @param collateralAmount Collateral asset amount in cbBTC (8 decimals)
+     * @notice Calculates loan details based on `btcAmount` and `duration`
+     * @param btcAmount Collateral asset amount in cbBTC (8 decimals)
      * @param duration Duration of the loan in months
      * @return loanAmount Debt asset amount in USDC (6 decimals)
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
-    function getLoanDetails(uint256 collateralAmount, uint256 duration)
+    function getLoanDetails(uint256 btcAmount, uint256 duration)
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
 
     /**
      * @notice Updates the slippage tolerance for `bvBTC` shares-to-asset conversion
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -346,6 +396,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for token swaps
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -356,26 +407,26 @@ interface ILoan {
     function getSlippageForSwap() external view returns (uint256);
 
     /**
-     * @notice Updates the maximum BTC collateral amount
+     * @notice Updates the maximum cbBTC amount
      * @dev Reverts if `newMaxBTCAmt` is less than the current minimum
-     * @param newMaxBTCAmt New maximum BTC amount (8 decimals)
+     * @param newMaxBTCAmt New maximum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
 
     /// @notice Returns the `s_maxBTCAmt` value (8 decimals).
-    /// @return The maximum BTC collateral amount
+    /// @return The maximum cbBTC amount
     function getMaxBTCAmount() external view returns (uint256);
 
     /**
-     * @notice Updates the minimum BTC collateral amount
-     * @param newMinBTCAmt New minimum BTC amount (8 decimals)
+     * @notice Updates the minimum cbBTC amount
+     * @param newMinBTCAmt New minimum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
     function setMinBTCAmount(uint256 newMinBTCAmt) external;
 
     /// @notice Returns the `s_minBTCAmt` value (8 decimals).
-    /// @return The minimum BTC collateral amount
+    /// @return The minimum cbBTC amount
     function getMinBTCAmount() external view returns (uint256);
 
     /// @notice Returns the `s_minDeposit` value in basis points.
@@ -384,6 +435,7 @@ interface ILoan {
 
     /**
      * @notice Updates the minimum deposit percentage
+     * @dev Reverts with `InvalidInputs` if `newMinDepositBps` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newMinDepositBps New minimum deposit in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
@@ -404,6 +456,18 @@ interface ILoan {
     /// @notice Returns the `s_liquidationFeeCollector` address.
     /// @return The address that receives liquidation fees
     function getLiquidationFeeCollector() external view returns (address);
+
+    /**
+     * @notice Updates the maximum allowed loan duration
+     * @dev Reverts if `newMaxDuration` is zero
+     * @param newMaxDuration New maximum duration in months
+     * @custom:access Restricted to `LPM_SLOW` role
+     */
+    function setMaxDuration(uint256 newMaxDuration) external;
+
+    /// @notice Returns the `s_maxDuration` value in months.
+    /// @return The maximum loan duration in months
+    function getMaxDuration() external view returns (uint256);
 
     /**
      * @notice Updates the liquidation fee collector address

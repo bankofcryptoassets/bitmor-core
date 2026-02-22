@@ -10,6 +10,15 @@ contract MockYieldSource {
     /// @dev Mapping of user => asset => deposited balance
     mapping(address user => mapping(address asset => uint256 balance)) balances;
 
+    /// @dev When true, withdraw() will revert
+    bool public shouldRevertOnWithdraw;
+
+    /// @notice Toggle whether withdraw should revert
+    /// @param _shouldRevert Whether to revert on withdraw calls
+    function setShouldRevertOnWithdraw(bool _shouldRevert) external {
+        shouldRevertOnWithdraw = _shouldRevert;
+    }
+
     /// @notice Records a supply of `amount` of `asset` from the caller
     /// @param asset The asset being supplied
     /// @param amount The amount being supplied
@@ -21,6 +30,7 @@ contract MockYieldSource {
     /// @param asset The asset being withdrawn
     /// @param amount The amount being withdrawn
     function withdraw(address asset, uint256 amount) external {
+        if (shouldRevertOnWithdraw) revert("MockYieldSource: paused");
         balances[msg.sender][asset] -= amount;
     }
 

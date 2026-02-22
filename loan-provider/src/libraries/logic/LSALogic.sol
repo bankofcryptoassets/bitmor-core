@@ -10,6 +10,8 @@ import {ILoanVault} from "../../interfaces/ILoanVault.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
+import {Constants} from "../helpers/Constants.sol";
 import {Errors} from "../helpers/Errors.sol";
 
 /**
@@ -32,6 +34,7 @@ import {Errors} from "../helpers/Errors.sol";
 library LSALogic {
     using BTCVaultLogic for address;
     using FixedPointMathLib for uint256;
+    using BitmorLendingPoolLogic for address;
 
     /// @dev Maximum uint256 value used for max withdrawal amounts
     uint256 internal constant MAX_U256 = type(uint256).max;
@@ -82,7 +85,7 @@ library LSALogic {
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param lsa The Loan Specific Address holding the collateral position
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param recipient Address to receive the withdrawn collateral
      * @return amountWithdrawn The actual amount of collateral withdrawn
      */
@@ -90,13 +93,7 @@ library LSALogic {
         internal
         returns (uint256 amountWithdrawn)
     {
-        bytes memory withdrawData =
-            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
-
-        bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
-
-        // Decode the actual amount withdrawn
-        amountWithdrawn = abi.decode(result, (uint256));
+        amountWithdrawn = _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, recipient);
     }
 
     /**
@@ -117,9 +114,80 @@ library LSALogic {
         address recipient,
         uint256 slippage_sharesToAsset
     ) internal returns (uint256 assetsReceived) {
-        uint256 estimatedReceivable = collateralAsset.convertToAssets(sharesAmount);
+        assetsReceived = _redeemBTC(lsa, collateralAsset, sharesAmount, recipient, slippage_sharesToAsset);
+    }
 
-        uint256 minimumReceivable = estimatedReceivable.mulDiv(slippage_sharesToAsset, BASIS_POINT_SCALE);
+    /**
+     * @notice Claims all remaining collateral from the Bitmor Lending Pool and redeems it to the `borrower`
+     * @dev Used after liquidation/completion to return leftover collateral.
+     * Reverts if the LSA still has outstanding variable debt.
+     * Withdraws all aToken collateral to the LSA, then redeems bvBTC shares to the borrower.
+     * @param lsa The Loan Specific Address holding the collateral position
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param collateralAsset Address of the BTC Vault (bvBTC) contract
+     * @param debtAsset Address of the debt asset (USDC) for debt balance check
+     * @param borrower Address of the loan borrower to receive the collateral
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     */
+    function claimSurplusCollateral(
+        address lsa,
+        address bitmorPool,
+        address collateralAsset,
+        address debtAsset,
+        address borrower,
+        uint256 slippage_sharesToAsset
+    ) internal returns (uint256 assetsClaimed) {
+        /// @dev Revert if the LSA still has outstanding variable debt above dust threshold.
+        ///      Dust debt (1-10 wei) from Aave V2 rayDiv rounding is handled by LoanLogic
+        ///      before this function is called.
+        if (bitmorPool.getVDTTokenAmount(debtAsset, lsa) > Constants.DEBT_DUST_THRESHOLD) {
+            revert Errors.LSALogic__OutstandingDebtExists();
+        }
+
+        /// @dev Check if there is any collateral to claim
+        if (bitmorPool.getATokenAmount(collateralAsset, lsa) == 0) {
+            revert Errors.Loan__ClaimingSurplusCollateralFailed();
+        }
+
+        /// @dev Withdraw all the collateral, `bvBTC` shares from the BLP to the LSA.
+        _withdrawMaxCollateral(lsa, bitmorPool, collateralAsset, lsa);
+
+        /// @dev Calculate the maximum redeemable amount of `bvBTC` shares from the `bvBTC` vault.
+        uint256 maxRedeemable = collateralAsset.maxRedeem(lsa);
+
+        /// @dev Guard: nothing to redeem (e.g., vault paused or zero shares after withdrawal)
+        if (maxRedeemable == 0) revert Errors.Loan__ClaimingSurplusCollateralFailed();
+
+        /// @dev Redeem all the `bvBTC` shares from the `bvBTC` vault to the `borrower`.
+        assetsClaimed = _redeemBTC(lsa, collateralAsset, maxRedeemable, borrower, slippage_sharesToAsset);
+    }
+
+    /// @dev Withdraws all collateral from the Bitmor Lending Pool via the LSA using `MAX_U256`.
+    function _withdrawMaxCollateral(address lsa, address bitmorPool, address collateralAsset, address recipient)
+        private
+        returns (uint256 amountWithdrawn)
+    {
+        bytes memory withdrawData =
+            abi.encodeWithSelector(ILendingPool.withdraw.selector, collateralAsset, MAX_U256, recipient);
+
+        bytes memory result = ILoanVault(lsa).execute(bitmorPool, withdrawData);
+
+        // Decode the actual amount withdrawn
+        amountWithdrawn = abi.decode(result, (uint256));
+    }
+
+    /// @dev Redeems bvBTC shares via the LSA, validates received assets against slippage tolerance.
+    function _redeemBTC(
+        address lsa,
+        address collateralAsset,
+        uint256 sharesAmount,
+        address recipient,
+        uint256 slippage_sharesToAsset
+    ) private returns (uint256 assetsReceived) {
+        uint256 estimatedReceivable = collateralAsset.previewRedeem(sharesAmount);
+
+        uint256 minimumReceivable =
+            estimatedReceivable.mulDiv(BASIS_POINT_SCALE - slippage_sharesToAsset, BASIS_POINT_SCALE);
 
         bytes memory redeemData = abi.encodeWithSelector(ERC4626.redeem.selector, sharesAmount, recipient, lsa);
 
@@ -128,6 +196,8 @@ library LSALogic {
         // Decode the actual amount redeemed.
         assetsReceived = abi.decode(result, (uint256));
 
-        if (assetsReceived < minimumReceivable) revert Errors.SlippageExceededWhileConvertingToAssets();
+        if (assetsReceived < minimumReceivable) {
+            revert Errors.SlippageExceededWhileConvertingToAssets();
+        }
     }
 }

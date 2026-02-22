@@ -60,7 +60,7 @@ async function main() {
   console.log("Step 1: Checking loan status...");
   const loanData = await loan.getLoanByLSA(LSA_ADDRESS);
   console.log("  Borrower:", loanData.borrower);
-  console.log("  Collateral Amount:", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
+  console.log("  BTC Amount:", ethers.utils.formatUnits(loanData.btcAmount, 8), "cbBTC");
   console.log("  Loan Amount:", ethers.utils.formatUnits(loanData.loanAmount, 6), "USDC");
   console.log("  Insurance ID:", loanData.insuranceID.toString());
   console.log("  Is Insured:", loanData.insuranceID.gt(0) ? "Yes" : "No");
@@ -172,7 +172,7 @@ async function main() {
 
   console.log("  New Total Debt:", ethers.utils.formatUnits(newUserData.totalDebtETH, 8), "USD");
   console.log("  New Health Factor:", ethers.utils.formatUnits(newUserData.healthFactor, 18));
-  console.log("  New Collateral Amount:", ethers.utils.formatUnits(newLoanData.collateralAmount, 8), "cbBTC");
+  console.log("  New BTC Amount:", ethers.utils.formatUnits(newLoanData.btcAmount, 8), "cbBTC");
   console.log();
 
   console.log("========================================");

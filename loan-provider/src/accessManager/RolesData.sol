@@ -399,9 +399,10 @@ contract RolesData {
     /// @dev Selectors for updateLoanData function
     /// @return selectors Array of function selectors
     function getLPCM_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](3);
         selectors[0] = ILoan.updateLoanDataForFullLiquidation.selector;
         selectors[1] = ILoan.updateLoanDataForMicroLiquidation.selector;
+        selectors[2] = ILoan.updateLoanForMicroLiquidationCompletion.selector;
     }
 
     /// @notice Returns function selectors for LPM_FAST role
@@ -417,7 +418,7 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](13);
+        selectors = new bytes4[](14);
         selectors[0] = ILoan.setLoanVaultFactory.selector;
         selectors[1] = ILoan.setPremiumCollector.selector;
         selectors[2] = ILoan.setGracePeriod.selector;
@@ -431,14 +432,16 @@ contract RolesData {
         selectors[10] = ILoan.setLiquidationFeeBps.selector;
         selectors[11] = ILoan.setLiquidationFeeCollector.selector;
         selectors[12] = ILoan.setSwapper.selector;
+        selectors[13] = ILoan.setMaxDuration.selector;
     }
 
     /// @notice Returns function selectors for ARE role
-    /// @dev Selectors for executeAutoRepayment function
+    /// @dev Selectors for executeAutoRepayment and rescueTokens functions
     /// @return selectors Array of function selectors
     function getARE_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](1);
+        selectors = new bytes4[](2);
         selectors[0] = IAutoRepayment.executeAutoRepayment.selector;
+        selectors[1] = IAutoRepayment.rescueTokens.selector;
     }
 
     /// @notice Returns function selectors for BVM_FAST role

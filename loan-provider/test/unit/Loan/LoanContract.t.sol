@@ -6,6 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title LoanContractTest
 /// @author Bitmor Protocol
@@ -60,17 +61,17 @@ contract LoanContract is BaseLoanTest {
 
     /// @notice getUserAllLoans returns both loans created by the same user with correct borrower and duration fields.
     function test_loan_getUserAllLoans_multipleLoans_success() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 t0 = block.timestamp;
 
-        (,, uint256 minDeposit1) = loan.getLoanDetails(collateralAmount, 12);
+        (,, uint256 minDeposit1) = loan.getLoanDetails(btcAmount, 12);
         vm.prank(user);
-        loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, collateralAmount, 12, DATA);
+        loan.initializeLoan(minDeposit1, PREMIUM_AMOUNT, btcAmount, 12, DATA);
 
         vm.warp(t0 + 1000); // ensure a unique CREATE2 salt for the second loan
-        (,, uint256 minDeposit2) = loan.getLoanDetails(collateralAmount, 6);
+        (,, uint256 minDeposit2) = loan.getLoanDetails(btcAmount, 6);
         vm.prank(user);
-        loan.initializeLoan(minDeposit2, PREMIUM_AMOUNT, collateralAmount, 6, DATA);
+        loan.initializeLoan(minDeposit2, PREMIUM_AMOUNT, btcAmount, 6, DATA);
 
         DataTypes.LoanData[] memory loans = loan.getUserAllLoans(user);
         assertEq(loans.length, 2, "Should return 2 loans");
@@ -101,9 +102,7 @@ contract LoanContract is BaseLoanTest {
     function test_loan_calculateStrikePrice_zeroOraclePrice_reverts() public {
         address oracle = loan.i_ORACLE();
 
-        vm.mockCall(
-            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset), abi.encode(0)
-        );
+        vm.mockCall(oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(0));
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
         loan.calculateStrikePrice(10_000e6, 5_000e6);
@@ -166,6 +165,48 @@ contract LoanContract is BaseLoanTest {
                 gracePeriod
             );
         }
+    }
+
+    /// @notice Constructor reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
+    function test_loan_constructor_invalidPreClosureFee_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.InvalidFee.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            p.aaveAddressesProvider,
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            TC.BASIS_POINT_SCALE, // _preClosureFeeBps == BASIS_POINT_SCALE
+            p.gracePeriod
+        );
+    }
+
+    /// @notice Constructor reverts with InvalidInputs when `_gracePeriod` > MAX_GRACE_PERIOD
+    function test_loan_constructor_invalidGracePeriod_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.InvalidInputs.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            p.aaveAddressesProvider,
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            p.preClosureFeeBps,
+            TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
+        );
     }
 
     /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).

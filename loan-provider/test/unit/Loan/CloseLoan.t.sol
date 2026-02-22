@@ -5,7 +5,9 @@ import {console2} from "forge-std/console2.sol";
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20Errors} from "@openzeppelin/interfaces/draft-IERC6093.sol";
 import {IPool} from "@bitmor/interfaces/IPool.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
@@ -82,9 +84,9 @@ contract CloseLoanTest is BaseLoanTest {
         return loan.getPreClosureFee();
     }
 
-    /// @notice Calculates the expected pre-closure fee in BTC for a given `collateralAmount` of vault shares
-    function _calculatePreClosureFee(uint256 collateralAmount) internal view returns (uint256) {
-        return (ERC4626(mockBTCVault).previewRedeem(collateralAmount) * _getPreClosureFeeBps()) / 10000;
+    /// @notice Calculates the expected pre-closure fee in BTC for a given `btcAmount` of vault shares
+    function _calculatePreClosureFee(uint256 btcAmount) internal view returns (uint256) {
+        return (ERC4626(mockBTCVault).previewRedeem(btcAmount) * _getPreClosureFeeBps()) / 10000;
     }
 
     // ============ Close Loan Tests ============
@@ -172,7 +174,7 @@ contract CloseLoanTest is BaseLoanTest {
     // ============ Pre-Closure Fee Tests ============
 
     /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = true)
-    /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
+    /// @dev Note: Due to mock limitations (mockBTCVault 1:1 share ratio),
     ///      token flow accounting is not 1:1 with production. Fee transfer to collector is verified.
     function test_closeLoan_preClosureFee_deducted_withdrawCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);
@@ -255,7 +257,7 @@ contract CloseLoanTest is BaseLoanTest {
                 address(loan), // receiver
                 debtAsset, // asset
                 debtAmt // amount - the debt amount
-                    // params and referralCode are variable, so we only check the key parameters
+                // params and referralCode are variable, so we only check the key parameters
             )
         );
 
@@ -512,5 +514,364 @@ contract CloseLoanTest is BaseLoanTest {
 
         assertEq(_getDebtBalance(lsa), 0, "Debt should be 0 after close");
         assertEq(_getCollateralBalance(lsa), 0, "Collateral should be 0 after close");
+    }
+
+    // ============ Balance Sweep Isolation Tests (Issue #63) ============
+
+    /// @dev Simulated USDC residual from other users' exactOut swap surpluses (100 USDC)
+    uint256 internal constant SIMULATED_USDC_RESIDUAL = 100e6;
+
+    /// @dev Simulated cbBTC residual from other operations (0.001 BTC)
+    uint256 internal constant SIMULATED_BTC_RESIDUAL = 0.001e8;
+
+    /// @notice Closing a loan must NOT sweep pre-existing USDC residuals from the Loan contract
+    function test_closeLoan_doesNotSweepPreExistingUsdcResidual() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate accumulated USDC residual from other users' init operations
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcBefore, SIMULATED_USDC_RESIDUAL, "Loan should hold residual USDC");
+
+        // Close the loan withdrawing in USDC
+        vm.prank(user);
+        loan.closeLoan(lsa, false);
+
+        // The Loan contract should still hold the simulated residual
+        uint256 loanUsdcAfter = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcAfter, SIMULATED_USDC_RESIDUAL, "Loan must still hold other users' USDC residual");
+    }
+
+    /// @notice Closing a loan must NOT sweep pre-existing cbBTC residuals from the Loan contract
+    function test_closeLoan_doesNotSweepPreExistingBtcResidual() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate accumulated cbBTC residual
+        mockCbBTC.mint(address(loan), SIMULATED_BTC_RESIDUAL);
+
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+        assertGe(loanBtcBefore, SIMULATED_BTC_RESIDUAL, "Loan should hold residual cbBTC");
+
+        // Close the loan withdrawing in BTC
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // The Loan contract should still hold the simulated residual
+        uint256 loanBtcAfter = IERC20(btc).balanceOf(address(loan));
+        assertGe(loanBtcAfter, SIMULATED_BTC_RESIDUAL, "Loan must still hold other users' cbBTC residual");
+    }
+
+    /// @notice Two-user scenario: User B closing does not capture User A's init residual
+    function test_closeLoan_twoUsers_residualIsolation() public {
+        address userA = makeAddr("userA");
+        address userB = makeAddr("userB");
+
+        // User A creates a loan (exactOut swap leaves USDC residual in Loan contract)
+        _createStandardLoanForBorrower(userA);
+
+        // Record Loan contract USDC balance after User A's init
+        uint256 loanUsdcAfterInitA = IERC20(debtAsset).balanceOf(address(loan));
+
+        // Warp for CREATE2 salt uniqueness
+        vm.warp(block.timestamp + 1);
+
+        // User B creates a loan
+        address lsaB = _createStandardLoanForBorrower(userB);
+
+        // User B closes their loan
+        vm.prank(userB);
+        loan.closeLoan(lsaB, false);
+
+        // Loan contract should still hold at least User A's residual
+        uint256 loanUsdcAfterClose = IERC20(debtAsset).balanceOf(address(loan));
+        assertGe(loanUsdcAfterClose, loanUsdcAfterInitA, "Loan must still hold User A's residual after User B closes");
+    }
+
+    /// @notice Close-loan must revert when swap output is insufficient to repay flash loan (withdrawInBTC = true)
+    /// @dev Covers FlashLoanLogic.sol:272-274 InsufficientSwapOutput guard
+    function test_RevertWhen_CloseLoan_InsufficientSwapOutput_WithdrawBTC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate what the flash loan repayment will be: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return 1 wei less than needed
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Close-loan must revert when swap output is insufficient (withdrawInBTC = false)
+    /// @dev When withdrawInBTC=false, ALL collateral (minus fee) is swapped. The oracle-based
+    ///      `minimumAcceptable` in SwapLogic is much larger than `totalFlashLoanRepayment`, so
+    ///      SwapLogic's LessThanMinimumAmtReceived guard fires before FlashLoanLogic's
+    ///      InsufficientSwapOutput guard. This test verifies the swap output guard chain works
+    ///      correctly for the withdrawInBTC=false path.
+    function test_RevertWhen_CloseLoan_InsufficientSwapOutput_WithdrawUSDC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate what the flash loan repayment will be: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return 1 wei less than needed for flash loan repayment.
+        // When withdrawInBTC=false, SwapLogic's minimumAcceptable (oracle-based, applied to ALL
+        // collateral being swapped) exceeds totalFlashLoanRepayment, so LessThanMinimumAmtReceived
+        // fires first -- this is the correct and expected behavior.
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.LessThanMinimumAmtReceived.selector);
+        loan.closeLoan(lsa, false);
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Close-loan succeeds when swap output exactly equals flash loan repayment (boundary test)
+    /// @dev Verifies the guard uses `<` not `<=`
+    function test_closeLoan_ExactSwapOutputMatchingFlashLoan_Succeeds() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Calculate exact flash loan repayment: debt + premium
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+
+        // Force swap to return exactly the needed amount
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // Verify loan closed successfully
+        assertEq(_getDebtBalance(lsa), 0, "Debt should be 0 after close");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be 0 after close");
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Should be completed");
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    /// @notice Pre-existing USDC on Loan contract is untouched when InsufficientSwapOutput reverts
+    /// @dev Confirms the revert path prevents any state change to pre-existing balances
+    function test_closeLoan_preExistingFundsUntouched_WhenInsufficientSwapOutput() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate pre-existing USDC from other users
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+
+        // Simulate pre-existing cbBTC from other users
+        mockCbBTC.mint(address(loan), SIMULATED_BTC_RESIDUAL);
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+
+        // Force swap output to 1 wei below flash loan repayment (above SwapLogic minimumAcceptable
+        // but below the InsufficientSwapOutput threshold)
+        uint256 debtAmt = _getDebtBalance(lsa);
+        uint128 flashLoanPremiumBps = mockAavePool.FLASHLOAN_PREMIUM_TOTAL();
+        uint256 flashLoanPremium = (debtAmt * uint256(flashLoanPremiumBps)) / 10000;
+        uint256 totalFlashLoanRepayment = debtAmt + flashLoanPremium;
+        mockSwapAdapter.setFixedOutput(totalFlashLoanRepayment - 1);
+
+        // Attempt close - should revert with InsufficientSwapOutput
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Verify balances are completely unchanged (revert = no state change)
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(loan)), loanUsdcBefore, "USDC balance must be unchanged after revert"
+        );
+        assertEq(IERC20(btc).balanceOf(address(loan)), loanBtcBefore, "cbBTC balance must be unchanged after revert");
+
+        // Verify loan is still active (not accidentally closed)
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should still be active");
+
+        // Clean up
+        mockSwapAdapter.clearFixedOutput();
+    }
+
+    // ============ Slippage + Residual Guard Tests ============
+
+    /// @dev Mock slippage in bps that is within protocol's maxSlippage (50 bps) but
+    ///      enough to cause swap output < flash loan repayment at exact oracle price.
+    uint256 internal constant SLIPPAGE_TRIGGERING_GUARD = 30;
+
+    /// @notice With realistic swap slippage + pre-existing residuals, InsufficientSwapOutput guard fires
+    /// @dev Exercises the scenario where slippage causes BTC→USDC swap output < flash loan repayment
+    ///      (debtAmt + premium). The guard at FlashLoanLogic.sol:252-254 prevents the Aave pool from
+    ///      pulling pre-existing USDC residuals to cover the shortfall, which would cause the snapshot-diff
+    ///      subtraction at CloseLoanLogic.sol:207 to underflow.
+    ///
+    ///      Guard chain for withdrawInBTC=true:
+    ///      1. MockSwapAdapter check (line 105): passes because 30 bps < protocol's 50 bps maxSlippage
+    ///      2. SwapLogic.LessThanMinimumAmtReceived (line 43): passes for the same reason
+    ///      3. FlashLoanLogic.InsufficientSwapOutput (line 252): FIRES because swap output at 30 bps
+    ///         slippage is strictly less than totalFlashLoanBorrowedAmt computed at exact oracle price
+    function test_RevertWhen_CloseLoan_SlippageWithResiduals_InsufficientSwapOutput() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate pre-existing USDC residual from other users' exactOut swap surpluses
+        mockUSDC.mint(address(loan), SIMULATED_USDC_RESIDUAL);
+        uint256 loanUsdcBefore = IERC20(debtAsset).balanceOf(address(loan));
+        uint256 loanBtcBefore = IERC20(btc).balanceOf(address(loan));
+
+        // Enable slippage on mock swap adapter: 30 bps is within protocol's 50 bps maxSlippage
+        // tolerance, so it passes SwapLogic's LessThanMinimumAmtReceived guard, but the output
+        // is 0.3% below oracle price — insufficient to cover flash loan repayment.
+        mockSwapAdapter.setSlippage(SLIPPAGE_TRIGGERING_GUARD);
+
+        // Close loan with withdrawInBTC=true (only swaps enough BTC to cover flash loan repayment)
+        vm.prank(user);
+        vm.expectRevert(Errors.InsufficientSwapOutput.selector);
+        loan.closeLoan(lsa, true);
+
+        // Verify residuals are untouched (revert = no state change)
+        assertEq(
+            IERC20(debtAsset).balanceOf(address(loan)), loanUsdcBefore, "USDC residual must be unchanged after revert"
+        );
+        assertEq(IERC20(btc).balanceOf(address(loan)), loanBtcBefore, "cbBTC balance must be unchanged after revert");
+
+        // Verify loan is still active
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should still be active");
+
+        // Clean up
+        mockSwapAdapter.setSlippage(0);
+    }
+
+    // ============ Dust Debt Tests (vuln-27) ============
+
+    /// @notice Close loan succeeds when repayment leaves dust debt (1 wei)
+    /// @dev Simulates Aave V2 rounding that leaves 1 wei of residual debt after repay.
+    ///      Uses setRepaymentShortfall to make mock repay burn (amount - 1) instead of amount.
+    function test_closeLoan_succeedsWithDustDebt_1wei() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate Aave V2 rounding: repay burns 1 wei less than requested
+        mockBitmorPool.setRepaymentShortfall(1);
+
+        // Expect Loan__DustDebtAbsorbed event with 1 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 1);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        // Loan should be completed despite 1 wei dust
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "Loan should be completed with 1 wei dust"
+        );
+        assertEq(loanData.duration, 0, "Duration should be 0");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        // Clean up
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan succeeds when repayment leaves dust debt at exact threshold (10 wei)
+    /// @dev Boundary test: debt == DUST_THRESHOLD should still complete
+    function test_closeLoan_succeedsWithDustDebt_atThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Simulate worst-case rounding at exact threshold
+        mockBitmorPool.setRepaymentShortfall(10);
+
+        // Expect Loan__DustDebtAbsorbed event with 10 wei dust
+        vm.expectEmit(true, true, true, true);
+        emit ILoan.Loan__DustDebtAbsorbed(lsa, 10);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed at threshold"
+        );
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan reverts when remaining debt exceeds dust threshold
+    /// @dev 11 wei > DUST_THRESHOLD(10) — collateral withdrawal is skipped, causing
+    ///      the subsequent fee transfer to revert (no BTC available). The entire tx reverts,
+    ///      leaving the loan unchanged.
+    function test_closeLoan_revertsWhenDebtExceedsThreshold() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // Compute expected pre-closure fee (the safeTransfer target amount)
+        uint256 collateral = _getCollateralBalance(lsa);
+        uint256 expectedFee = _calculatePreClosureFee(collateral);
+
+        // 11 wei exceeds the 10 wei threshold
+        mockBitmorPool.setRepaymentShortfall(11);
+
+        // Close loan reverts because collateral isn't withdrawn when debt > threshold,
+        // so the fee transfer fails with ERC20InsufficientBalance(loan, 0, expectedFee)
+        vm.prank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientBalance.selector, address(loan), uint256(0), expectedFee
+            )
+        );
+        loan.closeLoan(lsa, true);
+
+        // Loan remains unchanged (tx reverted)
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Loan should remain active");
+        assertGt(_getCollateralBalance(lsa), 0, "Collateral should NOT be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    /// @notice Close loan with zero remaining debt still works (no regression)
+    /// @dev Exact zero is within threshold — must not regress
+    function test_closeLoan_exactZeroDebt_noRegression() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        // No shortfall — debt clears exactly to zero
+        vm.prank(user);
+        loan.closeLoan(lsa, true);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
+        assertEq(_getDebtBalance(lsa), 0, "Debt should be exactly 0");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+    }
+
+    /// @notice Close loan with dust debt works for withdrawInBTC=false path too
+    function test_closeLoan_dustDebt_withdrawInUSDC() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+
+        mockBitmorPool.setRepaymentShortfall(2);
+
+        vm.prank(user);
+        loan.closeLoan(lsa, false);
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "Loan should be completed");
+        assertEq(_getCollateralBalance(lsa), 0, "Collateral should be withdrawn");
+
+        mockBitmorPool.setRepaymentShortfall(0);
     }
 }

@@ -33,7 +33,7 @@ contract InitializeLoanTest is BaseLoanTest {
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
         assertEq(loanData.borrower, expectedBorrower, "Borrower mismatch");
         assertEq(loanData.duration, expectedDuration, "Duration mismatch");
-        assertEq(loanData.collateralAmount, expectedCollateral, "Collateral mismatch");
+        assertEq(loanData.btcAmount, expectedCollateral, "Collateral mismatch");
         assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Status should be Active");
     }
 
@@ -73,7 +73,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
         assertEq(data.borrower, user, "Borrower should match");
-        assertEq(data.collateralAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
+        assertEq(data.btcAmount, STANDARD_COLLATERAL_AMOUNT, "Collateral should match");
         assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match");
         assertEq(data.duration, STANDARD_DURATION, "Duration should match");
         assertEq(uint8(data.status), uint8(DataTypes.LoanStatus.Active), "Status should be Active");
@@ -82,38 +82,38 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Reverts when deposit is below the minimum required.
     function test_initializeLoan_RevertWhen_DepositBelowMinimum() public mintDebtAssetToUser {
         // This test specifically needs less-than-minimum deposit, so keep manual pattern
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.InsufficientDeposit.selector);
-        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
+        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, btcAmount, duration, DATA);
     }
 
     /// @notice Initializes a loan when deposit is above the minimum required.
     function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired() public mintDebtAssetToUser {
         // This test specifically needs more-than-minimum deposit
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
-        address lsa = loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
+        address lsa = loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, btcAmount, duration, DATA);
 
-        _assertLoanCreated(lsa, user, duration, collateralAmount);
+        _assertLoanCreated(lsa, user, duration, btcAmount);
     }
 
     /// @notice Reverts when loan size is below the protocol minimum.
     function test_initializeLoan_RevertWhen_LoanSizeBelowMinimum() public mintDebtAssetToUser {
         uint256 duration = STANDARD_DURATION;
 
-        uint256 collateralAmount = loan.getMinBTCAmount() - 1;
+        uint256 btcAmount = loan.getMinBTCAmount() - 1;
 
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
-        loan.getLoanDetails(collateralAmount, duration);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
+        loan.getLoanDetails(btcAmount, duration);
     }
 
     // ============ Max Collateral Boundary Tests ============
@@ -132,7 +132,7 @@ contract InitializeLoanTest is BaseLoanTest {
         assertNotEq(lsa, address(0), "LSA should be created");
 
         DataTypes.LoanData memory data = loan.getLoanByLSA(lsa);
-        assertEq(data.collateralAmount, maxBTC, "Collateral should be exact max");
+        assertEq(data.btcAmount, maxBTC, "Collateral should be exact max");
         assertEq(data.loanAmount, expectedLoanAmt, "Loan amount should match calculation");
         assertGt(data.estimatedMonthlyPayment, 0, "Monthly payment should be positive");
         assertEq(data.duration, STANDARD_DURATION, "Duration should match");
@@ -146,7 +146,7 @@ contract InitializeLoanTest is BaseLoanTest {
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        vm.expectRevert(Errors.GreaterThanMaxBTCAllowed.selector);
         loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, aboveMax, STANDARD_DURATION, "");
     }
 
@@ -158,7 +158,7 @@ contract InitializeLoanTest is BaseLoanTest {
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
         loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, belowMin, STANDARD_DURATION, "");
     }
 
@@ -169,7 +169,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 duration = 12;
 
         // Below min - should revert
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
         loan.getLoanDetails(minBTC - 1, duration);
 
         // Exactly min - should succeed
@@ -181,16 +181,16 @@ contract InitializeLoanTest is BaseLoanTest {
         assertGt(loanAmt, 0, "Max boundary should return valid loan");
 
         // Above max - should revert
-        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        vm.expectRevert(Errors.GreaterThanMaxBTCAllowed.selector);
         loan.getLoanDetails(maxBTC + 1, duration);
     }
 
     /// @notice Validates minimum deposit percentage calculation
     function test_initializeLoan_revertWhenThanMinimumDownpayment() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         console2.log("minDepositRequired:", minDepositRequired);
 
@@ -198,7 +198,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         uint256 btcPrice = _getBtcPrice();
         uint256 totalSizeUSD =
-            (collateralAmount * btcPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
+            (btcAmount * btcPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
         console2.log("totalSizeUSD: ", totalSizeUSD);
 
         uint256 usdPrice = _getUsdcPrice();
@@ -212,28 +212,47 @@ contract InitializeLoanTest is BaseLoanTest {
         // Rejection below minimum deposit
         vm.prank(user);
         _expectRevertSelector(Errors.InsufficientDeposit.selector);
-        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
+        loan.initializeLoan(minDepositRequired - 1, PREMIUM_AMOUNT, btcAmount, duration, DATA);
     }
 
-    /// @notice Tests duration validation behavior.
-    /// @dev KNOWN: Protocol does NOT enforce a maximum duration limit -
-    ///         duration 13+ is accepted by getLoanDetails.
-    function test_initializeLoan_RevertWhen_DurationInvalid() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+    /// @notice Reverts when duration is zero
+    function test_initializeLoan_RevertWhen_DurationIsZero() public mintDebtAssetToUser {
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
 
-        _expectRevertSelector(Errors.ZeroAmount.selector);
-        loan.getLoanDetails(collateralAmount, 0); // PANICS with division by zero
+        // getLoanDetails reverts for duration 0
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(btcAmount, 0);
 
-        // CURRENT BEHAVIOR: Protocol does NOT enforce max duration
-        // Duration 13 is accepted by getLoanDetails (no validation)
-        (uint256 loanAmount,,) = loan.getLoanDetails(collateralAmount, 13);
-        assertGt(loanAmount, 0, "Duration 13 is allowed by protocol (no max validation)");
-
-        // Duration 0 in initializeLoan also causes issues - skip
+        // initializeLoan reverts for duration 0
         uint256 bigDeposit = 500_000e6;
         vm.prank(user);
-        _expectRevertSelector(Errors.ZeroAmount.selector);
-        loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, collateralAmount, 0, DATA);
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, btcAmount, 0, DATA);
+    }
+
+    /// @notice Reverts when duration exceeds the maximum allowed
+    function test_initializeLoan_RevertWhen_DurationExceedsMax() public mintDebtAssetToUser {
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 maxDuration = loan.getMaxDuration();
+
+        // One above max reverts in getLoanDetails
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.getLoanDetails(btcAmount, maxDuration + 1);
+
+        // type(uint256).max reverts in initializeLoan (the exploit case)
+        uint256 bigDeposit = 500_000e6;
+        vm.prank(user);
+        _expectRevertSelector(Errors.Loan__InvalidDuration.selector);
+        loan.initializeLoan(bigDeposit, PREMIUM_AMOUNT, btcAmount, type(uint256).max, DATA);
+    }
+
+    /// @notice Successfully calculates loan details at the maximum allowed duration
+    function test_initializeLoan_AtMaxDuration() public {
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 maxDuration = loan.getMaxDuration();
+
+        (uint256 loanAmt,,) = loan.getLoanDetails(btcAmount, maxDuration);
+        assertGt(loanAmt, 0, "Max duration should return valid loan details");
     }
 
     /// @notice Successfully calculates loan details with minimum duration (1 month)
@@ -251,26 +270,24 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Reverts when slippage protection bounds are violated.
     function test_initializeLoan_slippageProtection() public mintDebtAssetToUser {
         // Goal: force swap to exceed s_slippage_swap (0.5%) and ensure revert
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         address oracle = loan.i_ORACLE();
-        uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+        uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(btc);
 
         // Underprice BTC by 2% to breach 0.5% slippage
         uint256 mockedBtcPrice = (realBtcPrice * 102) / 100;
 
         vm.mockCall(
-            oracle,
-            abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset),
-            abi.encode(mockedBtcPrice)
+            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(mockedBtcPrice)
         );
 
         vm.prank(user);
         vm.expectRevert();
-        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
+        loan.initializeLoan(minDepositRequired, PREMIUM_AMOUNT, btcAmount, duration, DATA);
     }
 
     /// @notice Test flash loan integration works correctly through MockAaveV3Pool
@@ -304,6 +321,7 @@ contract InitializeLoanTest is BaseLoanTest {
         loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
         loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
         loan2.setMinDepositBps(TC.MIN_DEPOSIT);
+        loan2.setMaxDuration(TC.MAX_DURATION);
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);
@@ -343,20 +361,20 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Reverts when deposit amount is zero.
     function test_initializeLoan_RevertWhen_DepositIsZero() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
         vm.prank(user);
         _expectRevertSelector(Errors.ZeroAmount.selector);
-        loan.initializeLoan(0, PREMIUM_AMOUNT, collateralAmount, duration, DATA);
+        loan.initializeLoan(0, PREMIUM_AMOUNT, btcAmount, duration, DATA);
     }
 
     /// @notice Reverts when collateral amount is zero.
     function test_initializeLoan_RevertWhen_CollateralIsZero() public mintDebtAssetToUser {
-        uint256 collateralAmount = STANDARD_COLLATERAL_AMOUNT;
+        uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.ZeroAmount.selector);
@@ -368,7 +386,7 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Reverts when collateral asset price is zero
     function test_calculateLoanDetails_RevertWhen_CollateralPriceIsZero() public {
         // The collateral asset in Loan is mockBTCVault, not mockCbBTC
-        mockOracle.setAssetPrice(address(mockBTCVault), 0);
+        mockOracle.setAssetPrice(address(mockCbBTC), 0);
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
         loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);

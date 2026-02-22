@@ -112,11 +112,11 @@
 //         mockBitmorPool.setVariableBorrowRate(debtAsset, maxRateInRay);
 
 //         // Get loan details for 1 BTC, 12 months
-//         uint256 collateralAmount = 1e8;
+//         uint256 btcAmount = 1e8;
 //         uint256 duration = 12;
 
 //         (uint256 loanAmount, uint256 estimatedMonthlyPayment, uint256 minDepositRequired) =
-//             loan.getLoanDetails(collateralAmount, duration);
+//             loan.getLoanDetails(btcAmount, duration);
 
 //         // Verify intermediate values
 //         uint256 expectedLoanAmount = 67_000e6;
