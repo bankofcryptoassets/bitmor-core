@@ -102,9 +102,7 @@ contract LoanContract is BaseLoanTest {
     function test_loan_calculateStrikePrice_zeroOraclePrice_reverts() public {
         address oracle = loan.i_ORACLE();
 
-        vm.mockCall(
-            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(0)
-        );
+        vm.mockCall(oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(0));
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
         loan.calculateStrikePrice(10_000e6, 5_000e6);

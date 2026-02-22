@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { Test } from "forge-std/Test.sol";
-import { FuzzConstants as FC } from "../helpers/FuzzConstants.sol";
-import { LoanMathHarness } from "../../harness/LoanMathHarness.sol";
-import { DataTypes } from "@bitmor/libraries/types/DataTypes.sol";
+import {Test} from "forge-std/Test.sol";
+import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {LoanMathHarness} from "../../harness/LoanMathHarness.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /**
  * @title LoanMathFuzzTest
@@ -47,25 +47,23 @@ contract LoanMathFuzzTest is Test {
     }
 
     /// @dev Helper to build CalculateLoanAmt struct for harness calls
-    function _buildParams(
-        uint256 collateral,
-        uint256 btcPrice,
-        uint256 interestRate,
-        uint256 duration
-    ) internal pure returns (DataTypes.CalculateLoanAmt memory) {
-        return
-            DataTypes.CalculateLoanAmt({
-                btcAmount: collateral,
-                btcPriceUSD: btcPrice,
-                btcAssetDecimals: CBBTC_DECIMALS,
-                debtPriceUSD: FC.USDC_PRICE,
-                debtAssetDecimals: USDC_DECIMALS,
-                interestRate: interestRate,
-                duration: duration,
-                minDepositBps: FC.MIN_DEPOSIT_BPS,
-                flashLoanPremiumBps: FLASH_LOAN_PREMIUM_BPS,
-                depositAmount: 0
-            });
+    function _buildParams(uint256 collateral, uint256 btcPrice, uint256 interestRate, uint256 duration)
+        internal
+        pure
+        returns (DataTypes.CalculateLoanAmt memory)
+    {
+        return DataTypes.CalculateLoanAmt({
+            btcAmount: collateral,
+            btcPriceUSD: btcPrice,
+            btcAssetDecimals: CBBTC_DECIMALS,
+            debtPriceUSD: FC.USDC_PRICE,
+            debtAssetDecimals: USDC_DECIMALS,
+            interestRate: interestRate,
+            duration: duration,
+            minDepositBps: FC.MIN_DEPOSIT_BPS,
+            flashLoanPremiumBps: FLASH_LOAN_PREMIUM_BPS,
+            depositAmount: 0
+        });
     }
 
     // ============ rayPow Tests ============
@@ -128,11 +126,7 @@ contract LoanMathFuzzTest is Test {
      * @custom:audit-category Monotonicity
      * @custom:audit-severity High
      */
-    function testFuzz_RayPow_Monotonic(
-        uint256 baseSeed,
-        uint256 exp1Seed,
-        uint256 exp2Seed
-    ) public view {
+    function testFuzz_RayPow_Monotonic(uint256 baseSeed, uint256 exp1Seed, uint256 exp2Seed) public view {
         // Base must be > RAY for increasing behavior, but within safe bounds to avoid overflow
         uint256 base = bound(baseSeed, RAY + 1, SAFE_MAX_RAY_BASE);
         uint256 exp1 = bound(exp1Seed, 0, FC.MAX_EXPONENT / 2);
@@ -156,11 +150,10 @@ contract LoanMathFuzzTest is Test {
      * @custom:audit-category Output Validity
      * @custom:audit-severity Critical
      */
-    function testFuzz_StrikePrice_AlwaysPositive(
-        uint256 btcPriceSeed,
-        uint256 loanAmountSeed,
-        uint256 depositSeed
-    ) public view {
+    function testFuzz_StrikePrice_AlwaysPositive(uint256 btcPriceSeed, uint256 loanAmountSeed, uint256 depositSeed)
+        public
+        view
+    {
         uint256 btcPrice = bound(btcPriceSeed, FC.MIN_BTC_PRICE, FC.MAX_BTC_PRICE);
         uint256 loanAmount = bound(loanAmountSeed, FC.MIN_USDC_AMOUNT, FC.MAX_USDC_AMOUNT);
         uint256 deposit = bound(depositSeed, FC.MIN_USDC_AMOUNT, FC.MAX_USDC_AMOUNT);
@@ -223,16 +216,11 @@ contract LoanMathFuzzTest is Test {
         uint256 collateral = bound(collateralSeed, FC.MIN_BTC_AMOUNT, FC.MAX_BTC_AMOUNT);
         uint256 btcPrice = bound(btcPriceSeed, FC.MIN_BTC_PRICE, FC.MAX_BTC_PRICE);
         // Use minimum meaningful interest rate to avoid precision loss in EMI calculation
-        uint256 interestRate = bound(
-            interestRateSeed,
-            MIN_MEANINGFUL_INTEREST_RATE,
-            FC.MAX_INTEREST_RATE
-        );
+        uint256 interestRate = bound(interestRateSeed, MIN_MEANINGFUL_INTEREST_RATE, FC.MAX_INTEREST_RATE);
         uint256 duration = bound(durationSeed, FC.MIN_DURATION, FC.MAX_DURATION);
 
-        (uint256 loanAmount, uint256 monthlyPayment, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, interestRate, duration)
-        );
+        (uint256 loanAmount, uint256 monthlyPayment,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, interestRate, duration));
 
         // Total payments should cover at least the loan amount
         uint256 totalPayments = monthlyPayment * duration;
@@ -265,19 +253,13 @@ contract LoanMathFuzzTest is Test {
 
         // Ensure rate1 < rate2 with meaningful difference, starting from meaningful minimum
         uint256 rate1 = bound(rate1Seed, MIN_MEANINGFUL_INTEREST_RATE, FC.MAX_INTEREST_RATE / 2);
-        uint256 rate2 = bound(
-            rate2Seed,
-            rate1 + MIN_MEANINGFUL_INTEREST_RATE,
-            FC.MAX_INTEREST_RATE
-        );
+        uint256 rate2 = bound(rate2Seed, rate1 + MIN_MEANINGFUL_INTEREST_RATE, FC.MAX_INTEREST_RATE);
 
-        (, uint256 payment1, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, rate1, duration)
-        );
+        (, uint256 payment1,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, rate1, duration));
 
-        (, uint256 payment2, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, rate2, duration)
-        );
+        (, uint256 payment2,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, rate2, duration));
 
         assertLe(payment1, payment2, "higher interest rate should result in higher payment");
     }
@@ -305,23 +287,17 @@ contract LoanMathFuzzTest is Test {
         uint256 collateral = bound(collateralSeed, FC.MIN_BTC_AMOUNT, FC.MAX_BTC_AMOUNT);
         uint256 btcPrice = bound(btcPriceSeed, FC.MIN_BTC_PRICE, FC.MAX_BTC_PRICE);
         // Use minimum meaningful interest rate to avoid precision loss
-        uint256 interestRate = bound(
-            interestRateSeed,
-            MIN_MEANINGFUL_INTEREST_RATE,
-            FC.MAX_INTEREST_RATE
-        );
+        uint256 interestRate = bound(interestRateSeed, MIN_MEANINGFUL_INTEREST_RATE, FC.MAX_INTEREST_RATE);
 
         // Ensure duration1 < duration2
         uint256 duration1 = bound(duration1Seed, FC.MIN_DURATION, FC.MAX_DURATION / 2);
         uint256 duration2 = bound(duration2Seed, duration1 + 1, FC.MAX_DURATION);
 
-        (, uint256 payment1, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, interestRate, duration1)
-        );
+        (, uint256 payment1,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, interestRate, duration1));
 
-        (, uint256 payment2, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, interestRate, duration2)
-        );
+        (, uint256 payment2,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, interestRate, duration2));
 
         assertGe(payment1, payment2, "longer duration should result in lower monthly payment");
     }
@@ -344,9 +320,8 @@ contract LoanMathFuzzTest is Test {
         uint256 interestRate = 1; // 1 wei RAY (smallest non-zero rate)
         uint256 duration = FC.MAX_DURATION; // 60 months (worst case)
 
-        (uint256 loanAmount, uint256 monthlyPayment, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, interestRate, duration)
-        );
+        (uint256 loanAmount, uint256 monthlyPayment,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, interestRate, duration));
 
         assertGt(loanAmount, 0, "loan amount should be positive for valid collateral");
         assertGt(monthlyPayment, 0, "monthly payment must never be zero when loan exists");
@@ -375,9 +350,8 @@ contract LoanMathFuzzTest is Test {
         uint256 interestRate = bound(interestRateSeed, 1, FC.MAX_INTEREST_RATE);
         uint256 duration = bound(durationSeed, FC.MIN_DURATION, FC.MAX_DURATION);
 
-        (uint256 loanAmount, uint256 monthlyPayment, ) = harness.exposed_calculateLoanDetails(
-            _buildParams(collateral, btcPrice, interestRate, duration)
-        );
+        (uint256 loanAmount, uint256 monthlyPayment,) =
+            harness.exposed_calculateLoanDetails(_buildParams(collateral, btcPrice, interestRate, duration));
 
         if (loanAmount > 0) {
             assertGt(monthlyPayment, 0, "monthly payment must be positive when loan exists");

@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
-import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { IERC20Metadata } from "@openzeppelin/interfaces/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 
-import { ILoan } from "../../interfaces/ILoan.sol";
-import { ILendingPool } from "../../interfaces/ILendingPool.sol";
-import { ILoanVaultFactory } from "../../interfaces/ILoanVaultFactory.sol";
-import { IPriceOracleGetter } from "../../interfaces/IPriceOracleGetter.sol";
-import { IReserveInterestRateStrategy } from "../../interfaces/IReserveInterestRateStrategy.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
+import {ILendingPool} from "../../interfaces/ILendingPool.sol";
+import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
+import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
 
-import { Errors } from "../helpers/Errors.sol";
-import { Constants } from "../helpers/Constants.sol";
-import { LoanMath } from "../helpers/LoanMath.sol";
+import {Errors} from "../helpers/Errors.sol";
+import {Constants} from "../helpers/Constants.sol";
+import {LoanMath} from "../helpers/LoanMath.sol";
 
-import { DataTypes } from "../types/DataTypes.sol";
+import {DataTypes} from "../types/DataTypes.sol";
 
-import { LSALogic } from "./LSALogic.sol";
-import { BitmorLendingPoolLogic } from "./BitmorLendingPoolLogic.sol";
-import { AavePoolLogic } from "./AavePoolLogic.sol";
+import {LSALogic} from "./LSALogic.sol";
+import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
+import {AavePoolLogic} from "./AavePoolLogic.sol";
 
 /**
  * @title LoanLogic
@@ -91,7 +91,7 @@ library LoanLogic {
             revert Errors.GreaterThanMaxBTCAllowed();
         }
 
-        (uint256 loanAmount, uint256 monthlyPayment, ) = _calculateLoanAmountAndMonthlyPayment(
+        (uint256 loanAmount, uint256 monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
             DataTypes.CalculateLoanAmountAndMonthlyPayment({
                 bitmorPool: ctx.bitmorPool,
                 oracle: ctx.oracle,
@@ -159,11 +159,7 @@ library LoanLogic {
 
         // Transfer premium amount to premium collector
         if (params.premiumAmount > 0) {
-            IERC20(ctx.debtAsset).safeTransferFrom(
-                params.user,
-                ctx.premiumCollector,
-                params.premiumAmount
-            );
+            IERC20(ctx.debtAsset).safeTransferFrom(params.user, ctx.premiumCollector, params.premiumAmount);
         }
 
         // Flash loan execution flow
@@ -207,10 +203,10 @@ library LoanLogic {
      * @param lsa The Loan Specific Address being liquidated
      * @return newDuration The remaining loan duration after deduction
      */
-    function updateLoanDataForMicroLiquidation(
-        mapping(address => DataTypes.LoanData) storage loansByLSA,
-        address lsa
-    ) internal returns (uint256 newDuration) {
+    function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
+        internal
+        returns (uint256 newDuration)
+    {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         newDuration = loan.duration.zeroFloorSub(1);
@@ -245,10 +241,9 @@ library LoanLogic {
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being liquidated
      */
-    function updateLoanDataForFullLiquidation(
-        mapping(address => DataTypes.LoanData) storage loansByLSA,
-        address lsa
-    ) internal {
+    function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
+        internal
+    {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         loan.duration = 0;
@@ -265,9 +260,7 @@ library LoanLogic {
      * @return monthlyPayAmt Estimated monthly payment in debt asset decimals
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
-    function _calculateLoanAmountAndMonthlyPayment(
-        DataTypes.CalculateLoanAmountAndMonthlyPayment memory data
-    )
+    function _calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
         internal
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -280,16 +273,13 @@ library LoanLogic {
         if (btcPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         // Fetch max variable borrow rate from interest rate strategy
-        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(
-            data.debtAsset
-        );
+        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
 
-        uint256 maxInterestRate = IReserveInterestRateStrategy(
-            reserveData.interestRateStrategyAddress
-        ).getMaxVariableBorrowRate();
+        uint256 maxInterestRate =
+            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
 
         // Fetch flash loan premium from Aave V3
-        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(data.aavePool);
+        uint256 flashLoanPremiumBps = data.aavePool.getFlashLoanPremium();
 
         // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanAmt(
@@ -319,11 +309,7 @@ library LoanLogic {
      * @return monthlyPayAmt The estimated monthly payment (6 decimals)
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
-    function calculateLoanDetails(
-        DataTypes.CalculateLoanDetailsContext memory ctx,
-        uint256 btcAmount,
-        uint256 duration
-    )
+    function calculateLoanDetails(DataTypes.CalculateLoanDetailsContext memory ctx, uint256 btcAmount, uint256 duration)
         internal
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -357,14 +343,12 @@ library LoanLogic {
         if (p.btcPriceUSD == 0 || p.debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         {
-            DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(
-                ctx.debtAsset
-            );
-            p.interestRate = IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress)
-                .getMaxVariableBorrowRate();
+            DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(ctx.debtAsset);
+            p.interestRate =
+                IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
         }
 
-        p.flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
+        p.flashLoanPremiumBps = ctx.aavePool.getFlashLoanPremium();
 
         return LoanMath.calculateLoanDetails(p);
     }

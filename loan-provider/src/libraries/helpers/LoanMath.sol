@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import { Errors } from "./Errors.sol";
-import { DataTypes } from "../types/DataTypes.sol";
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import {Errors} from "./Errors.sol";
+import {DataTypes} from "../types/DataTypes.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /**
  * @title LoanMath
@@ -108,24 +108,16 @@ library LoanMath {
      * @return monthlyPayAmt The monthly payment amount in debt asset decimals
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
-    function calculateLoanAmt(
-        DataTypes.CalculateLoanAmt memory data
-    )
+    function calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
         internal
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
         // Convert BTC amount to USD value
-        uint256 btcValueUSD = data.btcAmount.fullMulDivUp(
-            data.btcPriceUSD,
-            (10 ** data.btcAssetDecimals)
-        );
+        uint256 btcValueUSD = data.btcAmount.fullMulDivUp(data.btcPriceUSD, (10 ** data.btcAssetDecimals));
 
         // Convert deposit amount to USD value
-        uint256 depositValueUSD = data.depositAmount.fullMulDiv(
-            data.debtPriceUSD,
-            (10 ** data.debtAssetDecimals)
-        );
+        uint256 depositValueUSD = data.depositAmount.fullMulDiv(data.debtPriceUSD, (10 ** data.debtAssetDecimals));
 
         // Ensure BTC value exceeds deposit
         if (depositValueUSD > btcValueUSD) revert Errors.InsufficientCollateral();
@@ -134,10 +126,7 @@ library LoanMath {
 
         if (minDepositRequiredUSD > depositValueUSD) revert Errors.InsufficientDeposit();
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
-            (10 ** data.debtAssetDecimals),
-            data.debtPriceUSD
-        );
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = btcValueUSD - depositValueUSD;
@@ -173,9 +162,7 @@ library LoanMath {
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    function calculateLoanDetails(
-        DataTypes.CalculateLoanAmt memory p
-    )
+    function calculateLoanDetails(DataTypes.CalculateLoanAmt memory p)
         internal
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -187,10 +174,7 @@ library LoanMath {
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp(
-            (10 ** p.debtAssetDecimals),
-            p.debtPriceUSD
-        );
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** p.debtAssetDecimals), p.debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = btcValueUSD - depositValueUSD;
@@ -228,11 +212,11 @@ library LoanMath {
      * @param deposit The deposit amount in debt asset (6 decimals for USDC)
      * @return strikePrice The calculated strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(
-        uint256 btcPriceUSD,
-        uint256 loanAmount,
-        uint256 deposit
-    ) internal pure returns (uint256 strikePrice) {
+    function calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
+        internal
+        pure
+        returns (uint256 strikePrice)
+    {
         uint256 totalAmount = loanAmount + deposit;
 
         strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
@@ -254,11 +238,11 @@ library LoanMath {
      * @param duration Loan duration in months
      * @return monthlyPayAmt Monthly payment amount in debt asset decimals
      */
-    function _calculateEMI(
-        uint256 loanAmount,
-        uint256 interestRate,
-        uint256 duration
-    ) private pure returns (uint256 monthlyPayAmt) {
+    function _calculateEMI(uint256 loanAmount, uint256 interestRate, uint256 duration)
+        private
+        pure
+        returns (uint256 monthlyPayAmt)
+    {
         // Zero interest rate: equal division rounded up
         if (interestRate == 0) {
             return loanAmount.fullMulDivUp(1, duration);
