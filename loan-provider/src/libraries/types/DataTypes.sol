@@ -404,22 +404,6 @@ library DataTypes {
     }
 
     /**
-     * @notice Precomputed parameters for LoanMath.calculateLoanDetails
-     * @dev Bundles the 9 scalar params to avoid stack-too-deep at call sites
-     */
-    struct LoanDetailsParams {
-        uint256 btcAmount;
-        uint256 collateralPriceUSD;
-        uint256 collateralAssetDecimals;
-        uint256 debtPriceUSD;
-        uint256 debtAssetDecimals;
-        uint256 interestRate;
-        uint256 duration;
-        uint256 minDepositBps;
-        uint256 flashLoanPremiumBps;
-    }
-
-    /**
      * @notice Parameters for calculating loan amount with deposit
      * @dev Used internally by LoanLogic
      */

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {LoanMath} from "@bitmor/libraries/helpers/LoanMath.sol";
-import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
+import { LoanMath } from "@bitmor/libraries/helpers/LoanMath.sol";
+import { DataTypes } from "@bitmor/libraries/types/DataTypes.sol";
 
 /**
  * @title LoanMathHarness
@@ -28,7 +28,9 @@ contract LoanMathHarness {
      * @return monthlyPayAmt The monthly payment amount in debt asset decimals
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
-    function exposed_calculateLoanAmt(DataTypes.CalculateLoanAmt memory data)
+    function exposed_calculateLoanAmt(
+        DataTypes.CalculateLoanAmt memory data
+    )
         external
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -43,7 +45,9 @@ contract LoanMathHarness {
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    function exposed_calculateLoanDetails(DataTypes.LoanDetailsParams memory p)
+    function exposed_calculateLoanDetails(
+        DataTypes.CalculateLoanAmt memory p
+    )
         external
         pure
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -58,11 +62,11 @@ contract LoanMathHarness {
      * @param deposit The deposit amount in debt asset (6 decimals for USDC)
      * @return strikePrice The calculated strike price in USD (8 decimals)
      */
-    function exposed_calculateStrikePrice(uint256 btcPriceUSD, uint256 loanAmount, uint256 deposit)
-        external
-        pure
-        returns (uint256)
-    {
+    function exposed_calculateStrikePrice(
+        uint256 btcPriceUSD,
+        uint256 loanAmount,
+        uint256 deposit
+    ) external pure returns (uint256) {
         return LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
     }
 
