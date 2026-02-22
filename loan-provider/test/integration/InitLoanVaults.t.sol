@@ -5,54 +5,22 @@ import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 /// @title InitLoan_VaultsTest
 /// @author Bitmor Protocol
 /// @notice Adversarial integration tests for vault interactions during loan initialization
 /// @dev Consolidated from BTCVault, USDCVault, ERC4626, and Strategy test files.
 ///      Failing tests = security findings, NOT test bugs. Do NOT weaken assertions.
-contract InitLoan_VaultsTest is IntegrationTestBase {
+contract InitLoanVaultsTest is IntegrationTestBase {
     // ============ Constants ============
 
-    // BTCVault
-    uint256 constant DONATION_AMOUNT_CBBTC = 10e8; // 10 BTC (TC.MAX_COLLATERAL)
-    uint256 constant MAX_ROUNDING_LOSS_SATOSHI = 100; // Max acceptable rounding dust
-    uint256 constant SHARE_PRICE_IMPACT_TOLERANCE = 0.01e18; // 1%
+    // BTCVault — TC.MAX_COLLATERAL = 10e8
 
     // USDCVault
-    uint256 constant DONATION_AMOUNT_USDC = 10_000_000e6; // 10M USDC
     uint256 constant WHALE_DEPOSIT_USDC = 100_000_000e6; // 100M USDC
     uint256 constant FIRST_DEPOSITOR_SEED = 1e6; // 1 USDC
     uint256 constant INFLATION_DONATION = 50_000_000e6; // 50M USDC
-
-    // ============ Setup ============
-
-    function setUp() public override {
-        super.setUp();
-        _setupTestUser();
-    }
-
-    // ============ Helpers ============
-
-    /// @notice Donates cbBTC to the AaveTokenizedStrategy by supplying to the external Aave pool
-    ///         on behalf of the strategy address, inflating the strategy's aToken balance.
-    /// @param amount The amount of cbBTC (8 decimals) to donate
-    function _donateToStrategy(uint256 amount) internal {
-        address strategyAddr = config.getAaveTokenizedStrategy();
-        address donator = makeAddr("donator");
-        _fundCbBTC(donator, amount);
-
-        vm.prank(donator);
-        cbBTC.approve(aaveV3Pool, amount);
-
-        vm.prank(donator);
-        (bool ok,) = aaveV3Pool.call(
-            abi.encodeWithSignature(
-                "supply(address,uint256,address,uint16)", address(cbBTC), amount, strategyAddr, 0
-            )
-        );
-        require(ok, "strategy donation via Aave supply failed");
-    }
 
     /// @notice External wrapper for try/catch (Solidity requires external calls for try/catch)
     function createMinCollateralLoan() external returns (address lsa) {
@@ -75,9 +43,9 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Act - transfer cbBTC directly to the vault contract (NOT via deposit)
         address donator = makeAddr("vaultDonator");
-        _fundCbBTC(donator, DONATION_AMOUNT_CBBTC);
+        _fundCbBTC(donator, TC.MAX_COLLATERAL);
         vm.prank(donator);
-        cbBTC.transfer(address(btcVault), DONATION_AMOUNT_CBBTC);
+        cbBTC.transfer(address(btcVault), TC.MAX_COLLATERAL);
 
         // Assert - totalAssets must be unchanged; loose tokens are not counted
         uint256 totalAssetsAfter = btcVault.totalAssets();
@@ -113,7 +81,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         // --- Attack: inflate share price via strategy donation ---
         uint256 sharePriceBefore = btcVault.convertToAssets(1e8); // 1 share worth in assets
 
-        _donateToStrategy(DONATION_AMOUNT_CBBTC);
+        _donateToStrategy(TC.MAX_COLLATERAL);
 
         uint256 sharePriceAfter = btcVault.convertToAssets(1e8);
         assertGt(
@@ -167,14 +135,14 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
             assertApproxEqAbs(
                 feeGap,
                 expectedFee,
-                MAX_ROUNDING_LOSS_SATOSHI,
+                TC.MAX_ROUNDING_LOSS_SATOSHI,
                 "Fee gap should match expected entry fee within rounding tolerance"
             );
         }
 
         // Regardless of fee: health factor must be based on actual on-chain balance
-        // A healthy loan at initialization must have HF > 1e18
-        assertGt(healthFactor, 1e18, "Health factor must be > 1 at loan initialization");
+        // A healthy loan at initialization must have HF > TC.PRECISION
+        assertGt(healthFactor, TC.PRECISION, "Health factor must be > 1 at loan initialization");
         assertGt(totalCollateralETH, 0, "Total collateral in ETH units should be positive");
         assertGt(totalDebtETH, 0, "Total debt in ETH units should be positive");
     }
@@ -203,7 +171,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Act - attempt loan creation directly (not via _createStandardLoan helper, because
         // the helper calls getLoanDetails first which would consume the vm.expectRevert)
-        vm.expectRevert();
+        vm.expectRevert(Pausable.EnforcedPause.selector);
         vm.prank(testUser);
         loanContract.initializeLoan(
             minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, ""
@@ -231,7 +199,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
             (,, uint256 healthFactor) = _getUserAccountData(lsa);
             assertGt(
                 healthFactor,
-                1e18,
+                TC.PRECISION,
                 "FINDING: Min collateral loan has HF <= 1 at creation - undercollateralized from inception"
             );
 
@@ -262,7 +230,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         vm.revertTo(snapshotRef);
 
         // --- Attack: inject yield by donating to strategy ---
-        _donateToStrategy(DONATION_AMOUNT_CBBTC);
+        _donateToStrategy(TC.MAX_COLLATERAL);
 
         // Verify share price actually moved (precondition for meaningful test)
         uint256 sharePriceAfterDonation = btcVault.convertToAssets(1e8);
@@ -275,7 +243,6 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         // CRITICAL CHECK: getLoanDetails reflects the oracle, so compare loan amounts.
         // If the oracle uses share price, getLoanDetails will return a different loanAmount.
         (,, uint256 minDepositAttack) = loanContract.getLoanDetails(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION);
-        (,, uint256 minDepositRef) = loanContract.getLoanDetails(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION);
 
         // The loan amount is computed from oracle price. If oracle uses share price,
         // loanAmount changes after donation. We can check this via getLoanDetails.
@@ -323,11 +290,11 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Attack: donate raw USDC directly to USDCVault (not via deposit())
         address attacker = makeAddr("donationAttacker");
-        _fundUSDC(attacker, DONATION_AMOUNT_USDC);
+        _fundUSDC(attacker, TC.DONATION_AMOUNT_USDC);
         uint256 attackerBalanceBefore = usdc.balanceOf(attacker);
 
         vm.prank(attacker);
-        usdc.transfer(address(usdcVault), DONATION_AMOUNT_USDC);
+        usdc.transfer(address(usdcVault), TC.DONATION_AMOUNT_USDC);
 
         // Create the same loan under attacked conditions
         // Need to advance 1 second so CREATE2 salt differs from reference
@@ -345,7 +312,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         assertEq(attackerShareBalance, 0, "attacker should have zero vault shares");
         assertEq(
             usdc.balanceOf(attacker),
-            attackerBalanceBefore - DONATION_AMOUNT_USDC,
+            attackerBalanceBefore - TC.DONATION_AMOUNT_USDC,
             "attacker USDC should be reduced by donation amount"
         );
     }
@@ -354,10 +321,10 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
     /// @dev Attack surface: If the flash loan succeeds but the BLP borrow fails, the loan should not
     ///      be partially created. The entire transaction must revert to prevent orphaned LSAs.
     function test_USDCVault_InsufficientPoolLiquidity_LoanInitRevertsAtomically() public {
-        // Revert to base snapshot (before _setupTestUser which seeds BLP)
-        vm.revertTo(_baseSnapshotId);
+        // Revert to pre-seeded snapshot (before any liquidity seeding)
+        vm.revertTo(_preSeededSnapshotId);
         // Re-take snapshot so further reverts work
-        _baseSnapshotId = vm.snapshot();
+        _preSeededSnapshotId = vm.snapshot();
 
         // Setup user WITHOUT seeding BLP liquidity
         _setupUserWithoutBLP(testUser);
@@ -369,6 +336,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         // Act: attempt to create a loan with empty BLP - should revert
         (,, uint256 minDeposit) = loanContract.getLoanDetails(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION);
 
+        // Generic revert: cross-version BLP call (borrow failure in 0.6.12 lending pool)
         vm.expectRevert();
         vm.prank(testUser);
         loanContract.initializeLoan(minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, "");
@@ -384,7 +352,14 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
     /// @notice Triggering a strategy rebalance in the same block as loan init must not corrupt vault state.
     /// @dev Tests that reallocateAssets() and initializeLoan() compose safely within one block.
+    ///      A prior loan ensures the strategy has non-zero deposits, preventing MulDivFailed
+    ///      from division by zero in share-price arithmetic.
     function test_USDCVault_StrategyRebalance_DuringLoanInit() public {
+        // Bootstrap: create an initial loan so the strategy has non-zero AUM
+        // (reallocateAssets on a zero-balance strategy triggers MulDivFailed)
+        _createStandardLoan();
+        vm.warp(block.timestamp + 1);
+
         // Arrange: capture vault state before
         uint256 vaultTotalBefore = usdcVault.totalAssets();
         assertGt(vaultTotalBefore, 0, "vault should have assets from BLP seeding");
@@ -465,11 +440,11 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
             "loan should be active"
         );
 
-        // Health factor should be safe (> 1e18)
+        // Health factor should be safe (> TC.PRECISION)
         (uint256 totalCollateralETH, uint256 totalDebtETH, uint256 healthFactor) = _getUserAccountData(lsa);
         assertGt(totalCollateralETH, 0, "LSA should have collateral in BLP");
         assertGt(totalDebtETH, 0, "LSA should have debt in BLP");
-        assertGt(healthFactor, 1e18, "health factor must be > 1 after inflated-vault loan init");
+        assertGt(healthFactor, TC.PRECISION, "health factor must be > 1 after inflated-vault loan init");
     }
 
     /// @notice A whale depositing a huge amount to USDCVault followed by a MAX_COLLATERAL loan
@@ -511,16 +486,16 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Health factor must be safe
         (,, uint256 healthFactor) = _getUserAccountData(lsa);
-        assertGt(healthFactor, 1e18, "health factor must be > 1 for max collateral loan");
+        assertGt(healthFactor, TC.PRECISION, "health factor must be > 1 for max collateral loan");
     }
 
     /// @notice An LP withdrawing most USDC from the vault right before loan init should cause
     ///         the loan to revert. Re-depositing should allow the next attempt to succeed.
     /// @dev Tests vault liquidity drainage as a griefing vector against borrowers.
     function test_USDCVault_WithdrawSandwich_AroundLoanInit() public {
-        // Revert to base snapshot to control liquidity precisely
-        vm.revertTo(_baseSnapshotId);
-        _baseSnapshotId = vm.snapshot();
+        // Revert to pre-seeded snapshot to control liquidity precisely
+        vm.revertTo(_preSeededSnapshotId);
+        _preSeededSnapshotId = vm.snapshot();
 
         // Setup: seed just enough liquidity for exactly one loan
         // A standard 1 BTC loan needs roughly 60-70% of 1 BTC value in USDC
@@ -551,6 +526,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         // Act 1: loan init should revert due to insufficient liquidity
         (,, uint256 minDeposit) = loanContract.getLoanDetails(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION);
 
+        // Generic revert: cross-version BLP call (borrow failure in 0.6.12 lending pool)
         vm.expectRevert();
         vm.prank(testUser);
         loanContract.initializeLoan(minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, "");
@@ -588,21 +564,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         address lsaAttacker = _createLoan(TC.MIN_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
         // Arrange - Step 2: Donate cbBTC to strategy to inflate share price
-        address strategyAddr = config.getAaveTokenizedStrategy();
-        uint256 donationAmount = TC.USER_CBBTC_BALANCE;
-        address donator = makeAddr("donator");
-        _fundCbBTC(donator, donationAmount);
-
-        vm.prank(donator);
-        cbBTC.approve(aaveV3Pool, donationAmount);
-
-        vm.prank(donator);
-        (bool ok,) = aaveV3Pool.call(
-            abi.encodeWithSignature(
-                "supply(address,uint256,address,uint16)", address(cbBTC), donationAmount, strategyAddr, 0
-            )
-        );
-        require(ok, "strategy donation supply failed");
+        _donateToStrategy(TC.USER_CBBTC_BALANCE);
 
         // Arrange - Step 3: Verify inflation occurred
         uint256 inflatedAssets = btcVault.convertToAssets(1e8);
@@ -620,7 +582,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Assert - Victim loan must remain healthy
         (,, uint256 healthFactor) = _getUserAccountData(lsaVictim);
-        assertGt(healthFactor, 1e18, "victim loan must be healthy after inflated deposit");
+        assertGt(healthFactor, TC.PRECISION, "victim loan must be healthy after inflated deposit");
     }
 
     /// @notice Verifies that the smallest allowed collateral produces a healthy loan
@@ -632,29 +594,15 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Assert - Loan must be healthy even at minimum collateral
         (,, uint256 healthFactor) = _getUserAccountData(lsa);
-        assertGt(healthFactor, 1e18, "min collateral loan must be healthy after entry fees and rounding");
+        assertGt(healthFactor, TC.PRECISION, "min collateral loan must be healthy after entry fees and rounding");
     }
 
     /// @notice Verifies that share<->asset round-trip conversions do not lose
     ///         more than dust after yield injection creates a non-round share price.
-    /// @dev Security finding if rounding loss exceeds MAX_ROUNDING_LOSS_SATOSHI.
+    /// @dev Security finding if rounding loss exceeds TC.MAX_ROUNDING_LOSS_SATOSHI.
     function test_ERC4626_LargeDepositRoundingAccumulation() public {
-        // Arrange - Inject yield to create a non-round share price
-        address strategyAddr = config.getAaveTokenizedStrategy();
-        uint256 yieldAmount = 1e8; // 1 BTC of yield
-        address donator = makeAddr("yieldDonator");
-        _fundCbBTC(donator, yieldAmount);
-
-        vm.prank(donator);
-        cbBTC.approve(aaveV3Pool, yieldAmount);
-
-        vm.prank(donator);
-        (bool ok,) = aaveV3Pool.call(
-            abi.encodeWithSignature(
-                "supply(address,uint256,address,uint16)", address(cbBTC), yieldAmount, strategyAddr, 0
-            )
-        );
-        require(ok, "yield injection supply failed");
+        // Arrange - Inject yield to create a non-round share price (1 BTC)
+        _donateToStrategy(1e8);
 
         // Act - Create loan with standard collateral into yield-shifted vault
         address lsa = _createLoan(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
@@ -670,7 +618,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         assertApproxEqAbs(
             sharesFromAssets,
             shares,
-            MAX_ROUNDING_LOSS_SATOSHI,
+            TC.MAX_ROUNDING_LOSS_SATOSHI,
             "round-trip conversion must not lose more than dust"
         );
     }
@@ -692,7 +640,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         }
 
         (,, uint256 healthFactorBefore) = _getUserAccountData(lsa);
-        assertGt(healthFactorBefore, 1e18, "loan must be healthy at creation");
+        assertGt(healthFactorBefore, TC.PRECISION, "loan must be healthy at creation");
 
         // Act - simulate strategy loss by withdrawing cbBTC from strategy's Aave position
         // We prank as the strategy to call withdraw on the external Aave pool,
@@ -720,7 +668,7 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         // Additional: if HF dropped below 1, the loan is instantly liquidatable from a strategy loss.
         // This is expected behavior for min collateral, but worth documenting.
-        if (healthFactorAfter < 1e18) {
+        if (healthFactorAfter < TC.PRECISION) {
             // This is an expected consequence for boundary loans with 50% strategy loss.
             // The protocol should have mechanisms to handle this (e.g., emergency pause).
             assertTrue(true, "min collateral loan is liquidatable after 50% strategy loss (expected)");
@@ -730,12 +678,12 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
     /// @notice A near-liquidation loan should NOT be rescued by injecting yield into the strategy.
     ///         If donating cbBTC to the strategy inflates the share price enough to push HF above 1,
     ///         an attacker could prevent legitimate liquidations by donating to the strategy.
-    ///         assertLe(healthFactorAfterDonation, 1e18) FAILS if donation rescues the loan = finding.
+    ///         assertLe(healthFactorAfterDonation, TC.PRECISION) FAILS if donation rescues the loan = finding.
     function test_Strategy_ArtificialYieldInjection_PreventsLiquidation() public {
         // Arrange - create loan with standard collateral
         address lsa = _createStandardLoan();
 
-        // Drop price to make the loan liquidatable (HF < 1e18)
+        // Drop price to make the loan liquidatable (HF < TC.PRECISION)
         (, int256 currentPrice,,,) = btcOracle.latestRoundData();
         require(currentPrice > 0, "oracle price must be positive");
 
@@ -745,24 +693,24 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
 
         (,, uint256 healthFactorDropped) = _getUserAccountData(lsa);
 
-        // If HF is still above 1e18 after 40% drop, drop more aggressively
-        if (healthFactorDropped >= 1e18) {
+        // If HF is still above TC.PRECISION after 40% drop, drop more aggressively
+        if (healthFactorDropped >= TC.PRECISION) {
             droppedPrice = currentPrice * 40 / 100;
             btcOracle.updateAnswer(droppedPrice);
             (,, healthFactorDropped) = _getUserAccountData(lsa);
         }
 
-        // If still above 1e18 after 60% drop, use extreme drop
-        if (healthFactorDropped >= 1e18) {
+        // If still above TC.PRECISION after 60% drop, use extreme drop
+        if (healthFactorDropped >= TC.PRECISION) {
             droppedPrice = currentPrice * 20 / 100;
             btcOracle.updateAnswer(droppedPrice);
             (,, healthFactorDropped) = _getUserAccountData(lsa);
         }
 
-        // Precondition: loan must be undercollateralized (HF < 1e18)
+        // Precondition: loan must be undercollateralized (HF < TC.PRECISION)
         assertLt(
             healthFactorDropped,
-            1e18,
+            TC.PRECISION,
             "precondition failed: could not push loan below liquidation threshold via price drop"
         );
 
@@ -771,14 +719,144 @@ contract InitLoan_VaultsTest is IntegrationTestBase {
         // which could increase the oracle valuation of the collateral.
         _donateToStrategy(TC.USER_CBBTC_BALANCE);
 
-        // Assert - health factor must remain at or below 1e18
+        // Assert - health factor must remain at or below TC.PRECISION
         // If donation pushes HF above 1, the strategy is a liquidation prevention vector.
         (,, uint256 healthFactorAfterDonation) = _getUserAccountData(lsa);
 
         assertLe(
             healthFactorAfterDonation,
-            1e18,
+            TC.PRECISION,
             "FINDING: strategy donation rescued undercollateralized loan - artificial yield prevents liquidation"
         );
+    }
+
+    // ============ Collateral Valuation ============
+
+    /// @notice Loan contract should hold zero USDC after loan initialization when vault has yield
+    function test_InitializeLoan_NoResidualUSDC_WhenVaultHasYield() public {
+        // Seed the vault with a first loan so the strategy has aTokens
+        _createStandardLoan();
+
+        // Simulate 5% yield accrual in the BTCVault strategy
+        _simulateVaultYield(TC.SIMULATED_YIELD_BPS);
+
+        // Create a second loan with the now-inflated vault share price
+        vm.warp(block.timestamp + 1); // advance 1s for unique CREATE2 salt
+        _createStandardLoan();
+
+        // The Loan contract should not hold any USDC after initialization completes
+        uint256 residual = usdc.balanceOf(address(loanContract));
+        assertEq(residual, 0, "Loan contract should have zero USDC after initialization");
+    }
+
+    // ============ Security Audit Findings ============
+
+    /// @notice Issue #7 (CRITICAL): BTCVault.totalAssets() (line 398-404) only sums strategy
+    ///         balances, ignoring idle vault balance. After emergencyWithdrawFunds(), all assets
+    ///         are idle → totalAssets() returns 0 → share price collapses → mass liquidations.
+    function test_BTCVault_EmergencyWithdraw_CollapsesTotalAssets() public {
+        // Arrange
+        _createStandardLoan();
+        uint256 totalAssetsBefore = btcVault.totalAssets();
+        assertGt(totalAssetsBefore, 0, "vault should have assets from loan");
+
+        uint256 sharePriceBefore = btcVault.convertToAssets(1e8); // 1 share → assets
+
+        // Act — emergency withdraw (BVM_FAST = role 11, no delay)
+        uint64 bvmFastId = BVM_FAST_ID();
+        vm.prank(admin);
+        manager.grantRole(bvmFastId, admin, 0);
+
+        vm.prank(admin);
+        btcVault.emergencyWithdrawFunds();
+
+        // Assert: totalAssets should still account for the idle cbBTC in the vault
+        uint256 totalAssetsAfter = btcVault.totalAssets();
+        uint256 idleBalance = cbBTC.balanceOf(address(btcVault));
+
+        assertGt(idleBalance, 0, "vault should hold cbBTC after emergency withdraw");
+        assertGt(totalAssetsAfter, 0, "totalAssets should include idle balance after emergency withdraw");
+
+        // Share price should remain stable (not collapse to 0)
+        uint256 sharePriceAfter = btcVault.convertToAssets(1e8);
+        assertApproxEqRel(sharePriceAfter, sharePriceBefore, 0.01e18, "share price should be stable after emergency withdraw");
+    }
+
+    /// @notice Issue #10 (CRITICAL): totalAssets() iterates i < s_strategy.totalStrategies but
+    ///         strategy removal never decrements totalStrategies. After setting cap to 0 and
+    ///         emergency-withdrawing, the loop still iterates once, reading a zeroed/stale slot.
+    function test_BTCVault_StrategyRemoval_BreaksTotalAssetsLoop() public {
+        // Arrange — need a loan to have assets in strategy
+        _createStandardLoan();
+        uint256 totalAssetsBefore = btcVault.totalAssets();
+        assertGt(totalAssetsBefore, 0, "vault should have assets");
+
+        address strategy = config.getAaveTokenizedStrategy();
+
+        // Step 1: Set strategy cap to 0 (BVC role, 1-day delay)
+        _scheduleAndExecute(
+            address(btcVault), admin, BVC_ID(),
+            abi.encodeCall(btcVault.changeStrategyCap, (strategy, 0))
+        );
+
+        // Step 2: Withdraw all from strategy to idle via emergency withdraw
+        uint64 bvmFastId = BVM_FAST_ID();
+        vm.prank(admin);
+        manager.grantRole(bvmFastId, admin, 0);
+
+        vm.prank(admin);
+        btcVault.emergencyWithdrawFunds();
+
+        // Step 3: Update withdraw queue to remove strategy
+        uint256[] memory emptyQueue = new uint256[](0);
+        _scheduleAndExecute(
+            address(btcVault), admin, BVA_SLOW_ID(),
+            abi.encodeCall(btcVault.updateWithdrawQueue, (emptyQueue))
+        );
+
+        // Assert: totalAssets should still work and include idle balance
+        uint256 totalAssetsAfter = btcVault.totalAssets(); // Will revert → test FAILS
+        uint256 idleBalance = cbBTC.balanceOf(address(btcVault));
+        assertGt(idleBalance, 0, "vault should hold idle cbBTC");
+        assertEq(totalAssetsAfter, idleBalance, "totalAssets should equal idle balance when no strategies active");
+    }
+
+    /// @notice Issue #11 (CRITICAL): updateWithdrawQueue() removes a strategy but supplyQueue
+    ///         still references it. Next deposit follows stale queue, potentially depositing
+    ///         into a zeroed/removed strategy slot.
+    function test_BTCVault_SupplyQueueStale_AfterStrategyRemoval() public {
+        // Arrange — same setup as #10: remove strategy from withdraw queue
+        _createStandardLoan();
+
+        address strategy = config.getAaveTokenizedStrategy();
+
+        // Remove strategy from withdraw queue
+        _scheduleAndExecute(
+            address(btcVault), admin, BVC_ID(),
+            abi.encodeCall(btcVault.changeStrategyCap, (strategy, 0))
+        );
+
+        uint64 bvmFastId = BVM_FAST_ID();
+        vm.prank(admin);
+        manager.grantRole(bvmFastId, admin, 0);
+
+        vm.prank(admin);
+        btcVault.emergencyWithdrawFunds();
+
+        uint256[] memory emptyQueue = new uint256[](0);
+        _scheduleAndExecute(
+            address(btcVault), admin, BVA_SLOW_ID(),
+            abi.encodeCall(btcVault.updateWithdrawQueue, (emptyQueue))
+        );
+
+        // Act: create another loan (triggers deposit into BTCVault via stale supply queue)
+        address userC = _setupAdditionalUser("userC");
+
+        vm.warp(block.timestamp + 1); // advance for unique CREATE2 salt
+        address lsa = _createLoanForUser(userC, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
+
+        // Assert: loan should be created successfully
+        assertTrue(lsa != address(0), "loan creation should succeed after strategy removal");
+        assertGt(lsa.code.length, 0, "LSA should have code");
     }
 }

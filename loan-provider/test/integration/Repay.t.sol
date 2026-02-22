@@ -8,29 +8,24 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
-/// @title Repay_Adversarial
+/// @title RepayTest
 /// @author Bitmor Protocol
-/// @notice Integration tests for adversarial repayment scenarios, edge cases,
+/// @notice Integration tests for repayment scenarios, edge cases,
 ///         interest accrual, race conditions, and index invariants.
-/// @dev Tests 11-29 covering edge cases, interest accrual, race conditions,
-///      and index invariants. Run against local Anvil with --fork-url.
-contract Repay_Adversarial is IntegrationTestBase {
+/// @dev Covers edge cases, interest accrual, race conditions,
+///      and BLP index invariants. Run against local Anvil with --fork-url.
+contract RepayTest is IntegrationTestBase {
     // ============ Test-Specific Constants ============
 
     uint256 constant DUST_REPAY_AMOUNT = 1; // 1 wei USDC
-    uint256 constant OVERPAY_AMOUNT = 10_000e6; // 10,000 USDC
-    uint256 constant MAX_ROUNDING_LOSS_USDC = 1e6; // 1 USDC
-    uint256 constant DEBT_DUST_THRESHOLD = 1e6; // 1 USDC
-    uint256 constant SIX_MONTHS = 180 days;
-    uint256 constant THREE_MONTHS = 90 days;
-    uint256 constant REPAYMENT_INTERVAL = 30 days;
+    uint256 constant LARGE_OVERPAY_AMOUNT = 10_000e6; // 10,000 USDC
     uint256 constant PARTIAL_REPAY_PERCENT_60 = 60;
 
     // ============ Setup ============
 
     function setUp() public override {
         super.setUp();
-        _setupTestUser();
+        _setupLiquidator();
     }
 
     // ============ Edge Cases (Tests 11-19) ============
@@ -67,14 +62,12 @@ contract Repay_Adversarial is IntegrationTestBase {
         uint256 totalDebt = _getDebtBalanceUSDC(lsa);
 
         // Fund extra to cover overpayment
-        _fundUSDC(testUser, totalDebt + OVERPAY_AMOUNT);
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
+        _fundUSDC(testUser, totalDebt + LARGE_OVERPAY_AMOUNT);
 
         uint256 usdcBefore = usdc.balanceOf(testUser);
 
         // Act
-        _repayLoan(lsa, testUser, totalDebt + OVERPAY_AMOUNT);
+        _repayLoan(lsa, testUser, totalDebt + LARGE_OVERPAY_AMOUNT);
 
         // Assert
         uint256 usdcAfter = usdc.balanceOf(testUser);
@@ -83,7 +76,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertApproxEqAbs(
             usdcSpent,
             totalDebt,
-            MAX_ROUNDING_LOSS_USDC,
+            TC.MAX_ROUNDING_LOSS_USDC,
             "user must only spend approximately the debt amount"
         );
 
@@ -154,7 +147,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // Advance past next payment interval + grace period
-        vm.warp(block.timestamp + REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
 
         // Act - repay one EMI
         DataTypes.LoanData memory loanDataForRepay = loanContract.getLoanByLSA(lsa);
@@ -193,7 +186,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
         assertLe(
             loanDataAfter.amountRepaidInCurrentPeriod,
-            MAX_ROUNDING_LOSS_USDC,
+            TC.MAX_ROUNDING_LOSS_USDC,
             "accumulator must be near-zero after full period"
         );
         assertEq(
@@ -234,13 +227,13 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertApproxEqAbs(
             loanDataAfter2.amountRepaidInCurrentPeriod,
             expectedCarryover,
-            DEBT_DUST_THRESHOLD,
+            TC.DEBT_DUST_THRESHOLD,
             "20% must carry over"
         );
     }
 
     /// @notice Test 17: Repay while contract is paused must revert; works after unpause
-    function test_RepayWhilePaused_Reverts() public {
+    function test_Repay_RevertWhen_Paused() public {
         // Arrange
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
 
@@ -286,8 +279,6 @@ contract Repay_Adversarial is IntegrationTestBase {
 
         // Fund extra for full repay
         _fundUSDC(testUser, totalDebt);
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
 
         // Act
         uint256 cbBTCBefore = cbBTC.balanceOf(testUser);
@@ -309,67 +300,61 @@ contract Repay_Adversarial is IntegrationTestBase {
             0.02e18,
             "collateral return must approximate original amount within 2%"
         );
+        _assertLoanContractIsEmpty("after full lump-sum repay");
+    }
+
+    /// @notice Test 19a: Full repay (total debt) on a 3-month loan after 3 months succeeds
+    function test_LargeRepay_FullDebt_CompletesLoan() public {
+        // Arrange - 3-month loan
+        (address lsa,) = _createLoanWithData(TC.STANDARD_COLLATERAL, 3, TC.PREMIUM_AMOUNT);
+
+        // Advance 3 months
+        vm.warp(block.timestamp + TC.THREE_MONTHS);
+
+        // Act - repay full debt
+        _fullyRepayLoan(lsa);
+
+        // Assert
         assertEq(
-            usdc.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero USDC"
-        );
-        assertEq(
-            cbBTC.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero cbBTC"
+            uint256(loanContract.getLoanByLSA(lsa).status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "loan must be completed after full debt repay"
         );
     }
 
-    /// @notice Test 19: Overshoot payment exceeding remaining periods; verifies protocol handles gracefully
-    function test_LargePartialRepay_ExceedingRemainingPeriods_Reverts() public {
+    /// @notice Test 19b: Overshoot payment (4x EMI on 3-month loan after 3 months) completes the loan
+    /// @dev The protocol caps repayment at total debt rather than reverting on overshoot.
+    ///      Excess USDC is refunded to the payer.
+    function test_LargePartialRepay_ExceedingRemainingPeriods_CompletesLoan() public {
         // Arrange - 3-month loan
         (address lsa, DataTypes.LoanData memory loanData) =
             _createLoanWithData(TC.STANDARD_COLLATERAL, 3, TC.PREMIUM_AMOUNT);
 
         // Advance 3 months
-        vm.warp(block.timestamp + THREE_MONTHS);
+        vm.warp(block.timestamp + TC.THREE_MONTHS);
 
         uint256 emi = loanData.estimatedMonthlyPayment;
         uint256 overshootPayment = 4 * emi;
-        uint256 totalDebt = _getDebtBalanceUSDC(lsa);
 
         // Fund enough for overshoot
-        _fundUSDC(testUser, totalDebt + overshootPayment);
+        _fundUSDC(testUser, overshootPayment);
+        uint256 usdcBefore = usdc.balanceOf(testUser);
+
+        // Act - overshoot payment completes the loan gracefully
         vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
+        loanContract.repay(lsa, overshootPayment);
 
-        // Act - Try overshoot payment; may revert (duration underflow) or succeed
-        vm.prank(testUser);
-        try loanContract.repay(lsa, overshootPayment) {
-            // Succeeded - protocol handles gracefully, document behavior
-            DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-            // If it succeeded, the loan should either be completed or have reduced duration
-            assertTrue(
-                loanDataAfter.duration == 0
-                    || uint256(loanDataAfter.status) == uint256(DataTypes.LoanStatus.Completed),
-                "overshoot must either complete loan or reduce duration to 0"
-            );
-        } catch {
-            // Reverted - duration underflow DoS finding, document it
-            // This is a valid security finding if overshoot causes revert
-        }
-
-        // Regardless, verify full repay works
-        DataTypes.LoanData memory currentData = loanContract.getLoanByLSA(lsa);
-        if (uint256(currentData.status) == uint256(DataTypes.LoanStatus.Active)) {
-            uint256 remainingDebt = _getDebtBalanceUSDC(lsa);
-            _fundUSDC(testUser, remainingDebt);
-            vm.prank(testUser);
-            usdc.approve(address(loanContract), type(uint256).max);
-            _repayLoan(lsa, testUser, remainingDebt);
-        }
-
+        // Assert - loan should be completed (not reverted)
+        DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
         assertEq(
-            uint256(loanContract.getLoanByLSA(lsa).status),
+            uint256(loanDataAfter.status),
             uint256(DataTypes.LoanStatus.Completed),
-            "loan must be completed after full repay"
+            "overshoot payment should complete the loan"
         );
+
+        // Assert - user should not spend more than the actual debt
+        uint256 usdcSpent = usdcBefore - usdc.balanceOf(testUser);
+        assertLt(usdcSpent, overshootPayment, "user should not spend the full overshoot amount");
     }
 
     // ============ Interest Accrual (Tests 20-23) ============
@@ -385,7 +370,7 @@ contract Repay_Adversarial is IntegrationTestBase {
 
         // Act + Assert - debt must grow monotonically over 6 months
         for (uint256 i = 0; i < 6; i++) {
-            vm.warp(block.timestamp + REPAYMENT_INTERVAL);
+            vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
             uint256 currentDebt = _getDebtBalanceUSDC(lsa);
             assertGe(
                 currentDebt,
@@ -411,7 +396,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         uint256 durationBefore = loanData.duration;
 
         // Advance 90 days (3 months)
-        vm.warp(block.timestamp + THREE_MONTHS);
+        vm.warp(block.timestamp + TC.THREE_MONTHS);
 
         // Act - pay 3x EMI
         uint256 tripleEmi = 3 * emi;
@@ -427,7 +412,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
         assertLe(
             loanDataAfter.amountRepaidInCurrentPeriod,
-            DEBT_DUST_THRESHOLD,
+            TC.DEBT_DUST_THRESHOLD,
             "carryover should be negligible"
         );
     }
@@ -439,7 +424,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         uint256 initTs = loanData.lastPaymentTimestamp;
 
         // Advance to exactly 30 days (end of repayment interval, but before grace)
-        vm.warp(initTs + REPAYMENT_INTERVAL);
+        vm.warp(initTs + TC.REPAYMENT_INTERVAL);
 
         // Act - attempt micro-liq before grace period expires
         bool earlySuccess = _triggerMicroLiquidation(lsa);
@@ -453,7 +438,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // Advance past grace period
-        vm.warp(initTs + REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        vm.warp(initTs + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
 
         // Act - micro-liq after grace period
         bool lateSuccess = _triggerMicroLiquidation(lsa);
@@ -473,7 +458,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         address lsa = _createStandardLoan();
 
         // Advance 6 months
-        vm.warp(block.timestamp + SIX_MONTHS);
+        vm.warp(block.timestamp + TC.SIX_MONTHS);
 
         // Act - trigger first micro-liq
         bool success1 = _triggerMicroLiquidation(lsa);
@@ -482,7 +467,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertTrue(success1, "first must succeed");
         assertEq(
             loanContract.getLoanByLSA(lsa).duration,
-            11,
+            TC.STANDARD_DURATION - 1,
             "first must decrement by 1"
         );
 
@@ -491,7 +476,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertFalse(success2, "second must fail - loan current after timestamp reset");
 
         // Advance past next grace period
-        vm.warp(block.timestamp + REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
 
         // Act - trigger second micro-liq
         bool success3 = _triggerMicroLiquidation(lsa);
@@ -500,7 +485,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertTrue(success3, "second must succeed after new grace");
         assertEq(
             loanContract.getLoanByLSA(lsa).duration,
-            10,
+            TC.STANDARD_DURATION - 2,
             "second must decrement to 10"
         );
     }
@@ -516,7 +501,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         // Make first payment overdue
         _makeFirstPaymentOverdue();
 
-        uint256 snap = vm.snapshotState();
+        uint256 snap = vm.snapshot();
 
         // --- Order 1: Repay first, then micro-liq ---
         _repayLoan(lsa, testUser, emi);
@@ -534,7 +519,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // --- Order 2: Micro-liq first, then repay ---
-        vm.revertToState(snap);
+        vm.revertTo(snap);
 
         bool mlFirst = _triggerMicroLiquidation(lsa);
         assertTrue(mlFirst, "micro-liq must succeed when overdue");
@@ -560,21 +545,17 @@ contract Repay_Adversarial is IntegrationTestBase {
 
         // Fund extra for full repay
         _fundUSDC(testUser, totalDebt);
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
 
         // Make loan eligible for full liquidation
         _makeFirstPaymentOverdue();
         _dropOraclePrice(TC.PRICE_DROP_FULL);
 
-        uint256 snap = vm.snapshotState();
+        uint256 snap = vm.snapshot();
 
         // --- Order 1: Full repay first, then liquidation fails ---
         // Recalculate debt after time warp (interest accrued)
         uint256 currentDebt = _getDebtBalanceUSDC(lsa);
         _fundUSDC(testUser, currentDebt);
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
 
         _repayLoan(lsa, testUser, currentDebt);
 
@@ -589,7 +570,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         assertFalse(liqAfterRepay, "order 1: liquidation must fail on completed loan");
 
         // --- Order 2: Liquidation first, then repay fails ---
-        vm.revertToState(snap);
+        vm.revertTo(snap);
 
         bool liqFirst = _triggerFullLiquidation(lsa);
         assertTrue(liqFirst, "order 2: liquidation must succeed on undercollateralized loan");
@@ -627,7 +608,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // Advance past grace period
-        vm.warp(block.timestamp + REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _makeFirstPaymentOverdue();
 
         // Act - micro-liq after grace period
         bool lateMlSuccess = _triggerMicroLiquidation(lsa);
@@ -678,7 +659,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         uint256 scaledDebtInit = _getScaledDebtBalance(lsa);
 
         // Advance 30 days - scaled debt must not change with time
-        vm.warp(block.timestamp + REPAYMENT_INTERVAL);
+        vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
         uint256 scaledDebtAfterTime = _getScaledDebtBalance(lsa);
         assertEq(
             scaledDebtAfterTime,
@@ -697,7 +678,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // Advance 30 more days - scaled debt must remain unchanged
-        vm.warp(block.timestamp + REPAYMENT_INTERVAL);
+        vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
         uint256 scaledDebtAfterTime2 = _getScaledDebtBalance(lsa);
         assertEq(
             scaledDebtAfterTime2,
@@ -733,11 +714,7 @@ contract Repay_Adversarial is IntegrationTestBase {
         );
 
         // Act - full repay
-        uint256 totalDebt = _getDebtBalanceUSDC(lsa);
-        _fundUSDC(testUser, totalDebt);
-        vm.prank(testUser);
-        usdc.approve(address(loanContract), type(uint256).max);
-        _repayLoan(lsa, testUser, totalDebt);
+        _fullyRepayLoan(lsa);
 
         // Assert - Loan contract must still hold zero
         assertEq(
@@ -755,5 +732,102 @@ contract Repay_Adversarial is IntegrationTestBase {
             0,
             "Loan contract must hold zero bvBTC after full repay"
         );
+    }
+
+    // ============ BLP Index Invariants ============
+
+    /// @notice 22.2: USDC liquidity and borrow indices never decrease after any action
+    /// @dev bvBTC indices only checked at real interaction checkpoints (init, close).
+    ///      Time-based bvBTC index growth requires a bvBTC-specific poke — out of scope.
+    ///      Uses prevLiq/prevBorrow tracking pattern to avoid stack-too-deep.
+    function test_USDCIndices_MonotonicallyIncrease() public {
+        // Track monotonically increasing indices via prev/current pattern
+        uint256 prevLiq;
+        uint256 prevBorrow;
+        uint256 curLiq;
+        uint256 curBorrow;
+
+        // --- Checkpoint 0: Initial state ---
+        uint256 startLiq = _getLiquidityIndex(address(usdc));
+        uint256 startBorrow = _getVariableBorrowIndex();
+        assertGt(startLiq, 0, "USDC liquidity index must be positive at start");
+        assertGt(_getLiquidityIndex(address(btcVault)), 0, "bvBTC liquidity index must be positive at start");
+        prevLiq = startLiq;
+        prevBorrow = startBorrow;
+
+        // --- Checkpoint 1: After loan init ---
+        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGe(curLiq, prevLiq, "USDC liq index must not decrease after loan init");
+        assertGe(curBorrow, prevBorrow, "USDC borrow index must not decrease after loan init");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 2: After 7 days + forced index update ---
+        _advanceDays(7);
+        _pokeReserveIndex();
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGt(curLiq, prevLiq, "USDC liq index should increase with outstanding debt + time");
+        assertGt(curBorrow, prevBorrow, "USDC borrow index should increase with outstanding debt + time");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 3: After ~30 days + forced index update ---
+        _advanceDays(23);
+        _pokeReserveIndex();
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGt(curLiq, prevLiq, "USDC liq index must increase after 30d + poke");
+        assertGt(curBorrow, prevBorrow, "USDC borrow index must increase after 30d + poke");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 4: After repayment ---
+        _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGe(curLiq, prevLiq, "USDC liq index must not decrease after repay");
+        assertGe(curBorrow, prevBorrow, "USDC borrow index must not decrease after repay");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 5: After second month + forced update ---
+        _advanceDays(30);
+        _pokeReserveIndex();
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGt(curLiq, prevLiq, "USDC liq index must increase after 2nd month + poke");
+        assertGt(curBorrow, prevBorrow, "USDC borrow index must increase after 2nd month + poke");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 6: After second repayment ---
+        _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGe(curLiq, prevLiq, "USDC liq index must not decrease after 2nd repay");
+        assertGe(curBorrow, prevBorrow, "USDC borrow index must not decrease after 2nd repay");
+        prevLiq = curLiq;
+        prevBorrow = curBorrow;
+
+        // --- Checkpoint 7: After close ---
+        _closeLoanEarly(lsa, testUser, false);
+
+        curLiq = _getLiquidityIndex(address(usdc));
+        curBorrow = _getVariableBorrowIndex();
+        assertGe(curLiq, prevLiq, "USDC liq index must not decrease after close");
+        assertGe(curBorrow, prevBorrow, "USDC borrow index must not decrease after close");
+
+        // --- Final: verify net increase over entire lifecycle ---
+        assertGt(curLiq, startLiq, "USDC liq index must be higher at end than start");
+        assertGt(curBorrow, startBorrow, "USDC borrow index must be higher at end than start");
     }
 }

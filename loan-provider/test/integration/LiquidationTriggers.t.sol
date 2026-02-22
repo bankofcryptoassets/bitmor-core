@@ -13,20 +13,12 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 ///      Source: Cat 6 (6.1-6.6), Cat 7 (7.1-7.5), Cat 17 (17.1-17.6).
 contract LiquidationTriggersTest is IntegrationTestBase {
     // ============ Constants ============
-    uint256 constant PRICE_DROP_30_PERCENT = 30;
-    uint256 constant PRICE_DROP_40_PERCENT = 40;
-    uint256 constant PRICE_DROP_70_PERCENT = 70;
     uint256 constant VAULT_YIELD_20_PERCENT = 2000;
     uint256 constant VAULT_LOSS_30_PERCENT = 3000;
     uint256 constant VAULT_LOSS_40_PERCENT = 4000;
-    uint256 constant EXIT_FEE_100_BPS = 100;
-    uint256 constant EXIT_FEE_500_BPS = 500;
-    uint256 constant REPAYMENT_INTERVAL = 30 days;
-
     // ============ Setup ============
     function setUp() public override {
         super.setUp();
-        _setupTestUser();
         _setupLiquidator();
     }
 
@@ -106,7 +98,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         address lsaA = _createStandardLoan();
         uint256 snapA = vm.snapshot();
 
-        _dropOraclePrice(PRICE_DROP_40_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_40);
         uint256 checkA = _checkTypeOfLiquidation(lsaA);
         assertGt(checkA, TC.LIQUIDATION_TYPE_NONE, "path A: oracle drop should trigger liquidation type");
 
@@ -121,15 +113,11 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         (,, uint256 hfAfterLoss) = _getUserAccountData(lsaA);
         // Strategy loss reduces collateral value, lowering health factor
-        // If HF drops below 1, liquidation should be possible
+        // 40% strategy loss MUST trigger liquidation
         uint256 checkB = _checkTypeOfLiquidation(lsaA);
-        if (checkB > TC.LIQUIDATION_TYPE_NONE) {
-            bool successB = _triggerFullLiquidation(lsaA);
-            assertTrue(successB, "path B: full liquidation should succeed via strategy loss");
-        } else {
-            // Even if not triggering full liq, HF should have dropped significantly
-            assertLt(hfAfterLoss, 2e18, "path B: health factor should drop significantly from strategy loss");
-        }
+        assertGt(checkB, TC.LIQUIDATION_TYPE_NONE, "path B: 40% strategy loss MUST trigger liquidation");
+        bool successB = _triggerFullLiquidation(lsaA);
+        assertTrue(successB, "path B: full liquidation should succeed via strategy loss");
     }
 
     /// @notice 6.4: Zero oracle price blocks liquidation execution
@@ -174,7 +162,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         vm.revertTo(snapA);
 
         // Path B: manipulated price micro-liquidation
-        _dropOraclePrice(PRICE_DROP_30_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_30);
         _makeFirstPaymentOverdue();
 
         uint256 checkB = _checkTypeOfLiquidation(lsa);
@@ -185,19 +173,12 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         bool successB = _triggerMicroLiquidation(lsa);
         if (successB) {
             uint256 cbBTCAtLowPrice = cbBTC.balanceOf(testLiquidator) - liquidatorCbBTCBeforeB;
-
             // At lower oracle price, liquidator gets more cbBTC per USDC of debt covered
-            assertGt(
-                cbBTCAtLowPrice,
-                cbBTCAtFairPrice,
-                "manipulated price should yield more cbBTC to liquidator"
-            );
-            // Difference should be significant (>20% more collateral seized)
-            assertGt(
-                cbBTCAtLowPrice,
-                cbBTCAtFairPrice * 120 / 100,
-                "manipulated price should yield >20% more cbBTC to liquidator"
-            );
+            assertGt(cbBTCAtLowPrice, cbBTCAtFairPrice, "manipulated price should yield more cbBTC");
+            assertGt(cbBTCAtLowPrice, cbBTCAtFairPrice * 120 / 100, "should yield >20% more cbBTC");
+        } else {
+            // 30% price drop can push post-sale guard past threshold → full liq only
+            assertEq(checkB, TC.LIQUIDATION_TYPE_FULL, "if micro fails, should be full liquidation type");
         }
     }
 
@@ -208,14 +189,14 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         // Path A: oracle drop only
         uint256 snapA = vm.snapshot();
-        _dropOraclePrice(PRICE_DROP_30_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_30);
         (,, uint256 hfPathA) = _getUserAccountData(lsa);
 
         // Revert for Path B
         vm.revertTo(snapA);
 
         // Path B: oracle drop + strategy loss
-        _dropOraclePrice(PRICE_DROP_30_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_30);
         _simulateStrategyLoss(VAULT_LOSS_30_PERCENT);
         (,, uint256 hfPathB) = _getUserAccountData(lsa);
 
@@ -229,12 +210,15 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
     /// @notice 7.1: Vault yield inflation before liquidation can save a loan from seizure
     function test_BTCVault_SharePriceInflation_BeforeLiquidation_AvoidsSeizure() public {
-        // Arrange: create loan and push to edge of liquidation
+        // Arrange: create loan and drop price enough to push HF below 1.0 (full liq trigger)
+        // 30% BTC drop with ~1.36 initial HF → HF ≈ 0.95 → type 1 (full liq)
+        // Then 20% vault yield inflates share price → oracle reads higher bvBTC price
+        // HF recovers above 1.0 → type 0 (no liq)
         address lsa = _createStandardLoan();
-        _dropOraclePrice(PRICE_DROP_40_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_30);
 
         uint256 checkBefore = _checkTypeOfLiquidation(lsa);
-        assertGt(checkBefore, TC.LIQUIDATION_TYPE_NONE, "loan should be liquidatable after 40% price drop");
+        assertGt(checkBefore, TC.LIQUIDATION_TYPE_NONE, "loan should be liquidatable after 30% price drop");
 
         // Act: simulate vault yield to inflate collateral value
         _simulateVaultYield(VAULT_YIELD_20_PERCENT);
@@ -279,36 +263,30 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         address lsaA = _createStandardLoan();
         _dropOraclePrice(TC.PRICE_DROP_FULL);
 
-        uint256 liquidatorCbBTCBeforeA = cbBTC.balanceOf(testLiquidator);
-        bool successA = _triggerFullLiquidation(lsaA);
-        assertTrue(successA, "path A: liquidation should succeed without exit fee");
-        uint256 liquidatorCbBTCReceivedA = cbBTC.balanceOf(testLiquidator) - liquidatorCbBTCBeforeA;
+        LiquidationResult memory resultA = _executeFullLiquidationAndCapture(lsaA);
+        assertTrue(resultA.success, "path A: liquidation should succeed without exit fee");
 
         // Revert to pre-loan state
         vm.revertTo(snapA);
 
         // Path B: liquidation with exit fee
-        vm.prank(admin);
-        btcVault.setExitFee(EXIT_FEE_100_BPS);
-        assertEq(btcVault.getExitFee(), EXIT_FEE_100_BPS, "exit fee should be set to 100 bps");
+        _setExitFee(TC.EXIT_FEE_MEDIUM_BPS);
 
         address lsaB = _createStandardLoan();
         _dropOraclePrice(TC.PRICE_DROP_FULL);
 
-        uint256 liquidatorCbBTCBeforeB = cbBTC.balanceOf(testLiquidator);
-        bool successB = _triggerFullLiquidation(lsaB);
-        assertTrue(successB, "path B: liquidation should succeed with exit fee");
-        uint256 liquidatorCbBTCReceivedB = cbBTC.balanceOf(testLiquidator) - liquidatorCbBTCBeforeB;
+        LiquidationResult memory resultB = _executeFullLiquidationAndCapture(lsaB);
+        assertTrue(resultB.success, "path B: liquidation should succeed with exit fee");
 
         // Assert: liquidator received LESS with fee
         assertLt(
-            liquidatorCbBTCReceivedB,
-            liquidatorCbBTCReceivedA,
+            resultB.cbBTCReceived,
+            resultA.cbBTCReceived,
             "liquidator should receive less cbBTC when exit fee is active"
         );
 
         // Assert: liquidation was still profitable (liquidator received non-zero cbBTC)
-        assertGt(liquidatorCbBTCReceivedB, 0, "liquidation should still be profitable with exit fee");
+        assertGt(resultB.cbBTCReceived, 0, "liquidation should still be profitable with exit fee");
     }
 
     /// @notice 7.4: Pausing BTCVault bricks liquidation even when loan needs it
@@ -350,9 +328,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     /// @notice 7.5: High exit fee + mass redemptions drain share price, cascading into liquidation
     function test_BTCVault_ExitFee_MassRedemption_SharePriceDrain_CascadeLiquidation() public {
         // Arrange: set high exit fee
-        vm.prank(admin);
-        btcVault.setExitFee(EXIT_FEE_500_BPS);
-        assertEq(btcVault.getExitFee(), EXIT_FEE_500_BPS, "exit fee should be 500 bps");
+        _setExitFee(TC.EXIT_FEE_HIGH_BPS);
 
         // Create 3 loans: 1 from testUser, 2 from additional users
         address lsa1 = _createStandardLoan(); // testUser's loan (the one we watch)
@@ -366,18 +342,8 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         (,, uint256 hfBefore) = _getUserAccountData(lsa1);
 
         // Close 2 loans (with exit fee eating into vault)
-        // Fund users extra USDC for flash loan repayment
-        _fundUSDC(user2, TC.USER_USDC_BALANCE);
-        vm.prank(user2);
-        usdc.approve(address(loanContract), type(uint256).max);
-        vm.prank(user2);
-        loanContract.closeLoan(lsa2, false);
-
-        _fundUSDC(user3, TC.USER_USDC_BALANCE);
-        vm.prank(user3);
-        usdc.approve(address(loanContract), type(uint256).max);
-        vm.prank(user3);
-        loanContract.closeLoan(lsa3, false);
+        _closeLoanEarly(lsa2, user2, false);
+        _closeLoanEarly(lsa3, user3, false);
 
         // Assert: share price should have decreased due to exit fee on redemptions
         uint256 shareValueAfter = btcVault.convertToAssets(1e8);
@@ -387,11 +353,10 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         (,, uint256 hfAfter) = _getUserAccountData(lsa1);
         assertLt(hfAfter, hfBefore, "remaining loan HF should decrease after share price drain");
 
-        // If HF dropped below 1.0, cascade triggered
-        if (hfAfter < 1e18) {
-            uint256 checkType = _checkTypeOfLiquidation(lsa1);
-            assertGt(checkType, TC.LIQUIDATION_TYPE_NONE, "cascade: loan should be liquidatable after share price drain");
-        }
+        // High exit fee + mass redemptions must cascade into liquidation territory
+        assertLt(hfAfter, 1e18, "cascade: HF must drop below 1.0 after share price drain with 500 bps exit fee");
+        uint256 checkType = _checkTypeOfLiquidation(lsa1);
+        assertGt(checkType, TC.LIQUIDATION_TYPE_NONE, "cascade: loan should be liquidatable after share price drain");
     }
 
     // ========================================================================
@@ -399,10 +364,9 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     // ========================================================================
 
     /// @notice 17.1: Insured loan resists full liquidation despite 50% price drop
-    function test_InsuredLoan_PriceDropFullLiquidation_Reverts() public {
+    function test_InsuredLoan_PriceDropFullLiquidation_Fails() public {
         // Arrange
-        address lsa = _createStandardLoan();
-        _setInsurance(lsa, 1);
+        address lsa = _createInsuredLoan();
 
         // Act: drop price severely
         _dropOraclePrice(TC.PRICE_DROP_FULL);
@@ -427,8 +391,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     /// @notice 17.2: Insured loan still subject to micro-liquidation for missed payments
     function test_InsuredLoan_MissedPayment_MicroLiquidation_Succeeds() public {
         // Arrange
-        address lsa = _createStandardLoan();
-        _setInsurance(lsa, 1);
+        address lsa = _createInsuredLoan();
         DataTypes.LoanData memory dataBefore = loanContract.getLoanByLSA(lsa);
         uint256 durationBefore = dataBefore.duration;
 
@@ -451,11 +414,10 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     /// @notice 17.3: Insured loan with price drop + missed payment escalates to full liquidation
     function test_InsuredLoan_MissedPayment_EscalatesToFull() public {
         // Arrange
-        address lsa = _createStandardLoan();
-        _setInsurance(lsa, 1);
+        address lsa = _createInsuredLoan();
 
         // Act: drop price AND make overdue (insurance guard fails when both conditions met)
-        _dropOraclePrice(PRICE_DROP_40_PERCENT);
+        _dropOraclePrice(TC.PRICE_DROP_40);
         _makeFirstPaymentOverdue();
 
         // Assert: escalated to full liquidation
@@ -478,8 +440,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     /// @notice 17.4: Removing insurance re-enables price-based liquidation
     function test_InsuredLoan_InsuranceExpiry_EnablesPriceLiquidation() public {
         // Arrange
-        address lsa = _createStandardLoan();
-        _setInsurance(lsa, 1);
+        address lsa = _createInsuredLoan();
 
         // Drop price severely
         _dropOraclePrice(TC.PRICE_DROP_FULL);
@@ -526,8 +487,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     /// @notice 17.6: Insured loan current on payments is immune to both liquidation types
     function test_InsuredLoan_CurrentOnPayments_NoLiquidation() public {
         // Arrange
-        address lsa = _createStandardLoan();
-        _setInsurance(lsa, 1);
+        address lsa = _createInsuredLoan();
 
         // Drop price severely (insurance protects against price-based liquidation)
         _dropOraclePrice(TC.PRICE_DROP_FULL);
@@ -550,5 +510,76 @@ contract LiquidationTriggersTest is IntegrationTestBase {
             uint256(DataTypes.LoanStatus.Active),
             "insured current loan should remain active"
         );
+    }
+
+    // ============ Security Audit Findings ============
+
+    /// @notice Issue #4 (CRITICAL): LendingPoolCollateralManager.liquidationCall() calls
+    ///         _updateLoanForFullLiquidation(user) unconditionally at line 286, regardless of
+    ///         how much debt the liquidator actually covers. A liquidator can pay 10% of debt
+    ///         and the loan gets marked Liquidated while 90% of debt remains.
+    function test_FullLiquidation_PartialDebtCover_UnconditionalStatusChange() public {
+        // Arrange
+        address lsa = _createStandardLoan();
+        uint256 debtBefore = _getDebtBalanceUSDC(lsa);
+        assertGt(debtBefore, 0, "loan should have debt");
+
+        // Drop price 90% to trigger full liquidation eligibility
+        _dropOraclePrice(90);
+
+        // Verify liquidation type = full
+        uint256 liqType = _checkTypeOfLiquidation(lsa);
+        assertEq(liqType, TC.LIQUIDATION_TYPE_FULL, "should be full liquidation");
+
+        // Act — partial debt coverage (10% of debt)
+        uint256 partialDebt = debtBefore / 10;
+        _fundUSDC(testLiquidator, partialDebt);
+        vm.prank(testLiquidator);
+        IERC20(address(usdc)).approve(bitmorPool, partialDebt);
+
+        bool success = _triggerFullLiquidationPartial(lsa, partialDebt);
+        assertTrue(success, "partial liquidation call should succeed");
+
+        // Assert: debt should remain after partial liquidation
+        uint256 debtAfter = _getDebtBalanceUSDC(lsa);
+        assertGt(debtAfter, 0, "partial liquidation should leave remaining debt");
+
+        // Correct behavior: loan with remaining debt should NOT be marked Liquidated
+        DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
+        assertNotEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Liquidated),
+            "loan with remaining debt should not be marked Liquidated"
+        );
+    }
+
+    /// @notice Issue #19/20 (HIGH): After full liquidation, if collateral > debt + bonus,
+    ///         only what's needed is seized. Remaining collateral stays in LSA forever —
+    ///         no function in Loan.sol can touch it when status = Liquidated.
+    function test_FullLiquidation_ResidualCollateral_StuckInLSA() public {
+        // Arrange
+        address lsa = _createStandardLoan();
+        uint256 aTokenBefore = _getATokenBalance(lsa);
+        assertGt(aTokenBefore, 0, "LSA should have collateral");
+
+        // Drop price to trigger full liquidation type
+        _dropOraclePrice(90);
+        assertEq(_checkTypeOfLiquidation(lsa), TC.LIQUIDATION_TYPE_FULL, "should be full liq type");
+
+        // Act — partial liquidation (covers only 20% of debt)
+        (, uint256 debtBefore,) = _getUserAccountData(lsa);
+        uint256 partialDebt = debtBefore / 5;
+        _fundUSDC(testLiquidator, partialDebt);
+        vm.prank(testLiquidator);
+        IERC20(address(usdc)).approve(bitmorPool, partialDebt);
+
+        bool success = _triggerFullLiquidationPartial(lsa, partialDebt);
+        assertTrue(success, "partial liquidation call should succeed");
+
+        // Correct behavior: borrower should be able to recover residual collateral
+        // via closeLoan or a dedicated recovery function.
+        // This FAILS because closeLoan checks `status == Active` and reverts.
+        vm.prank(testUser);
+        loanContract.closeLoan(lsa, true); // Reverts with LoanIsNotActive → test FAILS
     }
 }

@@ -14,60 +14,23 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
     // ============ Test-Specific Constants ============
 
     uint256 constant STRATEGY_LOSS_BPS = 1000; // 10%
-    uint256 constant SIMULATED_YIELD_BPS = 500; // 5%
-    uint256 constant EXIT_FEE_BPS = 10; // 0.1%
-    uint256 constant MAX_ROUNDING_LOSS_USDC = 1e6; // 1 USDC
-    uint256 constant SHARE_PRICE_IMPACT_TOLERANCE = 0.01e18; // 1%
-    uint256 constant DONATION_CBBTC_AMOUNT = 10e8; // 10 BTC
-    uint256 constant DONATION_USDC_AMOUNT = 10_000_000e6; // 10M USDC
-    uint256 constant DAYS_PER_MONTH = 30;
     uint256 constant PAYMENTS_BEFORE_FINAL = 11; // For a 12-month loan, 11 partial + 1 final
-
-    // ============ Setup ============
-
-    function setUp() public override {
-        super.setUp();
-        _setupTestUser();
-    }
-
-    // ============ Internal Helpers ============
-
-    /// @notice Ensures testUser has enough USDC for all remaining monthly payments
-    function _ensureSufficientUSDC(uint256 monthlyPayment, uint256 paymentsRemaining) internal {
-        uint256 totalNeeded = monthlyPayment * paymentsRemaining;
-        uint256 currentBalance = usdc.balanceOf(testUser);
-        if (currentBalance < totalNeeded) {
-            _fundUSDC(testUser, totalNeeded - currentBalance);
-        }
-    }
-
-    /// @notice Advances time and makes N monthly payments
-    function _makeMonthlyPayments(address lsa, uint256 monthlyPayment, uint256 count) internal {
-        for (uint256 i = 0; i < count; i++) {
-            _advanceDays(DAYS_PER_MONTH);
-            _repayLoan(lsa, testUser, monthlyPayment);
-        }
-    }
 
     // ============ Test 1: Strategy Loss Reduces Collateral Return ============
 
     /// @notice Verifies that a BTCVault strategy loss reduces collateral returned on full repay
     function test_BTCVault_SharePriceDrop_DuringFullRepay_ReducesCollateralReturn() public {
         // Arrange: Create loan and make 11 monthly payments
-        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
-
-        _makeMonthlyPayments(lsa, monthlyPayment, PAYMENTS_BEFORE_FINAL);
+        (address lsa,) = _createLoanAndMakePayments(PAYMENTS_BEFORE_FINAL);
 
         // Snapshot before final payment
         uint256 snap = vm.snapshot();
 
         // Reference: full repay without strategy loss
+        _advanceDays(30);
         uint256 remainingDebt = _getDebtBalanceUSDC(lsa);
         _ensureSufficientUSDC(remainingDebt, 1);
         uint256 cbBTCBeforeRef = cbBTC.balanceOf(testUser);
-        _advanceDays(DAYS_PER_MONTH);
         _repayLoan(lsa, testUser, remainingDebt);
         uint256 collateralReturnRef = cbBTC.balanceOf(testUser) - cbBTCBeforeRef;
 
@@ -76,10 +39,10 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Attack: simulate 10% strategy loss, then full repay
         _simulateStrategyLoss(STRATEGY_LOSS_BPS);
+        _advanceDays(30);
         remainingDebt = _getDebtBalanceUSDC(lsa);
         _ensureSufficientUSDC(remainingDebt, 1);
         uint256 cbBTCBeforeAttack = cbBTC.balanceOf(testUser);
-        _advanceDays(DAYS_PER_MONTH);
         _repayLoan(lsa, testUser, remainingDebt);
         uint256 collateralReturnAttack = cbBTC.balanceOf(testUser) - cbBTCBeforeAttack;
 
@@ -99,27 +62,24 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
     /// @notice Verifies that BTCVault exit fee reduces collateral returned on full repay
     function test_BTCVault_ExitFee_OnFullRepayCollateralReturn() public {
-        // Arrange: Set exit fee via admin (functions default to ADMIN role 0 on deployed contracts)
+        // Arrange: Set fee recipient and exit fee via admin
+        address feeCollector = makeAddr("feeCollector");
         vm.prank(admin);
-        btcVault.setExitFee(EXIT_FEE_BPS);
-        assertEq(btcVault.getExitFee(), EXIT_FEE_BPS, "exit fee must be set");
+        btcVault.setFeeRecipient(feeCollector);
+        _setExitFee(TC.EXIT_FEE_LOW_BPS);
 
         // Create loan and make 11 monthly payments
-        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
-
-        _makeMonthlyPayments(lsa, monthlyPayment, PAYMENTS_BEFORE_FINAL);
+        (address lsa,) = _createLoanAndMakePayments(PAYMENTS_BEFORE_FINAL);
 
         // Capture nominal collateral value before final repay
         uint256 aTokenBalance = _getATokenBalance(lsa);
         uint256 nominalValue = btcVault.convertToAssets(aTokenBalance);
 
         // Act: full repay
+        _advanceDays(30);
         uint256 remainingDebt = _getDebtBalanceUSDC(lsa);
         _ensureSufficientUSDC(remainingDebt, 1);
         uint256 cbBTCBefore = cbBTC.balanceOf(testUser);
-        _advanceDays(DAYS_PER_MONTH);
         _repayLoan(lsa, testUser, remainingDebt);
         uint256 actualReturn = cbBTC.balanceOf(testUser) - cbBTCBefore;
 
@@ -127,8 +87,8 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         assertLt(actualReturn, nominalValue, "exit fee must reduce collateral return");
         assertGt(actualReturn, 0, "borrower must receive collateral minus exit fee");
 
-        // Verify fee approximation: fee = nominalValue * EXIT_FEE_BPS / (EXIT_FEE_BPS + 10_000)
-        uint256 expectedFee = nominalValue * EXIT_FEE_BPS / (EXIT_FEE_BPS + TC.BPS_DENOMINATOR);
+        // Verify fee approximation: fee = nominalValue * TC.EXIT_FEE_LOW_BPS / (TC.EXIT_FEE_LOW_BPS + 10_000)
+        uint256 expectedFee = nominalValue * TC.EXIT_FEE_LOW_BPS / (TC.EXIT_FEE_LOW_BPS + TC.BPS_DENOMINATOR);
         uint256 actualFee = nominalValue - actualReturn;
         assertApproxEqAbs(
             actualFee,
@@ -143,23 +103,19 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
     /// @notice Verifies that a paused BTCVault prevents collateral return during full repay
     function test_BTCVault_StrategyWithdrawalFailure_DuringFullRepay() public {
         // Arrange: Create loan and make 11 monthly payments
-        (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
-
-        _makeMonthlyPayments(lsa, monthlyPayment, PAYMENTS_BEFORE_FINAL);
+        (address lsa,) = _createLoanAndMakePayments(PAYMENTS_BEFORE_FINAL);
 
         // Pause BTCVault (admin has ADMIN role 0, pause defaults to ADMIN since BVM_FAST selectors not mapped)
         vm.prank(admin);
         btcVault.pause();
 
         // Capture USDC balance before attempted repay
+        _advanceDays(30);
         uint256 usdcBefore = usdc.balanceOf(testUser);
         uint256 remainingDebt = _getDebtBalanceUSDC(lsa);
         _ensureSufficientUSDC(remainingDebt, 1);
 
         // Act: attempt full repay — should revert because collateral withdrawal from paused vault fails
-        _advanceDays(DAYS_PER_MONTH);
         vm.expectRevert();
         _repayLoan(lsa, testUser, remainingDebt);
 
@@ -185,7 +141,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 debtBefore = _getDebtBalanceUSDC(lsa);
 
         // Act: make 1 monthly payment
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
 
         // Assert
@@ -210,12 +166,12 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         _makeMonthlyPayments(lsa, monthlyPayment, PAYMENTS_BEFORE_FINAL);
 
         // Simulate 5% vault yield
-        _simulateVaultYield(SIMULATED_YIELD_BPS);
+        _simulateVaultYield(TC.SIMULATED_YIELD_BPS);
 
         // Act: full repay
         uint256 remainingDebt = _getDebtBalanceUSDC(lsa);
         _ensureSufficientUSDC(remainingDebt, 1);
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, remainingDebt);
         uint256 actualReturn = cbBTC.balanceOf(testUser);
 
@@ -238,7 +194,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
         _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
 
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, monthlyPayment);
 
         uint256 totalAssetsBefore = btcVault.totalAssets();
@@ -247,9 +203,9 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Act: attacker donates cbBTC directly to BTCVault
         address attacker = makeAddr("attacker");
-        _fundCbBTC(attacker, DONATION_CBBTC_AMOUNT);
+        _fundCbBTC(attacker, TC.DONATION_AMOUNT_CBBTC);
         vm.prank(attacker);
-        cbBTC.transfer(address(btcVault), DONATION_CBBTC_AMOUNT);
+        cbBTC.transfer(address(btcVault), TC.DONATION_AMOUNT_CBBTC);
 
         // Assert: totalAssets must not change from raw donation
         assertEq(
@@ -259,7 +215,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         );
 
         // Act: make another payment after donation
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, monthlyPayment);
 
         // Assert: repayment must be unaffected by donation
@@ -292,7 +248,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 debtBefore = _getDebtBalanceUSDC(lsa);
 
         // Act: attempt monthly payment after vault is drained
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
 
         // Assert: repay must still work since it repays to BLP, not vault directly
@@ -312,25 +268,15 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         // Arrange
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
 
-        // Get USDC aToken address from BLP reserve data
-        (bool ok, bytes memory rData) = bitmorPool.staticcall(
-            abi.encodeWithSignature("getReserveData(address)", address(usdc))
-        );
-        require(ok, "getReserveData failed");
-        (,,,,,,, address aTokenAddr,,,,) = abi.decode(
-            rData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
-
-        // Capture aToken USDC balance before repayment
-        uint256 liquidityBefore = usdc.balanceOf(aTokenAddr);
+        // Capture BLP available USDC liquidity before repayment
+        uint256 liquidityBefore = _getBLPAvailableLiquidity(address(usdc));
 
         // Act: make 1 monthly payment
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
 
         // Assert
-        uint256 liquidityAfter = usdc.balanceOf(aTokenAddr);
+        uint256 liquidityAfter = _getBLPAvailableLiquidity(address(usdc));
         assertGt(
             liquidityAfter,
             liquidityBefore,
@@ -339,7 +285,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         assertApproxEqAbs(
             liquidityAfter - liquidityBefore,
             loanData.estimatedMonthlyPayment,
-            MAX_ROUNDING_LOSS_USDC,
+            TC.MAX_ROUNDING_LOSS_USDC,
             "liquidity increase must approximate repayment amount"
         );
     }
@@ -355,7 +301,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
         _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
 
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, monthlyPayment);
 
         // Capture share price before donation
@@ -363,9 +309,9 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Act: attacker donates USDC directly to USDCVault
         address attacker2 = makeAddr("usdcAttacker");
-        _fundUSDC(attacker2, DONATION_USDC_AMOUNT);
+        _fundUSDC(attacker2, TC.DONATION_AMOUNT_USDC);
         vm.prank(attacker2);
-        usdc.transfer(address(usdcVault), DONATION_USDC_AMOUNT);
+        usdc.transfer(address(usdcVault), TC.DONATION_AMOUNT_USDC);
 
         // Assert: donation inflates vault share price
         uint256 sharePriceAfter = usdcVault.convertToAssets(1e6);
@@ -379,7 +325,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 emiBefore = loanData.estimatedMonthlyPayment;
 
         // Make another payment after donation
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
         _repayLoan(lsa, testUser, monthlyPayment);
 
         // Assert: EMI stored in loan must not change due to vault donation
@@ -430,7 +376,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 debt3Before = _getDebtBalanceUSDC(lsa3);
 
         // Advance to next payment window
-        _advanceDays(DAYS_PER_MONTH);
+        _advanceDays(30);
 
         // Act: all 3 repay in the same block (no time advancement between them)
         _repayLoan(lsa1, testUser, loanData1.estimatedMonthlyPayment);

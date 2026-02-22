@@ -11,11 +11,6 @@ import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 /// @dev Validates all role-path access control against pre-deployed contracts on local Anvil.
 ///      Covers EXECUTOR, LPCM, LPM_FAST, LPM_SLOW, BVC, BVD, UVC, and UVA roles.
 contract AccessControlTest is IntegrationTestBase {
-    function setUp() public override {
-        super.setUp();
-        _setupTestUser();
-    }
-
     // ============ Admin Role ============
 
     /// @notice Verifies deployer holds the ADMIN role (role 0) on the AccessManager
@@ -82,22 +77,9 @@ contract AccessControlTest is IntegrationTestBase {
         loanContract.pause();
         assertTrue(loanContract.paused(), "loan should be paused");
 
-        // Schedule unpause via AccessManager (LPM_SLOW has 1-day delay)
-        uint64 lpmSlowId = LPM_SLOW_ID();
-        (, uint32 delay) = manager.hasRole(lpmSlowId, admin);
-        assertGt(delay, 0, "LPM_SLOW should have execution delay");
-
+        // Act: schedule + execute unpause via _scheduleAndExecute helper
         bytes memory unpauseData = abi.encodeWithSignature("unpause()");
-        uint48 when = uint48(block.timestamp + delay);
-
-        vm.prank(admin);
-        manager.schedule(address(loanContract), unpauseData, when);
-
-        // Act: Warp past delay and execute
-        vm.warp(when);
-
-        vm.prank(admin);
-        manager.execute(address(loanContract), unpauseData);
+        _scheduleAndExecute(address(loanContract), admin, LPM_SLOW_ID(), unpauseData);
 
         // Assert
         assertFalse(loanContract.paused(), "loan should be unpaused after delayed execution");
@@ -139,21 +121,9 @@ contract AccessControlTest is IntegrationTestBase {
         address currentStrategy = usdcVault.getStrategy();
         assertTrue(currentStrategy != address(0), "usdc vault should already have a strategy");
 
-        uint64 uvcId = UVC_ID();
-        (, uint32 delay) = manager.hasRole(uvcId, admin);
-        assertGt(delay, 0, "UVC should have execution delay");
-
+        // Act: schedule + execute setStrategy via _scheduleAndExecute helper
         bytes memory setStrategyData = abi.encodeCall(usdcVault.setStrategy, (currentStrategy));
-        uint48 when = uint48(block.timestamp + delay);
-
-        // Act: schedule then execute after delay
-        vm.prank(admin);
-        manager.schedule(address(usdcVault), setStrategyData, when);
-
-        vm.warp(when);
-
-        vm.prank(admin);
-        manager.execute(address(usdcVault), setStrategyData);
+        _scheduleAndExecute(address(usdcVault), admin, UVC_ID(), setStrategyData);
 
         // Assert: strategy is still the same (idempotent operation)
         assertEq(usdcVault.getStrategy(), currentStrategy, "strategy should remain the deployed one");
@@ -166,7 +136,7 @@ contract AccessControlTest is IntegrationTestBase {
         // Arrange
         address unauthorized = makeAddr("unauthorized");
         address bogusStrategy = makeAddr("bogusStrategy");
-        uint256 cap = 100e8;
+        uint256 cap = TC.MAX_COLLATERAL;
 
         // Act + Assert
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
@@ -182,38 +152,12 @@ contract AccessControlTest is IntegrationTestBase {
         uint256 currentMax = btcVault.getMaxStrategies();
         uint256 newMax = currentMax + 1;
 
-        uint64 bvcId = BVC_ID();
-        (, uint32 delay) = manager.hasRole(bvcId, admin);
-        assertGt(delay, 0, "BVC should have execution delay");
-
+        // Act: schedule + execute setMaxStrategies via _scheduleAndExecute helper
         bytes memory setMaxData = abi.encodeCall(btcVault.setMaxStrategies, (newMax));
-        uint48 when = uint48(block.timestamp + delay);
-
-        // Act: schedule then execute after delay
-        vm.prank(admin);
-        manager.schedule(address(btcVault), setMaxData, when);
-
-        vm.warp(when);
-
-        vm.prank(admin);
-        manager.execute(address(btcVault), setMaxData);
+        _scheduleAndExecute(address(btcVault), admin, BVC_ID(), setMaxData);
 
         // Assert
         assertEq(btcVault.getMaxStrategies(), newMax, "max strategies should be updated");
-
-        // Cleanup: restore original value via schedule/execute
-        bytes memory restoreData = abi.encodeCall(btcVault.setMaxStrategies, (currentMax));
-        uint48 restoreWhen = uint48(block.timestamp + delay);
-
-        vm.prank(admin);
-        manager.schedule(address(btcVault), restoreData, restoreWhen);
-
-        vm.warp(restoreWhen);
-
-        vm.prank(admin);
-        manager.execute(address(btcVault), restoreData);
-
-        assertEq(btcVault.getMaxStrategies(), currentMax, "max strategies should be restored");
     }
 
     /// @notice Unauthorized address cannot call `changeStrategyCap` on BTCVault (BVC-restricted)

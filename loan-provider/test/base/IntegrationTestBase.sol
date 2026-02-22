@@ -55,8 +55,9 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     address public testUser;
     address public testLiquidator;
 
-    // Snapshot
+    // Snapshots
     uint256 internal _baseSnapshotId;
+    uint256 internal _preSeededSnapshotId;
     uint256 internal constant DEFAULT_ANVIL_PRIVATE_KEY =
         0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
@@ -80,7 +81,13 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         // 5. Load all pre-deployed contracts
         _loadDeployedContracts();
 
-        // 6. Snapshot
+        // 6. Snapshot BEFORE any liquidity seeding (for tests needing empty BLP)
+        _preSeededSnapshotId = vm.snapshot();
+
+        // 7. Setup test user (fund tokens, approve, grant EXECUTOR role)
+        _setupTestUser();
+
+        // 8. Snapshot AFTER seeding (standard test baseline)
         _baseSnapshotId = vm.snapshot();
     }
 
@@ -325,100 +332,83 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             abi.decode(data, (uint256, uint256, uint256, uint256, uint256, uint256));
     }
 
-    /// @notice Gets the USDC-denominated debt balance for an LSA (includes accrued interest)
-    /// @dev Queries BLP getReserveData → variableDebtTokenAddress → balanceOf(lsa)
-    function _getDebtBalanceUSDC(address lsa) internal view returns (uint256 debt) {
-        // Step 1: Get the variable debt token address from reserve data
-        (bool ok1, bytes memory reserveData) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
-        require(ok1, "getReserveData failed");
-        // ReserveData struct: field 9 (0-indexed) is variableDebtTokenAddress
-        (,,,,,,,,,address vdt,,) = abi.decode(
-            reserveData,
+    /// @notice Decodes BLP getReserveData into the 4 commonly-needed fields
+    /// @dev Single decode point for the 12-field Aave V2 ReserveData struct
+    function _getReserveDataDecoded(address asset)
+        internal
+        view
+        returns (uint128 liqIndex, uint128 borrowIndex, address aToken, address vdt)
+    {
+        (bool ok, bytes memory data) =
+            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", asset));
+        require(ok, "getReserveData failed");
+        // Aave V2 ReserveData: config, liqIdx, borrowIdx, liqRate, varBorrowRate,
+        // stableBorrowRate, lastUpdateTs, aToken, stableDebtToken, variableDebtToken, IRS, id
+        (, liqIndex, borrowIndex,,,,, aToken,, vdt,,) = abi.decode(
+            data,
             (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
         );
-        // Step 2: Get current debt balance (includes accrued interest)
-        (bool ok2, bytes memory balData) =
+    }
+
+    /// @notice Gets the USDC-denominated debt balance for an LSA (includes accrued interest)
+    function _getDebtBalanceUSDC(address lsa) internal view returns (uint256 debt) {
+        (,,, address vdt) = _getReserveDataDecoded(address(usdc));
+        (bool ok, bytes memory data) =
             vdt.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
-        require(ok2, "VDT balanceOf failed");
-        debt = abi.decode(balData, (uint256));
+        require(ok, "VDT balanceOf failed");
+        debt = abi.decode(data, (uint256));
     }
 
     /// @notice Gets the scaled (principal-only) debt balance for an LSA
     function _getScaledDebtBalance(address lsa) internal view returns (uint256 scaledDebt) {
-        (bool ok1, bytes memory reserveData) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
-        require(ok1, "getReserveData failed");
-        (,,,,,,,,,address vdt,,) = abi.decode(
-            reserveData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
-        (bool ok2, bytes memory data) =
+        (,,, address vdt) = _getReserveDataDecoded(address(usdc));
+        (bool ok, bytes memory data) =
             vdt.staticcall(abi.encodeWithSignature("scaledBalanceOf(address)", lsa));
-        require(ok2, "VDT scaledBalanceOf failed");
+        require(ok, "VDT scaledBalanceOf failed");
         scaledDebt = abi.decode(data, (uint256));
     }
 
     /// @notice Gets the variable borrow index for USDC from the BLP
     function _getVariableBorrowIndex() internal view returns (uint256 index) {
-        (bool ok, bytes memory reserveData) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
-        require(ok, "getReserveData failed");
-        // Field 2 (0-indexed) is variableBorrowIndex (uint128, stored as RAY)
-        (,, uint128 borrowIndex,,,,,,,,,) = abi.decode(
-            reserveData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
+        (, uint128 borrowIndex,,) = _getReserveDataDecoded(address(usdc));
         index = uint256(borrowIndex);
     }
 
     /// @notice Gets the aToken (collateral) balance for an LSA in the BLP
     function _getATokenBalance(address lsa) internal view returns (uint256 balance) {
-        (bool ok1, bytes memory reserveData) = bitmorPool.staticcall(
-            abi.encodeWithSignature("getReserveData(address)", address(btcVault))
-        );
-        require(ok1, "getReserveData(btcVault) failed");
-        (,,,,,,, address aTokenAddr,,,,) = abi.decode(
-            reserveData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
-        (bool ok2, bytes memory data) =
+        (,, address aTokenAddr,) = _getReserveDataDecoded(address(btcVault));
+        (bool ok, bytes memory data) =
             aTokenAddr.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
-        require(ok2, "aToken balanceOf failed");
+        require(ok, "aToken balanceOf failed");
         balance = abi.decode(data, (uint256));
     }
 
     /// @notice Gets the total scaled debt supply (sum of all scaledBalanceOf) for USDC
     function _getTotalScaledDebtSupply() internal view returns (uint256 totalScaled) {
-        (bool ok1, bytes memory reserveData) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", address(usdc)));
-        require(ok1, "getReserveData failed");
-        (,,,,,,,,,address vdt,,) = abi.decode(
-            reserveData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
-        (bool ok2, bytes memory data) =
+        (,,, address vdt) = _getReserveDataDecoded(address(usdc));
+        (bool ok, bytes memory data) =
             vdt.staticcall(abi.encodeWithSignature("scaledTotalSupply()"));
-        require(ok2, "VDT scaledTotalSupply failed");
+        require(ok, "VDT scaledTotalSupply failed");
         totalScaled = abi.decode(data, (uint256));
     }
 
     /// @notice Gets the liquidity index for an asset from BLP reserve data
     function _getLiquidityIndex(address asset) internal view returns (uint256 index) {
-        (bool ok, bytes memory reserveData) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", asset));
-        require(ok, "getReserveData failed");
-        // Field 1 (0-indexed) is liquidityIndex (uint128, stored as RAY)
-        (, uint128 liqIndex,,,,,,,,,,) = abi.decode(
-            reserveData,
-            (uint256, uint128, uint128, uint128, uint128, uint128, uint40, address, address, address, address, uint8)
-        );
+        (uint128 liqIndex,,,) = _getReserveDataDecoded(asset);
         index = uint256(liqIndex);
     }
 
-    /// @notice Gets the BLP's available liquidity for an asset (raw token balance held by pool)
+    /// @notice Gets the BLP's available liquidity for an asset (token balance held by aToken contract)
+    /// @dev In Aave V2, the LendingPool never holds underlying tokens - the aToken contract does
     function _getBLPAvailableLiquidity(address asset) internal view returns (uint256) {
-        return IERC20(asset).balanceOf(bitmorPool);
+        (,, address aTokenAddr,) = _getReserveDataDecoded(asset);
+        return IERC20(asset).balanceOf(aTokenAddr);
+    }
+
+    /// @notice Asserts that the Loan contract holds zero USDC and zero cbBTC
+    function _assertLoanContractIsEmpty(string memory context) internal view {
+        assertEq(usdc.balanceOf(address(loanContract)), 0, string.concat("Loan USDC non-zero: ", context));
+        assertEq(cbBTC.balanceOf(address(loanContract)), 0, string.concat("Loan cbBTC non-zero: ", context));
     }
 
     // ============ Liquidation Helpers ============
@@ -452,6 +442,19 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             abi.encodeWithSignature(
                 "liquidationCall(address,address,address,uint256,bool)",
                 address(btcVault), address(usdc), lsa, type(uint256).max, false
+            )
+        );
+    }
+
+    /// @notice Triggers a full liquidation with a specific debtToCover amount (partial coverage)
+    /// @dev Caller must call _setupLiquidator() before using this helper.
+    /// @return success Whether the call succeeded
+    function _triggerFullLiquidationPartial(address lsa, uint256 debtToCover) internal returns (bool success) {
+        vm.prank(testLiquidator);
+        (success,) = bitmorPool.call(
+            abi.encodeWithSignature(
+                "liquidationCall(address,address,address,uint256,bool)",
+                address(btcVault), address(usdc), lsa, debtToCover, false
             )
         );
     }
@@ -496,6 +499,185 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     function _setInsurance(address lsa, uint256 insuranceId) internal {
         vm.prank(admin);
         loanContract.updateInsuranceId(lsa, insuranceId);
+    }
+
+    // ============ Shared Test Helpers ============
+
+    /// @notice Donates cbBTC to the AaveTokenizedStrategy by supplying to the external Aave pool
+    ///         on behalf of the strategy address, inflating the strategy's aToken balance.
+    /// @param amount The amount of cbBTC (8 decimals) to donate
+    function _donateToStrategy(uint256 amount) internal {
+        address strategyAddr = config.getAaveTokenizedStrategy();
+        address donator = makeAddr("donator");
+        _fundCbBTC(donator, amount);
+
+        vm.prank(donator);
+        cbBTC.approve(aaveV3Pool, amount);
+
+        vm.prank(donator);
+        (bool ok,) = aaveV3Pool.call(
+            abi.encodeWithSignature(
+                "supply(address,uint256,address,uint16)", address(cbBTC), amount, strategyAddr, 0
+            )
+        );
+        require(ok, "strategy donation via Aave supply failed");
+    }
+
+    /// @notice Advances time and makes N monthly payments
+    function _makeMonthlyPayments(address lsa, uint256 monthlyPayment, uint256 count) internal {
+        for (uint256 i = 0; i < count; i++) {
+            _advanceDays(30);
+            _repayLoan(lsa, testUser, monthlyPayment);
+        }
+    }
+
+    /// @notice Ensures testUser has enough USDC for all remaining monthly payments
+    function _ensureSufficientUSDC(uint256 monthlyPayment, uint256 paymentsRemaining) internal {
+        uint256 totalNeeded = monthlyPayment * paymentsRemaining;
+        uint256 currentBalance = usdc.balanceOf(testUser);
+        if (currentBalance < totalNeeded) {
+            _fundUSDC(testUser, totalNeeded - currentBalance);
+        }
+    }
+
+    /// @notice Closes a loan early by funding the payer with enough USDC and calling closeLoan
+    function _closeLoanEarly(address lsa, address payer, bool withdrawInBTC) internal {
+        DataTypes.LoanData memory ld = loanContract.getLoanByLSA(lsa);
+        uint256 closeBuffer = ld.loanAmount * 2;
+        uint256 currentBalance = usdc.balanceOf(payer);
+        if (currentBalance < closeBuffer) {
+            _fundUSDC(payer, closeBuffer - currentBalance);
+        }
+        vm.prank(payer);
+        usdc.approve(address(loanContract), type(uint256).max);
+        vm.prank(payer);
+        loanContract.closeLoan(lsa, withdrawInBTC);
+    }
+
+    /// @notice Fully repays a loan via repay() so status becomes Completed
+    /// @dev Passes `type(uint256).max` to avoid stale-read race
+    function _fullyRepayLoan(address lsa) internal {
+        uint256 totalDebt = _getDebtBalanceUSDC(lsa);
+        require(totalDebt > 0, "fullyRepayLoan: no debt to repay");
+
+        uint256 buffer = totalDebt / 100 + 1e6; // 1% + 1 USDC
+        uint256 userBal = usdc.balanceOf(testUser);
+        if (userBal < totalDebt + buffer) {
+            _fundUSDC(testUser, totalDebt + buffer - userBal);
+            vm.prank(testUser);
+            usdc.approve(address(loanContract), type(uint256).max);
+        }
+
+        _repayLoan(lsa, testUser, type(uint256).max);
+    }
+
+    /// @notice Executes N micro-liquidations by advancing time and triggering each one
+    function _executeMicroLiquidations(address lsa, uint256 count) internal {
+        for (uint256 i = 0; i < count; i++) {
+            if (i == 0) {
+                _makeFirstPaymentOverdue();
+            } else {
+                vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+            }
+
+            uint256 liquidationType = _checkTypeOfLiquidation(lsa);
+            require(liquidationType == TC.LIQUIDATION_TYPE_MICRO, "not micro-liquidatable");
+
+            bool success = _triggerMicroLiquidation(lsa);
+            require(success, "microLiquidationCall failed");
+        }
+    }
+
+    /// @notice Gets the pre-closure fee in basis points
+    function _getPreClosureFeeBps() internal view returns (uint256) {
+        return loanContract.getPreClosureFee();
+    }
+
+    /// @notice Force BLP reserve indices to update by doing a tiny deposit
+    /// @dev Aave V2 only updates indices on interactions, not on time advance.
+    function _pokeReserveIndex() internal {
+        uint256 pokeAmount = 1e6; // 1 USDC
+        address poker = makeAddr("indexPoker");
+        _fundUSDC(poker, pokeAmount);
+        vm.prank(poker);
+        IERC20(address(usdc)).approve(address(usdcVault), pokeAmount);
+        vm.prank(poker);
+        usdcVault.deposit(pokeAmount, poker);
+    }
+
+    /// @notice Reverts to pre-seeded snapshot (empty BLP) and sets up user without BLP seeding
+    function _resetStateWithoutBLP() internal {
+        vm.revertTo(_preSeededSnapshotId);
+        _preSeededSnapshotId = vm.snapshotState();
+        _setupUserWithoutBLP(testUser);
+    }
+
+    // ============ Composite Helpers ============
+
+    /// @notice Result of a liquidation execution with balance deltas
+    struct LiquidationResult {
+        bool success;
+        uint256 cbBTCReceived;
+        uint256 usdcPaid;
+    }
+
+    /// @notice Executes a micro-liquidation and captures the liquidator's balance deltas
+    function _executeMicroLiquidationAndCapture(address lsa) internal returns (LiquidationResult memory result) {
+        uint256 cbBTCBefore = cbBTC.balanceOf(testLiquidator);
+        uint256 usdcBefore = usdc.balanceOf(testLiquidator);
+        result.success = _triggerMicroLiquidation(lsa);
+        result.cbBTCReceived = cbBTC.balanceOf(testLiquidator) - cbBTCBefore;
+        result.usdcPaid = usdcBefore - usdc.balanceOf(testLiquidator);
+    }
+
+    /// @notice Executes a full liquidation and captures the liquidator's balance deltas
+    function _executeFullLiquidationAndCapture(address lsa) internal returns (LiquidationResult memory result) {
+        uint256 cbBTCBefore = cbBTC.balanceOf(testLiquidator);
+        uint256 usdcBefore = usdc.balanceOf(testLiquidator);
+        result.success = _triggerFullLiquidation(lsa);
+        result.cbBTCReceived = cbBTC.balanceOf(testLiquidator) - cbBTCBefore;
+        result.usdcPaid = usdcBefore - usdc.balanceOf(testLiquidator);
+    }
+
+    /// @notice Sets the BTCVault exit fee via AccessManager role setup
+    function _setExitFee(uint256 feeBps) internal {
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = btcVault.setExitFee.selector;
+        uint64 bvmFastId = BVM_FAST_ID();
+        vm.startPrank(admin);
+        manager.setTargetFunctionRole(address(btcVault), selectors, bvmFastId);
+        manager.grantRole(bvmFastId, admin, 0);
+        vm.stopPrank();
+        vm.prank(admin);
+        btcVault.setExitFee(feeBps);
+    }
+
+    /// @notice Sets the liquidation fee and collector via schedule-and-execute
+    function _setLiquidationFee(uint256 feeBps, address collector) internal {
+        _scheduleAndExecute(
+            address(loanContract), admin, LPM_SLOW_ID(),
+            abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
+        );
+        _scheduleAndExecute(
+            address(loanContract), admin, LPM_SLOW_ID(),
+            abi.encodeCall(loanContract.setLiquidationFeeCollector, (collector))
+        );
+    }
+
+    /// @notice Creates a standard loan and makes N monthly payments
+    function _createLoanAndMakePayments(uint256 paymentCount)
+        internal
+        returns (address lsa, DataTypes.LoanData memory loanData)
+    {
+        (lsa, loanData) = _createStandardLoanWithData();
+        _ensureSufficientUSDC(loanData.estimatedMonthlyPayment, TC.STANDARD_DURATION);
+        _makeMonthlyPayments(lsa, loanData.estimatedMonthlyPayment, paymentCount);
+    }
+
+    /// @notice Creates a standard loan with insurance ID 1
+    function _createInsuredLoan() internal returns (address lsa) {
+        lsa = _createStandardLoan();
+        _setInsurance(lsa, 1);
     }
 
     // ============ State Management ============

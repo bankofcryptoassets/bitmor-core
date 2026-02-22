@@ -4,16 +4,12 @@ pragma solidity 0.8.30;
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {IERC20Metadata} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 
 /// @title SetUpStateTest
 /// @notice Validates all contracts are deployed and accessible after `make deploy-local`
 contract SetUpStateTest is IntegrationTestBase {
-    function setUp() public override {
-        super.setUp();
-        _setupTestUser();
-    }
-
     // ============ Contract Deployment ============
 
     function test_SetUpState_AllCoreContractsDeployed() public view {
@@ -127,6 +123,18 @@ contract SetUpStateTest is IntegrationTestBase {
         assertTrue(true);
     }
 
+    // ============ Oracle Price Manipulation ============
+
+    /// @notice Validates that _dropOraclePrice helper correctly manipulates MockChainlinkOracle
+    function test_SetUpState_OraclePriceDropWorks() public {
+        (, int256 priceBefore,,,) = btcOracle.latestRoundData();
+
+        _dropOraclePrice(50);
+
+        (, int256 priceAfter,,,) = btcOracle.latestRoundData();
+        assertEq(priceAfter, priceBefore / 2, "price should drop by 50%");
+    }
+
     // ============ Oracle: bvBTC Price Path ============
 
     /// @notice Validates the AaveOracle returns a valid price for bvBTC (BTCVault shares)
@@ -160,5 +168,59 @@ contract SetUpStateTest is IntegrationTestBase {
         }
         // If s_bvBTC is not set (pre-ExecutePhase3 reconfiguration), the direct oracle path is used,
         // which also returns the BTC price. Either way, the test passes.
+    }
+
+    // ============ Vault Configuration ============
+
+    function test_BTCVault_HasCorrectAsset() public view {
+        assertEq(address(btcVault.asset()), address(cbBTC), "BTCVault asset should be cbBTC");
+    }
+
+    function test_USDCVault_HasCorrectAsset() public view {
+        assertEq(address(usdcVault.asset()), address(usdc), "USDCVault asset should be USDC");
+    }
+
+    /// @notice After loan init, BTCVault should hold collateral via strategy
+    function test_BTCVault_DepositViaLoanInit() public {
+        uint256 btcVaultTotalBefore = btcVault.totalAssets();
+
+        address lsa = _createStandardLoan();
+        assertTrue(lsa != address(0), "LSA should be deployed");
+
+        uint256 btcVaultTotalAfter = btcVault.totalAssets();
+        assertGt(btcVaultTotalAfter, btcVaultTotalBefore, "BTCVault totalAssets should increase after loan init");
+    }
+
+    /// @notice Direct USDC deposit into USDCVault should mint shares
+    function test_USDCVault_Deposit_ReceivesShares() public {
+        uint256 depositAmount = TC.POOL_DEPOSIT_AMOUNT; // 100k USDC
+
+        vm.prank(testUser);
+        IERC20Metadata(address(usdc)).approve(address(usdcVault), depositAmount);
+
+        vm.prank(testUser);
+        uint256 shares = usdcVault.deposit(depositAmount, testUser);
+
+        assertGt(shares, 0, "should receive shares for deposit");
+        assertEq(usdcVault.balanceOf(testUser), shares, "user balance should match minted shares");
+    }
+
+    function test_AaveTokenizedStrategy_YieldSource() public view {
+        address strategy = config.getAaveTokenizedStrategy();
+        AaveTokenizedStrategy ats = AaveTokenizedStrategy(strategy);
+        assertEq(ats.i_yieldSource(), aaveV3Pool, "strategy yield source should be external Aave pool");
+        assertEq(ats.i_vault(), address(btcVault), "strategy vault should be BTCVault");
+    }
+
+    // ============ Oracle Smoke Test ============
+
+    /// @notice Validates checkTypeOfLiquidation returns non-zero after severe price drop
+    function test_FullLiquidation_TypeDetected_AfterPriceDrop() public {
+        (address lsa,) = _createLoanWithData(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
+
+        _dropOraclePrice(TC.PRICE_DROP_FULL);
+
+        uint256 liquidationType = _checkTypeOfLiquidation(lsa);
+        assertGt(liquidationType, 0, "liquidation should be triggered after price drop");
     }
 }

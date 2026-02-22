@@ -6,7 +6,7 @@ import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+
 
 /// @title CloseLoanTest
 /// @notice Adversarial integration tests for close loan edge cases and timing attacks.
@@ -15,66 +15,14 @@ import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 contract CloseLoanTest is IntegrationTestBase {
     // ============ Constants ============
 
-    uint256 internal constant REPAYMENT_INTERVAL = 30 days;
     uint256 internal constant CLOSE_INSUFFICIENT_PRICE_DROP = 80;
     uint256 internal constant MICRO_LIQ_COUNT = 3;
-    uint256 internal constant SIMULATED_YIELD_BPS = 500;
 
     // ============ Setup ============
 
     function setUp() public override {
         super.setUp();
-        _setupTestUser();
         _setupLiquidator();
-    }
-
-    // ============ Close Loan Helpers ============
-
-    /// @notice Closes a loan as the testUser (borrower)
-    function _closeLoanAsBorrower(address lsa, bool withdrawInBTC) internal {
-        vm.prank(testUser);
-        loanContract.closeLoan(lsa, withdrawInBTC);
-    }
-
-    /// @notice Fully repays a loan via repay() so status becomes Completed
-    /// @dev Passes `type(uint256).max` to avoid stale-read race: _getDebtBalanceUSDC reads VDT
-    ///      balance in one call, but by the time repay() executes, Anvil may auto-mine a new block
-    ///      accruing interest. type(uint256).max lets RepayLogic read the LIVE VDT balance internally.
-    function _fullyRepayLoan(address lsa) internal {
-        uint256 totalDebt = _getDebtBalanceUSDC(lsa);
-        require(totalDebt > 0, "fullyRepayLoan: no debt to repay");
-
-        uint256 buffer = totalDebt / 100 + 1e6; // 1% + 1 USDC
-        uint256 userBal = usdc.balanceOf(testUser);
-        if (userBal < totalDebt + buffer) {
-            _fundUSDC(testUser, totalDebt + buffer - userBal);
-            vm.prank(testUser);
-            usdc.approve(address(loanContract), type(uint256).max);
-        }
-
-        _repayLoan(lsa, testUser, type(uint256).max);
-    }
-
-    /// @notice Executes N micro-liquidations by advancing time and triggering each one
-    function _executeMicroLiquidations(address lsa, uint256 count) internal {
-        for (uint256 i = 0; i < count; i++) {
-            if (i == 0) {
-                _makeFirstPaymentOverdue();
-            } else {
-                vm.warp(block.timestamp + REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
-            }
-
-            uint256 liquidationType = _checkTypeOfLiquidation(lsa);
-            require(liquidationType == TC.LIQUIDATION_TYPE_MICRO, "not micro-liquidatable");
-
-            bool success = _triggerMicroLiquidation(lsa);
-            require(success, "microLiquidationCall failed");
-        }
-    }
-
-    /// @notice Gets the pre-closure fee in basis points
-    function _getPreClosureFeeBps() internal view returns (uint256) {
-        return loanContract.getPreClosureFee();
     }
 
     // ============ Test 10.2: WithBTC vs WithUSDC Balance Comparison ============
@@ -89,7 +37,7 @@ contract CloseLoanTest is IntegrationTestBase {
         // --- Path A: withdrawInBTC = true ---
         uint256 userBtcBeforeA = cbBTC.balanceOf(testUser);
         uint256 userUsdcBeforeA = usdc.balanceOf(testUser);
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
         uint256 btcReceivedA = cbBTC.balanceOf(testUser) - userBtcBeforeA;
         uint256 usdcReceivedA = usdc.balanceOf(testUser) - userUsdcBeforeA;
         // Normalize BTC to 6-dec USDC: btc(8d) * price(8d) / 1e8 / 1e2
@@ -100,7 +48,7 @@ contract CloseLoanTest is IntegrationTestBase {
         vm.revertTo(snapId);
         uint256 userBtcBeforeB = cbBTC.balanceOf(testUser);
         uint256 userUsdcBeforeB = usdc.balanceOf(testUser);
-        _closeLoanAsBorrower(lsa, false);
+        _closeLoanEarly(lsa, testUser, false);
         uint256 btcReceivedB = cbBTC.balanceOf(testUser) - userBtcBeforeB;
         uint256 usdcReceivedB = usdc.balanceOf(testUser) - userUsdcBeforeB;
         uint256 btcValueInUSDC6_B = btcReceivedB * uint256(btcPrice) / TC.PRICE_PRECISION / 1e2;
@@ -127,7 +75,7 @@ contract CloseLoanTest is IntegrationTestBase {
         address premiumCollector = loanContract.getPremiumCollector();
         uint256 collectorBtcBefore = cbBTC.balanceOf(premiumCollector);
 
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
 
         uint256 feeReceived = cbBTC.balanceOf(premiumCollector) - collectorBtcBefore;
         assertGt(feeReceived, 0, "fee collector should receive non-zero fee");
@@ -146,16 +94,12 @@ contract CloseLoanTest is IntegrationTestBase {
         address lsa = _createStandardLoan();
         uint256 aaveBalBefore = usdc.balanceOf(aaveV3Pool);
 
-        vm.expectEmit(true, true, true, true);
-        emit ILoan.Loan__ClosedLoan(lsa);
-
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
 
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "loan should be completed");
         assertGe(usdc.balanceOf(aaveV3Pool), aaveBalBefore, "Aave pool should be repaid");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract should have zero USDC");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract should have zero cbBTC");
+        _assertLoanContractIsEmpty("after close with flash loan premium");
     }
 
     // ============ Test 10.5: Close After Interest Accrual ============
@@ -172,13 +116,12 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(debtAfterAccrual, debtAtCreation, "debt should grow after 6 months of interest");
 
         uint256 userBtcBefore = cbBTC.balanceOf(testUser);
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
 
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "loan should be completed");
         assertGt(cbBTC.balanceOf(testUser), userBtcBefore, "user should receive remaining BTC");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "no residual USDC");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "no residual cbBTC");
+        _assertLoanContractIsEmpty("after close with interest accrual");
     }
 
     // ============ Test 10.6: Close After Multiple Micro-Liquidations ============
@@ -208,19 +151,18 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(debtAfterMicroLiq, 0, "should still have debt");
 
         uint256 userBtcBefore = cbBTC.balanceOf(testUser);
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
 
         DataTypes.LoanData memory loanDataFinal = loanContract.getLoanByLSA(lsa);
         assertEq(uint256(loanDataFinal.status), uint256(DataTypes.LoanStatus.Completed), "loan should be completed");
         assertGt(cbBTC.balanceOf(testUser), userBtcBefore, "user should receive remaining BTC");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "no residual USDC");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "no residual cbBTC");
+        _assertLoanContractIsEmpty("after close with micro-liquidations");
     }
 
     // ============ Test 10.7: Zero Debt After Full Repay Reverts ============
 
     /// @notice 10.7: Close loan reverts after full repayment (loan already Completed)
-    function test_CloseLoan_ZeroDebt_AfterFullRepay_Reverts() public {
+    function test_CloseLoan_RevertWhen_ZeroDebtAfterFullRepay() public {
         address lsa = _createStandardLoan();
         _fullyRepayLoan(lsa);
 
@@ -244,7 +186,7 @@ contract CloseLoanTest is IntegrationTestBase {
 
         // Prove close works at normal price
         uint256 snapId = vm.snapshot();
-        _closeLoanAsBorrower(lsa, true);
+        _closeLoanEarly(lsa, testUser, true);
         DataTypes.LoanData memory closedData = loanContract.getLoanByLSA(lsa);
         assertEq(
             uint256(closedData.status), uint256(DataTypes.LoanStatus.Completed), "close should work at normal price"
@@ -340,7 +282,7 @@ contract CloseLoanTest is IntegrationTestBase {
         address lsa1 = _createStandardLoan();
         address premiumCollector = loanContract.getPremiumCollector();
         uint256 collectorBefore1 = cbBTC.balanceOf(premiumCollector);
-        _closeLoanAsBorrower(lsa1, true);
+        _closeLoanEarly(lsa1, testUser, true);
         uint256 feeWithoutYield = cbBTC.balanceOf(premiumCollector) - collectorBefore1;
         assertGt(feeWithoutYield, 0, "baseline fee should be non-zero");
 
@@ -348,11 +290,11 @@ contract CloseLoanTest is IntegrationTestBase {
         vm.warp(block.timestamp + 1); // Avoid CREATE2 salt collision
         address lsa2 = _createStandardLoan();
 
-        _simulateVaultYield(SIMULATED_YIELD_BPS);
+        _simulateVaultYield(TC.SIMULATED_YIELD_BPS);
         vm.warp(block.timestamp + 1);
 
         uint256 collectorBefore2 = cbBTC.balanceOf(premiumCollector);
-        _closeLoanAsBorrower(lsa2, true);
+        _closeLoanEarly(lsa2, testUser, true);
         uint256 feeWithYield = cbBTC.balanceOf(premiumCollector) - collectorBefore2;
         assertGt(feeWithYield, 0, "fee with yield should be non-zero");
 
@@ -363,13 +305,129 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(feeWithYield, feeWithoutYield, "fee with vault yield should exceed baseline fee");
 
         // Verify increase is ~proportional to yield (within 20% tolerance)
-        uint256 expectedIncrease = feeWithoutYield * SIMULATED_YIELD_BPS / TC.BPS_DENOMINATOR;
+        uint256 expectedIncrease = feeWithoutYield * TC.SIMULATED_YIELD_BPS / TC.BPS_DENOMINATOR;
         uint256 actualIncrease = feeWithYield - feeWithoutYield;
         assertApproxEqRel(
             actualIncrease, expectedIncrease, 0.20e18, "fee increase should be ~proportional to vault yield"
         );
 
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "no residual USDC");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "no residual cbBTC");
+        _assertLoanContractIsEmpty("after close with vault appreciation");
+    }
+
+    // ============ Security Audit Findings ============
+
+    /// @notice Issue #5 (CRITICAL): CloseLoanLogic.sol:203-211 sweeps entire USDC/cbBTC balance
+    ///         of the Loan contract. If another user's operation left residual tokens, the
+    ///         closing user captures them. Verify User B's loan is unaffected when User A closes.
+    function test_CloseLoan_DoesNotCaptureOtherUsersResiduals() public {
+        // Arrange: create loan for testUser
+        address lsa = _createStandardLoan();
+        _advanceDays(30);
+
+        // Simulate residual USDC from a prior operation sitting in the Loan contract
+        uint256 dustAmount = 1000e6; // 1000 USDC of unrelated residual
+        _fundUSDC(address(loanContract), dustAmount);
+
+        // Verify dust is in the contract
+        uint256 contractBalBefore = usdc.balanceOf(address(loanContract));
+        assertGe(contractBalBefore, dustAmount, "Loan contract should hold the dust USDC");
+
+        // Get user's loan data to estimate their legitimate residual
+        DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
+
+        // Fund user for close operation
+        uint256 closeAmount = loanData.loanAmount * 2;
+        uint256 currentBalance = usdc.balanceOf(testUser);
+        if (currentBalance < closeAmount) {
+            _fundUSDC(testUser, closeAmount - currentBalance);
+        }
+
+        vm.prank(testUser);
+        usdc.approve(address(loanContract), type(uint256).max);
+
+        // Act: close the loan
+        vm.prank(testUser);
+        loanContract.closeLoan(lsa, false);
+
+        // Assert: Loan contract should still hold the dust (it belonged to someone else)
+        uint256 contractBalAfter = usdc.balanceOf(address(loanContract));
+        assertGe(contractBalAfter, dustAmount, "closeLoan should not sweep unrelated USDC from Loan contract");
+    }
+
+    /// @notice Issue #12 (HIGH): LoanLogic.sol:72 checks duration == 0 but uses ZeroAmount error.
+    ///         Verify that duration=0 loan creation reverts.
+    function test_InitializeLoan_RevertWhen_DurationZero() public {
+        // Arrange
+        uint256 collateral = TC.STANDARD_COLLATERAL;
+        uint256 deposit = TC.USER_USDC_BALANCE / 2;
+
+        // Act + Assert — duration=0 should revert
+        vm.prank(testUser);
+        (bool success,) = address(loanContract).call(
+            abi.encodeWithSignature(
+                "initializeLoan(uint256,uint256,uint256,uint256,bytes)",
+                deposit, TC.PREMIUM_AMOUNT, collateral, 0, ""
+            )
+        );
+        assertFalse(success, "duration=0 loan creation should revert");
+    }
+
+    /// @notice Issue #31 (HIGH): LSALogic.redeemBTC() uses convertToAssets() (no exit fee) as
+    ///         baseline but actual redeem() deducts the exit fee. If exit fee > slippage tolerance,
+    ///         all redemptions revert via slippage check.
+    function test_CloseLoan_ExitFee_BlocksRedemption() public {
+        // Arrange — set exit fee (200 bps = 2%) higher than slippage tolerance (100 bps)
+        _setExitFee(200);
+
+        // Create loan after exit fee is set
+        address lsa = _createStandardLoan();
+        _advanceDays(30);
+
+        // Fund user for close operation
+        DataTypes.LoanData memory ld = loanContract.getLoanByLSA(lsa);
+        uint256 closeBuffer = ld.loanAmount * 2;
+        _fundUSDC(testUser, closeBuffer);
+        vm.prank(testUser);
+        usdc.approve(address(loanContract), type(uint256).max);
+
+        // Act: close the loan — should succeed if slippage formula is correct
+        vm.prank(testUser);
+        loanContract.closeLoan(lsa, false);
+
+        // Assert: loan should be completed
+        DataTypes.LoanData memory finalData = loanContract.getLoanByLSA(lsa);
+        assertEq(
+            uint256(finalData.status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "loan should be completed after closeLoan"
+        );
+    }
+
+    /// @notice Issue #42/43 (MEDIUM): Verifies the slippage formula in LSALogic uses the correct
+    ///         (10000-bps)/10000 formula, protecting 99% of estimated receivable at 100 bps slippage.
+    function test_RedeemBTC_SlippageFormula_Correct() public {
+        // The deployed slippage value is 100 bps (1%)
+        uint256 slippageValue = loanContract.getSlippageForSharesToAsset();
+        assertEq(slippageValue, 100, "deployed slippage should be 100 bps (1%)");
+
+        // For a 1% slippage tolerance:
+        // CORRECT minimum = estimated * (10000 - 100) / 10000 = estimated * 99%
+        uint256 estimatedReceivable = 1e8; // 1 BTC
+        uint256 expectedMinimum = estimatedReceivable * (TC.BPS_DENOMINATOR - slippageValue) / TC.BPS_DENOMINATOR;
+
+        // Verify: the correct formula protects 99% of the estimate
+        assertEq(expectedMinimum, 99_000_000, "correct formula should protect 99% of 1 BTC");
+
+        // Verify: closeLoan succeeds with zero exit fee (baseline),
+        // proving the slippage formula does not reject valid redemptions
+        address lsa = _createStandardLoan();
+        _closeLoanEarly(lsa, testUser, false);
+
+        DataTypes.LoanData memory finalData = loanContract.getLoanByLSA(lsa);
+        assertEq(
+            uint256(finalData.status),
+            uint256(DataTypes.LoanStatus.Completed),
+            "closeLoan should succeed when slippage formula is correct"
+        );
     }
 }

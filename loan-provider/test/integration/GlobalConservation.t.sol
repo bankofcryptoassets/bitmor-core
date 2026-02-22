@@ -12,8 +12,6 @@ import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 contract GlobalConservationTest is IntegrationTestBase {
     // ============ Constants ============
 
-    uint256 internal constant DUST_TOLERANCE_USDC = 100; // 100 units (0.0001 USDC) for rounding
-    uint256 internal constant DUST_TOLERANCE_BTC = 10;   // 10 sats for rounding
     uint256 internal constant CLOSE_BUFFER_MULTIPLIER = 2; // 2x loanAmount ensures sufficient USDC for close
 
     // ============ State for conservation tracking ============
@@ -22,7 +20,6 @@ contract GlobalConservationTest is IntegrationTestBase {
 
     function setUp() public override {
         super.setUp();
-        _setupTestUser();
         feeCollector = loanContract.getPremiumCollector();
     }
 
@@ -45,21 +42,6 @@ contract GlobalConservationTest is IntegrationTestBase {
         }
     }
 
-    /// @notice Closes a loan early by funding the payer with enough USDC and calling closeLoan
-    /// @dev Extracted to DRY up close-loan blocks across tests 18.5, 18.6, 18.7, 18.9
-    function _closeLoanEarly(address lsa, address payer, bool withdrawInBTC) internal {
-        DataTypes.LoanData memory ld = loanContract.getLoanByLSA(lsa);
-        uint256 closeBuffer = ld.loanAmount * CLOSE_BUFFER_MULTIPLIER;
-        uint256 currentBalance = usdc.balanceOf(payer);
-        if (currentBalance < closeBuffer) {
-            _fundUSDC(payer, closeBuffer - currentBalance);
-        }
-        vm.prank(payer);
-        usdc.approve(address(loanContract), type(uint256).max);
-        vm.prank(payer);
-        loanContract.closeLoan(lsa, withdrawInBTC);
-    }
-
     // ============ Tests ============
 
     /// @notice 18.5: Global BTC conservation — sum of cbBTC across all addresses is constant
@@ -74,28 +56,24 @@ contract GlobalConservationTest is IntegrationTestBase {
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
 
         uint256 totalBtcAfterInit = _totalCbBTC(users);
-        assertApproxEqAbs(totalBtcAfterInit, totalBtcBefore, DUST_TOLERANCE_BTC, "BTC conservation violated after loan init");
+        assertApproxEqAbs(totalBtcAfterInit, totalBtcBefore, TC.DUST_TOLERANCE_BTC, "BTC conservation violated after loan init");
         assertGt(_getATokenBalance(lsa), 0, "LSA must hold aTokens after init");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract zero cbBTC after init");
+        _assertLoanContractIsEmpty("after init");
 
         // --- State transition 2: Monthly repayments (3 months) ---
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        for (uint256 i = 0; i < 3; i++) {
-            _advanceDays(30);
-            _repayLoan(lsa, testUser, monthlyPayment);
-        }
+        _makeMonthlyPayments(lsa, loanData.estimatedMonthlyPayment, 3);
 
         uint256 totalBtcAfterRepay = _totalCbBTC(users);
-        assertApproxEqAbs(totalBtcAfterRepay, totalBtcBefore, DUST_TOLERANCE_BTC, "BTC conservation violated after partial repayments");
+        assertApproxEqAbs(totalBtcAfterRepay, totalBtcBefore, TC.DUST_TOLERANCE_BTC, "BTC conservation violated after partial repayments");
         assertGt(_getATokenBalance(lsa), 0, "collateral must persist during partial repayment");
 
         // --- State transition 3: Close loan (withdrawInBTC = true) ---
         _closeLoanEarly(lsa, testUser, true);
 
         uint256 totalBtcAfterClose = _totalCbBTC(users);
-        assertApproxEqAbs(totalBtcAfterClose, totalBtcBefore, DUST_TOLERANCE_BTC, "BTC conservation violated after close");
+        assertApproxEqAbs(totalBtcAfterClose, totalBtcBefore, TC.DUST_TOLERANCE_BTC, "BTC conservation violated after close");
         assertEq(_getATokenBalance(lsa), 0, "LSA must hold zero aTokens after close");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract zero cbBTC after close");
+        _assertLoanContractIsEmpty("after close");
         assertGt(cbBTC.balanceOf(testUser), 0, "user must receive BTC back after close");
     }
 
@@ -118,21 +96,17 @@ contract GlobalConservationTest is IntegrationTestBase {
 
         uint256 blpUsdcDecrease = blpUsdcBefore - blpUsdcAfterInit;
         assertApproxEqRel(blpUsdcDecrease, lsaDebtAfterInit, 0.01e18, "BLP liquidity decrease must approximately equal LSA debt (within 1%)");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after init");
+        _assertLoanContractIsEmpty("after init");
 
         // --- State transition 2: Monthly repayments (3 months) ---
-        uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        for (uint256 i = 0; i < 3; i++) {
-            _advanceDays(30);
-            _repayLoan(lsa, testUser, monthlyPayment);
-        }
+        _makeMonthlyPayments(lsa, loanData.estimatedMonthlyPayment, 3);
 
         uint256 blpUsdcAfterRepay = _getBLPAvailableLiquidity(address(usdc));
         uint256 lsaDebtAfterRepay = _getDebtBalanceUSDC(lsa);
 
         assertLt(lsaDebtAfterRepay, lsaDebtAfterInit, "debt must decrease after repayments");
         assertGt(blpUsdcAfterRepay, blpUsdcAfterInit, "BLP liquidity must increase after repayments");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after repayments");
+        _assertLoanContractIsEmpty("after USDC repayments");
 
         // --- State transition 3: Close loan ---
         _closeLoanEarly(lsa, testUser, false);
@@ -144,7 +118,7 @@ contract GlobalConservationTest is IntegrationTestBase {
         assertGt(blpUsdcAfterClose, blpUsdcAfterRepay, "BLP liquidity must increase after close");
         assertGe(blpUsdcAfterClose, blpUsdcBefore, "BLP USDC must not decrease over full lifecycle (interest must cover costs)");
         assertApproxEqRel(blpUsdcAfterClose, blpUsdcBefore, 0.01e18, "BLP USDC approximately restored after full lifecycle (within 1%)");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after close");
+        _assertLoanContractIsEmpty("after USDC close");
     }
 
     /// @notice 18.7: Multi-loan lifecycle — close one, liquidate one, complete one
@@ -159,71 +133,68 @@ contract GlobalConservationTest is IntegrationTestBase {
         uint256 totalBtcBaseline = _totalCbBTC(users);
 
         // --- Create 3 loans ---
-        (address lsa1, DataTypes.LoanData memory loan1Data) = _createStandardLoanWithData();
+        (address lsa1,) = _createStandardLoanWithData();
         vm.warp(block.timestamp + 1);
-        (address lsa2, DataTypes.LoanData memory loan2Data) = _createStandardLoanWithData();
+        (address lsa2,) = _createStandardLoanWithData();
         vm.warp(block.timestamp + 1);
         address lsa3 = _createLoanForUser(borrower2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract must hold zero cbBTC after inits");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract must hold zero USDC after inits");
-        assertApproxEqAbs(_totalCbBTC(users), totalBtcBaseline, DUST_TOLERANCE_BTC, "BTC conservation violated after 3 loan inits");
+        _assertLoanContractIsEmpty("after 3 loan inits");
+        assertApproxEqAbs(_totalCbBTC(users), totalBtcBaseline, TC.DUST_TOLERANCE_BTC, "BTC conservation violated after 3 loan inits");
 
         // --- Partial repayments on all 3 loans (1 month each) ---
-        _advanceDays(30);
-        _repayLoan(lsa1, testUser, loan1Data.estimatedMonthlyPayment);
-        _repayLoan(lsa2, testUser, loan2Data.estimatedMonthlyPayment);
-        DataTypes.LoanData memory loan3Data = loanContract.getLoanByLSA(lsa3);
-        _repayLoan(lsa3, borrower2, loan3Data.estimatedMonthlyPayment);
+        {
+            _advanceDays(30);
+            uint256 payment1 = loanContract.getLoanByLSA(lsa1).estimatedMonthlyPayment;
+            uint256 payment2 = loanContract.getLoanByLSA(lsa2).estimatedMonthlyPayment;
+            uint256 payment3 = loanContract.getLoanByLSA(lsa3).estimatedMonthlyPayment;
+            _repayLoan(lsa1, testUser, payment1);
+            _repayLoan(lsa2, testUser, payment2);
+            _repayLoan(lsa3, borrower2, payment3);
+        }
 
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract zero cbBTC after repayments");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after repayments");
+        _assertLoanContractIsEmpty("after multi-loan repayments");
 
         // --- Path A: Close loan 1 early ---
         _closeLoanEarly(lsa1, testUser, false);
 
         assertEq(uint256(loanContract.getLoanByLSA(lsa1).status), uint256(DataTypes.LoanStatus.Completed), "loan 1 must be Completed");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract zero cbBTC after close");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after close");
+        _assertLoanContractIsEmpty("after loan 1 close");
 
         // --- Path B: Liquidate loan 3 ---
-        _makeFirstPaymentOverdue();
-        _dropOraclePrice(50);
-        _setupLiquidator();
+        {
+            _makeFirstPaymentOverdue();
+            _dropOraclePrice(TC.PRICE_DROP_FULL);
+            _setupLiquidator();
 
-        uint256 liquidationType = _checkTypeOfLiquidation(lsa3);
-        assertGt(liquidationType, 0, "loan 3 must be liquidatable after price drop + overdue");
+            uint256 liquidationType = _checkTypeOfLiquidation(lsa3);
+            assertGt(liquidationType, 0, "loan 3 must be liquidatable after price drop + overdue");
 
-        bool ok = _triggerFullLiquidation(lsa3);
-        assertTrue(ok, "full liquidation must succeed");
+            bool ok = _triggerFullLiquidation(lsa3);
+            assertTrue(ok, "full liquidation must succeed");
+        }
 
         assertEq(uint256(loanContract.getLoanByLSA(lsa3).status), uint256(DataTypes.LoanStatus.Liquidated), "loan 3 must be Liquidated");
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract zero cbBTC after liquidation");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract zero USDC after liquidation");
+        _assertLoanContractIsEmpty("after loan 3 liquidation");
 
         // --- Path C: Complete loan 2 normally ---
         _setBtcPrice(initialBtcPrice);
 
-        loan2Data = loanContract.getLoanByLSA(lsa2);
-        uint256 remainingDuration = loan2Data.duration;
-        uint256 monthlyPayment = loan2Data.estimatedMonthlyPayment;
-
-        uint256 totalNeeded = monthlyPayment * remainingDuration;
-        uint256 currentBalance = usdc.balanceOf(testUser);
-        if (currentBalance < totalNeeded) {
-            _fundUSDC(testUser, totalNeeded - currentBalance);
-        }
-
-        for (uint256 i = 0; i < remainingDuration; i++) {
-            _advanceDays(30);
-            _repayLoan(lsa2, testUser, monthlyPayment);
+        {
+            DataTypes.LoanData memory loan2Data = loanContract.getLoanByLSA(lsa2);
+            uint256 remainingDuration = loan2Data.duration;
+            uint256 monthlyPayment = loan2Data.estimatedMonthlyPayment;
+            _ensureSufficientUSDC(monthlyPayment, remainingDuration);
+            for (uint256 i = 0; i < remainingDuration; i++) {
+                _advanceDays(30);
+                _repayLoan(lsa2, testUser, monthlyPayment);
+            }
         }
 
         assertEq(uint256(loanContract.getLoanByLSA(lsa2).status), uint256(DataTypes.LoanStatus.Completed), "loan 2 must be Completed");
 
         // --- Final conservation checks ---
-        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract must hold zero cbBTC at end");
-        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract must hold zero USDC at end");
+        _assertLoanContractIsEmpty("at end of multi-loan lifecycle");
         assertEq(_getDebtBalanceUSDC(lsa1), 0, "LSA1 debt must be zero");
         assertEq(_getDebtBalanceUSDC(lsa2), 0, "LSA2 debt must be zero");
 
@@ -232,7 +203,7 @@ contract GlobalConservationTest is IntegrationTestBase {
         allUsers[0] = testUser;
         allUsers[1] = borrower2;
         allUsers[2] = testLiquidator;
-        assertApproxEqAbs(_totalCbBTC(allUsers), totalBtcBaseline, DUST_TOLERANCE_BTC, "BTC conservation violated after multi-loan lifecycle");
+        assertApproxEqAbs(_totalCbBTC(allUsers), totalBtcBaseline, TC.DUST_TOLERANCE_BTC, "BTC conservation violated after multi-loan lifecycle");
     }
 
     /// @notice 18.9: Aggregate scaled debt consistency across multiple loans
