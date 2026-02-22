@@ -136,7 +136,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         uint256 btcAmount = loan.getMinBTCAmount() - 1;
 
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
         loan.getLoanDetails(btcAmount, duration);
     }
 
@@ -176,7 +176,7 @@ contract InitializeLoanTest is BaseLoanTest {
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        vm.expectRevert(Errors.GreaterThanMaxBTCAllowed.selector);
         loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, aboveMax, STANDARD_DURATION, "");
     }
 
@@ -188,7 +188,7 @@ contract InitializeLoanTest is BaseLoanTest {
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
         loan.initializeLoan(100_000e6, PREMIUM_AMOUNT, belowMin, STANDARD_DURATION, "");
     }
 
@@ -199,7 +199,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 duration = 12;
 
         // Below min - should revert
-        vm.expectRevert(Errors.LessThanMinimumCollateralAllowed.selector);
+        vm.expectRevert(Errors.LessThanMinBTCAllowed.selector);
         loan.getLoanDetails(minBTC - 1, duration);
 
         // Exactly min - should succeed
@@ -211,7 +211,7 @@ contract InitializeLoanTest is BaseLoanTest {
         assertGt(loanAmt, 0, "Max boundary should return valid loan");
 
         // Above max - should revert
-        vm.expectRevert(Errors.GreaterThanMaxCollateralAllowed.selector);
+        vm.expectRevert(Errors.GreaterThanMaxBTCAllowed.selector);
         loan.getLoanDetails(maxBTC + 1, duration);
     }
 

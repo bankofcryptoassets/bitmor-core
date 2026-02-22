@@ -174,7 +174,7 @@ contract CloseLoanTest is BaseLoanTest {
     // ============ Pre-Closure Fee Tests ============
 
     /// @notice Test that pre-closure fee is correctly deducted (withdrawInBTC = true)
-    /// @dev Note: Due to mock limitations (collateralAsset == btc using same mockCbBTC),
+    /// @dev Note: Due to mock limitations (mockBTCVault 1:1 share ratio),
     ///      token flow accounting is not 1:1 with production. Fee transfer to collector is verified.
     function test_closeLoan_preClosureFee_deducted_withdrawCollateral() public setUpLoanForUser {
         address lsa = loan.getUserLoanAtIndex(user, 0);

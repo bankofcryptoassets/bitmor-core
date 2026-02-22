@@ -487,7 +487,13 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         if (token == debtAsset) {
             _fundUSDC(_user, amount);
         } else if (token == collateralAsset) {
+            // collateralAsset is bvBTC (vault shares) — mint via vault deposit
+            // Note: this branch is currently untested (only debtAsset callers exist)
             _fundCbBTC(_user, amount);
+            vm.startPrank(_user);
+            IERC20(btc).approve(address(mockBTCVault), amount);
+            mockBTCVault.deposit(amount, _user);
+            vm.stopPrank();
         }
         vm.prank(_user);
         IERC20(token).approve(spender, type(uint256).max);

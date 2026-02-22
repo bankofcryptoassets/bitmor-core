@@ -103,7 +103,7 @@ contract LoanContract is BaseLoanTest {
         address oracle = loan.i_ORACLE();
 
         vm.mockCall(
-            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset), abi.encode(0)
+            oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(0)
         );
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);

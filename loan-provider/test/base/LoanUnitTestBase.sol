@@ -312,7 +312,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     }
 
     /// @notice Creates a loan with custom parameters using the minimum required deposit
-    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param collateral Target cbBTC amount (8 decimals)
     /// @param duration Loan duration in months
     /// @param premium Premium amount in USDC (6 decimals)
     /// @return lsa The deployed LoanVault (Loan Smart Account) address
@@ -323,7 +323,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     }
 
     /// @notice Creates a loan and returns both the LSA address and the stored `LoanData` struct
-    /// @param collateral Collateral amount in cbBTC (8 decimals)
+    /// @param collateral Target cbBTC amount (8 decimals)
     /// @param duration Loan duration in months
     /// @param premium Premium amount in USDC (6 decimals)
     /// @return lsa The deployed LoanVault address

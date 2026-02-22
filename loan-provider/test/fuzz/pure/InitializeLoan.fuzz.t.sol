@@ -41,7 +41,7 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
      * @notice Creates a loan with explicit parameters, funding user as needed
      * @param deposit Deposit amount in USDC
      * @param premium Premium amount in USDC
-     * @param collateral Collateral amount in cbBTC
+     * @param collateral Target cbBTC amount
      * @param duration Loan duration in months
      */
     function _createLoanFull(uint256 deposit, uint256 premium, uint256 collateral, uint256 duration)
