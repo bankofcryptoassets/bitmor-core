@@ -42,13 +42,13 @@ contract LoanStorage {
      */
     address public immutable i_ORACLE;
 
-    /// @notice Collateral asset address (cbBTC)
+    /// @notice Collateral asset address (bvBTC)
     address internal immutable i_COLLATERAL_ASSET;
 
     /// @notice Debt asset address (USDC)
     address internal immutable i_DEBT_ASSET;
 
-    /// @notice Wrapped Bitcoin address
+    /// @notice cbBTC (Coinbase Wrapped Bitcoin) address
     address internal immutable i_BTC;
 
     // ============ Protocol Contract Addresses ============
@@ -83,19 +83,19 @@ contract LoanStorage {
     /// @notice Fee on liquidation. This is implemented on liquidation bonus.
     uint256 internal s_liquidationFee;
 
-    /// @notice Slippage in BPS while convert `bvBTC` shares to btc.
+    /// @notice Slippage in BPS while convert `bvBTC` shares to cbBTC.
     uint256 internal s_slippage_sharesToAsset;
 
     /// @notice Slippage in BPS while swapping.
     uint256 internal s_slippage_swap;
 
-    /// @notice Max amount of BTC that can be used as collateral.
+    /// @notice Max cbBTC amount for a loan.
     uint256 internal s_maxBTCAmt;
 
-    /// @notice Min. amount of BTC require to use as collateral.
+    /// @notice Min. cbBTC amount for a loan.
     uint256 internal s_minBTCAmt;
 
-    /// @notice Min % of deposit user need to make of the BTC amount.
+    /// @notice Min % of deposit user need to make of the BTC amount in bps.
     uint256 internal s_minDeposit;
 
     /// @notice Maximum loan duration in months

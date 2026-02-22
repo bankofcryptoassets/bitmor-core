@@ -37,7 +37,7 @@ contract HelperConfig is Script {
     uint256 public constant DECIMAL_CBBTC = 1e8;
     uint256 constant DEPOSIT_AMT = 1e8 * DECIMAL_USDC;
     uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
-    uint256 constant COLLATERL_AMT = 1e8 * DECIMAL_CBBTC;
+    uint256 constant CBBTC_AMT = 1e8 * DECIMAL_CBBTC;
     uint256 constant DURATION_IN_MONTHS = 12;
     uint256 constant PRE_CLOSURE_FEE = 10; // in bps = 0.1%
     uint256 constant INSURANCE_ID = 1;
@@ -211,7 +211,7 @@ contract HelperConfig is Script {
     }
 
     function getCollateralAsset() public view returns (address) {
-        return _readAddress("bcbBTC");
+        return getBTCVault();
     }
 
     function getDebtAsset() public view returns (address) {
@@ -343,7 +343,7 @@ contract HelperConfig is Script {
             bytes memory data
         )
     {
-        return (DEPOSIT_AMT, PREMIUM_AMT, COLLATERL_AMT, DURATION_IN_MONTHS, DATA);
+        return (DEPOSIT_AMT, PREMIUM_AMT, CBBTC_AMT, DURATION_IN_MONTHS, DATA);
     }
 
     function _readAddress(string memory contractName) internal view returns (address addr) {

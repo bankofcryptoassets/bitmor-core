@@ -57,7 +57,7 @@ async function main() {
     console.log("borrower:                ", loanData.borrower);
     console.log("depositAmount:           ", ethers.utils.formatUnits(loanData.depositAmount, 6), "USDC");
     console.log("loanAmount:              ", ethers.utils.formatUnits(loanData.loanAmount, 6), "USDC");
-    console.log("collateralAmount:        ", ethers.utils.formatUnits(loanData.collateralAmount, 8), "cbBTC");
+    console.log("BTC Amount:              ", ethers.utils.formatUnits(loanData.btcAmount, 8), "cbBTC");
     console.log("estimatedMonthlyPayment: ", ethers.utils.formatUnits(loanData.estimatedMonthlyPayment, 6), "USDC");
     console.log("duration:                ", loanData.duration.toString(), "months");
     console.log("insuranceID:             ", loanData.insuranceID.toString());

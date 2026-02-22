@@ -328,7 +328,7 @@ This document provides a comprehensive, test-by-test analysis of 256 failing tes
     const lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6), // USDC
-      collateralAmount: parseUnits('1', 8), // cbBTC
+      btcAmount: parseUnits('1', 8), // cbBTC
       duration: 12,
       testEnv
     });
@@ -642,7 +642,7 @@ describe('Uniswap Flash Liquidation - Bitmor', () => {
     lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('5000', 6),
-      collateralAmount: parseUnits('0.5', 8),
+      btcAmount: parseUnits('0.5', 8),
       duration: 12,
       testEnv
     });
@@ -881,7 +881,7 @@ import { parseUnits, parseEther } from 'ethers';
 export interface BitmorLoanParams {
   user: any; // Signer
   depositAmount: BigNumber; // USDC with 6 decimals
-  collateralAmount: BigNumber; // cbBTC with 8 decimals
+  btcAmount: BigNumber; // cbBTC with 8 decimals
   duration: number; // months
   insuranceId?: number; // default 0
   testEnv: TestEnv;
@@ -893,7 +893,7 @@ export const createBitmorLoan = async (
   const {
     user,
     depositAmount,
-    collateralAmount,
+    btcAmount,
     duration,
     insuranceId = 0,
     testEnv
@@ -911,12 +911,12 @@ export const createBitmorLoan = async (
   const premium = loanAmount.mul(9).div(10000); // 0.09% flash loan fee
 
   // Initialize loan
-  const swapData = encodeSwapData(collateralAmount); // Helper to encode Uniswap V4 data
+  const swapData = encodeSwapData(btcAmount); // Helper to encode Uniswap V4 data
 
   const tx = await loan.connect(user.signer).initializeLoan(
     depositAmount,
     premium,
-    collateralAmount,
+    btcAmount,
     duration,
     swapData
   );
@@ -975,12 +975,12 @@ export const warpPastGracePeriod = async (
   await network.provider.send("evm_mine");
 };
 
-const encodeSwapData = (collateralAmount: BigNumber): string => {
+const encodeSwapData = (btcAmount: BigNumber): string => {
   // Encode Uniswap V4 swap parameters
   // Simplified for example - actual implementation needs proper encoding
   return ethers.utils.defaultAbiCoder.encode(
     ['uint256', 'address[]'],
-    [collateralAmount, []] // paths
+    [btcAmount, []] // paths
   );
 };
 
@@ -1037,7 +1037,7 @@ makeSuite('LendingPool liquidation - Bitmor adapted', (testEnv: TestEnv) => {
     lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6), // 10k USDC
-      collateralAmount: parseUnits('1', 8), // 1 cbBTC
+      btcAmount: parseUnits('1', 8), // 1 cbBTC
       duration: 12,
       testEnv
     });
@@ -1105,7 +1105,7 @@ makeSuite('LendingPool liquidation - Bitmor adapted', (testEnv: TestEnv) => {
     lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6),
-      collateralAmount: parseUnits('1', 8),
+      btcAmount: parseUnits('1', 8),
       duration: 12,
       testEnv
     });
@@ -1169,7 +1169,7 @@ makeSuite('Uniswap Flash Liquidation - Bitmor', (testEnv: TestEnv) => {
     lsa = await createBitmorLoan({
       user: users[1],
       depositAmount: parseUnits('5000', 6),
-      collateralAmount: parseUnits('0.5', 8),
+      btcAmount: parseUnits('0.5', 8),
       duration: 12,
       testEnv
     });
@@ -1367,7 +1367,7 @@ makeSuite('Bitmor Micro-Liquidation Tests', (testEnv) => {
     lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6),
-      collateralAmount: parseUnits('1', 8),
+      btcAmount: parseUnits('1', 8),
       duration: 12,
       testEnv
     });
@@ -1507,7 +1507,7 @@ makeSuite('Bitmor Full Liquidation Tests', (testEnv) => {
     const lsa = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6),
-      collateralAmount: parseUnits('1', 8),
+      btcAmount: parseUnits('1', 8),
       duration: 12,
       insuranceId: 0, // Uninsured
       testEnv
@@ -1692,7 +1692,7 @@ makeSuite('Loan Data Tracking Tests', (testEnv) => {
 
     const params = {
       depositAmount: parseUnits('10000', 6),
-      collateralAmount: parseUnits('1', 8),
+      btcAmount: parseUnits('1', 8),
       duration: 12,
       insuranceId: 0
     };
@@ -1707,7 +1707,7 @@ makeSuite('Loan Data Tracking Tests', (testEnv) => {
 
     expect(loanData.borrower).to.equal(borrower.address);
     expect(loanData.depositAmount).to.equal(params.depositAmount);
-    expect(loanData.collateralAmount).to.equal(params.collateralAmount);
+    expect(loanData.btcAmount).to.equal(params.btcAmount);
     expect(loanData.duration).to.equal(params.duration);
     expect(loanData.insuranceID).to.equal(params.insuranceId);
     expect(loanData.status).to.equal(0); // Active
@@ -1812,7 +1812,7 @@ makeSuite('LoanVault Isolation Tests', (testEnv) => {
     const lsa1 = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('10000', 6),
-      collateralAmount: parseUnits('1', 8),
+      btcAmount: parseUnits('1', 8),
       duration: 12,
       testEnv
     });
@@ -1820,7 +1820,7 @@ makeSuite('LoanVault Isolation Tests', (testEnv) => {
     const lsa2 = await createBitmorLoan({
       user: borrower,
       depositAmount: parseUnits('5000', 6),
-      collateralAmount: parseUnits('0.5', 8),
+      btcAmount: parseUnits('0.5', 8),
       duration: 6,
       testEnv
     });
@@ -1857,7 +1857,7 @@ makeSuite('LoanVault Isolation Tests', (testEnv) => {
 
 2. **test_edgeCase_zeroCollateral**
    - **Purpose:** Verify loan creation fails with zero collateral
-   - **Execute:** Create loan with collateralAmount = 0
+   - **Execute:** Create loan with btcAmount = 0
    - **Assertions:** Reverts
 
 3. **test_edgeCase_zeroDuration**

@@ -93,14 +93,14 @@ library Errors {
     error InsufficientDeposit();
 
     /**
-     * @notice Thrown when requested collateral exceeds the maximum allowed (1 BTC)
+     * @notice Thrown when requested cbBTC amount exceeds the maximum allowed (1 BTC)
      */
-    error GreaterThanMaxCollateralAllowed();
+    error GreaterThanMaxBTCAllowed();
 
     /**
-     * @notice Thrown when requested collateral is below the minimum allowed (0.01 BTC)
+     * @notice Thrown when requested cbBTC amount is below the minimum allowed (0.01 BTC)
      */
-    error LessThanMinimumCollateralAllowed();
+    error LessThanMinBTCAllowed();
 
     /**
      * @notice Thrown when collateral withdrawal from Bitmor Pool fails

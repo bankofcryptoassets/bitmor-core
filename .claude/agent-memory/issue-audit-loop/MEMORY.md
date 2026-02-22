@@ -87,7 +87,7 @@
 
 ### LoanLiquidationLogic pattern: live balance vs stale LoanData
 - `checkTypeOfLiquidation()` should always read live on-chain state for collateral and debt
-- `loanData.collateralAmount` is set once at creation and never updated after micro-liquidations
+- `loanData.btcAmount` is set once at creation and never updated after micro-liquidations
 - Fix pattern: use `Helpers.getUserCurrentCollateral(user, reserve)` which reads `aTokenAddress.balanceOf(user)`
 - `Helpers.getUserCurrentDebt(user, reserve)` was already used for debt -- collateral was the gap
 
@@ -99,7 +99,7 @@
 - M-01: Excess refund test doesn't trigger the code path
 - Status: Changes required (test coverage gap)
 
-### Issue #75 (Finding #21) - Stale collateralAmount in checkTypeOfLiquidation
+### Issue #75 (Finding #21) - Stale btcAmount in checkTypeOfLiquidation
 - Branch: `fix/vuln-21-stale-collateral-amount`
 - Iteration 1: 0C/1H/0M/1L/3I
 - H-01: Fuzz test harness missing `setReserveAToken` -- 5/10 fuzz tests fail

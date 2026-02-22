@@ -396,30 +396,48 @@ contract DeployPhase3 is InitialSetup {
     function _saveDeployments() internal {
         // Build JSON in chunks to avoid stack-too-deep from large string.concat
         string memory cfg = string.concat(
-            '{"accessManager":"', vm.toString(accessManager),
-            '","collateralAsset":"', vm.toString(btcVault),
-            '","debtAsset":"', vm.toString(mockUsdc),
-            '","cbBTC":"', vm.toString(mockCbBTC),
-            '","btc":"', vm.toString(mockCbBTC), '"'
+            '{"accessManager":"',
+            vm.toString(accessManager),
+            '","collateralAsset":"',
+            vm.toString(btcVault),
+            '","debtAsset":"',
+            vm.toString(mockUsdc),
+            '","cbBTC":"',
+            vm.toString(mockCbBTC),
+            '","btc":"',
+            vm.toString(mockCbBTC),
+            '"'
         );
 
         cfg = string.concat(
             cfg,
-            ',"btcOracle":"', vm.toString(btcOracle),
-            '","usdcOracle":"', vm.toString(usdcOracle),
-            '","aaveV3Pool":"', vm.toString(aaveV3Pool),
-            '","aaveAddressesProvider":"', vm.toString(aaveAddressesProvider),
-            '","usdcVault":"', vm.toString(usdcVault), '"'
+            ',"btcOracle":"',
+            vm.toString(btcOracle),
+            '","usdcOracle":"',
+            vm.toString(usdcOracle),
+            '","aaveV3Pool":"',
+            vm.toString(aaveV3Pool),
+            '","aaveAddressesProvider":"',
+            vm.toString(aaveAddressesProvider),
+            '","usdcVault":"',
+            vm.toString(usdcVault),
+            '"'
         );
 
         cfg = string.concat(
             cfg,
-            ',"loan":"', vm.toString(loan),
-            '","loanVaultFactory":"', vm.toString(loanVaultFactory),
-            '","loanVaultImpl":"', vm.toString(loanVaultImpl),
-            '","swapper":"', vm.toString(mockSwapAdapter),
-            '","aaveStrategy":"', vm.toString(aaveStrategy),
-            '","usdcStrategy":"', vm.toString(usdcStrategy),
+            ',"loan":"',
+            vm.toString(loan),
+            '","loanVaultFactory":"',
+            vm.toString(loanVaultFactory),
+            '","loanVaultImpl":"',
+            vm.toString(loanVaultImpl),
+            '","swapper":"',
+            vm.toString(mockSwapAdapter),
+            '","aaveStrategy":"',
+            vm.toString(aaveStrategy),
+            '","usdcStrategy":"',
+            vm.toString(usdcStrategy),
             '"}'
         );
 

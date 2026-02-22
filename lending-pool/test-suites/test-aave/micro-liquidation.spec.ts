@@ -462,7 +462,7 @@ makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
       await cbBTCAggregator.updateAnswer((currentPrice * 50n) / 100n);
 
       // With the vuln-21 fix, checkTypeOfLiquidation now reads real aToken balance (0.05 bvBTC)
-      // instead of stale loanData.collateralAmount (1 bvBTC). At 50% price drop, the real
+      // instead of stale loanData.btcAmount (1 bvBTC). At 50% price drop, the real
       // collateral value ($2,500) cannot cover the monthly payment + bonus ($10,500), so the
       // function correctly returns type 1 (full liquidation) instead of type 2.
       const liquidationType = await pool.checkTypeOfLiquidation(user.address);

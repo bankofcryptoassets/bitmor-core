@@ -85,7 +85,7 @@ library LSALogic {
      *
      * @param bitmorPool Bitmor Lending Pool address
      * @param lsa The Loan Specific Address holding the collateral position
-     * @param collateralAsset Collateral asset address (cbBTC)
+     * @param collateralAsset Collateral asset address (bvBTC)
      * @param recipient Address to receive the withdrawn collateral
      * @return amountWithdrawn The actual amount of collateral withdrawn
      */

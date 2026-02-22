@@ -246,21 +246,21 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
     /// @dev Inherited `_createStandardLoan` from LoanUnitTestBase uses TC constants
 
-    /// @notice Creates a custom loan computing the minimum deposit from `collateralAmount` and `duration`
+    /// @notice Creates a custom loan computing the minimum deposit from `btcAmount` and `duration`
     /// @return lsa The address of the created Loan Smart Account
-    function _createCustomLoan(uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+    function _createCustomLoan(uint256 btcAmount, uint256 duration, uint256 premiumAmount)
         internal
         returns (address lsa)
     {
         _mintDebtAssetToUser();
-        (,, uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDeposit) = loan.getLoanDetails(btcAmount, duration);
         vm.prank(user);
-        lsa = loan.initializeLoan(minDeposit, premiumAmount, collateralAmount, duration, DATA);
+        lsa = loan.initializeLoan(minDeposit, premiumAmount, btcAmount, duration, DATA);
     }
 
     /// @notice Creates a loan for a specific `borrower`, granting EXECUTOR role and funding USDC
     /// @return lsa The address of the created Loan Smart Account
-    function _createLoanForBorrower(address borrower, uint256 collateralAmount, uint256 duration, uint256 premiumAmount)
+    function _createLoanForBorrower(address borrower, uint256 btcAmount, uint256 duration, uint256 premiumAmount)
         internal
         returns (address lsa)
     {
@@ -276,9 +276,9 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         vm.prank(borrower);
         mockUSDC.approve(address(loan), type(uint256).max);
 
-        (,, uint256 minDeposit) = loan.getLoanDetails(collateralAmount, duration);
+        (,, uint256 minDeposit) = loan.getLoanDetails(btcAmount, duration);
         vm.prank(borrower);
-        lsa = loan.initializeLoan(minDeposit, premiumAmount, collateralAmount, duration, DATA);
+        lsa = loan.initializeLoan(minDeposit, premiumAmount, btcAmount, duration, DATA);
     }
 
     /// @notice Creates a standard loan (1 BTC, 12 months) for a specific `borrower`
@@ -484,7 +484,13 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
         if (token == debtAsset) {
             _fundUSDC(_user, amount);
         } else if (token == collateralAsset) {
+            // collateralAsset is bvBTC (vault shares) — mint via vault deposit
+            // Note: this branch is currently untested (only debtAsset callers exist)
             _fundCbBTC(_user, amount);
+            vm.startPrank(_user);
+            IERC20(btc).approve(address(mockBTCVault), amount);
+            mockBTCVault.deposit(amount, _user);
+            vm.stopPrank();
         }
         vm.prank(_user);
         IERC20(token).approve(spender, type(uint256).max);

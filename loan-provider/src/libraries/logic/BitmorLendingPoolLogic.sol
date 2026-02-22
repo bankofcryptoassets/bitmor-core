@@ -87,7 +87,7 @@ library BitmorLendingPoolLogic {
 
     /**
      * @notice Deposits collateral to Aave V2 on behalf of LSA
-     * @dev LSA receives aTokens (acbBTC), Protocol holds bvBTC before deposit
+     * @dev LSA receives aTokens (abvBTC), Protocol holds bvBTC before deposit
      * @param bitmorPool Bitmor Lending Pool address
      * @param asset Collateral asset (bvBTC)
      * @param amount Amount to deposit (8 decimals)

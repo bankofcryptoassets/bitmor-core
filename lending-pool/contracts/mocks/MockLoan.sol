@@ -304,7 +304,7 @@ contract MockLoan is ILoan {
      * @notice Create an active loan for testing
      * @param lsa The loan smart account address
      * @param borrower The borrower address
-     * @param collateralAmount Amount of collateral (bvBTC)
+     * @param btcAmount Amount of collateral (bvBTC)
      * @param loanAmount Total loan amount (USDC)
      * @param duration Loan duration in months
      * @param monthlyPayment Estimated monthly payment (USDC)
@@ -312,7 +312,7 @@ contract MockLoan is ILoan {
     function createActiveLoan(
         address lsa,
         address borrower,
-        uint256 collateralAmount,
+        uint256 btcAmount,
         uint256 loanAmount,
         uint256 duration,
         uint256 monthlyPayment
@@ -321,7 +321,7 @@ contract MockLoan is ILoan {
             borrower: borrower,
             depositAmount: loanAmount / 3, // ~33% deposit
             loanAmount: loanAmount,
-            collateralAmount: collateralAmount,
+            btcAmount: btcAmount,
             estimatedMonthlyPayment: monthlyPayment,
             duration: duration,
             createdAt: block.timestamp,
@@ -366,7 +366,7 @@ contract MockLoan is ILoan {
      * @notice Set collateral amount
      */
     function setCollateralAmount(address lsa, uint256 amount) external {
-        _loanData[lsa].collateralAmount = amount;
+        _loanData[lsa].btcAmount = amount;
     }
 
     /**
