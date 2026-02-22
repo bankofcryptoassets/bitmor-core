@@ -63,15 +63,18 @@ contract LoanMathHarness {
         uint256 flashLoanPremiumBps
     ) external pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
         return LoanMath.calculateLoanDetails(
-            collateralAmount,
-            collateralPriceUSD,
-            collateralAssetDecimals,
-            debtPriceUSD,
-            debtAssetDecimals,
-            interestRate,
-            duration,
-            minDepositBps,
-            flashLoanPremiumBps
+            DataTypes.CalculateLoanAmt({
+                depositAmount: 0,
+                debtAssetDecimals: debtAssetDecimals,
+                collateralAmount: collateralAmount,
+                collateralAssetDecimals: collateralAssetDecimals,
+                collateralPriceUSD: collateralPriceUSD,
+                debtPriceUSD: debtPriceUSD,
+                interestRate: interestRate,
+                duration: duration,
+                minDepositBps: minDepositBps,
+                flashLoanPremiumBps: flashLoanPremiumBps
+            })
         );
     }
 
