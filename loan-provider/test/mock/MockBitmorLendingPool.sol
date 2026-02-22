@@ -221,12 +221,22 @@ contract MockBitmorLendingPool is ILendingPool {
     }
 
     /// @inheritdoc ILendingPool
-    function getConfiguration(address asset) external view override returns (DataTypes.ReserveConfigurationMap memory) {
+    function getConfiguration(address asset)
+        external
+        view
+        override
+        returns (DataTypes.ReserveConfigurationMap memory)
+    {
         return _reserves[asset].configuration;
     }
 
     /// @inheritdoc ILendingPool
-    function getUserConfiguration(address user) external view override returns (DataTypes.UserConfigurationMap memory) {
+    function getUserConfiguration(address user)
+        external
+        view
+        override
+        returns (DataTypes.UserConfigurationMap memory)
+    {
         return _userConfigurations[user];
     }
 
@@ -279,55 +289,65 @@ contract MockBitmorLendingPool is ILendingPool {
         uint256 liquidationType = this.checkTypeOfLiquidation(user);
         require(liquidationType == 1, "LiquidationCall requires full liquidation type (1)");
 
-        DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
-        DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+        MockVariableDebtToken debtToken;
+        MockAToken aToken;
+        uint256 actualDebtToCover;
+        uint256 collateralToSeize;
 
-        MockVariableDebtToken debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
-        MockAToken aToken = MockAToken(collateralReserve.aTokenAddress);
+        {
+            DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+            DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
 
-        uint256 userDebt = debtToken.balanceOf(user);
-        uint256 actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
+            debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
+            aToken = MockAToken(collateralReserve.aTokenAddress);
+        }
 
-        // Calculate collateral to seize with liquidation bonus using oracle prices
-        address oracle = _addressesProvider.getPriceOracle();
-        uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
-        uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
-        uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
-        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+        {
+            uint256 userDebt = debtToken.balanceOf(user);
+            actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
+        }
 
-        // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize =
-            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+        {
+            // Calculate collateral to seize with liquidation bonus using oracle prices
+            address oracle = _addressesProvider.getPriceOracle();
+            uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
+            uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+            uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
+            uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+
+            collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
                 / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        }
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
         debtToken.burn(user, actualDebtToCover);
 
         // Seize collateral
-        uint256 userCollateral = aToken.balanceOf(user);
-        uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
+        {
+            uint256 userCollateral = aToken.balanceOf(user);
+            uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
 
-        if (receiveAToken) {
-            // Transfer aTokens to liquidator
-            aToken.burn(user, actualCollateralSeized);
-            aToken.mint(msg.sender, actualCollateralSeized);
-        } else {
-            // Transfer underlying to liquidator
-            aToken.burn(user, actualCollateralSeized);
-            // Underlying sits on the aToken contract (see deposit), so pull from there
-            IERC20(collateralAsset).transferFrom(collateralReserve.aTokenAddress, msg.sender, actualCollateralSeized);
+            if (receiveAToken) {
+                aToken.burn(user, actualCollateralSeized);
+                aToken.mint(msg.sender, actualCollateralSeized);
+            } else {
+                aToken.burn(user, actualCollateralSeized);
+                IERC20(collateralAsset).transferFrom(
+                    _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
+                );
+            }
+
+            // Update loan status in Loan contract (like real LendingPool does)
+            address bitmorLoan = _addressesProvider.getBitmorLoan();
+            if (bitmorLoan != address(0)) {
+                try ILoan(bitmorLoan).updateLoanDataForFullLiquidation(user) {} catch {}
+            }
+
+            emit LiquidationCall(
+                collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, receiveAToken
+            );
         }
-
-        // Update loan status in Loan contract (like real LendingPool does)
-        address bitmorLoan = _addressesProvider.getBitmorLoan();
-        if (bitmorLoan != address(0)) {
-            try ILoan(bitmorLoan).updateLoanDataForFullLiquidation(user) {} catch {}
-        }
-
-        emit LiquidationCall(
-            collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, receiveAToken
-        );
     }
 
     /// @inheritdoc ILendingPool
@@ -374,52 +394,59 @@ contract MockBitmorLendingPool is ILendingPool {
     function _executeMicroLiquidation(address collateralAsset, address debtAsset, address user, uint256 debtToCover)
         internal
     {
-        DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
-        DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+        MockVariableDebtToken debtToken;
+        MockAToken aToken;
+        uint256 actualDebtToCover;
+        uint256 collateralToSeize;
 
-        MockVariableDebtToken debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
-        MockAToken aToken = MockAToken(collateralReserve.aTokenAddress);
+        {
+            DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+            DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
 
-        uint256 userDebt = debtToken.balanceOf(user);
-        uint256 actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
+            debtToken = MockVariableDebtToken(debtReserve.variableDebtTokenAddress);
+            aToken = MockAToken(collateralReserve.aTokenAddress);
+        }
 
-        // Calculate collateral to seize with liquidation bonus using oracle prices
-        // debtValueUSD = debtToCover * debtPriceUSD / debtDecimals
-        // collateralWithBonus = debtValueUSD * LIQUIDATION_BONUS_BPS / 10000
-        // collateralAmount = collateralWithBonus / collateralPriceUSD * collateralDecimals
-        address oracle = _addressesProvider.getPriceOracle();
-        uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
-        uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
-        uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
-        uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+        {
+            uint256 userDebt = debtToken.balanceOf(user);
+            actualDebtToCover = debtToCover > userDebt ? userDebt : debtToCover;
+        }
 
-        // Calculate: (debtToCover * debtPrice * bonus) / (collateralPrice * 10000) * decimals adjustment
-        uint256 collateralToSeize =
-            (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
+        {
+            address oracle = _addressesProvider.getPriceOracle();
+            uint256 debtPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(debtAsset);
+            uint256 collateralPriceUSD = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+            uint8 debtDecimals = IERC20Metadata(debtAsset).decimals();
+            uint8 collateralDecimals = IERC20Metadata(collateralAsset).decimals();
+
+            collateralToSeize = (actualDebtToCover * debtPriceUSD * LIQUIDATION_BONUS_BPS * (10 ** collateralDecimals))
                 / (collateralPriceUSD * 10000 * (10 ** debtDecimals));
+        }
 
         // Transfer debt from liquidator
         IERC20(debtAsset).transferFrom(msg.sender, address(this), actualDebtToCover);
         debtToken.burn(user, actualDebtToCover);
 
         // Seize collateral
-        uint256 userCollateral = aToken.balanceOf(user);
-        uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
+        {
+            uint256 userCollateral = aToken.balanceOf(user);
+            uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
 
-        // Transfer underlying to liquidator
-        aToken.burn(user, actualCollateralSeized);
-        // Underlying sits on the aToken contract (see deposit), so pull from there
-        IERC20(collateralAsset).transferFrom(collateralReserve.aTokenAddress, msg.sender, actualCollateralSeized);
+            aToken.burn(user, actualCollateralSeized);
+            IERC20(collateralAsset).transferFrom(
+                _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
+            );
 
-        // Update loan status in Loan contract for micro liquidation
-        address bitmorLoan = _addressesProvider.getBitmorLoan();
-        if (bitmorLoan != address(0)) {
-            try ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(user) {} catch {}
+            // Update loan status in Loan contract for micro liquidation
+            address bitmorLoan = _addressesProvider.getBitmorLoan();
+            if (bitmorLoan != address(0)) {
+                try ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(user) {} catch {}
+            }
+
+            emit LiquidationCall(
+                collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, false
+            );
         }
-
-        emit LiquidationCall(
-            collateralAsset, debtAsset, user, actualDebtToCover, actualCollateralSeized, msg.sender, false
-        );
     }
 
     /// @inheritdoc ILendingPool

@@ -96,64 +96,78 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
     /// @dev Grants all guardian roles to admin with 0 delay
     /// @param admin The admin address to grant guardian roles to
     function _setupSimplifiedGuardians(address admin) internal {
-        // Get guardian role IDs (public struct getters return tuples: (grantee, id, isContract))
-        (, uint64 guardianLpmSlowId,) = rolesData.GUARDIAN_LPM_SLOW();
-        (, uint64 guardianBvmSlowId,) = rolesData.GUARDIAN_BVM_SLOW();
-        (, uint64 guardianBvcId,) = rolesData.GUARDIAN_BVC();
-        (, uint64 guardianBvaSlowId,) = rolesData.GUARDIAN_BVA_SLOW();
-        (, uint64 guardianUvmSlowId,) = rolesData.GUARDIAN_UVM_SLOW();
-        (, uint64 guardianUvcId,) = rolesData.GUARDIAN_UVC();
-
-        // Get role IDs for guarded roles (tuple: target, isContract, execDelay, grantDelay, id, label, isGuarded, guardian, grantee, adminRoleId)
-        (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        (,,,, uint64 bvmSlowId,,,,,) = rolesData.BVM_SLOW();
-        (,,,, uint64 bvcId,,,,,) = rolesData.BVC();
-        (,,,, uint64 bvaSlowId,,,,,) = rolesData.BVA_SLOW();
-        (,,,, uint64 uvmSlowId,,,,,) = rolesData.UVM_SLOW();
-        (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
-
-        // Grant all guardian roles to admin with 0 delay
-        manager.grantRole(guardianLpmSlowId, admin, 0);
-        manager.grantRole(guardianBvmSlowId, admin, 0);
-        manager.grantRole(guardianBvcId, admin, 0);
-        manager.grantRole(guardianBvaSlowId, admin, 0);
-        manager.grantRole(guardianUvmSlowId, admin, 0);
-        manager.grantRole(guardianUvcId, admin, 0);
-
-        // Set guardian relationships
-        manager.setRoleGuardian(lpmSlowId, guardianLpmSlowId);
-        manager.setRoleGuardian(bvmSlowId, guardianBvmSlowId);
-        manager.setRoleGuardian(bvcId, guardianBvcId);
-        manager.setRoleGuardian(bvaSlowId, guardianBvaSlowId);
-        manager.setRoleGuardian(uvmSlowId, guardianUvmSlowId);
-        manager.setRoleGuardian(uvcId, guardianUvcId);
+        // Grant each guardian role and set its relationship - scoped per pair
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_LPM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.LPM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVC();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVC();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVA_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVA_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_UVM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_UVC();
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVC();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
     }
 
     /// @notice Full guardian setup for production networks
     /// @dev Uses _setGuardian from InitialSetup which handles role grants and relationships
     function _setupProductionGuardians() internal {
-        // Get role IDs and guardian structs
-        (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        (,,,, uint64 bvmSlowId,,,,,) = rolesData.BVM_SLOW();
-        (,,,, uint64 bvcId,,,,,) = rolesData.BVC();
-        (,,,, uint64 bvaSlowId,,,,,) = rolesData.BVA_SLOW();
-        (,,,, uint64 uvmSlowId,,,,,) = rolesData.UVM_SLOW();
-        (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
-
-        // Get guardian structs
-        (address g1Grantee, uint64 g1Id, bool g1IsContract) = rolesData.GUARDIAN_LPM_SLOW();
-        (address g2Grantee, uint64 g2Id, bool g2IsContract) = rolesData.GUARDIAN_BVM_SLOW();
-        (address g3Grantee, uint64 g3Id, bool g3IsContract) = rolesData.GUARDIAN_BVC();
-        (address g4Grantee, uint64 g4Id, bool g4IsContract) = rolesData.GUARDIAN_BVA_SLOW();
-        (address g5Grantee, uint64 g5Id, bool g5IsContract) = rolesData.GUARDIAN_UVM_SLOW();
-        (address g6Grantee, uint64 g6Id, bool g6IsContract) = rolesData.GUARDIAN_UVC();
-
-        _setGuardian(lpmSlowId, RolesData.RoleGuardian(g1Grantee, g1Id, g1IsContract));
-        _setGuardian(bvmSlowId, RolesData.RoleGuardian(g2Grantee, g2Id, g2IsContract));
-        _setGuardian(bvcId, RolesData.RoleGuardian(g3Grantee, g3Id, g3IsContract));
-        _setGuardian(bvaSlowId, RolesData.RoleGuardian(g4Grantee, g4Id, g4IsContract));
-        _setGuardian(uvmSlowId, RolesData.RoleGuardian(g5Grantee, g5Id, g5IsContract));
-        _setGuardian(uvcId, RolesData.RoleGuardian(g6Grantee, g6Id, g6IsContract));
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.LPM_SLOW();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_LPM_SLOW();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVM_SLOW();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_BVM_SLOW();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVC();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_BVC();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVA_SLOW();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_BVA_SLOW();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVM_SLOW();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_UVM_SLOW();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
+        {
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVC();
+            (address grantee, uint64 gId, bool isContract) = rolesData.GUARDIAN_UVC();
+            _setGuardian(guardedId, RolesData.RoleGuardian(grantee, gId, isContract));
+        }
     }
 
     // ===== Schedule Operations =====

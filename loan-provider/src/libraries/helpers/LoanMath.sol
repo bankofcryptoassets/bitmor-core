@@ -188,20 +188,20 @@ library LoanMath {
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = btcValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
-        loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
+        loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Include flash loan premium in EMI principal (matches CloseLoanLogic pattern)
-        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(flashLoanPremiumBps, BASIS_POINTS);
+        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(data.flashLoanPremiumBps, BASIS_POINTS);
         uint256 totalDebt = loanAmount + flashLoanPremiumAmt;
 
         // Calculate monthly payment on total debt (loanAmount + flash loan premium)
-        monthlyPayAmt = _calculateEMI(totalDebt, interestRate, duration);
+        monthlyPayAmt = _calculateEMI(totalDebt, data.interestRate, data.duration);
     }
 
     /**

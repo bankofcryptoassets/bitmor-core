@@ -129,6 +129,27 @@ library LoanLogic {
         userLoanAtIndex[params.user][loanIndex] = lsa;
         userLoanCount[params.user] = loanIndex + 1;
 
+        _executeTransfersAndFlashLoan(ctx, params, lsa, loanAmount);
+
+        return lsa;
+    }
+
+    /**
+     * @notice Handles fund transfers, flash loan execution, and surplus refund
+     * @dev Extracted from `executeInitializeLoan` to reduce stack depth for coverage builds.
+     * Transfers the user's deposit and premium, initiates the Aave V3 flash loan,
+     * and refunds any USDC surplus from the exactOut swap.
+     * @param ctx Context containing protocol addresses and configuration
+     * @param params Parameters for loan initialization
+     * @param lsa The Loan Specific Address created for this loan
+     * @param loanAmount The calculated loan amount to flash-borrow
+     */
+    function _executeTransfersAndFlashLoan(
+        DataTypes.InitializeLoanContext memory ctx,
+        DataTypes.ExecuteInitializeLoanParams memory params,
+        address lsa,
+        uint256 loanAmount
+    ) private {
         /// @dev Snapshot balance before deposit+flash loan to refund exactOut swap surplus
         uint256 balBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
 
@@ -307,22 +328,27 @@ library LoanLogic {
         if (btcAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
         if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
-        // Get oracle prices
-        IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
-        uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
-        uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+        uint256 collateralPriceUSD;
+        uint256 debtPriceUSD;
+        uint256 interestRate;
+        uint256 flashLoanPremiumBps;
+
+        {
+            IPriceOracleGetter oracle = IPriceOracleGetter(ctx.oracle);
+            collateralPriceUSD = oracle.getAssetPrice(ctx.collateralAsset);
+            debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
+        }
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch max variable borrow rate from interest rate strategy (matches executeInitializeLoan)
-        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-        uint256 interestRate =
-            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+        {
+            DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(ctx.debtAsset);
+            interestRate =
+                IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+        }
 
-        // Fetch flash loan premium from Aave V3
-        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(aavePool);
+        flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
 
-        // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
             btcAmount,
             collateralPriceUSD,

@@ -396,6 +396,11 @@ library DataTypes {
         uint256 minDepositBps;
         /// @dev Maximum loan duration in months
         uint256 maxDuration;
+        address bitmorPool;
+        address oracle;
+        address aavePool;
+        address collateralAsset;
+        address debtAsset;
     }
 
     /**
