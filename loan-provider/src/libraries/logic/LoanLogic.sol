@@ -46,6 +46,7 @@ library LoanLogic {
     using FixedPointMathLib for uint256;
     using LSALogic for address;
     using BitmorLendingPoolLogic for address;
+    using AavePoolLogic for address;
 
     /**
      * @notice Executes the full loan initialization flow
@@ -91,19 +92,19 @@ library LoanLogic {
         }
 
         (uint256 loanAmount, uint256 monthlyPayment, ) = _calculateLoanAmountAndMonthlyPayment(
-            DataTypes.CalculateLoanAmountAndMonthlyPayment(
-                ctx.bitmorPool,
-                ctx.oracle,
-                ctx.collateralAsset,
-                ctx.debtAsset,
-                ctx.aavePool,
-                params.depositAmount,
-                IERC20Metadata(ctx.debtAsset).decimals(),
-                params.btcAmount,
-                IERC20Metadata(ctx.collateralAsset).decimals(),
-                params.duration,
-                ctx.minDepositBps
-            )
+            DataTypes.CalculateLoanAmountAndMonthlyPayment({
+                bitmorPool: ctx.bitmorPool,
+                oracle: ctx.oracle,
+                btc: ctx.btc,
+                debtAsset: ctx.debtAsset,
+                aavePool: ctx.aavePool,
+                depositAmount: params.depositAmount,
+                debtAssetDecimals: IERC20Metadata(ctx.debtAsset).decimals(),
+                btcAmount: params.btcAmount,
+                btcAssetDecimals: IERC20Metadata(ctx.btc).decimals(),
+                duration: params.duration,
+                minDepositBps: ctx.minDepositBps
+            })
         );
 
         // Create LSA via factory using CREATE2 for deterministic address
@@ -170,13 +171,7 @@ library LoanLogic {
         bytes memory flData = abi.encode(lsa, params.btcAmount);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
-        AavePoolLogic.executeFlashLoan(
-            ctx.aavePool,
-            address(this),
-            ctx.debtAsset,
-            loanAmount,
-            paramsForFL
-        );
+        ctx.aavePool.executeFlashLoan(address(this), ctx.debtAsset, loanAmount, paramsForFL);
 
         /// @dev Refund any USDC surplus from the exactOut swap to the user.
         /// The swap consumes at most `deposit + loanAmount` but typically less,
@@ -279,10 +274,10 @@ library LoanLogic {
     {
         // Get oracle prices
         IPriceOracleGetter oracle = IPriceOracleGetter(data.oracle);
-        uint256 collateralPriceUSD = oracle.getAssetPrice(data.collateralAsset);
+        uint256 btcPriceUSD = oracle.getAssetPrice(data.btc);
         uint256 debtPriceUSD = oracle.getAssetPrice(data.debtAsset);
 
-        if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+        if (btcPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         // Fetch max variable borrow rate from interest rate strategy
         DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(
@@ -302,8 +297,8 @@ library LoanLogic {
                 data.depositAmount,
                 data.debtAssetDecimals,
                 data.btcAmount,
-                data.collateralAssetDecimals,
-                collateralPriceUSD,
+                data.btcAssetDecimals,
+                btcPriceUSD,
                 debtPriceUSD,
                 maxInterestRate,
                 data.duration,
@@ -353,13 +348,13 @@ library LoanLogic {
 
         {
             IPriceOracleGetter oracle = IPriceOracleGetter(ctx.oracle);
-            p.collateralPriceUSD = oracle.getAssetPrice(ctx.collateralAsset);
+            p.btcPriceUSD = oracle.getAssetPrice(ctx.btc);
             p.debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
-            p.collateralAssetDecimals = IERC20Metadata(ctx.collateralAsset).decimals();
+            p.btcAssetDecimals = IERC20Metadata(ctx.btc).decimals();
             p.debtAssetDecimals = IERC20Metadata(ctx.debtAsset).decimals();
         }
 
-        if (p.collateralPriceUSD == 0 || p.debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+        if (p.btcPriceUSD == 0 || p.debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         {
             DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(

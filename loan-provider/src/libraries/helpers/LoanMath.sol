@@ -117,8 +117,8 @@ library LoanMath {
     {
         // Convert BTC amount to USD value
         uint256 btcValueUSD = data.btcAmount.fullMulDivUp(
-            data.collateralPriceUSD,
-            (10 ** data.collateralAssetDecimals)
+            data.btcPriceUSD,
+            (10 ** data.btcAssetDecimals)
         );
 
         // Convert deposit amount to USD value
@@ -181,10 +181,7 @@ library LoanMath {
         returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
         // Convert BTC amount to USD value
-        uint256 btcValueUSD = p.btcAmount.fullMulDivUp(
-            p.collateralPriceUSD,
-            (10 ** p.collateralAssetDecimals)
-        );
+        uint256 btcValueUSD = p.btcAmount.fullMulDivUp(p.btcPriceUSD, (10 ** p.btcAssetDecimals));
 
         uint256 minDepositRequiredUSD = btcValueUSD.fullMulDivUp(p.minDepositBps, BASIS_POINTS);
 

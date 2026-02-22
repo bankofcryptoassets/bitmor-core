@@ -198,9 +198,9 @@ library DataTypes {
          */
         address oracle;
         /**
-         * @dev Collateral asset address (bvBTC)
+         * @dev BTC asset address (cbBTC)
          */
-        address collateralAsset;
+        address btc;
         /**
          * @dev Debt asset address (USDC)
          */
@@ -399,7 +399,7 @@ library DataTypes {
         address bitmorPool;
         address oracle;
         address aavePool;
-        address collateralAsset;
+        address btc;
         address debtAsset;
     }
 
@@ -417,9 +417,9 @@ library DataTypes {
          */
         address oracle;
         /**
-         * @dev Collateral asset address
+         * @dev BTC asset address
          */
-        address collateralAsset;
+        address btc;
         /**
          * @dev Debt asset address
          */
@@ -437,13 +437,13 @@ library DataTypes {
          */
         uint256 debtAssetDecimals;
         /**
-         * @dev Target collateral amount
+         * @dev Target BTC amount
          */
         uint256 btcAmount;
         /**
-         * @dev Collateral asset decimals
+         * @dev BTC asset decimals
          */
-        uint256 collateralAssetDecimals;
+        uint256 btcAssetDecimals;
         /**
          * @dev Loan duration in months
          */
@@ -470,13 +470,13 @@ library DataTypes {
          */
         uint256 btcAmount;
         /**
-         * @dev Collateral asset decimals
+         * @dev BTC asset decimals
          */
-        uint256 collateralAssetDecimals;
+        uint256 btcAssetDecimals;
         /**
-         * @dev Collateral price in USD (8 decimals)
+         * @dev BTC price in USD (8 decimals)
          */
-        uint256 collateralPriceUSD;
+        uint256 btcPriceUSD;
         /**
          * @dev Debt asset price in USD (8 decimals)
          */

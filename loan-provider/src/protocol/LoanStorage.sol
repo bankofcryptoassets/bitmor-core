@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {DataTypes} from "../libraries/types/DataTypes.sol";
-import {Errors} from "../libraries/helpers/Errors.sol";
+import { DataTypes } from "../libraries/types/DataTypes.sol";
+import { Errors } from "../libraries/helpers/Errors.sol";
 
 /**
  * @title LoanStorage
@@ -95,7 +95,7 @@ contract LoanStorage {
     /// @notice Min. amount of BTC require to use as collateral.
     uint256 internal s_minBTCAmt;
 
-    /// @notice Min % of deposit user need to make of the BTC amount.
+    /// @notice Min % of deposit user need to make of the BTC amount in bps.
     uint256 internal s_minDeposit;
 
     /// @notice Maximum loan duration in months
@@ -164,8 +164,12 @@ contract LoanStorage {
         address _btc
     ) {
         if (
-            _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
-                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
+            _aaveV3Pool == address(0) ||
+            _bitmorPool == address(0) ||
+            _oracle == address(0) ||
+            _collateralAsset == address(0) ||
+            _debtAsset == address(0) ||
+            _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;
