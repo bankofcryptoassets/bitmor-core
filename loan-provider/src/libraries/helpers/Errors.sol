@@ -54,6 +54,9 @@ library Errors {
      */
     error InvalidAssetPrice();
 
+    /// @notice Thrown when the Chainlink oracle price is stale (updatedAt exceeds maxStaleness)
+    error StaleOraclePrice();
+
     // ============ Flash Loan Errors ============
 
     /**

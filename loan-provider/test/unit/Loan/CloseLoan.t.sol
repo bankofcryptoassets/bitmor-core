@@ -257,7 +257,7 @@ contract CloseLoanTest is BaseLoanTest {
                 address(loan), // receiver
                 debtAsset, // asset
                 debtAmt // amount - the debt amount
-                // params and referralCode are variable, so we only check the key parameters
+                    // params and referralCode are variable, so we only check the key parameters
             )
         );
 
@@ -504,6 +504,9 @@ contract CloseLoanTest is BaseLoanTest {
 
         // Warp 90 days - note: mock doesn't accrue interest
         vm.warp(block.timestamp + 90 days);
+
+        // Refresh Chainlink oracle timestamp after large time warp to avoid staleness revert
+        mockChainlinkBTC.updateAnswer(int256(BTC_PRICE));
 
         // Skip interest assertion - mock doesn't implement interest accrual
         // Interest accrual tests require real lending pool integration

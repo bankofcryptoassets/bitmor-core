@@ -16,7 +16,6 @@ import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
 import {ILoan} from "../../interfaces/ILoan.sol";
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 
 /**
  * @title FlashLoanLogic
@@ -114,13 +113,12 @@ library FlashLoanLogic {
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
-        uint256 maxAmountIn = ctx.swapper
-            .calculateMaxAmountIn(
-                ctx.debtAsset, // tokenIn
-                ctx.btc, // tokenOut
-                btcAmount,
-                ctx.maxSlippage
-            );
+        uint256 maxAmountIn = ctx.swapper.calculateMaxAmountIn(
+            ctx.debtAsset, // tokenIn
+            ctx.btc, // tokenOut
+            btcAmount,
+            ctx.maxSlippage
+        );
 
         if (maxAmountIn > totalSwapAmount) revert Errors.LessAmountForExactOutSwap();
 
@@ -228,10 +226,9 @@ library FlashLoanLogic {
             /// @dev Redeem `btc` for `bvBTC` shares from BTC vault to Loan contract
             /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa
-                .redeemBTC(
-                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-                );
+            vars.btcAmtReceived = vars.lsa.redeemBTC(
+                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+            );
         }
         // ===============================================================
 
@@ -248,14 +245,13 @@ library FlashLoanLogic {
         // Approve SwapAdaptor to spend tokens
         IERC20(ctx.btc).forceApprove(ctx.swapper, vars.btcAmtToSwap);
 
-        vars.debtAssetAmtReceived = ctx.swapper
-            .executeExactInSwap(
-                ctx.btc, //tokenIn
-                ctx.debtAsset, // tokenOut
-                vars.btcAmtToSwap, // amountIn
-                vars.minimumAcceptable,
-                address(this)
-            );
+        vars.debtAssetAmtReceived = ctx.swapper.executeExactInSwap(
+            ctx.btc, //tokenIn
+            ctx.debtAsset, // tokenOut
+            vars.btcAmtToSwap, // amountIn
+            vars.minimumAcceptable,
+            address(this)
+        );
 
         if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
             revert Errors.InsufficientSwapOutput();

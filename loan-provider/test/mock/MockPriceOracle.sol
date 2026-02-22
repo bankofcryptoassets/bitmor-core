@@ -24,6 +24,9 @@ contract MockPriceOracle is IPriceOracleGetter {
     /// @notice Address of the underlying BTC token used for vault price derivation
     address public btc;
 
+    /// @dev Mapping of asset address to its Chainlink aggregator source
+    mapping(address => address) private _sources;
+
     /// @notice Creates a new MockPriceOracle
     /// @param _btcVault Address of the BTC vault (price derived from share-to-asset ratio)
     /// @param _btc Address of the underlying BTC token
@@ -72,5 +75,19 @@ contract MockPriceOracle is IPriceOracleGetter {
         uint256 currentPrice = _prices[asset];
         newPrice = (currentPrice * (100 - dropPercent)) / 100;
         _prices[asset] = newPrice;
+    }
+
+    /// @notice Set the Chainlink aggregator source for an asset
+    /// @param asset The asset address
+    /// @param source The Chainlink aggregator address (address(0) means no direct source)
+    function setSourceOfAsset(address asset, address source) external {
+        _sources[asset] = source;
+    }
+
+    /// @notice Get the Chainlink aggregator source for an asset
+    /// @param asset The asset address
+    /// @return The Chainlink aggregator address
+    function getSourceOfAsset(address asset) external view returns (address) {
+        return _sources[asset];
     }
 }

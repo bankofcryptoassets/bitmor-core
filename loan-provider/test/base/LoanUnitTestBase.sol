@@ -24,6 +24,7 @@ import {MockUSDCVault} from "../mock/MockUSDCVault.sol";
 import {MockLendingRateOracle} from "../mock/MockLendingRateOracle.sol";
 import {MockDefaultInterestRateStrategy} from "../mock/MockDefaultInterestRateStrategy.sol";
 import {MockUSDCInterestRateStrategy} from "../mock/MockUSDCInterestRateStrategy.sol";
+import {MockChainlinkOracle} from "../mock/MockChainlinkOracle.sol";
 
 /// @title LoanUnitTestBase
 /// @author Bitmor Protocol
@@ -101,6 +102,9 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     /// @notice Mock aToken for bvBTC vault shares (the actual collateral in the lending pool)
     MockAToken public mockATokenBvBTC;
 
+    /// @notice Mock Chainlink oracle for BTC price freshness validation
+    MockChainlinkOracle public mockChainlinkBTC;
+
     // ============ Price Constants ============
 
     /// @notice Default BTC price for tests: $100,000 (8 decimals)
@@ -124,6 +128,10 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         _fundTestAccounts();
 
+        // Refresh Chainlink oracle timestamp so tests start with a fresh oracle
+        // (_scheduleAndExecute warps time forward, making the initial oracle stale)
+        mockChainlinkBTC.updateAnswer(int256(BTC_PRICE));
+
         // Update snapshot after full setup
         _baseSnapshotId = vm.snapshotState();
     }
@@ -137,6 +145,15 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockOracle = new MockPriceOracle(address(mockBTCVault), address(mockCbBTC));
         mockOracle.setAssetPrice(address(mockCbBTC), BTC_PRICE);
         mockOracle.setAssetPrice(address(mockUSDC), USDC_PRICE);
+
+        // Deploy Chainlink oracle mock for BTC freshness validation
+        mockChainlinkBTC = new MockChainlinkOracle(8, int256(BTC_PRICE), "BTC / USD");
+
+        // Wire Chainlink source into MockPriceOracle for freshness validation
+        mockOracle.setSourceOfAsset(address(mockCbBTC), address(mockChainlinkBTC));
+        // bvBTC (collateral) also uses the BTC Chainlink source for freshness checks
+        // In production, the AaveOracle maps bvBTC to the same BTC/USD aggregator
+        // USDC has no Chainlink source configured (staleness not checked for stablecoins)
 
         // Deploy addresses provider (with placeholder pool address, will update later)
         mockAddressesProvider = new MockAddressesProvider(
@@ -158,6 +175,10 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         // Set bvBTC price (same as cbBTC for 1:1 share ratio in testing)
         mockOracle.setAssetPrice(address(mockBTCVault), BTC_PRICE);
+
+        // Wire bvBTC to the same BTC Chainlink source for freshness checks
+        // In production, AaveOracle maps bvBTC to the BTC/USD aggregator
+        mockOracle.setSourceOfAsset(address(mockBTCVault), address(mockChainlinkBTC));
 
         // Deploy USDCVault for USDC interest rate strategy liquidity source
         mockUSDCVault = new MockUSDCVault(
@@ -282,6 +303,13 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         // Configure loan parameters using proper setters (replaces vm.store)
         _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP, TC.MIN_DEPOSIT);
+
+        // Set oracle staleness threshold via LPM_SLOW role
+        // Use the maximum allowed cap (86,400s = 24h). After setUp completes, the mock Chainlink
+        // oracle timestamp is refreshed so tests start with a fresh oracle.
+        // OracleFreshness tests override this with TC.MAX_ORACLE_STALENESS (1 hour) for targeted validation.
+        bytes memory stalenessData = abi.encodeWithSelector(Loan.setMaxOracleStaleness.selector, 86_400);
+        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), stalenessData);
     }
 
     /// @notice Funds test accounts with tokens

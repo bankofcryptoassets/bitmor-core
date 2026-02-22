@@ -170,6 +170,10 @@ interface ILoan {
      */
     event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
 
+    /// @notice Emitted when the maximum oracle staleness threshold is updated
+    /// @param newMaxStaleness New maximum staleness in seconds
+    event Loan__MaxOracleStalenessUpdated(uint256 indexed newMaxStaleness);
+
     /**
      * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
      * @param lsa Address of the Loan Specific Address
@@ -468,6 +472,15 @@ interface ILoan {
     /// @notice Returns the `s_maxDuration` value in months.
     /// @return The maximum loan duration in months
     function getMaxDuration() external view returns (uint256);
+
+    /// @notice Updates the maximum allowed oracle staleness for BTC price feeds
+    /// @param newMaxStaleness New maximum staleness in seconds (e.g., 3600 = 1 hour)
+    /// @custom:access Restricted to `LPM_SLOW` role
+    function setMaxOracleStaleness(uint256 newMaxStaleness) external;
+
+    /// @notice Returns the maximum allowed oracle staleness in seconds
+    /// @return The current max oracle staleness threshold
+    function getMaxOracleStaleness() external view returns (uint256);
 
     /**
      * @notice Updates the liquidation fee collector address

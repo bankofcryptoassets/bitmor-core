@@ -101,6 +101,9 @@ contract LoanStorage {
     /// @notice Maximum loan duration in months
     uint256 internal s_maxDuration;
 
+    /// @notice Maximum allowed oracle staleness in seconds (e.g., 3600 = 1 hour)
+    uint256 internal s_maxOracleStaleness = 3600;
+
     // ============ Storage Mappings ============
 
     /**
@@ -141,6 +144,9 @@ contract LoanStorage {
 
     /// @notice Maximum allowed grace period (45 days)
     uint256 internal constant MAX_GRACE_PERIOD = 45 days;
+
+    /// @notice Maximum allowed oracle staleness (24 hours)
+    uint256 internal constant MAX_ORACLE_STALENESS = 86_400;
 
     // ============ Constructor ============
 

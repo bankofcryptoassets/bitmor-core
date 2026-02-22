@@ -324,6 +324,7 @@ contract InitializeLoanTest is BaseLoanTest {
         loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
         loan2.setMinDepositBps(TC.MIN_DEPOSIT);
         loan2.setMaxDuration(TC.MAX_DURATION);
+        loan2.setMaxOracleStaleness(86_400);
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);

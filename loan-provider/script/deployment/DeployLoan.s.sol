@@ -6,54 +6,54 @@ import {HelperConfig} from "../HelperConfig.s.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 
 contract DeployLoan is Script {
-    function _deployLoanUsingConfig(
-        address accessManager,
-        address bitmorPool,
-        address aaveV3Pool,
-        address aaveAddressesProvider,
-        address oracle,
-        address collateralAsset,
-        address debtAsset,
-        address btc,
-        address swapper,
-        address premiumCollector,
-        uint256 preClosureFee,
-        uint256 gracePeriod
-    ) internal {
-        vm.startBroadcast();
-        new Loan(
-            accessManager,
-            aaveV3Pool,
-            aaveAddressesProvider,
-            bitmorPool,
-            oracle,
-            collateralAsset,
-            debtAsset,
-            btc,
-            swapper,
-            premiumCollector,
-            preClosureFee,
-            gracePeriod
-        );
-        vm.stopBroadcast();
+    struct LoanDeployParams {
+        address accessManager;
+        address bitmorPool;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address swapper;
+        address premiumCollector;
+        uint256 preClosureFee;
+        uint256 gracePeriod;
     }
 
     function _deployLoan() internal {
         HelperConfig config = new HelperConfig();
-        _deployLoanUsingConfig(
-            config.getAccessManager(),
-            config.getBitmorPool(),
-            config.getAaveV3Pool(),
-            config.getAaveAddressesProvider(),
-            config.getOracle(),
-            config.getCollateralAsset(),
-            config.getDebtAsset(),
-            config.getCbBTC(),
-            config.getSwapper(),
-            config.getPremiumCollector(),
-            config.getPreClosureFee(),
-            config.getGracePeriod()
+
+        LoanDeployParams memory p;
+        p.accessManager = config.getAccessManager();
+        p.bitmorPool = config.getBitmorPool();
+        p.aaveV3Pool = config.getAaveV3Pool();
+        p.aaveAddressesProvider = config.getAaveAddressesProvider();
+        p.oracle = config.getOracle();
+        p.collateralAsset = config.getCollateralAsset();
+        p.debtAsset = config.getDebtAsset();
+        p.btc = config.getCbBTC();
+        p.swapper = config.getSwapper();
+        p.premiumCollector = config.getPremiumCollector();
+        p.preClosureFee = config.getPreClosureFee();
+        p.gracePeriod = config.getGracePeriod();
+
+        vm.startBroadcast();
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            p.aaveAddressesProvider,
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            p.preClosureFee,
+            p.gracePeriod
         );
+        vm.stopBroadcast();
     }
 
     function run() public {

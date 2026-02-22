@@ -88,7 +88,10 @@ contract UniswapV4Swapper is ISwapAdaptor {
         // Use Quoter to simulate exact output swap
         (maxAmountIn,) = i_QUOTER.quoteExactOutputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: uint128(exactAmountOut), hookData: bytes("")
+                poolKey: poolKey,
+                zeroForOne: zeroForOne,
+                exactAmount: uint128(exactAmountOut),
+                hookData: bytes("")
             })
         );
     }
@@ -110,7 +113,10 @@ contract UniswapV4Swapper is ISwapAdaptor {
         // Use Quoter to simulate exact input swap
         (minAmountOut,) = i_QUOTER.quoteExactInputSingle(
             IV4Quoter.QuoteExactSingleParams({
-                poolKey: poolKey, zeroForOne: zeroForOne, exactAmount: uint128(exactAmountIn), hookData: bytes("")
+                poolKey: poolKey,
+                zeroForOne: zeroForOne,
+                exactAmount: uint128(exactAmountIn),
+                hookData: bytes("")
             })
         );
     }

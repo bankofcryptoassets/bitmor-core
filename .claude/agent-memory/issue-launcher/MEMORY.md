@@ -64,5 +64,21 @@
 - `setupUserWithVaultDebt()`: deposits via mockLoanProvider for execution tests (CollateralManager calls IERC4626.redeem())
 - `test-bitmor/` directory does not exist -- `npm run test-bitmor` will fail (pre-existing)
 
+## Oracle Infrastructure
+- `loan-provider` uses `IPriceOracleGetter` interface (single function: `getAssetPrice(address) -> uint256`)
+- `lending-pool/contracts/misc/AaveOracle.sol` (Solidity 0.6.12) wraps Chainlink via `IChainlinkAggregator.latestAnswer()` -- NO freshness check
+- `loan-provider/test/mock/MockPriceOracle.sol` implements `IPriceOracleGetter` -- returns stored prices, no Chainlink underneath
+- `loan-provider/test/mock/MockChainlinkOracle.sol` already has `makeStale()` and `latestRoundData()` for staleness testing
+- Oracle call sites in loan-provider: LoanLogic (2 functions, 4 calls), CloseLoanLogic (3 calls), Loan.calculateStrikePrice (1 call)
+- Oracle address is `immutable i_ORACLE` in LoanStorage -- same oracle used across all operations
+- Freshness checks must happen at the call site level, not inside AaveOracle (lending-pool is Solidity 0.6.12, separate module)
+
+## Admin Setter Pattern (Loan.sol)
+- Setters use `external whenNotPaused restricted` modifiers
+- LPM_SLOW role (ID 30) for state variable updates with 1-day delay
+- Each setter emits a dedicated event (e.g., `Loan__SlippageForSwapUpdated`)
+- Validation pattern: bounds check -> update state -> emit event
+- Tests in `AdminSetters.t.sol` use `_scheduleAndExecute()` for delayed operations
+
 ## Git Config Issue
 - Empty branch name config entries (`branch..gh-merge-base`) can appear from `gh issue develop` -- clean with `git config --local --unset 'branch..gh-merge-base'`

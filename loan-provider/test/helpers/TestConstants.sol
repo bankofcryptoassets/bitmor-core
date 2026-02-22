@@ -63,6 +63,10 @@ library TestConstants {
     uint256 internal constant PAYMENT_TOLERANCE = 100e6; // 100 USDC tolerance
     uint256 internal constant DEBT_DUST_THRESHOLD = 1e6; // 1 USDC dust
 
+    // ============ Oracle Staleness ============
+    uint256 internal constant MAX_ORACLE_STALENESS = 3600; // 1 hour
+    uint256 internal constant STALE_ORACLE_SECONDS = 7200; // 2 hours (for staleness testing)
+
     // ============ Time Helpers ============
     uint256 internal constant ONE_DAY = 1 days;
     uint256 internal constant ONE_MONTH = 30 days;

@@ -15,6 +15,7 @@ import {DataTypes} from "../types/DataTypes.sol";
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
+import {OracleLogic} from "./OracleLogic.sol";
 
 /**
  * @title CloseLoanLogic
@@ -127,9 +128,12 @@ library CloseLoanLogic {
          * @dev `collateralAssetPrice` is the price of `bvBTC` shares.
          * It is calculated by converting 1 `bvBTC` share into BTC and mutiplying it by `BTC` price.
          */
-        vars.collateralAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.collateralAsset);
+        vars.collateralAssetPrice =
+            OracleLogic.getValidatedPrice(ctx.oracle, ctx.collateralAsset, ctx.maxOracleStaleness);
         vars.debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
-        vars.btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
+        vars.btcPrice = OracleLogic.getValidatedPrice(ctx.oracle, ctx.btc, ctx.maxOracleStaleness);
+
+        if (vars.debtAssetPrice == 0) revert Errors.InvalidAssetPrice();
 
         /// @dev Here the decimals will be
         /// decimals = IERC20Metadata(ctx.collaterlAsset).decimals();
