@@ -19,6 +19,20 @@ import {ILendingPool} from "../../interfaces/ILendingPool.sol";
  * Delegates asset management to a single `ISimpleStrategy` implementation that splits
  * deposits between Aave and the Bitmor Lending Pool.
  *
+ * USDC Vault invariants:
+ * - totalSupply() MUST equal the sum of bvUSDC.balanceOf(addr) for all holder addresses
+ * - If a user deposits X USDC and immediately withdraws (no intervening borrows),
+ *   user MUST receive >= X - 1 wei (rounding tolerance)
+ *
+ * Bitmor single-wei invariant (9.2):
+ * Deposits, repayments, and withdrawals of 1 wei MUST either succeed with correct
+ * accounting OR revert with a minimum amount check. They MUST NEVER succeed while
+ * losing the 1 wei to rounding.
+ *
+ * Bitmor maximum value invariant (9.3):
+ * Operations with type(uint256).max MUST either revert cleanly (overflow protection)
+ * OR be bounded to a sensible maximum. They MUST NEVER overflow silently.
+ *
  * @custom:security Uses AccessManaged for role-based permissions and Pausable for emergency stops
  */
 contract USDCVault is ERC4626, AccessManaged, Pausable {
@@ -95,6 +109,12 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
 
     /**
      * @notice Triggers reallocation of assets between Aave and BLP to match target ratios
+     * @dev USDC Vault invariants:
+     * - MUST only be callable by the USDC Vault allocator role (UVA)
+     * - Allocation MUST follow the target ratio set for Aave (`s_externalAllocation`),
+     *   unlike BTC Vault which uses manual per-strategy configuration
+     * - bvUSDC.totalAssets() before reallocateAssets() MUST equal
+     *   bvUSDC.totalAssets() after reallocateAssets()
      * @custom:access Requires UVA role
      */
     function reallocateAssets() external restricted whenNotPaused {
@@ -201,7 +221,10 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
     /**
      * @notice Returns the total amount of assets under management
      * @inheritdoc ERC4626
-     * @dev Delegates to the strategy contract to calculate total assets across all positions
+     * @dev Delegates to the strategy contract to calculate total assets across all positions.
+     *
+     * USDC Vault invariant:
+     * - MUST equal ERC20(i_asset).balanceOf(address(vault)) + s_strategy.totalAssets()
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
@@ -212,6 +235,9 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
     /**
      * @notice Deposits `assets` into the vault and mints shares to `to`
      * @inheritdoc ERC4626
+     * @dev USDC Vault invariant:
+     * - MUST allow any address to deposit USDC
+     * - MUST NOT restrict deposit access (no role or allowlist gating)
      * @param assets The amount of underlying assets to deposit (must be non-zero)
      * @param to The address to receive the minted shares
      * @return shares The amount of shares minted
@@ -235,6 +261,9 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
     /**
      * @notice Withdraws exact `assets` from the vault by burning shares from `owner`
      * @inheritdoc ERC4626
+     * @dev USDC Vault invariant:
+     * - If a user deposits X USDC and immediately withdraws (no intervening borrows),
+     *   user MUST receive >= X - 1 wei (rounding tolerance)
      * @param assets The exact amount of assets to withdraw
      * @param to The address to receive the withdrawn assets
      * @param owner The address whose shares will be burned
@@ -266,6 +295,12 @@ contract USDCVault is ERC4626, AccessManaged, Pausable {
      * @dev Caps the ERC-4626 default at the strategy's actual withdrawable liquidity.
      *      `totalAssets()` includes lent-out BLP funds for correct share pricing,
      *      but those funds are not available for immediate withdrawal.
+     *
+     * USDC Vault invariants:
+     * - maxWithdraw(`owner`) MUST equal min(`owner`'s share value,
+     *   USDC balance in BLP's aToken contract + Aave aUSDC held by USDCStrategy)
+     * - Withdrawal MUST succeed if amount <= maxWithdraw(`owner`)
+     * - Withdrawal MUST revert if amount > maxWithdraw(`owner`)
      * @param owner The address to check maximum withdrawal for
      * @return maxAssets The maximum amount of underlying assets withdrawable by `owner`
      */

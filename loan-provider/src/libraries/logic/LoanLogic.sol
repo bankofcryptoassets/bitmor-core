@@ -107,10 +107,8 @@ library LoanLogic {
             })
         );
 
-        // Create LSA via factory using CREATE2 for deterministic address
         lsa = ILoanVaultFactory(ctx.loanVaultFactory).createLoanVault(params.user, block.timestamp);
 
-        // Store loan data on-chain
         loansByLSA[lsa] = DataTypes.LoanData({
             borrower: params.user,
             depositAmount: params.depositAmount,
@@ -181,7 +179,10 @@ library LoanLogic {
 
     /**
      * @notice Updates the insurance ID for a specific loan
-     * @dev Called after insurance is confirmed for a loan
+     * @dev Called after insurance is confirmed for a loan.
+     * Loan data invariants:
+     * - MUST only be updatable by the Loan contract (via EXECUTOR role) (Invariant 1.4)
+     * - Access control is enforced at the Loan.sol caller level via `restricted` modifier
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address
      * @param insuranceID The new insurance ID to set
@@ -199,6 +200,16 @@ library LoanLogic {
      * @dev Reduces duration by 1 month and updates payment timestamp.
      * Micro-liquidation occurs when a monthly payment is missed and the protocol
      * liquidates one month's worth of collateral.
+     *
+     * Loan data invariants:
+     * - MUST only be updatable by the Loan contract or LendingPoolCollateralManager (Invariant 1.4)
+     *
+     * Micro-liquidation state update invariants (Invariant 4.8):
+     * - USDC debt MUST decrease by `debtToCover` (= `estimatedMonthlyPayment`) in the lending pool
+     * - `duration` MUST decrease by exactly 1 month
+     * - `status` MUST remain Active (not Liquidated)
+     * - `lastPaymentTimestamp` MUST be set to `block.timestamp`
+     *
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being liquidated
      * @return newDuration The remaining loan duration after deduction
@@ -220,6 +231,10 @@ library LoanLogic {
      * @dev Sets `duration` to 0, updates `lastPaymentTimestamp`, and marks `status` as `Completed`.
      * Called by the lending pool when the last remaining period is micro-liquidated,
      * after which remaining collateral is returned to the borrower.
+     *
+     * Loan data invariants:
+     * - MUST only be updatable by the Loan contract or LendingPoolCollateralManager (Invariant 1.4)
+     *
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being completed
      */
@@ -238,6 +253,10 @@ library LoanLogic {
      * @notice Updates loan data after a full liquidation event
      * @dev Sets duration to 0 and status to Liquidated.
      * Full liquidation occurs when collateral value drops below debt threshold.
+     *
+     * Loan data invariants:
+     * - MUST only be updatable by the Loan contract or LendingPoolCollateralManager (Invariant 1.4)
+     *
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being liquidated
      */

@@ -44,6 +44,15 @@ import {BTCVault__Storage} from "./BTCVault__Storage.sol";
  * - Strategy management requires curator/allocator roles
  * - Pause/unpause requires emergency roles
  *
+ * Bitmor single-wei invariant (9.2):
+ * Deposits, repayments, and withdrawals of 1 wei MUST either succeed with correct
+ * accounting OR revert with a minimum amount check. They MUST NEVER succeed while
+ * losing the 1 wei to rounding.
+ *
+ * Bitmor maximum value invariant (9.3):
+ * Operations with type(uint256).max MUST either revert cleanly (overflow protection)
+ * OR be bounded to a sensible maximum. They MUST NEVER overflow silently.
+ *
  * @custom:security Uses reentrancy guards and access control for secure operations
  * @custom:security Validates all strategy operations to prevent fund loss
  */
@@ -113,6 +122,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Returns the amount of assets currently deployed in a specific strategy
+     * @dev Invariant 6.6: The returned value MUST be <= `strategies[strategyIndex].cap` for the
+     * corresponding strategy. The sum of `getAssetInStrategy(strategy_i)` across all active
+     * strategies MUST equal `btcVault.totalAssets()` minus idle vault balance.
      * @param strategy The address of the strategy to query
      * @return assets The amount of underlying assets held by the specified strategy
      */
@@ -210,7 +222,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Adds a new tokenized strategy to the vault
-     * @dev Strategy must be compatible with the vault asset
+     * @dev Strategy must be compatible with the vault asset.
+     *
+     * Invariant 6.3: MUST only be callable by the Curator (BVC role). Only the BVC role holder
+     * can add strategies and set their `DataTypes.Strategy.cap`.
      * @param strategy The address of the tokenized strategy contract to add
      * @param cap The maximum amount of assets this strategy can hold
      * @custom:access Requires BVC role (1-day delay)
@@ -227,6 +242,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Changes the asset allocation cap for an existing strategy
+     * @dev Invariant 6.3: MUST only be callable by the Curator (BVC role). Only the BVC role
+     * holder can modify `DataTypes.Strategy.cap`.
      * @param strategy The address of the strategy to modify
      * @param newCap The new maximum amount of assets this strategy can hold
      * @custom:access Requires BVC role (1-day delay)
@@ -241,7 +258,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Reallocates funds across strategies according to specified allocations
-     * @dev Validates total allocations and asset availability before execution
+     * @dev Validates total allocations and asset availability before execution.
+     *
+     * Invariant 6.2: MUST only be callable by the BTC Vault allocator (BVA_FAST role).
      * @param allocations Array of allocation instructions specifying strategy and amount changes
      * @custom:access Requires BVA_FAST role
      */
@@ -403,7 +422,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Previews the amount of assets that would be withdrawn for redeeming shares
      * @inheritdoc ERC4626
-     * @dev Adds exit fees to the assets calculation
+     * @dev Adds exit fees to the assets calculation.
+     *
+     * Invariant 6.8: `btcVault.totalSupply() * btcVault.convertToAssets(1e8) / 1e8` MUST equal
+     * `btcVault.totalAssets()` (within rounding tolerance). The share-to-asset ratio MUST remain
+     * consistent across all conversion functions.
      * @param shares The amount of shares to be redeemed
      * @return assets The total amount of assets that would be withdrawn (including fees)
      */
@@ -417,7 +440,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @inheritdoc ERC4626
      * @dev Sums the vault's idle balance (`balanceOf(address(this))`) and all strategy
      *      balances in the withdraw queue. Only active strategies (those in the withdraw
-     *      queue) are counted — removed strategies are excluded.
+     *      queue) are counted -- removed strategies are excluded.
+     *
+     * Invariant 6.6: `btcVault.totalAssets()` MUST be >= the sum of
+     * `getAssetInStrategy(strategy_i)` for all active strategies. Idle vault balance accounts
+     * for the difference.
+     *
+     * Bitmor accounting invariant (8.2 - Global BTC Conservation):
+     * btcVault.totalAssets() MUST equal the sum of previewRedeem(getATokenAmount(lsa_i))
+     * for all active loans. Any discrepancy indicates a BTC accounting leak.
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
@@ -516,7 +547,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Deposits assets into the vault and mints shares to the receiver
-     * @dev Overrides ERC4626 deposit with reentrancy guard and access control
+     * @dev Overrides ERC4626 deposit with reentrancy guard and access control.
+     *
+     * Invariant 6.1: MUST only accept deposits from the Loan contract, enforced via the BVD role
+     * granted exclusively to the Loan contract through AccessManager.
+     *
+     * Invariant 6.9: The first depositor depositing X BTC MUST receive shares proportional to X.
+     * A second depositor MUST NOT be able to manipulate the share price to steal from the first.
+     * Solady's ERC4626 virtual offset and the `MIN_STRATEGY_DEPOSIT` threshold mitigate inflation
+     * attacks.
      * @param assets Amount of underlying assets to deposit
      * @param to Address to receive the minted shares
      * @return Amount of shares minted
@@ -535,7 +574,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Mints exact shares to the receiver by depositing assets
-     * @dev Overrides ERC4626 mint with reentrancy guard and access control
+     * @dev Overrides ERC4626 mint with reentrancy guard and access control.
+     *
+     * Invariant 6.1: MUST only accept deposits from the Loan contract, enforced via the BVD role.
      * @param shares Exact amount of shares to mint
      * @param to Address to receive the minted shares
      * @return Amount of assets deposited
@@ -547,7 +588,17 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Withdraws exact assets by burning shares from the owner
-     * @dev Overrides ERC4626 withdraw with reentrancy guard
+     * @dev Overrides ERC4626 withdraw with reentrancy guard.
+     *
+     * Invariant 6.4: On closeLoan, BTC MUST be withdrawn from strategies and transferred to the
+     * borrower.
+     *
+     * Invariant 6.5: On liquidation and micro-liquidation, BTC MUST be withdrawn from strategies
+     * and transferred to the liquidator.
+     *
+     * Invariant 6.7: MUST only be callable during closeLoan or liquidation. BTC can leave the
+     * vault only into strategies apart from close/liquidation flows. Access MUST be restricted
+     * by the BVD role.
      * @param assets Exact amount of assets to withdraw
      * @param to Address to receive the withdrawn assets
      * @param owner Address that owns the shares to burn
@@ -565,7 +616,17 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Redeems exact shares for assets
-     * @dev Overrides ERC4626 redeem with reentrancy guard
+     * @dev Overrides ERC4626 redeem with reentrancy guard.
+     *
+     * Invariant 6.4: On closeLoan, BTC MUST be withdrawn from strategies and transferred to the
+     * borrower.
+     *
+     * Invariant 6.5: On liquidation and micro-liquidation, BTC MUST be withdrawn from strategies
+     * and transferred to the liquidator.
+     *
+     * Invariant 6.7: MUST only be callable during closeLoan or liquidation. BTC can leave the
+     * vault only into strategies apart from close/liquidation flows. Access MUST be restricted
+     * by the BVD role.
      * @param shares Exact amount of shares to redeem
      * @param to Address to receive the assets
      * @param owner Address that owns the shares to redeem
@@ -592,6 +653,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Internal function for `deposit` and `mint`.
      * @dev This will first transfer the applicable `fee` to the `feeRecipient` and then execute the internal `_deposit` function which will accept `assets`-`fee` in the vault.
+     *
+     * Invariant 6.9: The first depositor depositing X BTC MUST receive shares proportional to X.
+     * A second depositor MUST NOT be able to manipulate the share price to steal from the first.
+     * The `shares == 0` revert guard, Solady's virtual offset, the `MIN_STRATEGY_DEPOSIT`
+     * threshold, and ghost-dust cleanup collectively prevent inflation attacks.
      * @param by Address where the `assets` will be transferred from.
      * @param to Address where the `shares` will be minted to.
      * @param assets The amount of underlying assets to deposit after applicable `fee`.

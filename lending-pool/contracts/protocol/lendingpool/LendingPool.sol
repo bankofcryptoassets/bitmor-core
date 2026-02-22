@@ -44,6 +44,13 @@ import {ILoan} from "../../interfaces/ILoan.sol";
  * - To be covered by a proxy contract, owned by the LendingPoolAddressesProvider of the specific market
  * - All admin functions are callable by the LendingPoolConfigurator contract defined also in the
  *   LendingPoolAddressesProvider
+ *
+ * Bitmor accounting invariant (8.3 - No Value Leakage Across Protocol):
+ * value_in(BLP) + value_in(bvUSDC_aave) + value_in(bvBTC) + value_in(all_LSAs)
+ * MUST equal
+ * sum(LP_deposits) - sum(LP_withdrawals) + sum(borrower_deposits)
+ * - sum(borrower_BTC_withdrawals) + sum(interest_accrued) - sum(interest_paid_to_LPs).
+ *
  * @author Aave
  *
  */
@@ -99,6 +106,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @dev Deposits an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
      * - E.g. User deposits 100 USDC and gets in return 100 aUSDC
+     *
+     * Bitmor lending pool invariants:
+     * - MUST only allow the Loan contract (`loanProvider`) and the USDC Vault (`usdcVaultAddress`)
+     *   to call this function. All other callers MUST revert (Invariant 1.7).
+     * - When `msg.sender` is the Loan contract, the deposit MUST be for bvBTC collateral
+     *   on behalf of an LSA. Only the Loan contract can supply bvBTC to the pool (Invariant 1.3).
+     * - When `msg.sender` is the USDC Vault, the deposit MUST be for USDC liquidity.
+     *
      * @param asset The address of the underlying asset to deposit
      * @param amount The amount to be deposited
      * @param onBehalfOf The address that will receive the aTokens, same as msg.sender if the user
@@ -148,6 +163,15 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @dev Withdraws an `amount` of underlying asset from the reserve, burning the equivalent aTokens owned
      * E.g. User has 100 aUSDC, calls withdraw() and receives 100 USDC, burning the 100 aUSDC
+     *
+     * Bitmor utilization invariant (9.1):
+     * - LP withdrawals MUST revert at 100% utilization when there is insufficient liquidity
+     *   and no liquidity available in Aave either.
+     *
+     * Bitmor maximum value invariant (9.3):
+     * - When `amount` is type(uint256).max, the function MUST resolve it to `userBalance`
+     *   and MUST NOT overflow silently.
+     *
      * @param asset The address of the underlying asset to withdraw
      * @param amount The underlying amount to be withdrawn
      *   - Send the value type(uint256).max in order to withdraw the whole aToken balance
@@ -203,6 +227,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * corresponding debt token (StableDebtToken or VariableDebtToken)
      * - E.g. User borrows 100 USDC passing as `onBehalfOf` his own address, receiving the 100 USDC in his wallet
      *   and 100 stable/variable debt tokens, depending on the `interestRateMode`
+     *
+     * @dev Bitmor lending pool invariant:
+     * - MUST only allow the Loan contract to borrow USDC on behalf of LSAs.
+     *   Enforced in `_executeBorrow` via the `getBitmorLoan()` check (Invariant 1.3).
+     *
+     * Bitmor utilization invariant (9.1):
+     * - New borrows MUST revert at 100% utilization when there is insufficient liquidity.
+     *
      * @param asset The address of the underlying asset to borrow
      * @param amount The amount to be borrowed
      * @param interestRateMode The interest rate mode at which the user wants to borrow: 1 for Stable, 2 for Variable
@@ -230,6 +262,21 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @notice Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
      * - E.g. User repays 100 USDC, burning 100 variable/stable debt tokens of the `onBehalfOf` address
+     *
+     * @dev Bitmor repayment invariants:
+     * - `paybackAmount` MUST be capped at the remaining VDT balance so that repayment
+     *   never exceeds outstanding debt (Invariant 3.2).
+     * - After execution, available liquidity in the pool MUST increase by exactly
+     *   `paybackAmount` (the transfer to the aToken contract) (Invariant 3.4).
+     *
+     * Bitmor utilization invariant (9.1):
+     * - Repayments MUST still succeed at 100% utilization because they add liquidity
+     *   back to the pool.
+     *
+     * Bitmor maximum value invariant (9.3):
+     * - When `amount` is type(uint256).max, the function MUST resolve it to the
+     *   outstanding debt balance and MUST NOT overflow silently.
+     *
      * @param asset The address of the borrowed underlying asset previously borrowed
      * @param amount The amount to repay
      * - Send the value type(uint256).max in order to repay the whole debt for `asset` on the specific `debtMode`
@@ -286,7 +333,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     }
 
     // /**
-    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing. 
+    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing.
     //  * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
     //  * @param asset The address of the underlying asset borrowed
     //  * @param rateMode The rate mode that the user wants to swap to
@@ -315,7 +362,6 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     //         IStableDebtToken(reserve.stableDebtTokenAddress)
     //             .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
     //     }
-
 
     //     reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
 

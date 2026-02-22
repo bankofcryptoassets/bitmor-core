@@ -109,7 +109,11 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
         return super.mint(shares, to);
     }
 
-    /// @inheritdoc ERC4626
+    /**
+     * @inheritdoc ERC4626
+     * @dev Invariant 6.10: There MUST be no silent loss during withdrawal. BTC received from
+     * the strategy MUST be >= `shares_burned * previewRedeem(shares) - s_slippage_sharesToAsset`.
+     */
     function withdraw(uint256 assets, address to, address owner) public override onlyVault returns (uint256) {
         return super.withdraw(assets, to, owner);
     }
@@ -126,6 +130,11 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      *      significantly less than actual assets (e.g., 2/3 with 2 shares). This function reads the
      *      raw `totalAssets()` balance, withdraws it from the yield source, burns all vault shares,
      *      and transfers everything to the vault.
+     *
+     * Invariant 6.10: There MUST be no silent loss during withdrawal from a strategy. BTC received
+     * from the strategy MUST be >= `shares_burned * previewRedeem(shares) - s_slippage_sharesToAsset`.
+     * This function bypasses ERC-4626 conversion and withdraws the full `totalAssets()` balance to
+     * ensure no assets are silently lost to rounding.
      * @return assets The total assets withdrawn and transferred to the vault
      * @custom:access Only callable by the vault contract
      */
