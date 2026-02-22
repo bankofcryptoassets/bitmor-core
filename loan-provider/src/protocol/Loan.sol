@@ -367,12 +367,17 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
         (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(
-            DataTypes.CalculateLoanDetailsContext(s_minBTCAmt, s_maxBTCAmt, s_minDeposit, s_maxDuration),
-            i_BITMOR_POOL,
-            i_ORACLE,
-            i_AAVE_V3_POOL,
-            i_COLLATERAL_ASSET,
-            i_DEBT_ASSET,
+            DataTypes.CalculateLoanDetailsContext(
+                s_minBTCAmt,
+                s_maxBTCAmt,
+                s_minDeposit,
+                s_maxDuration,
+                i_BITMOR_POOL,
+                i_ORACLE,
+                i_AAVE_V3_POOL,
+                i_COLLATERAL_ASSET,
+                i_DEBT_ASSET
+            ),
             btcAmount,
             duration
         );

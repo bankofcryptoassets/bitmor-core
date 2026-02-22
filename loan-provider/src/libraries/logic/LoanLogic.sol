@@ -176,7 +176,6 @@ library LoanLogic {
 
         // Emit loan creation event
         emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.btcAmount, params.data);
-        return lsa;
     }
 
     /**
@@ -302,64 +301,55 @@ library LoanLogic {
      * @notice Calculates loan details for a given collateral amount and duration
      * @dev Used by `Loan.getLoanDetails()` to preview loan terms before creation.
      * Fetches current oracle prices and interest rates to compute values.
-     * @param ctx Context containing collateral bounds and minimum deposit BPS
-     * @param bitmorPool Bitmor Lending Pool address for interest rate data
-     * @param _oracle Price oracle address for asset valuations
-     * @param aavePool Aave V3 pool address for fetching flash loan premium
-     * @param collateralAsset Collateral asset address (bvBTC)
-     * @param debtAsset Debt asset address (USDC)
+     * @param ctx Context containing collateral bounds, deposit BPS, and protocol addresses
      * @param btcAmount Amount of collateral (8 decimals for cbBTC)
      * @param duration Loan duration in months
      * @return exactLoanAmt The loan amount in debt asset (6 decimals for USDC)
      * @return monthlyPayAmt The estimated monthly payment (6 decimals)
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
-    function calculateLoanDetails(
-        DataTypes.CalculateLoanDetailsContext memory ctx,
-        address bitmorPool,
-        address _oracle,
-        address aavePool,
-        address collateralAsset,
-        address debtAsset,
-        uint256 btcAmount,
-        uint256 duration
-    ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+    function calculateLoanDetails(DataTypes.CalculateLoanDetailsContext memory ctx, uint256 btcAmount, uint256 duration)
+        internal
+        view
+        returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
         if (btcAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
         if (btcAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
         if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
-        uint256 collateralPriceUSD;
-        uint256 debtPriceUSD;
-        uint256 interestRate;
-        uint256 flashLoanPremiumBps;
+        return _fetchPricesAndCalculate(ctx, btcAmount, duration);
+    }
+
+    /// @dev Extracted to a separate function to avoid stack-too-deep in calculateLoanDetails
+    function _fetchPricesAndCalculate(
+        DataTypes.CalculateLoanDetailsContext memory ctx,
+        uint256 btcAmount,
+        uint256 duration
+    ) private view returns (uint256, uint256, uint256) {
+        DataTypes.LoanDetailsParams memory p;
+        p.btcAmount = btcAmount;
+        p.duration = duration;
+        p.minDepositBps = ctx.minDepositBps;
 
         {
             IPriceOracleGetter oracle = IPriceOracleGetter(ctx.oracle);
-            collateralPriceUSD = oracle.getAssetPrice(ctx.collateralAsset);
-            debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
+            p.collateralPriceUSD = oracle.getAssetPrice(ctx.collateralAsset);
+            p.debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
+            p.collateralAssetDecimals = IERC20Metadata(ctx.collateralAsset).decimals();
+            p.debtAssetDecimals = IERC20Metadata(ctx.debtAsset).decimals();
         }
 
-        if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
+        if (p.collateralPriceUSD == 0 || p.debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         {
             DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(ctx.debtAsset);
-            interestRate =
+            p.interestRate =
                 IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
         }
 
-        flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
+        p.flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
 
-        (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
-            btcAmount,
-            collateralPriceUSD,
-            IERC20Metadata(collateralAsset).decimals(),
-            debtPriceUSD,
-            IERC20Metadata(debtAsset).decimals(),
-            interestRate,
-            duration,
-            ctx.minDepositBps,
-            flashLoanPremiumBps
-        );
+        return LoanMath.calculateLoanDetails(p);
     }
 
     /**
