@@ -56,8 +56,8 @@ contract LoanMathFuzzTest is Test {
         return
             DataTypes.CalculateLoanAmt({
                 btcAmount: collateral,
-                collateralPriceUSD: btcPrice,
-                collateralAssetDecimals: CBBTC_DECIMALS,
+                btcPriceUSD: btcPrice,
+                btcAssetDecimals: CBBTC_DECIMALS,
                 debtPriceUSD: FC.USDC_PRICE,
                 debtAssetDecimals: USDC_DECIMALS,
                 interestRate: interestRate,

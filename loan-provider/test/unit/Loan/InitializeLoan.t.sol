@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity 0.8.30;
 
-import {console2} from "forge-std/console2.sol";
-import {BaseLoanTest} from "./BaseLoan.t.sol";
-import {TestConstants as TC} from "../../helpers/TestConstants.sol";
-import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
-import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
-import {Loan} from "@bitmor/protocol/Loan.sol";
-import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
-import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
-import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
-import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import { console2 } from "forge-std/console2.sol";
+import { BaseLoanTest } from "./BaseLoan.t.sol";
+import { TestConstants as TC } from "../../helpers/TestConstants.sol";
+import { DataTypes } from "@bitmor/libraries/types/DataTypes.sol";
+import { Errors } from "@bitmor/libraries/helpers/Errors.sol";
+import { ILoanVault } from "@bitmor/interfaces/ILoanVault.sol";
+import { IPriceOracleGetter } from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/interfaces/IERC20Metadata.sol";
+import { Loan } from "@bitmor/protocol/Loan.sol";
+import { LoanVault } from "@bitmor/protocol/LoanVault.sol";
+import { LoanVaultFactory } from "@bitmor/protocol/LoanVaultFactory.sol";
+import { MockAaveV3Pool } from "../../mock/MockAaveV3Pool.sol";
+import { BitmorAccessManager } from "@bitmor/accessManager/BitmorAccessManager.sol";
+import { IAccessManaged } from "@openzeppelin/access/manager/IAccessManaged.sol";
 
 /// @title InitializeLoanTest
 /// @author Bitmor Protocol
@@ -34,7 +34,11 @@ contract InitializeLoanTest is BaseLoanTest {
         assertEq(loanData.borrower, expectedBorrower, "Borrower mismatch");
         assertEq(loanData.duration, expectedDuration, "Duration mismatch");
         assertEq(loanData.btcAmount, expectedCollateral, "Collateral mismatch");
-        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "Status should be Active");
+        assertEq(
+            uint256(loanData.status),
+            uint256(DataTypes.LoanStatus.Active),
+            "Status should be Active"
+        );
     }
 
     /// @notice Asserts that `loanData` has the expected borrower, duration, and non-zero loan amount and payment
@@ -52,7 +56,10 @@ contract InitializeLoanTest is BaseLoanTest {
     // ============ Loan Initialization Tests ============
 
     /// @notice Initializes a loan when deposit equals the minimum required.
-    function test_initializeLoan_whenDepositAmountIsEqualToMinimumDepositRequired() public mintDebtAssetToUser {
+    function test_initializeLoan_whenDepositAmountIsEqualToMinimumDepositRequired()
+        public
+        mintDebtAssetToUser
+    {
         // Use _createStandardLoan() which handles exact minimum deposit
         address lsa = _createStandardLoan();
         _assertLoanCreated(lsa, user, STANDARD_DURATION, STANDARD_COLLATERAL_AMOUNT);
@@ -60,14 +67,22 @@ contract InitializeLoanTest is BaseLoanTest {
 
     /// @notice Initializes a loan with zero premium amount
     function test_initializeLoan_ZeroPremium() public {
-        (uint256 expectedLoanAmt,, uint256 minDeposit) =
-            loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        (uint256 expectedLoanAmt, , uint256 minDeposit) = loan.getLoanDetails(
+            STANDARD_COLLATERAL_AMOUNT,
+            STANDARD_DURATION
+        );
         uint256 zeroPremium = 0;
 
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        address lsa = loan.initializeLoan(minDeposit, zeroPremium, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
+        address lsa = loan.initializeLoan(
+            minDeposit,
+            zeroPremium,
+            STANDARD_COLLATERAL_AMOUNT,
+            STANDARD_DURATION,
+            ""
+        );
 
         assertNotEq(lsa, address(0), "LSA should be created");
 
@@ -85,7 +100,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
+        (, , uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.InsufficientDeposit.selector);
@@ -93,15 +108,24 @@ contract InitializeLoanTest is BaseLoanTest {
     }
 
     /// @notice Initializes a loan when deposit is above the minimum required.
-    function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired() public mintDebtAssetToUser {
+    function test_initializeLoan_whenDepositAmountIsGreaterThanMinimumDepositRequired()
+        public
+        mintDebtAssetToUser
+    {
         // This test specifically needs more-than-minimum deposit
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
+        (, , uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
-        address lsa = loan.initializeLoan(minDepositRequired + 1, PREMIUM_AMOUNT, btcAmount, duration, DATA);
+        address lsa = loan.initializeLoan(
+            minDepositRequired + 1,
+            PREMIUM_AMOUNT,
+            btcAmount,
+            duration,
+            DATA
+        );
 
         _assertLoanCreated(lsa, user, duration, btcAmount);
     }
@@ -121,13 +145,19 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Initializes a loan with exact maximum collateral amount
     function test_initializeLoan_ExactMaxCollateral() public {
         uint256 maxBTC = loan.getMaxBTCAmount();
-        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) =
-            loan.getLoanDetails(maxBTC, STANDARD_DURATION);
+        (uint256 expectedLoanAmt, uint256 expectedMonthly, uint256 minDeposit) = loan
+            .getLoanDetails(maxBTC, STANDARD_DURATION);
 
         _mintDebtAssetToUser();
 
         vm.prank(user);
-        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, maxBTC, STANDARD_DURATION, "");
+        address lsa = loan.initializeLoan(
+            minDeposit,
+            PREMIUM_AMOUNT,
+            maxBTC,
+            STANDARD_DURATION,
+            ""
+        );
 
         assertNotEq(lsa, address(0), "LSA should be created");
 
@@ -173,11 +203,11 @@ contract InitializeLoanTest is BaseLoanTest {
         loan.getLoanDetails(minBTC - 1, duration);
 
         // Exactly min - should succeed
-        (uint256 loanAmt,,) = loan.getLoanDetails(minBTC, duration);
+        (uint256 loanAmt, , ) = loan.getLoanDetails(minBTC, duration);
         assertGt(loanAmt, 0, "Min boundary should return valid loan");
 
         // Exactly max - should succeed
-        (loanAmt,,) = loan.getLoanDetails(maxBTC, duration);
+        (loanAmt, , ) = loan.getLoanDetails(maxBTC, duration);
         assertGt(loanAmt, 0, "Max boundary should return valid loan");
 
         // Above max - should revert
@@ -190,20 +220,23 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
+        (, uint256 monthlyPayment, uint256 minDepositRequired) = loan.getLoanDetails(
+            btcAmount,
+            duration
+        );
 
         console2.log("minDepositRequired:", minDepositRequired);
 
         assertGt(monthlyPayment, 0, "Monthly payment must be non-zero");
 
         uint256 btcPrice = _getBtcPrice();
-        uint256 totalSizeUSD =
-            (btcAmount * btcPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
+        uint256 totalSizeUSD = (btcAmount * btcPrice) /
+            (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockCbBTC).decimals()));
         console2.log("totalSizeUSD: ", totalSizeUSD);
 
         uint256 usdPrice = _getUsdcPrice();
-        uint256 minDepositRequiredUSD =
-            (minDepositRequired * usdPrice) / (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockUSDC).decimals()));
+        uint256 minDepositRequiredUSD = (minDepositRequired * usdPrice) /
+            (TC.PRICE_PRECISION * (10 ** IERC20Metadata(mockUSDC).decimals()));
 
         uint256 ownershipBps = (minDepositRequiredUSD * 10_000) / (totalSizeUSD);
 
@@ -251,7 +284,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 maxDuration = loan.getMaxDuration();
 
-        (uint256 loanAmt,,) = loan.getLoanDetails(btcAmount, maxDuration);
+        (uint256 loanAmt, , ) = loan.getLoanDetails(btcAmount, maxDuration);
         assertGt(loanAmt, 0, "Max duration should return valid loan details");
     }
 
@@ -260,7 +293,10 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = 1;
 
-        (uint256 loanAmt, uint256 monthlyPayment, uint256 minDeposit) = loan.getLoanDetails(collateral, duration);
+        (uint256 loanAmt, uint256 monthlyPayment, uint256 minDeposit) = loan.getLoanDetails(
+            collateral,
+            duration
+        );
 
         assertGt(loanAmt, 0, "Loan amount should be positive");
         assertGt(monthlyPayment, 0, "Monthly payment should be positive");
@@ -273,17 +309,17 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
+        (, , uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         address oracle = loan.i_ORACLE();
-        uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(collateralAsset);
+        uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(btc);
 
         // Underprice BTC by 2% to breach 0.5% slippage
         uint256 mockedBtcPrice = (realBtcPrice * 102) / 100;
 
         vm.mockCall(
             oracle,
-            abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, collateralAsset),
+            abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc),
             abi.encode(mockedBtcPrice)
         );
 
@@ -317,7 +353,9 @@ contract InitializeLoanTest is BaseLoanTest {
 
         // Set up roles for loan2 before setting target selectors
         address loanVaultImplementation = address(new LoanVault());
-        address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan2)));
+        address loanVaultFactory = address(
+            new LoanVaultFactory(loanVaultImplementation, address(loan2))
+        );
         loan2.setLoanVaultFactory(loanVaultFactory);
         loan2.setMaxBTCAmount(TC.MAX_COLLATERAL);
         loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
@@ -327,7 +365,11 @@ contract InitializeLoanTest is BaseLoanTest {
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);
-        manager2.setTargetFunctionRole(address(loan2), rolesData.getEXECUTOR_SELECTORS(), EXECUTOR_ID());
+        manager2.setTargetFunctionRole(
+            address(loan2),
+            rolesData.getEXECUTOR_SELECTORS(),
+            EXECUTOR_ID()
+        );
 
         vm.stopPrank();
 
@@ -340,13 +382,23 @@ contract InitializeLoanTest is BaseLoanTest {
         _utilSeedUserAndApprove(user, debtAsset, address(loan2), USER_USDC_FUNDING);
 
         // Use _utilCreateLoan with loan2 for this specific test
-        (address lsa,) =
-            _utilCreateLoan(loan2, user, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, PREMIUM_AMOUNT, DATA);
+        (address lsa, ) = _utilCreateLoan(
+            loan2,
+            user,
+            STANDARD_COLLATERAL_AMOUNT,
+            STANDARD_DURATION,
+            PREMIUM_AMOUNT,
+            DATA
+        );
 
         // Assert flash loan was executed successfully
         assertTrue(lsa != address(0), "LSA should be created");
         assertTrue(mockPool.lastAmount() > 0, "Flash loan amount should be > 0");
-        assertEq(mockPool.lastInitiator(), address(loan2), "Flash loan initiator should be loan contract");
+        assertEq(
+            mockPool.lastInitiator(),
+            address(loan2),
+            "Flash loan initiator should be loan contract"
+        );
     }
 
     /// @notice Sets correct LSA ownership and records loan data.
@@ -376,7 +428,7 @@ contract InitializeLoanTest is BaseLoanTest {
         uint256 btcAmount = STANDARD_COLLATERAL_AMOUNT;
         uint256 duration = STANDARD_DURATION;
 
-        (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
+        (, , uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
         vm.prank(user);
         _expectRevertSelector(Errors.ZeroAmount.selector);
@@ -388,7 +440,7 @@ contract InitializeLoanTest is BaseLoanTest {
     /// @notice Reverts when collateral asset price is zero
     function test_calculateLoanDetails_RevertWhen_CollateralPriceIsZero() public {
         // The collateral asset in Loan is mockBTCVault, not mockCbBTC
-        mockOracle.setAssetPrice(address(mockBTCVault), 0);
+        mockOracle.setAssetPrice(address(mockCbBTC), 0);
 
         vm.expectRevert(Errors.InvalidAssetPrice.selector);
         loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
@@ -413,10 +465,21 @@ contract InitializeLoanTest is BaseLoanTest {
         vm.startPrank(noRoleUser);
         mockUSDC.approve(address(loan), type(uint256).max);
 
-        (,, uint256 minDeposit) = loan.getLoanDetails(STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION);
+        (, , uint256 minDeposit) = loan.getLoanDetails(
+            STANDARD_COLLATERAL_AMOUNT,
+            STANDARD_DURATION
+        );
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser));
-        loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, STANDARD_COLLATERAL_AMOUNT, STANDARD_DURATION, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, noRoleUser)
+        );
+        loan.initializeLoan(
+            minDeposit,
+            PREMIUM_AMOUNT,
+            STANDARD_COLLATERAL_AMOUNT,
+            STANDARD_DURATION,
+            ""
+        );
         vm.stopPrank();
     }
 
@@ -432,6 +495,12 @@ contract InitializeLoanTest is BaseLoanTest {
         // Act & Assert - call from Aave pool (correct caller) but with wrong initiator
         vm.prank(address(mockAavePool));
         vm.expectRevert(Errors.WrongFLInitiator.selector);
-        loan.executeOperation(debtAsset, TC.FLASH_LOAN_AMOUNT, TC.FLASH_LOAN_PREMIUM, wrongInitiator, params);
+        loan.executeOperation(
+            debtAsset,
+            TC.FLASH_LOAN_AMOUNT,
+            TC.FLASH_LOAN_PREMIUM,
+            wrongInitiator,
+            params
+        );
     }
 }
