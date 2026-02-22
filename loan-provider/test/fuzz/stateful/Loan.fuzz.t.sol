@@ -5,6 +5,7 @@ import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {Constants} from "@bitmor/libraries/helpers/Constants.sol";
 
 /**
  * @title LoanFuzzTest
@@ -143,10 +144,10 @@ contract LoanFuzzTest is LoanUnitTestBase {
 
         // Get debt before repayment
         uint256 debtBefore = _getDebtBalance(lsa);
-        vm.assume(debtBefore > FC.MIN_USDC_AMOUNT + 11);
+        vm.assume(debtBefore > FC.MIN_USDC_AMOUNT + Constants.DEBT_DUST_THRESHOLD + 1);
 
         // Bound repayment to valid range (leave > DEBT_DUST_THRESHOLD to stay in partial-repay path)
-        uint256 repayment = bound(repaymentSeed, FC.MIN_USDC_AMOUNT, debtBefore - 11);
+        uint256 repayment = bound(repaymentSeed, FC.MIN_USDC_AMOUNT, debtBefore - (Constants.DEBT_DUST_THRESHOLD + 1));
 
         // Fund user and advance time to allow repayment
         _fundUSDCAndApprove(user, address(loan), repayment);

@@ -5,6 +5,7 @@ import {LoanFuzzTestBase} from "../base/LoanFuzzTestBase.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
+import {Constants} from "@bitmor/libraries/helpers/Constants.sol";
 
 /**
  * @title RepayLoanFuzzTest
@@ -56,7 +57,7 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         uint256 totalDebt = _getDebtBalance(lsa);
         uint256 collateralBefore = _getCollateralBalance(lsa);
 
-        uint256 repayAmount = bound(repayAmountSeed, 1, totalDebt - 11);
+        uint256 repayAmount = bound(repayAmountSeed, 1, totalDebt - (Constants.DEBT_DUST_THRESHOLD + 1));
 
         _fundUserForRepay(repayAmount);
         vm.prank(user);
@@ -183,7 +184,7 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         uint256 initialDuration = loanData.duration;
 
         // Total must be >= 2 (splittable) and < totalDebt (both paths stay partial)
-        uint256 totalAmount = bound(totalAmountSeed, 2, totalDebt - 11);
+        uint256 totalAmount = bound(totalAmountSeed, 2, totalDebt - (Constants.DEBT_DUST_THRESHOLD + 1));
         uint256 firstPayment = bound(splitSeed, 1, totalAmount - 1);
         uint256 secondPayment = totalAmount - firstPayment;
 
@@ -211,9 +212,11 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
     /**
      * @notice The total USDC extracted from the payer across two sequential repayments
      *         must never exceed the original debt. This is the core solvency invariant.
-     * @dev The first repay is always partial. The second may trigger full repayment
-     *      (and collateral withdrawal), which is acceptable. RepayLogic.sol:74 caps
-     *      each repay to remaining debt.
+     * @dev The first repay is always partial (bounded to leave > DEBT_DUST_THRESHOLD remaining).
+     *      The second repay is bounded to [remainingAfter1, initialDebt], so it either triggers
+     *      exact full repayment or overpays (testing the cap path at RepayLogic.sol:74).
+     *      This avoids the ambiguous dust zone where remaining debt <= DEBT_DUST_THRESHOLD
+     *      triggers auto-completion, which is tested separately in testFuzz_repay_FullRepaymentAlwaysCompletes.
      * @param amount1Seed Seed for first repay amount
      * @param amount2Seed Seed for second repay amount
      * @custom:audit-property Cumulative extraction never exceeds debt
@@ -224,10 +227,12 @@ contract RepayLoanFuzzTest is LoanFuzzTestBase {
         address lsa = _createStandardLoan();
         uint256 initialDebt = _getDebtBalance(lsa);
 
-        // First repay: always partial, leave enough that second repay won't hit dust path
-        uint256 amount1 = bound(amount1Seed, 1, initialDebt - 12);
+        // First repay: always partial, leave enough room so second repay avoids the dust zone
+        // (remaining after first > DEBT_DUST_THRESHOLD + 1, so second repay can be either clearly
+        // partial or clearly full without landing in the ambiguous dust zone)
+        uint256 amount1 = bound(amount1Seed, 1, initialDebt - (Constants.DEBT_DUST_THRESHOLD + 2));
         uint256 remainingAfter1 = initialDebt - amount1;
-        // Second repay: either clearly partial (leaving > 10 wei) or clearly full (>= remaining)
+        // Second repay: >= remaining guarantees either exact full repay or overpayment (tests cap path)
         uint256 amount2 = bound(amount2Seed, remainingAfter1, initialDebt);
 
         _fundUserForRepay(amount1 + amount2);

@@ -167,6 +167,27 @@ contract LoanContract is BaseLoanTest {
         }
     }
 
+    /// @notice Constructor reverts with ZeroAddress when aaveAddressesProvider is address(0).
+    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            address(0), // aaveAddressesProvider
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            p.preClosureFeeBps,
+            p.gracePeriod
+        );
+    }
+
     /// @notice Constructor reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
     function test_loan_constructor_invalidPreClosureFee_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
