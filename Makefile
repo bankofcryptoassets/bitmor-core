@@ -1,6 +1,6 @@
 # Bitmor Protocol - Root Makefile
 
-.PHONY: help install build clean anvil anvil-stop deploy-local test
+.PHONY: help install build clean anvil anvil-stop deploy-local test coverage
 
 # Chain configuration
 LOCAL_CHAIN_ID := 31337
@@ -151,3 +151,14 @@ test\:lp\:scenarios:
 
 test\:all: test\:unit test\:lp
 	@echo "All tests complete."
+
+# ============ Coverage ============
+
+coverage:
+	@cd loan-provider && make coverage
+
+coverage-lcov:
+	@cd loan-provider && make coverage-lcov
+
+coverage-html:
+	@cd loan-provider && make coverage-html
