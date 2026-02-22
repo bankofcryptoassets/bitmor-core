@@ -396,6 +396,11 @@ library DataTypes {
         uint256 minDepositBps;
         /// @dev Maximum loan duration in months
         uint256 maxDuration;
+        address bitmorPool;
+        address oracle;
+        address aavePool;
+        address collateralAsset;
+        address debtAsset;
     }
 
     /**
@@ -584,9 +589,9 @@ library DataTypes {
      */
     struct StrategyState {
         /**
-         * @notice Total number of strategies currently managed by the vault
+         * @notice Next available index for strategy assignment (monotonic counter, never decremented)
          */
-        uint256 totalStrategies;
+        uint256 nextStrategyIndex;
         /**
          * @notice Mapping from index to strategy details
          */

@@ -158,51 +158,38 @@ library LoanMath {
      * 4. Include flash loan premium in total debt
      * 5. Calculate monthly payment using EMI formula
      *
-     * @param collateralAmount Desired BTC collateral amount (8 decimals)
-     * @param collateralPriceUSD BTC price in USD (8 decimals from oracle)
-     * @param collateralAssetDecimals Number of decimals for collateral asset
-     * @param debtPriceUSD USDC price in USD (8 decimals from oracle)
-     * @param debtAssetDecimals Number of decimals for debt asset
-     * @param interestRate Maximum variable borrow rate from interest rate strategy (27 decimals - RAY)
-     * @param duration Loan duration in months
-     * @param minDepositBps Minimum deposit requirement in basis points (e.g., 3300 = 33%)
-     * @param flashLoanPremiumBps Aave V3 flash loan premium in basis points (e.g., 5 = 0.05%)
+     * @param data Struct containing collateral amount, prices, decimals, interest rate, duration, and deposit/premium params
      * @return loanAmount The calculated loan amount in USDC (6 decimals)
      * @return monthlyPayAmt The monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required amount in USDC (6 decimals)
      */
-    function calculateLoanDetails(
-        uint256 collateralAmount,
-        uint256 collateralPriceUSD,
-        uint256 collateralAssetDecimals,
-        uint256 debtPriceUSD,
-        uint256 debtAssetDecimals,
-        uint256 interestRate,
-        uint256 duration,
-        uint256 minDepositBps,
-        uint256 flashLoanPremiumBps
-    ) internal pure returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+    function calculateLoanDetails(DataTypes.CalculateLoanAmt memory data)
+        internal
+        pure
+        returns (uint256 loanAmount, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
         // Convert collateral amount to USD value
-        uint256 collateralValueUSD = collateralAmount.fullMulDivUp(collateralPriceUSD, (10 ** collateralAssetDecimals));
+        uint256 collateralValueUSD =
+            data.collateralAmount.fullMulDivUp(data.collateralPriceUSD, (10 ** data.collateralAssetDecimals));
 
-        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(minDepositBps, BASIS_POINTS);
+        uint256 minDepositRequiredUSD = collateralValueUSD.fullMulDivUp(data.minDepositBps, BASIS_POINTS);
 
         uint256 depositValueUSD = minDepositRequiredUSD;
 
-        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
+        minDepositRequired = minDepositRequiredUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Calculate loan amount in USD
         uint256 loanValueUSD = collateralValueUSD - depositValueUSD;
 
         // Convert loan value back to USDC
-        loanAmount = loanValueUSD.fullMulDivUp((10 ** debtAssetDecimals), debtPriceUSD);
+        loanAmount = loanValueUSD.fullMulDivUp((10 ** data.debtAssetDecimals), data.debtPriceUSD);
 
         // Include flash loan premium in EMI principal (matches CloseLoanLogic pattern)
-        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(flashLoanPremiumBps, BASIS_POINTS);
+        uint256 flashLoanPremiumAmt = loanAmount.mulDivUp(data.flashLoanPremiumBps, BASIS_POINTS);
         uint256 totalDebt = loanAmount + flashLoanPremiumAmt;
 
         // Calculate monthly payment on total debt (loanAmount + flash loan premium)
-        monthlyPayAmt = _calculateEMI(totalDebt, interestRate, duration);
+        monthlyPayAmt = _calculateEMI(totalDebt, data.interestRate, data.duration);
     }
 
     /**

@@ -74,8 +74,24 @@ contract BTCVault__Storage {
 
     /**
      * @notice Emitted when emergency withdrawal of all funds is executed
+     * @param totalRecovered The total amount of assets successfully recovered across all strategies
      */
-    event BTCVault__EmergencyWithdrawFunds();
+    event BTCVault__EmergencyWithdrawFunds(uint256 totalRecovered);
+
+    /**
+     * @notice Emitted when a strategy withdrawal fails during reallocation and is skipped
+     * @param strategyIndex The index of the strategy that failed
+     * @param amount The amount that was attempted to withdraw
+     * @param reason The revert reason bytes from the failed call
+     */
+    event BTCVault__StrategyWithdrawFailed(uint256 indexed strategyIndex, uint256 amount, bytes reason);
+
+    /**
+     * @notice Emitted when a strategy withdrawal fails during emergency withdraw and is skipped
+     * @param strategyIndex The index of the strategy that failed
+     * @param reason The revert reason bytes from the failed call
+     */
+    event BTCVault__EmergencyWithdrawFailed(uint256 indexed strategyIndex, bytes reason);
 
     /**
      * @notice Emitted when the supply queue order is updated
@@ -149,7 +165,7 @@ contract BTCVault__Storage {
 
     /**
      * @notice Complete strategy management state including strategies array and queues
-     * @dev Contains strategies mapping, supplyQueue, withdrawQueue, totalStrategies
+     * @dev Contains strategies mapping, supplyQueue, withdrawQueue, nextStrategyIndex
      */
     DataTypes.StrategyState internal s_strategy;
 

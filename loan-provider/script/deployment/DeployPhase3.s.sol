@@ -330,37 +330,43 @@ contract DeployPhase3 is InitialSetup {
         address admin = msg.sender;
         RolesData rolesData = new RolesData();
 
-        // Get guardian role IDs (tuple: grantee, id, isContract)
-        (, uint64 guardianLpmSlowId,) = rolesData.GUARDIAN_LPM_SLOW();
-        (, uint64 guardianBvmSlowId,) = rolesData.GUARDIAN_BVM_SLOW();
-        (, uint64 guardianBvcId,) = rolesData.GUARDIAN_BVC();
-        (, uint64 guardianBvaSlowId,) = rolesData.GUARDIAN_BVA_SLOW();
-        (, uint64 guardianUvmSlowId,) = rolesData.GUARDIAN_UVM_SLOW();
-        (, uint64 guardianUvcId,) = rolesData.GUARDIAN_UVC();
-
-        // Get guarded role IDs (tuple with 10 elements)
-        (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        (,,,, uint64 bvmSlowId,,,,,) = rolesData.BVM_SLOW();
-        (,,,, uint64 bvcId,,,,,) = rolesData.BVC();
-        (,,,, uint64 bvaSlowId,,,,,) = rolesData.BVA_SLOW();
-        (,,,, uint64 uvmSlowId,,,,,) = rolesData.UVM_SLOW();
-        (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
-
-        // Grant guardian roles to admin
-        manager.grantRole(guardianLpmSlowId, admin, 0);
-        manager.grantRole(guardianBvmSlowId, admin, 0);
-        manager.grantRole(guardianBvcId, admin, 0);
-        manager.grantRole(guardianBvaSlowId, admin, 0);
-        manager.grantRole(guardianUvmSlowId, admin, 0);
-        manager.grantRole(guardianUvcId, admin, 0);
-
-        // Set guardian relationships
-        manager.setRoleGuardian(lpmSlowId, guardianLpmSlowId);
-        manager.setRoleGuardian(bvmSlowId, guardianBvmSlowId);
-        manager.setRoleGuardian(bvcId, guardianBvcId);
-        manager.setRoleGuardian(bvaSlowId, guardianBvaSlowId);
-        manager.setRoleGuardian(uvmSlowId, guardianUvmSlowId);
-        manager.setRoleGuardian(uvcId, guardianUvcId);
+        // Grant each guardian role to admin and set its guardian relationship
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_LPM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.LPM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVC();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVC();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_BVA_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.BVA_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_UVM_SLOW();
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVM_SLOW();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
+        {
+            (, uint64 guardianId,) = rolesData.GUARDIAN_UVC();
+            (,,,, uint64 guardedId,,,,,) = rolesData.UVC();
+            manager.grantRole(guardianId, admin, 0);
+            manager.setRoleGuardian(guardedId, guardianId);
+        }
     }
 
     /// @notice Schedules all delayed operations for execution after timelock
@@ -388,62 +394,37 @@ contract DeployPhase3 is InitialSetup {
 
     /// @notice Saves all deployed addresses to deployments.json
     function _saveDeployments() internal {
-        // Build updated networkConfig with all addresses
-        string memory networkConfig = string.concat(
-            "{",
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"debtAsset":"',
-            vm.toString(mockUsdc),
-            '",',
-            '"cbBTC":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btc":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btcOracle":"',
-            vm.toString(btcOracle),
-            '",',
-            '"usdcOracle":"',
-            vm.toString(usdcOracle),
-            '",',
-            '"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
-            '",',
-            '"aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
-            '",',
-            '"usdcVault":"',
-            vm.toString(usdcVault),
-            '",',
-            '"loan":"',
-            vm.toString(loan),
-            '",',
-            '"loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '",',
-            '"loanVaultImpl":"',
-            vm.toString(loanVaultImpl),
-            '",',
-            '"swapper":"',
-            vm.toString(mockSwapAdapter),
-            '",',
-            '"aaveStrategy":"',
-            vm.toString(aaveStrategy),
-            '",',
-            '"usdcStrategy":"',
-            vm.toString(usdcStrategy),
-            '"',
-            "}"
+        // Build JSON in chunks to avoid stack-too-deep from large string.concat
+        string memory cfg = string.concat(
+            '{"accessManager":"', vm.toString(accessManager),
+            '","collateralAsset":"', vm.toString(btcVault),
+            '","debtAsset":"', vm.toString(mockUsdc),
+            '","cbBTC":"', vm.toString(mockCbBTC),
+            '","btc":"', vm.toString(mockCbBTC), '"'
+        );
+
+        cfg = string.concat(
+            cfg,
+            ',"btcOracle":"', vm.toString(btcOracle),
+            '","usdcOracle":"', vm.toString(usdcOracle),
+            '","aaveV3Pool":"', vm.toString(aaveV3Pool),
+            '","aaveAddressesProvider":"', vm.toString(aaveAddressesProvider),
+            '","usdcVault":"', vm.toString(usdcVault), '"'
+        );
+
+        cfg = string.concat(
+            cfg,
+            ',"loan":"', vm.toString(loan),
+            '","loanVaultFactory":"', vm.toString(loanVaultFactory),
+            '","loanVaultImpl":"', vm.toString(loanVaultImpl),
+            '","swapper":"', vm.toString(mockSwapAdapter),
+            '","aaveStrategy":"', vm.toString(aaveStrategy),
+            '","usdcStrategy":"', vm.toString(usdcStrategy),
+            '"}'
         );
 
         string memory fullJson =
-            string.concat('{"deployments":{"31337":{"network":"localhost","networkConfig":', networkConfig, "}}}");
+            string.concat('{"deployments":{"31337":{"network":"localhost","networkConfig":', cfg, "}}}");
 
         vm.writeFile("./deployments.json", fullJson);
         console2.log("Saved final addresses to deployments.json");

@@ -1,23 +1,26 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
+import { IERC20 } from "@openzeppelin/interfaces/IERC20.sol";
+import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import { SafeERC20 } from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/interfaces/IERC20Metadata.sol";
 
-import {ILoan} from "../../interfaces/ILoan.sol";
-import {ILendingPool} from "../../interfaces/ILendingPool.sol";
-import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
-import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
+import { ILoan } from "../../interfaces/ILoan.sol";
+import { ILendingPool } from "../../interfaces/ILendingPool.sol";
+import { ILoanVaultFactory } from "../../interfaces/ILoanVaultFactory.sol";
+import { IPriceOracleGetter } from "../../interfaces/IPriceOracleGetter.sol";
+import { IReserveInterestRateStrategy } from "../../interfaces/IReserveInterestRateStrategy.sol";
 
-import {Errors} from "../helpers/Errors.sol";
-import {LoanMath} from "../helpers/LoanMath.sol";
+import { Errors } from "../helpers/Errors.sol";
+import { Constants } from "../helpers/Constants.sol";
+import { LoanMath } from "../helpers/LoanMath.sol";
 
-import {DataTypes} from "../types/DataTypes.sol";
+import { DataTypes } from "../types/DataTypes.sol";
 
-import {AavePoolLogic} from "./AavePoolLogic.sol";
+import { LSALogic } from "./LSALogic.sol";
+import { BitmorLendingPoolLogic } from "./BitmorLendingPoolLogic.sol";
+import { AavePoolLogic } from "./AavePoolLogic.sol";
 
 /**
  * @title LoanLogic
@@ -41,6 +44,8 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
 library LoanLogic {
     using SafeERC20 for IERC20;
     using FixedPointMathLib for uint256;
+    using LSALogic for address;
+    using BitmorLendingPoolLogic for address;
 
     /**
      * @notice Executes the full loan initialization flow
@@ -85,7 +90,7 @@ library LoanLogic {
             revert Errors.GreaterThanMaxCollateralAllowed();
         }
 
-        (uint256 loanAmount, uint256 monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
+        (uint256 loanAmount, uint256 monthlyPayment, ) = _calculateLoanAmountAndMonthlyPayment(
             DataTypes.CalculateLoanAmountAndMonthlyPayment(
                 ctx.bitmorPool,
                 ctx.oracle,
@@ -124,6 +129,27 @@ library LoanLogic {
         userLoanAtIndex[params.user][loanIndex] = lsa;
         userLoanCount[params.user] = loanIndex + 1;
 
+        _executeTransfersAndFlashLoan(ctx, params, lsa, loanAmount);
+
+        return lsa;
+    }
+
+    /**
+     * @notice Handles fund transfers, flash loan execution, and surplus refund
+     * @dev Extracted from `executeInitializeLoan` to reduce stack depth for coverage builds.
+     * Transfers the user's deposit and premium, initiates the Aave V3 flash loan,
+     * and refunds any USDC surplus from the exactOut swap.
+     * @param ctx Context containing protocol addresses and configuration
+     * @param params Parameters for loan initialization
+     * @param lsa The Loan Specific Address created for this loan
+     * @param loanAmount The calculated loan amount to flash-borrow
+     */
+    function _executeTransfersAndFlashLoan(
+        DataTypes.InitializeLoanContext memory ctx,
+        DataTypes.ExecuteInitializeLoanParams memory params,
+        address lsa,
+        uint256 loanAmount
+    ) private {
         /// @dev Snapshot balance before deposit+flash loan to refund exactOut swap surplus
         uint256 balBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
 
@@ -132,7 +158,11 @@ library LoanLogic {
 
         // Transfer premium amount to premium collector
         if (params.premiumAmount > 0) {
-            IERC20(ctx.debtAsset).safeTransferFrom(params.user, ctx.premiumCollector, params.premiumAmount);
+            IERC20(ctx.debtAsset).safeTransferFrom(
+                params.user,
+                ctx.premiumCollector,
+                params.premiumAmount
+            );
         }
 
         // Flash loan execution flow
@@ -140,7 +170,13 @@ library LoanLogic {
         bytes memory flData = abi.encode(lsa, params.collateralAmount);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
-        AavePoolLogic.executeFlashLoan(ctx.aavePool, address(this), ctx.debtAsset, loanAmount, paramsForFL);
+        AavePoolLogic.executeFlashLoan(
+            ctx.aavePool,
+            address(this),
+            ctx.debtAsset,
+            loanAmount,
+            paramsForFL
+        );
 
         /// @dev Refund any USDC surplus from the exactOut swap to the user.
         /// The swap consumes at most `deposit + loanAmount` but typically less,
@@ -149,8 +185,13 @@ library LoanLogic {
         if (surplus > 0) IERC20(ctx.debtAsset).safeTransfer(params.user, surplus);
 
         // Emit loan creation event
-        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.collateralAmount, params.data);
-        return lsa;
+        emit ILoan.Loan__LoanCreated(
+            params.user,
+            lsa,
+            loanAmount,
+            params.collateralAmount,
+            params.data
+        );
     }
 
     /**
@@ -177,10 +218,10 @@ library LoanLogic {
      * @param lsa The Loan Specific Address being liquidated
      * @return newDuration The remaining loan duration after deduction
      */
-    function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-        returns (uint256 newDuration)
-    {
+    function updateLoanDataForMicroLiquidation(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal returns (uint256 newDuration) {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         newDuration = loan.duration.zeroFloorSub(1);
@@ -215,9 +256,10 @@ library LoanLogic {
      * @param loansByLSA Storage mapping of loans by LSA address
      * @param lsa The Loan Specific Address being liquidated
      */
-    function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-    {
+    function updateLoanDataForFullLiquidation(
+        mapping(address => DataTypes.LoanData) storage loansByLSA,
+        address lsa
+    ) internal {
         DataTypes.LoanData storage loan = loansByLSA[lsa];
 
         loan.duration = 0;
@@ -234,7 +276,9 @@ library LoanLogic {
      * @return monthlyPayAmt Estimated monthly payment in debt asset decimals
      * @return minDepositRequired Minimum deposit required in debt asset decimals
      */
-    function _calculateLoanAmountAndMonthlyPayment(DataTypes.CalculateLoanAmountAndMonthlyPayment memory data)
+    function _calculateLoanAmountAndMonthlyPayment(
+        DataTypes.CalculateLoanAmountAndMonthlyPayment memory data
+    )
         internal
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
@@ -247,10 +291,13 @@ library LoanLogic {
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         // Fetch max variable borrow rate from interest rate strategy
-        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(data.debtAsset);
+        DataTypes.ReserveData memory reserveData = ILendingPool(data.bitmorPool).getReserveData(
+            data.debtAsset
+        );
 
-        uint256 maxInterestRate =
-            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+        uint256 maxInterestRate = IReserveInterestRateStrategy(
+            reserveData.interestRateStrategyAddress
+        ).getMaxVariableBorrowRate();
 
         // Fetch flash loan premium from Aave V3
         uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(data.aavePool);
@@ -277,11 +324,6 @@ library LoanLogic {
      * @dev Used by `Loan.getLoanDetails()` to preview loan terms before creation.
      * Fetches current oracle prices and interest rates to compute values.
      * @param ctx Context containing collateral bounds and minimum deposit BPS
-     * @param bitmorPool Bitmor Lending Pool address for interest rate data
-     * @param _oracle Price oracle address for asset valuations
-     * @param aavePool Aave V3 pool address for fetching flash loan premium
-     * @param collateralAsset Collateral asset address (cbBTC)
-     * @param debtAsset Debt asset address (USDC)
      * @param collateralAmount Amount of collateral (8 decimals for cbBTC)
      * @param duration Loan duration in months
      * @return exactLoanAmt The loan amount in debt asset (6 decimals for USDC)
@@ -290,44 +332,99 @@ library LoanLogic {
      */
     function calculateLoanDetails(
         DataTypes.CalculateLoanDetailsContext memory ctx,
-        address bitmorPool,
-        address _oracle,
-        address aavePool,
-        address collateralAsset,
-        address debtAsset,
         uint256 collateralAmount,
         uint256 duration
-    ) internal view returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired) {
+    )
+        internal
+        view
+        returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
+    {
         if (collateralAmount < ctx.minBTCAmt) revert Errors.LessThanMinimumCollateralAllowed();
         if (collateralAmount > ctx.maxBTCAmt) revert Errors.GreaterThanMaxCollateralAllowed();
         if (duration == 0 || duration > ctx.maxDuration) revert Errors.Loan__InvalidDuration();
 
-        // Get oracle prices
-        IPriceOracleGetter oracle = IPriceOracleGetter(_oracle);
-        uint256 collateralPriceUSD = oracle.getAssetPrice(collateralAsset);
-        uint256 debtPriceUSD = oracle.getAssetPrice(debtAsset);
+        uint256 collateralPriceUSD;
+        uint256 debtPriceUSD;
+        uint256 interestRate;
+        uint256 flashLoanPremiumBps;
+
+        {
+            IPriceOracleGetter oracle = IPriceOracleGetter(ctx.oracle);
+            collateralPriceUSD = oracle.getAssetPrice(ctx.collateralAsset);
+            debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
+        }
 
         if (collateralPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
-        // Fetch max variable borrow rate from interest rate strategy (matches executeInitializeLoan)
-        DataTypes.ReserveData memory reserveData = ILendingPool(bitmorPool).getReserveData(debtAsset);
-        uint256 interestRate =
-            IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress).getMaxVariableBorrowRate();
+        {
+            DataTypes.ReserveData memory reserveData = ILendingPool(ctx.bitmorPool).getReserveData(
+                ctx.debtAsset
+            );
+            interestRate = IReserveInterestRateStrategy(reserveData.interestRateStrategyAddress)
+                .getMaxVariableBorrowRate();
+        }
 
-        // Fetch flash loan premium from Aave V3
-        uint256 flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(aavePool);
+        flashLoanPremiumBps = AavePoolLogic.getFlashLoanPremium(ctx.aavePool);
 
-        // Calculate loan amount and monthly payment using fetched rate
         (exactLoanAmt, monthlyPayAmt, minDepositRequired) = LoanMath.calculateLoanDetails(
-            collateralAmount,
-            collateralPriceUSD,
-            IERC20Metadata(collateralAsset).decimals(),
-            debtPriceUSD,
-            IERC20Metadata(debtAsset).decimals(),
-            interestRate,
-            duration,
-            ctx.minDepositBps,
-            flashLoanPremiumBps
+            DataTypes.CalculateLoanAmt({
+                depositAmount: 0,
+                debtAssetDecimals: IERC20Metadata(ctx.debtAsset).decimals(),
+                collateralAmount: collateralAmount,
+                collateralAssetDecimals: IERC20Metadata(ctx.collateralAsset).decimals(),
+                collateralPriceUSD: collateralPriceUSD,
+                debtPriceUSD: debtPriceUSD,
+                interestRate: interestRate,
+                duration: duration,
+                minDepositBps: ctx.minDepositBps,
+                flashLoanPremiumBps: flashLoanPremiumBps
+            })
         );
+    }
+
+    /**
+     * @notice Validates ownership, repays dust debt from borrower if needed, and claims remaining collateral
+     * @dev Approach 3b: pulls dust USDC from the borrower (`msg.sender`) for dust repayment.
+     *      Keeps consistency with other LoanLogic functions that handle full lifecycle operations.
+     * @param lsa The Loan Specific Address with surplus collateral
+     * @param borrower Cached borrower address (caller must validate ownership before calling)
+     * @param status Current loan status (caller must read from storage before calling)
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset Debt asset address (USDC)
+     * @param collateralAsset Collateral asset address (bvBTC)
+     * @param slippage_sharesToAsset Acceptable slippage in basis points for shares-to-asset conversion
+     * @return assetsClaimed The amount of cbBTC assets claimed by the borrower
+     */
+    function executeClaimRemainingCollateral(
+        address lsa,
+        address borrower,
+        DataTypes.LoanStatus status,
+        address bitmorPool,
+        address debtAsset,
+        address collateralAsset,
+        uint256 slippage_sharesToAsset
+    ) internal returns (uint256 assetsClaimed) {
+        if (status == DataTypes.LoanStatus.Active) {
+            revert Errors.Loan__InvalidLoanStatus();
+        }
+        if (msg.sender != borrower) {
+            revert Errors.Loan__OnlyBorrower();
+        }
+
+        // Repay dust debt from borrower if Aave V2 rounding left residual
+        uint256 dustDebt = bitmorPool.getVDTTokenAmount(debtAsset, lsa);
+        if (dustDebt > 0 && dustDebt <= Constants.DEBT_DUST_THRESHOLD) {
+            IERC20(debtAsset).safeTransferFrom(msg.sender, address(this), dustDebt);
+            bitmorPool.repayDustDebt(debtAsset, lsa, dustDebt);
+            emit ILoan.Loan__DustDebtAbsorbed(lsa, dustDebt);
+        }
+
+        assetsClaimed = lsa.claimSurplusCollateral({
+            bitmorPool: bitmorPool,
+            collateralAsset: collateralAsset,
+            debtAsset: debtAsset,
+            borrower: borrower,
+            slippage_sharesToAsset: slippage_sharesToAsset
+        });
     }
 }

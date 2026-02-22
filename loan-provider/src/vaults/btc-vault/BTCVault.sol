@@ -14,6 +14,7 @@ import {DataTypes} from "../../libraries/types/DataTypes.sol";
 import {VaultStateLogic} from "../../libraries/logic/VaultStateLogic.sol";
 import {StrategyStateLogic} from "../../libraries/logic/StrategyStateLogic.sol";
 import {TokenizedStrategyLogic} from "../../libraries/logic/TokenizedStrategyLogic.sol";
+import {SimpleTokenizedStrategy} from "./TokenizedStrategy/SimpleTokenizedStrategy.sol";
 
 import {BTCVault__Storage} from "./BTCVault__Storage.sol";
 
@@ -54,7 +55,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     using StrategyStateLogic for DataTypes.StrategyState;
     using VaultStateLogic for DataTypes.VaultState;
     using TokenizedStrategyLogic for address;
-    using TokenizedStrategyLogic for DataTypes.StrategyState;
 
     /**
      * @notice Initializes the vault with the specified underlying asset
@@ -105,12 +105,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         strategy = s_strategy.strategies[strategyIndex];
     }
 
-    /**
-     * @notice Returns the total number of strategies added to the vault
-     * @return The count of strategies currently managed by the vault
-     */
-    function getTotalStrategies() external view returns (uint256) {
-        return s_strategy.totalStrategies;
+    /// @notice Returns the next available strategy index (monotonic counter, never decremented)
+    /// @return The next index that will be assigned when a new strategy is added
+    function getNextStrategyIndex() external view returns (uint256) {
+        return s_strategy.nextStrategyIndex;
     }
 
     /**
@@ -161,6 +159,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function setEntryFee(uint256 newEntryFee) external restricted {
         if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
+        if (newEntryFee > 0 && s_vault.feeRecipient == address(0)) revert Errors.Vault__FeeRecipientNotSet();
 
         s_vault.updateEntryFee(newEntryFee);
 
@@ -174,6 +173,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      */
     function setExitFee(uint256 newExitFee) external restricted {
         if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
+        if (newExitFee > 0 && s_vault.feeRecipient == address(0)) revert Errors.Vault__FeeRecipientNotSet();
 
         s_vault.updateExitFee(newExitFee);
 
@@ -251,13 +251,28 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Emergency function to withdraw all funds from all strategies back to the vault
-     * @dev Used in emergency situations to secure assets
+     * @dev Iterates the withdraw queue and attempts `withdrawAll()` on each strategy.
+     *      Individual failures are caught and emit `BTCVault__EmergencyWithdrawFailed` so a
+     *      single broken strategy does not block emergency recovery of all other strategies.
+     *      Emits `BTCVault__EmergencyWithdrawFunds` with the total amount successfully recovered.
      * @custom:access Requires BVM_FAST role
+     * @custom:security Critical safety mechanism — must never be blocked by a single strategy failure
      */
     function emergencyWithdrawFunds() external restricted {
-        s_strategy.emergencyWithdraw();
+        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+        uint256 totalRecovered;
 
-        emit BTCVault__EmergencyWithdrawFunds();
+        for (uint256 i; i < withdrawQueue.length; i++) {
+            address strategyAddress = s_strategy.strategies[withdrawQueue[i]].strategy;
+
+            try SimpleTokenizedStrategy(strategyAddress).withdrawAll() returns (uint256 recovered) {
+                totalRecovered += recovered;
+            } catch (bytes memory reason) {
+                emit BTCVault__EmergencyWithdrawFailed(withdrawQueue[i], reason);
+            }
+        }
+
+        emit BTCVault__EmergencyWithdrawFunds(totalRecovered);
     }
 
     /**
@@ -276,16 +291,22 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Updates the order in which strategies are drained for withdrawals
-     * @dev Queue determines priority for fund withdrawal
+     * @dev Queue determines priority for fund withdrawal. Strategies excluded from `newWithdrawQueue`
+     *      are deleted (requires cap = 0 and balance = 0). Automatically cleans stale entries from
+     *      the supply queue when strategies are removed.
      * @param newWithdrawQueue Array of strategy indices in desired withdrawal order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
         s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
+        bool supplyQueueCleaned = s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
+
+        if (supplyQueueCleaned) {
+            emit BTCVault__SupplyQueueUpdated(s_strategy.supplyQueue);
+        }
     }
 
     /**
@@ -390,14 +411,17 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Returns the total amount of assets under management
      * @inheritdoc ERC4626
-     * @dev Delegates to the strategy contract to calculate total assets across all positions
+     * @dev Sums the vault's idle balance (`balanceOf(address(this))`) and all strategy
+     *      balances in the withdraw queue. Only active strategies (those in the withdraw
+     *      queue) are counted — removed strategies are excluded.
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
         assets = ERC20(i_asset).balanceOf(address(this));
 
-        for (uint256 i = 0; i < s_strategy.totalStrategies; i++) {
-            assets = assets.rawAdd(s_strategy.strategies[i].strategy.getAssetBalanceInStrategy());
+        uint256[] memory wq = s_strategy.withdrawQueue;
+        for (uint256 i = 0; i < wq.length; i++) {
+            assets = assets.rawAdd(s_strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
         }
     }
 
@@ -705,7 +729,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         for (i; i < supplyQueue.length; ++i) {
             DataTypes.Strategy memory strategy = s_strategy.strategies[supplyQueue[i]];
 
-            // Skip strategies with zero cap
+            // Skip strategies with zero cap (defense-in-depth: also handles any
+            // stale supply queue entries pointing to deleted strategies)
             if (strategy.cap == 0) continue;
 
             // Get current asset balance in the strategy
@@ -782,8 +807,14 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Reallocates funds across strategies according to specified allocations
-     * @dev Processes withdrawals first, then deposits, ensuring total balance consistency
+     * @dev Processes withdrawals first, then deposits, ensuring total balance consistency.
+     *      Individual strategy withdrawals are wrapped in try/catch so a single failing
+     *      strategy (e.g., paused underlying protocol) does not block the entire reallocation.
+     *      Failed withdrawals emit `BTCVault__StrategyWithdrawFailed` and are skipped.
+     *      The `totalSupplied != totalWithdrawn` invariant still enforces balance consistency.
      * @param allocations Array of allocation instructions specifying target amounts per strategy
+     * @custom:security Deposits are NOT wrapped in try/catch — deposit failures revert the
+     *      transaction, which is correct: admins should not silently lose funds into broken strategies
      */
     function _reallocateFunds(DataTypes.Allocation[] memory allocations) internal {
         uint256 totalSupplied;
@@ -801,12 +832,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             uint256 toWithdraw = currentBalance.zeroFloorSub(newAllocation);
 
             if (toWithdraw > 0) {
-                // Withdraw excess funds from strategy
-                strategy.strategy.withdraw(toWithdraw);
+                // Withdraw excess funds from strategy — wrapped in try/catch so a single
+                // broken strategy does not block reallocation of all other strategies
+                try SimpleTokenizedStrategy(strategy.strategy).withdraw(toWithdraw, address(this), address(this)) {
+                    totalWithdrawn += toWithdraw;
 
-                totalWithdrawn += toWithdraw;
-
-                emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
+                    emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);
+                } catch (bytes memory reason) {
+                    emit BTCVault__StrategyWithdrawFailed(allocation.index, toWithdraw, reason);
+                }
             } else {
                 // Calculate assets to supply (target > current)
                 // Special case: type(uint256).max means allocate all remaining withdrawn funds

@@ -52,6 +52,13 @@ interface ILoan {
      */
     event Loan__Completed(address indexed lsa);
 
+    /// @notice Emitted when a loan is completed with negligible dust debt remaining
+    /// @dev Dust debt arises from Aave V2 rayMul/rayDiv rounding during repayment.
+    ///      Amount is bounded by `Constants.DEBT_DUST_THRESHOLD` (10 wei).
+    /// @param lsa Address of the Loan Specific Address
+    /// @param dustAmount Amount of residual debt in wei
+    event Loan__DustDebtAbsorbed(address indexed lsa, uint256 dustAmount);
+
     /**
      * @notice Emitted when the LoanVaultFactory address is updated
      * @param newFactory Address of the new factory contract
