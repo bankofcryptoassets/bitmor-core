@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -12,7 +12,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 ///      Source: Cat 19 (19.1-19.8), Cat 11 (11.1-11.9).
 contract MicroLiquidationPrecisionTest is IntegrationTestBase {
     // ============ Constants ============
-    uint256 constant MAX_BONUS_PERCENT_REL = 0.10e18; // 10% max bonus sanity check
+    uint256 constant MAX_BONUS_PERCENT_REL = 0.1e18; // 10% max bonus sanity check
     uint256 constant LIQUIDATION_FEE_BPS = TC.DEFAULT_LIQUIDATION_FEE_BPS; // 5%
     uint256 constant LIQUIDATION_FEE_HIGH_BPS = TC.MAX_LIQUIDATION_FEE_BPS; // 20%
     uint256 constant MAX_CASCADE_ITERATIONS = 12;
@@ -383,28 +383,16 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Assert: loan 1 is Liquidated
         DataTypes.LoanData memory loan1After = loanContract.getLoanByLSA(lsa1);
-        assertEq(
-            uint256(loan1After.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "loan 1 should be liquidated"
-        );
+        assertEq(uint256(loan1After.status), uint256(DataTypes.LoanStatus.Liquidated), "loan 1 should be liquidated");
 
         // Assert: loans 2 and 3 remain Active with unchanged duration
         DataTypes.LoanData memory loan2After = loanContract.getLoanByLSA(lsa2);
         DataTypes.LoanData memory loan3After = loanContract.getLoanByLSA(lsa3);
 
-        assertEq(
-            uint256(loan2After.status),
-            uint256(DataTypes.LoanStatus.Active),
-            "loan 2 should remain active"
-        );
+        assertEq(uint256(loan2After.status), uint256(DataTypes.LoanStatus.Active), "loan 2 should remain active");
         assertEq(loan2After.duration, loan2Before.duration, "loan 2 duration should be unchanged");
 
-        assertEq(
-            uint256(loan3After.status),
-            uint256(DataTypes.LoanStatus.Active),
-            "loan 3 should remain active"
-        );
+        assertEq(uint256(loan3After.status), uint256(DataTypes.LoanStatus.Active), "loan 3 should remain active");
         assertEq(loan3After.duration, loan3Before.duration, "loan 3 duration should be unchanged");
     }
 
@@ -487,9 +475,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         // Verify loan is Completed
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Completed),
-            "loan should be completed after close"
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "loan should be completed after close"
         );
 
         // Assert: checkType returns 0
@@ -691,10 +677,6 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         assertGt(cbBTCValueUsd, usdcPaidUsd, "liquidation should still be profitable even with 20% fee");
 
         // Assert: margin is thin - cbBTC value < usdcPaid * 1.05
-        assertLt(
-            cbBTCValueUsd,
-            usdcPaidUsd + (usdcPaidUsd * 5 / 100),
-            "margin should be thin with 20% fee (within 5%)"
-        );
+        assertLt(cbBTCValueUsd, usdcPaidUsd + (usdcPaidUsd * 5 / 100), "margin should be thin with 20% fee (within 5%)");
     }
 }

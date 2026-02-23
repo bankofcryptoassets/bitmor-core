@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {DataTypes} from "../libraries/types/DataTypes.sol";
@@ -22,16 +22,6 @@ interface ILoan {
      */
     event Loan__LoanCreated(
         address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 btcAmount, bytes data
-    );
-
-    /**
-     * @notice Emitted when a loan's status changes
-     * @param lsa Address of the Loan Specific Address
-     * @param oldStatus Previous loan status
-     * @param newStatus New loan status
-     */
-    event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
     );
 
     /**

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -43,16 +43,8 @@ contract RepayTest is IntegrationTestBase {
         // Assert
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
         assertEq(loanDataAfter.duration, durationBefore, "dust repayment must not advance period");
-        assertEq(
-            loanDataAfter.amountRepaidInCurrentPeriod,
-            DUST_REPAY_AMOUNT,
-            "accumulator must track 1 wei"
-        );
-        assertEq(
-            loanDataAfter.lastPaymentTimestamp,
-            tsBefore,
-            "lastPaymentTimestamp must not update for dust"
-        );
+        assertEq(loanDataAfter.amountRepaidInCurrentPeriod, DUST_REPAY_AMOUNT, "accumulator must track 1 wei");
+        assertEq(loanDataAfter.lastPaymentTimestamp, tsBefore, "lastPaymentTimestamp must not update for dust");
     }
 
     /// @notice Test 12: Overpayment beyond total debt must refund excess and complete loan
@@ -74,18 +66,11 @@ contract RepayTest is IntegrationTestBase {
         uint256 usdcSpent = usdcBefore - usdcAfter;
 
         assertApproxEqAbs(
-            usdcSpent,
-            totalDebt,
-            TC.MAX_ROUNDING_LOSS_USDC,
-            "user must only spend approximately the debt amount"
+            usdcSpent, totalDebt, TC.MAX_ROUNDING_LOSS_USDC, "user must only spend approximately the debt amount"
         );
 
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Completed),
-            "loan must be completed"
-        );
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Completed), "loan must be completed");
         assertGt(cbBTC.balanceOf(testUser), 0, "collateral must be returned on full repay");
     }
 
@@ -108,21 +93,9 @@ contract RepayTest is IntegrationTestBase {
         _repayLoan(lsa, thirdParty, totalDebt);
 
         // Assert
-        assertGt(
-            cbBTC.balanceOf(testUser),
-            borrowerBTCBefore,
-            "collateral must go to borrower, not payer"
-        );
-        assertEq(
-            cbBTC.balanceOf(thirdParty),
-            payerBTCBefore,
-            "payer must not receive any collateral"
-        );
-        assertLt(
-            usdc.balanceOf(thirdParty),
-            TC.USER_USDC_BALANCE + totalDebt,
-            "USDC must be pulled from payer"
-        );
+        assertGt(cbBTC.balanceOf(testUser), borrowerBTCBefore, "collateral must go to borrower, not payer");
+        assertEq(cbBTC.balanceOf(thirdParty), payerBTCBefore, "payer must not receive any collateral");
+        assertLt(usdc.balanceOf(thirdParty), TC.USER_USDC_BALANCE + totalDebt, "USDC must be pulled from payer");
     }
 
     /// @notice Test 14: After micro-liquidation, repayment must correctly track periods
@@ -140,11 +113,7 @@ contract RepayTest is IntegrationTestBase {
         uint256 tsAfterLiq = loanDataAfterLiq.lastPaymentTimestamp;
         uint256 durationAfterLiq = loanDataAfterLiq.duration;
 
-        assertEq(
-            durationAfterLiq,
-            TC.STANDARD_DURATION - 1,
-            "micro-liq must decrement duration by 1"
-        );
+        assertEq(durationAfterLiq, TC.STANDARD_DURATION - 1, "micro-liq must decrement duration by 1");
 
         // Advance past next payment interval + grace period
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
@@ -155,16 +124,8 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         DataTypes.LoanData memory loanDataAfterRepay = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            loanDataAfterRepay.duration,
-            durationAfterLiq - 1,
-            "repay after micro-liq must correctly decrement"
-        );
-        assertGt(
-            loanDataAfterRepay.lastPaymentTimestamp,
-            tsAfterLiq,
-            "timestamp must update after repay"
-        );
+        assertEq(loanDataAfterRepay.duration, durationAfterLiq - 1, "repay after micro-liq must correctly decrement");
+        assertGt(loanDataAfterRepay.lastPaymentTimestamp, tsAfterLiq, "timestamp must update after repay");
     }
 
     /// @notice Test 15: Exact monthly payment must advance exactly one period
@@ -179,21 +140,13 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            loanDataAfter.duration,
-            durationBefore - 1,
-            "exact monthly payment must decrease duration by 1"
-        );
+        assertEq(loanDataAfter.duration, durationBefore - 1, "exact monthly payment must decrease duration by 1");
         assertLe(
             loanDataAfter.amountRepaidInCurrentPeriod,
             TC.MAX_ROUNDING_LOSS_USDC,
             "accumulator must be near-zero after full period"
         );
-        assertEq(
-            loanDataAfter.lastPaymentTimestamp,
-            block.timestamp,
-            "timestamp must update"
-        );
+        assertEq(loanDataAfter.lastPaymentTimestamp, block.timestamp, "timestamp must update");
     }
 
     /// @notice Test 16: Accumulated partial payments crossing period boundary must advance one period with carryover
@@ -216,19 +169,12 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert - 120% accumulated must advance 1 period
         DataTypes.LoanData memory loanDataAfter2 = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            loanDataAfter2.duration,
-            durationBefore - 1,
-            "120% accumulated must advance 1 period"
-        );
+        assertEq(loanDataAfter2.duration, durationBefore - 1, "120% accumulated must advance 1 period");
 
         // Expected carryover is approximately 20% of EMI
         uint256 expectedCarryover = emi * 20 / 100;
         assertApproxEqAbs(
-            loanDataAfter2.amountRepaidInCurrentPeriod,
-            expectedCarryover,
-            TC.DEBT_DUST_THRESHOLD,
-            "20% must carry over"
+            loanDataAfter2.amountRepaidInCurrentPeriod, expectedCarryover, TC.DEBT_DUST_THRESHOLD, "20% must carry over"
         );
     }
 
@@ -247,11 +193,7 @@ contract RepayTest is IntegrationTestBase {
         vm.expectRevert(Pausable.EnforcedPause.selector);
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
 
-        assertEq(
-            usdc.balanceOf(testUser),
-            usdcBefore,
-            "USDC must not be spent during paused state"
-        );
+        assertEq(usdc.balanceOf(testUser), usdcBefore, "USDC must not be spent during paused state");
 
         // Unpause (LPM_SLOW role - 1-day delay, use _scheduleAndExecute)
         uint64 lpmSlowId = LPM_SLOW_ID();
@@ -263,11 +205,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            loanDataAfter.duration,
-            TC.STANDARD_DURATION - 1,
-            "repay must work after unpause"
-        );
+        assertEq(loanDataAfter.duration, TC.STANDARD_DURATION - 1, "repay must work after unpause");
     }
 
     /// @notice Test 18: Full lump-sum repay must return collateral and complete loan
@@ -286,19 +224,12 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanDataAfter.status),
-            uint256(DataTypes.LoanStatus.Completed),
-            "loan must be completed"
-        );
+        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Completed), "loan must be completed");
         assertEq(loanDataAfter.duration, 0, "duration must be zero");
         uint256 cbBTCReturned = cbBTC.balanceOf(testUser) - cbBTCBefore;
         assertGt(cbBTCReturned, 0, "borrower must receive collateral back");
         assertApproxEqRel(
-            cbBTCReturned,
-            originalCollateral,
-            0.02e18,
-            "collateral return must approximate original amount within 2%"
+            cbBTCReturned, originalCollateral, 0.02e18, "collateral return must approximate original amount within 2%"
         );
         _assertLoanContractIsEmpty("after full lump-sum repay");
     }
@@ -372,20 +303,12 @@ contract RepayTest is IntegrationTestBase {
         for (uint256 i = 0; i < 6; i++) {
             vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
             uint256 currentDebt = _getDebtBalanceUSDC(lsa);
-            assertGe(
-                currentDebt,
-                prevDebt,
-                "debt must monotonically increase over time"
-            );
+            assertGe(currentDebt, prevDebt, "debt must monotonically increase over time");
             prevDebt = currentDebt;
         }
 
         assertGt(prevDebt, debtAtInit, "6 months of interest must grow debt");
-        assertGt(
-            prevDebt,
-            loanData.loanAmount,
-            "actual debt must exceed initial loan amount after 6 months"
-        );
+        assertGt(prevDebt, loanData.loanAmount, "actual debt must exceed initial loan amount after 6 months");
     }
 
     /// @notice Test 21: Late repayment of 3x EMI after 90 days must cover 3 periods (may fail = finding)
@@ -405,16 +328,8 @@ contract RepayTest is IntegrationTestBase {
         // Assert - 3x EMI must cover 3 periods even after interest growth
         // NOTE: This may FAIL because interest grows debt beyond EMI coverage = security finding
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            loanDataAfter.duration,
-            durationBefore - 3,
-            "3x EMI must cover 3 periods even after interest growth"
-        );
-        assertLe(
-            loanDataAfter.amountRepaidInCurrentPeriod,
-            TC.DEBT_DUST_THRESHOLD,
-            "carryover should be negligible"
-        );
+        assertEq(loanDataAfter.duration, durationBefore - 3, "3x EMI must cover 3 periods even after interest growth");
+        assertLe(loanDataAfter.amountRepaidInCurrentPeriod, TC.DEBT_DUST_THRESHOLD, "carryover should be negligible");
     }
 
     /// @notice Test 22: Micro-liquidation must fail before grace period and succeed after
@@ -445,11 +360,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         assertTrue(lateSuccess, "micro-liquidation must succeed after grace period");
-        assertEq(
-            loanContract.getLoanByLSA(lsa).duration,
-            TC.STANDARD_DURATION - 1,
-            "must decrement by 1"
-        );
+        assertEq(loanContract.getLoanByLSA(lsa).duration, TC.STANDARD_DURATION - 1, "must decrement by 1");
     }
 
     /// @notice Test 23: Sequential micro-liquidations require new grace period each time
@@ -465,11 +376,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         assertTrue(success1, "first must succeed");
-        assertEq(
-            loanContract.getLoanByLSA(lsa).duration,
-            TC.STANDARD_DURATION - 1,
-            "first must decrement by 1"
-        );
+        assertEq(loanContract.getLoanByLSA(lsa).duration, TC.STANDARD_DURATION - 1, "first must decrement by 1");
 
         // Attempt second immediately - should fail (loan is now current after timestamp reset)
         bool success2 = _triggerMicroLiquidation(lsa);
@@ -483,11 +390,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         assertTrue(success3, "second must succeed after new grace");
-        assertEq(
-            loanContract.getLoanByLSA(lsa).duration,
-            TC.STANDARD_DURATION - 2,
-            "second must decrement to 10"
-        );
+        assertEq(loanContract.getLoanByLSA(lsa).duration, TC.STANDARD_DURATION - 2, "second must decrement to 10");
     }
 
     // ============ Race Conditions (Tests 24-26) ============
@@ -512,11 +415,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Repay should advance 1 period; micro-liq should fail (loan is now current)
         assertFalse(mlAfterRepay, "micro-liq must fail after repay brings loan current");
-        assertEq(
-            durationOrder1,
-            TC.STANDARD_DURATION - 1,
-            "order 1: only 1 period deducted from repay"
-        );
+        assertEq(durationOrder1, TC.STANDARD_DURATION - 1, "order 1: only 1 period deducted from repay");
 
         // --- Order 2: Micro-liq first, then repay ---
         vm.revertTo(snap);
@@ -530,11 +429,7 @@ contract RepayTest is IntegrationTestBase {
         uint256 durationOrder2 = dataOrder2.duration;
 
         // Micro-liq deducts 1, then repay deducts 1 = 2 total
-        assertEq(
-            durationOrder2,
-            TC.STANDARD_DURATION - 2,
-            "order 2: 2 total periods deducted (micro-liq + repay)"
-        );
+        assertEq(durationOrder2, TC.STANDARD_DURATION - 2, "order 2: 2 total periods deducted (micro-liq + repay)");
     }
 
     /// @notice Test 25: Full repay vs full liquidation race - exclusive outcomes
@@ -577,9 +472,7 @@ contract RepayTest is IntegrationTestBase {
 
         DataTypes.LoanData memory dataAfterLiq = loanContract.getLoanByLSA(lsa);
         assertEq(
-            uint256(dataAfterLiq.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "order 2: loan must be liquidated"
+            uint256(dataAfterLiq.status), uint256(DataTypes.LoanStatus.Liquidated), "order 2: loan must be liquidated"
         );
 
         // Repay must fail on liquidated loan
@@ -601,11 +494,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         assertFalse(immediateMlSuccess, "must fail immediately after init");
-        assertEq(
-            loanContract.getLoanByLSA(lsa).duration,
-            TC.STANDARD_DURATION,
-            "duration must not change"
-        );
+        assertEq(loanContract.getLoanByLSA(lsa).duration, TC.STANDARD_DURATION, "duration must not change");
 
         // Advance past grace period
         _makeFirstPaymentOverdue();
@@ -615,11 +504,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Assert
         assertTrue(lateMlSuccess, "must succeed after grace period");
-        assertEq(
-            loanContract.getLoanByLSA(lsa).duration,
-            TC.STANDARD_DURATION - 1,
-            "must decrement"
-        );
+        assertEq(loanContract.getLoanByLSA(lsa).duration, TC.STANDARD_DURATION - 1, "must decrement");
     }
 
     // ============ Index Invariants (Tests 27-29) ============
@@ -661,30 +546,18 @@ contract RepayTest is IntegrationTestBase {
         // Advance 30 days - scaled debt must not change with time
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
         uint256 scaledDebtAfterTime = _getScaledDebtBalance(lsa);
-        assertEq(
-            scaledDebtAfterTime,
-            scaledDebtInit,
-            "time must not change scaled debt"
-        );
+        assertEq(scaledDebtAfterTime, scaledDebtInit, "time must not change scaled debt");
 
         // Repay - scaled debt must decrease
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
         uint256 scaledDebtAfterRepay = _getScaledDebtBalance(lsa);
-        assertLt(
-            scaledDebtAfterRepay,
-            scaledDebtInit,
-            "repayment must decrease scaled debt"
-        );
+        assertLt(scaledDebtAfterRepay, scaledDebtInit, "repayment must decrease scaled debt");
 
         // Advance 30 more days - scaled debt must remain unchanged
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL);
         uint256 scaledDebtAfterTime2 = _getScaledDebtBalance(lsa);
-        assertEq(
-            scaledDebtAfterTime2,
-            scaledDebtAfterRepay,
-            "scaled debt must not change between repays"
-        );
+        assertEq(scaledDebtAfterTime2, scaledDebtAfterRepay, "scaled debt must not change between repays");
     }
 
     /// @notice Test 29: Loan contract must never hold tokens after any repayment operation
@@ -697,40 +570,20 @@ contract RepayTest is IntegrationTestBase {
         _repayLoan(lsa, testUser, loanData.estimatedMonthlyPayment);
 
         // Assert - Loan contract must hold zero of all tokens
+        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract must hold zero USDC after partial repay");
+        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract must hold zero cbBTC after partial repay");
         assertEq(
-            usdc.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero USDC after partial repay"
-        );
-        assertEq(
-            cbBTC.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero cbBTC after partial repay"
-        );
-        assertEq(
-            IERC20(bvBTC).balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero bvBTC after partial repay"
+            IERC20(bvBTC).balanceOf(address(loanContract)), 0, "Loan contract must hold zero bvBTC after partial repay"
         );
 
         // Act - full repay
         _fullyRepayLoan(lsa);
 
         // Assert - Loan contract must still hold zero
+        assertEq(usdc.balanceOf(address(loanContract)), 0, "Loan contract must hold zero USDC after full repay");
+        assertEq(cbBTC.balanceOf(address(loanContract)), 0, "Loan contract must hold zero cbBTC after full repay");
         assertEq(
-            usdc.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero USDC after full repay"
-        );
-        assertEq(
-            cbBTC.balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero cbBTC after full repay"
-        );
-        assertEq(
-            IERC20(bvBTC).balanceOf(address(loanContract)),
-            0,
-            "Loan contract must hold zero bvBTC after full repay"
+            IERC20(bvBTC).balanceOf(address(loanContract)), 0, "Loan contract must hold zero bvBTC after full repay"
         );
     }
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -6,7 +6,6 @@ import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-
 
 /// @title CloseLoanTest
 /// @notice Adversarial integration tests for close loan edge cases and timing attacks.
@@ -141,9 +140,7 @@ contract CloseLoanTest is IntegrationTestBase {
             "duration should decrease by micro-liq count"
         );
         assertEq(
-            uint256(loanDataAfterMicroLiq.status),
-            uint256(DataTypes.LoanStatus.Active),
-            "loan should still be active"
+            uint256(loanDataAfterMicroLiq.status), uint256(DataTypes.LoanStatus.Active), "loan should still be active"
         );
 
         (uint256 collateralAfterMicroLiq, uint256 debtAfterMicroLiq,) = _getUserAccountData(lsa);
@@ -229,9 +226,7 @@ contract CloseLoanTest is IntegrationTestBase {
 
         DataTypes.LoanData memory loanDataAfterLiq = loanContract.getLoanByLSA(lsa);
         assertEq(
-            uint256(loanDataAfterLiq.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "loan should be liquidated"
+            uint256(loanDataAfterLiq.status), uint256(DataTypes.LoanStatus.Liquidated), "loan should be liquidated"
         );
 
         // Borrower's closeLoan executes second (back-runs)
@@ -262,9 +257,7 @@ contract CloseLoanTest is IntegrationTestBase {
         assertTrue(success, "liquidation should succeed");
 
         DataTypes.LoanData memory loanDataAfter = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Liquidated), "loan should be liquidated"
-        );
+        assertEq(uint256(loanDataAfter.status), uint256(DataTypes.LoanStatus.Liquidated), "loan should be liquidated");
 
         uint256 btcReceived = cbBTC.balanceOf(testLiquidator) - liquidatorBtcBefore;
         assertGt(btcReceived, 0, "liquidator should receive BTC collateral as bonus");
@@ -308,7 +301,7 @@ contract CloseLoanTest is IntegrationTestBase {
         uint256 expectedIncrease = feeWithoutYield * TC.SIMULATED_YIELD_BPS / TC.BPS_DENOMINATOR;
         uint256 actualIncrease = feeWithYield - feeWithoutYield;
         assertApproxEqRel(
-            actualIncrease, expectedIncrease, 0.20e18, "fee increase should be ~proportional to vault yield"
+            actualIncrease, expectedIncrease, 0.2e18, "fee increase should be ~proportional to vault yield"
         );
 
         _assertLoanContractIsEmpty("after close with vault appreciation");
@@ -363,12 +356,17 @@ contract CloseLoanTest is IntegrationTestBase {
 
         // Act + Assert — duration=0 should revert
         vm.prank(testUser);
-        (bool success,) = address(loanContract).call(
-            abi.encodeWithSignature(
-                "initializeLoan(uint256,uint256,uint256,uint256,bytes)",
-                deposit, TC.PREMIUM_AMOUNT, collateral, 0, ""
-            )
-        );
+        (bool success,) = address(loanContract)
+            .call(
+                abi.encodeWithSignature(
+                    "initializeLoan(uint256,uint256,uint256,uint256,bytes)",
+                    deposit,
+                    TC.PREMIUM_AMOUNT,
+                    collateral,
+                    0,
+                    ""
+                )
+            );
         assertFalse(success, "duration=0 loan creation should revert");
     }
 

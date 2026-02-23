@@ -5,9 +5,10 @@ Get your first whole 1 BTC with an undercollateralised loan.
 
 ## Repo Setup
 
-This repo have two projects initialized:
-1. Lending Pool: A fork of Aave v2 with Hardhat v3 (previously was Hardhat v2).
-2. Loan Provider: A foundry setup for other protocol components: Loan Provider, Vaults and Access Manager.
+This repo has three projects:
+1. Lending Pool: A fork of Aave V2 with Hardhat (Solidity 0.6.12) — custom liquidation mechanics.
+2. Loan Provider: Foundry-based BTC loan system using flash loans and per-user vaults (Solidity 0.8.30).
+3. Swap Routers: Uniswap V4 swap adapter integration (Foundry, Solidity 0.8.30).
 
 
 ## Setup
@@ -45,14 +46,18 @@ anvil --version
 
 ```
 bitmor-core/
-├── lending-pool/          # Aave V2 fork (Hardhat + TypeScript)
+├── lending-pool/          # Aave V2 fork (Hardhat + TypeScript, Solidity 0.6.12)
 │   ├── contracts/         # Solidity contracts
 │   ├── test-suites/       # Test suites
 │   └── helpers/           # Deployment helpers
 │
-└── loan-provider/         # BTC loan system (Foundry + Solidity)
-    ├── src/               # Source contracts
-    ├── test/              # Foundry tests
+├── loan-provider/         # BTC loan system (Foundry + Solidity 0.8.30)
+│   ├── src/               # Source contracts
+│   ├── test/              # Foundry tests
+│   └── script/            # Deployment scripts
+│
+└── swap-routers/          # Uniswap V4 swap adapter (Foundry + Solidity 0.8.30)
+    ├── src/               # UniswapV4SwapAdapterWrapper
     └── script/            # Deployment scripts
 ```
 
@@ -217,8 +222,19 @@ forge build
 
 For quick testing:
 ```bash
-make test        # Run unit tests (no RPC needed)
-make test:all    # Run all tests
+# Unit tests (no RPC needed)
+make test
+
+# Run all tests (unit + lending-pool)
+make test:all
+
+# Specific test targets
+make test:loan:unit          # Loan contract tests
+make test:vault:unit         # Vault tests
+make test:strategy:unit      # Strategy tests
+make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
+make test:fuzz               # Fuzz tests
+make test:integration        # Integration tests (requires make deploy-local first)
 ```
 
 See [TEST.md](./TEST.md) for complete testing documentation.
@@ -231,11 +247,10 @@ See [TEST.md](./TEST.md) for complete testing documentation.
 
 ```bash
 # From repository root
-cd loan-provider
 make anvil
 ```
 
-This starts a local Ethereum node on `http://localhost:8545`.
+This starts a local Ethereum node on `http://localhost:8545` (port 8545, chainId 31337).
 
 ### Full Local Deployment
 

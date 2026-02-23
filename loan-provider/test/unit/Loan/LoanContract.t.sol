@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -229,5 +229,4 @@ contract LoanContract is BaseLoanTest {
             TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
         );
     }
-
 }

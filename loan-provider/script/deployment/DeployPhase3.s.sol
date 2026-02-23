@@ -157,17 +157,14 @@ contract DeployPhase3 is InitialSetup {
 
         // 5b. Register Loan contract with LendingPoolAddressesProvider
         // Required for LendingPoolCollateralManager to query loan data during liquidation
-        (bool okSetLoan,) = lendingPoolAddressesProvider.call(
-            abi.encodeWithSignature("setBitmorLoan(address)", loan)
-        );
+        (bool okSetLoan,) = lendingPoolAddressesProvider.call(abi.encodeWithSignature("setBitmorLoan(address)", loan));
         require(okSetLoan, "Failed to setBitmorLoan");
         console2.log("Registered Loan with LendingPoolAddressesProvider");
 
         // 5c. Register USDCVault with LendingPoolAddressesProvider
         // Required for USDCReserveInterestRateStrategy.calculateInterestRates()
-        (bool okSetUSDCVault,) = lendingPoolAddressesProvider.call(
-            abi.encodeWithSignature("setUSDCVault(address)", usdcVault)
-        );
+        (bool okSetUSDCVault,) =
+            lendingPoolAddressesProvider.call(abi.encodeWithSignature("setUSDCVault(address)", usdcVault));
         require(okSetUSDCVault, "Failed to setUSDCVault");
         console2.log("Registered USDCVault with LendingPoolAddressesProvider");
 
