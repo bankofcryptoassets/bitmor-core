@@ -9,18 +9,18 @@ on:
 jobs:
   pr-summary:
     name: Generate PR Summary
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write
       issues: read
-      id-token: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Generate PR Summary with Claude
         uses: anthropics/claude-code-action@v1
@@ -77,4 +77,4 @@ jobs:
 
           claude_args: >-
             --allowed-tools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue list:*),Bash(gh pr comment:*)"
-            --max-turns 10
+            --max-turns 20
