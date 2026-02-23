@@ -19,8 +19,8 @@ help:
 	@echo "  make test:vault:unit     Run Vault unit tests"
 	@echo "  make test:strategy:unit  Run Strategy unit tests"
 	@echo "  make test:liquidation:unit  Run liquidation unit tests"
-	@echo "  make test:fuzz           Run fuzz tests (placeholder)"
-	@echo "  make test:invariant      Run invariant tests (placeholder)"
+	@echo "  make test:fuzz           Run fuzz tests (FOUNDRY_PROFILE=fuzz, 10k runs)"
+	@echo "  make test:invariant      Run invariant tests (FOUNDRY_PROFILE=invariant, 10k runs, depth 50)"
 	@echo "  make test:integration              Run all integration tests"
 	@echo "  make test:integration:setup        SetUpState tests"
 	@echo "  make test:integration:access       AccessControl tests"
@@ -129,7 +129,8 @@ test\:fuzz\:usdcVault:
 
 
 test\:invariant:
-	@echo "No invariant tests yet. Add tests to test/invariant/ to enable."
+	@echo "Running invariant tests..."
+	@FOUNDRY_PROFILE=invariant forge test --match-path "test/invariant/**/*.sol" -vvv
 
 test\:integration:
 	@echo "Running integration tests (requires running Anvil + make deploy-local)..."

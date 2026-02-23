@@ -1,6 +1,13 @@
 # Bitmor Protocol - Root Makefile
 
-.PHONY: help install build clean anvil anvil-stop deploy-local test coverage
+.PHONY: help install build clean anvil anvil-stop deploy-local test coverage \
+	test\:unit test\:fork test\:loan\:unit test\:vault\:unit test\:strategy\:unit \
+	test\:liquidation\:unit test\:fuzz test\:invariant \
+	test\:integration test\:integration\:setup test\:integration\:access \
+	test\:integration\:liquidation test\:integration\:lifecycle \
+	test\:integration\:vault test\:integration\:initloan \
+	test\:lp test\:lp\:aave test\:lp\:scenarios test\:all \
+	coverage coverage-lcov coverage-html
 
 # Chain configuration
 LOCAL_CHAIN_ID := 31337
@@ -27,13 +34,25 @@ help:
 	@echo "  make anvil-stop          Stop Anvil"
 	@echo "  make deploy-local        Deploy full protocol to Anvil"
 	@echo ""
-	@echo "Testing (loan-provider):"
-	@echo "  make test                Run unit tests (default, no RPC needed)"
-	@echo "  make test:unit           Run unit tests with mocks"
-	@echo "  make test:fork           Run fork tests (requires BASE_SEPOLIA_RPC_URL)"
-	@echo "  make test:loan:unit      Run Loan contract unit tests"
-	@echo "  make test:vault:unit     Run Vault unit tests"
-	@echo "  make test:liquidation:unit  Run liquidation unit tests"
+	@echo "Testing (loan-provider unit):"
+	@echo "  make test                    Run unit tests (default, no RPC needed)"
+	@echo "  make test:unit               Run unit tests with mocks"
+	@echo "  make test:fork               Run fork tests (requires BASE_SEPOLIA_RPC_URL)"
+	@echo "  make test:loan:unit          Run Loan contract unit tests"
+	@echo "  make test:vault:unit         Run Vault unit tests"
+	@echo "  make test:strategy:unit      Run Strategy unit tests"
+	@echo "  make test:liquidation:unit   Run liquidation unit tests"
+	@echo "  make test:fuzz               Run fuzz tests (FOUNDRY_PROFILE=fuzz)"
+	@echo "  make test:invariant          Run invariant tests (FOUNDRY_PROFILE=invariant)"
+	@echo ""
+	@echo "Testing (loan-provider integration — requires Anvil + make deploy-local):"
+	@echo "  make test:integration              Run all integration tests"
+	@echo "  make test:integration:setup        Deployment validation"
+	@echo "  make test:integration:access       Access control tests"
+	@echo "  make test:integration:liquidation  Liquidation execution"
+	@echo "  make test:integration:lifecycle    Init, repay, close flows"
+	@echo "  make test:integration:vault        Vault/strategy interaction tests"
+	@echo "  make test:integration:initloan     All InitLoan adversarial tests"
 	@echo ""
 	@echo "Testing (lending-pool):"
 	@echo "  make test:lp             Run lending-pool Bitmor tests"
@@ -43,7 +62,7 @@ help:
 	@echo "Testing (combined):"
 	@echo "  make test:all            Run all tests (unit + lending-pool)"
 	@echo ""
-	@echo "See TEST.md for complete testing documentation."
+	@echo "See loan-provider/Makefile for single-test and coverage targets."
 	@echo ""
 
 # ============ Setup ============
@@ -121,6 +140,9 @@ test\:loan\:unit:
 test\:vault\:unit:
 	@cd loan-provider && make test:vault:unit
 
+test\:strategy\:unit:
+	@cd loan-provider && make test:strategy:unit
+
 test\:liquidation\:unit:
 	@cd loan-provider && make test:liquidation:unit
 
@@ -132,6 +154,24 @@ test\:invariant:
 
 test\:integration:
 	@cd loan-provider && make test:integration
+
+test\:integration\:setup:
+	@cd loan-provider && make test:integration:setup
+
+test\:integration\:access:
+	@cd loan-provider && make test:integration:access
+
+test\:integration\:liquidation:
+	@cd loan-provider && make test:integration:liquidation
+
+test\:integration\:lifecycle:
+	@cd loan-provider && make test:integration:lifecycle
+
+test\:integration\:vault:
+	@cd loan-provider && make test:integration:vault
+
+test\:integration\:initloan:
+	@cd loan-provider && make test:integration:initloan
 
 # ============ Testing (lending-pool) ============
 

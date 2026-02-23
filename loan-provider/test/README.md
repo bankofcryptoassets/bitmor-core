@@ -24,23 +24,23 @@ test/
 
 ## Test Modes
 
-| Mode        | Command                         | Aave V3       | lending-pool   | loan-provider |
-| ----------- | ------------------------------- | ------------- | -------------- | ------------- |
-| Unit        | `make test-unit-profile`        | Mock          | FFI (optional) | Fresh         |
-| Fork        | `make test-fork-profile`        | Real (forked) | FFI            | Fresh         |
-| Integration | `make test-integration-profile` | Pre-deployed  | Pre-deployed   | Pre-deployed  |
-| Fuzz        | `make test-fuzz-profile`        | Mock          | FFI (optional) | Fresh         |
-| Invariant   | `make test-invariant-profile`   | Mock          | FFI (optional) | Fresh         |
+| Mode        | Command                   | Aave V3       | lending-pool   | loan-provider |
+| ----------- | ------------------------- | ------------- | -------------- | ------------- |
+| Unit        | `make test:unit`          | Mock          | Mock           | Fresh         |
+| Fork        | `make test:fork`          | Real (forked) | Mock           | Fresh         |
+| Integration | `make test:integration`   | Pre-deployed  | Pre-deployed   | Pre-deployed  |
+| Fuzz        | `make test:fuzz`          | Mock          | Mock           | Fresh         |
+| Invariant   | `make test:invariant`     | Mock          | Mock           | Fresh         |
 
 ## Running Tests
 
 ### Unit Tests (Default)
 
 ```bash
-make test-unit-profile   # All unit tests
-make test-loan           # Loan tests only
-make test-vault          # Vault tests only
-make test-single TEST=test_functionName  # Single test
+make test:unit   # All unit tests
+make test:loan:unit           # Loan tests only
+make test:vault:unit          # Vault tests only
+make test:single TEST=test_functionName  # Single test
 ```
 
 #### Flow
@@ -72,7 +72,7 @@ Either deploy or use the pre-deployed ones if no change in the contracts.
 
 Requires `BASE_SEPOLIA_RPC_URL` in `.env`:
 ```bash
-make test-fork-profile
+make test:fork
 ```
 
 ### Integration Tests
@@ -80,13 +80,13 @@ make test-fork-profile
 Requires `make deploy-local` first:
 ```bash
 # Terminal 1
-make anvil
+make anvil              # from repo root
 
 # Terminal 2
-make deploy-local
+make deploy-local       # from repo root
 
-# Terminal 3
-make test-integration-profile
+# Terminal 3 (from loan-provider/)
+make test:integration
 ```
 
 ## Base Class Hierarchy (DRY through Inheritance)
@@ -95,6 +95,7 @@ make test-integration-profile
 Test (forge-std)
 └── BitmorTestBase           # AccessManager, roles, actors, _scheduleAndExecute()
     ├── UnitTestBase         # Mocks, token helpers (_fundUSDC, _fundCbBTC)
+    │   └── LoanUnitTestBase # Full Loan infrastructure, _createStandardLoan()
     ├── ForkTestBase         # Real Aave from fork, _dealToken()
     └── IntegrationTestBase  # Pre-deployed contracts from JSON
 ```
@@ -105,6 +106,7 @@ Test (forge-std)
 | --------------------- | ---------------------------------------------------------------- |
 | `BitmorTestBase`      | `manager`, `rolesData`, all role actors, `_scheduleAndExecute()` |
 | `UnitTestBase`        | Above + `mockAavePool`, `mockCbBTC`, `mockUSDC`, `_fundUSDC()`   |
+| `LoanUnitTestBase`    | Above + `loan`, all mocks, `_createStandardLoan()`, `_dropOraclePrice()` |
 | `ForkTestBase`        | BitmorTestBase + real tokens, `_dealToken()`, FFI                |
 | `IntegrationTestBase` | BitmorTestBase + `loanContract`, `bitmorPool` from JSON          |
 
