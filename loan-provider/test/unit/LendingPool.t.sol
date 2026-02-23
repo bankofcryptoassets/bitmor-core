@@ -1,4 +1,4 @@
-// // SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// // SPDX-License-Identifier: MIT
 // pragma solidity 0.8.30;
 
 // import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -167,6 +167,27 @@ contract LoanContract is BaseLoanTest {
         }
     }
 
+    /// @notice Constructor reverts with ZeroAddress when aaveAddressesProvider is address(0).
+    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
+        ConstructorParams memory p = _loadConstructorParams();
+
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        new Loan(
+            p.accessManager,
+            p.aaveV3Pool,
+            address(0), // aaveAddressesProvider
+            p.bitmorPool,
+            p.oracle,
+            p.collateralAsset,
+            p.debtAsset,
+            p.btc,
+            p.swapper,
+            p.premiumCollector,
+            p.preClosureFeeBps,
+            p.gracePeriod
+        );
+    }
+
     /// @notice Constructor reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
     function test_loan_constructor_invalidPreClosureFee_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
@@ -206,40 +227,6 @@ contract LoanContract is BaseLoanTest {
             p.premiumCollector,
             p.preClosureFeeBps,
             TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
-        );
-    }
-
-    /// @notice Verifies constructor rejects aaveAddressesProvider = address(0).
-    /// @dev This was previously a known bug (accepted zero address), now fixed.
-    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
-        // Use individual getters to avoid stack depth issues with full struct destructuring
-        address accessManager = config.getAccessManager();
-        address bitmorPool = config.getBitmorPool();
-        address aaveV3Pool = config.getAaveV3Pool();
-        address oracle = config.getOracle();
-        address collateralAssetAddr = config.getCollateralAsset();
-        address debtAssetAddr = config.getDebtAsset();
-        address btc = config.getCbBTC();
-        address swapper = config.getSwapAdapterWrapper();
-        address premiumCollector = config.getPremiumCollector();
-        uint256 preClosureFeeBps = config.getPreClosureFee();
-        uint256 gracePeriod = config.getGracePeriod();
-
-        // BUG FIX VERIFIED: Constructor now correctly reverts with ZeroAddress
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        new Loan(
-            accessManager,
-            aaveV3Pool,
-            address(0), // aaveAddressesProvider = address(0)
-            bitmorPool,
-            oracle,
-            collateralAssetAddr,
-            debtAssetAddr,
-            btc,
-            swapper,
-            premiumCollector,
-            preClosureFeeBps,
-            gracePeriod
         );
     }
 }

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -99,6 +99,12 @@ library CloseLoanLogic {
      * - Caller must be the loan borrower
      * - Collateral must cover debt + flash loan premium + pre-closure fee
      *
+     * ## Close Loan Invariants (Invariant 2.2)
+     * - MUST transfer all LSA bvBTC shares to borrower (as USDC or cbBTC based on `withdrawInBTC`)
+     * - LSA bvBTC share balance MUST be 0 after close
+     * - All remaining cbBTC and USDC on the Loan contract (above pre-snapshot balances) MUST be
+     *   forwarded to the borrower
+     *
      * @param ctx Context containing protocol addresses and configuration
      * @param params Parameters including LSA and withdrawal preference
      * @param loansByLSA Storage mapping of all loans by LSA
@@ -192,6 +198,7 @@ library CloseLoanLogic {
             abi.encode(params.lsa, params.withdrawInBTC, vars.totalBTCAmtToSwap, vars.preClosureFeeAmtInBTC);
         bytes memory paramsForFL = abi.encode(initializingLoan, flData);
 
+        /// @dev Snapshot balances before flash loan to isolate this closure's surplus
         uint256 debtAssetBalBefore = IERC20(ctx.debtAsset).balanceOf(address(this));
         uint256 btcBalBefore = IERC20(ctx.btc).balanceOf(address(this));
 

@@ -45,8 +45,9 @@ export default async function bitmorDevAction(
   console.log("6. Deploy Data Provider");
   await hre.tasks.getTask('full:data-provider').run({ pool: POOL_NAME, verify });
 
-  console.log("7. Deploy WETH Gateway");
-  await hre.tasks.getTask('full-deploy-weth-gateway').run({ pool: POOL_NAME, verify });
+  // WETHGateway not used in Bitmor protocol (contract archived)
+  // console.log("7. Deploy WETH Gateway");
+  // await hre.tasks.getTask('full-deploy-weth-gateway').run({ pool: POOL_NAME, verify });
 
   console.log("8. Initialize lending pool");
   await hre.tasks.getTask('dev:initialize-lending-pool').run({ verify, pool: POOL_NAME });

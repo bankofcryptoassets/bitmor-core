@@ -24,7 +24,10 @@ library TestConstants {
 
     // ============ Liquidation Test Parameters ============
     uint256 internal constant PRICE_DROP_MICRO = 15; // 15%
+    uint256 internal constant PRICE_DROP_30 = 30; // 30%
+    uint256 internal constant PRICE_DROP_40 = 40; // 40%
     uint256 internal constant PRICE_DROP_FULL = 50; // 50%
+    uint256 internal constant PRICE_DROP_70 = 70; // 70%
 
     // ============ Liquidation Type Constants ============
     uint256 internal constant LIQUIDATION_TYPE_NONE = 0;
@@ -67,6 +70,7 @@ library TestConstants {
     uint256 internal constant ONE_DAY = 1 days;
     uint256 internal constant ONE_MONTH = 30 days;
     uint256 internal constant ONE_YEAR = 365 days;
+    uint256 internal constant REPAYMENT_INTERVAL = 30 days;
 
     // ============ Precision Constants ============
     uint256 internal constant RAY = 1e27;
@@ -87,4 +91,23 @@ library TestConstants {
 
     // ============ Repayment Test Parameters ============
     uint256 internal constant TEST_REPAYMENT_SHORTFALL = 100e6; // 100 USDC shortfall for refund tests
+
+    // ============ Integration Test Tolerances ============
+    uint256 internal constant SHARE_PRICE_IMPACT_TOLERANCE = 0.01e18; // 1%
+    uint256 internal constant MAX_ROUNDING_LOSS_USDC = 1e6; // 1 USDC
+    uint256 internal constant MAX_ROUNDING_LOSS_SATOSHI = 100; // 100 sats
+
+    // ============ Extended Time Helpers ============
+    uint256 internal constant THREE_MONTHS = 90 days;
+    uint256 internal constant SIX_MONTHS = 180 days;
+
+    // ============ Integration Test Shared Constants ============
+    uint256 internal constant SIMULATED_YIELD_BPS = 500; // 5% yield simulation
+    uint256 internal constant DONATION_AMOUNT_USDC = 10_000_000e6; // 10M USDC donation
+    uint256 internal constant DONATION_AMOUNT_CBBTC = 10e8; // 10 BTC donation
+    uint256 internal constant EXIT_FEE_LOW_BPS = 10; // 0.1% exit fee
+    uint256 internal constant EXIT_FEE_MEDIUM_BPS = 100; // 1% exit fee
+    uint256 internal constant EXIT_FEE_HIGH_BPS = 500; // 5% exit fee
+    uint256 internal constant DUST_TOLERANCE_USDC = 100; // 100 units USDC dust
+    uint256 internal constant DUST_TOLERANCE_BTC = 10; // 10 sats dust
 }

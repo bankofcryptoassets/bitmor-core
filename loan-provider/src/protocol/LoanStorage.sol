@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {DataTypes} from "../libraries/types/DataTypes.sol";
@@ -105,7 +105,13 @@ contract LoanStorage {
 
     /**
      * @notice Maps LSA addresses to their loan data
-     * @dev Primary storage for all loan information
+     * @dev Primary storage for all loan information.
+     *
+     * Status transition invariants on `s_loansByLSA[lsa].status`:
+     * - MUST be set to `Active` upon loan creation
+     * - Transitions MUST be monotonic: Active -> Completed or Active -> Liquidated
+     * - MUST NOT transition from Completed or Liquidated back to Active
+     * - MUST NOT transition from Completed to Liquidated or vice versa
      */
     mapping(address => DataTypes.LoanData) internal s_loansByLSA;
 
@@ -164,8 +170,8 @@ contract LoanStorage {
         address _btc
     ) {
         if (
-            _aaveV3Pool == address(0) || _bitmorPool == address(0) || _oracle == address(0)
-                || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
+            _aaveV3Pool == address(0) || _aaveAddressesProvider == address(0) || _bitmorPool == address(0)
+                || _oracle == address(0) || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;

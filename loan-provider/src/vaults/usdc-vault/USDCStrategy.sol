@@ -12,6 +12,7 @@ import {DataTypes} from "../../libraries/types/DataTypes.sol";
 import {ILendingPool as IBLP} from "../../interfaces/ILendingPool.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 import {IPool as IAave} from "../../interfaces/IPool.sol";
+import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 
 /**
  * @title USDCStrategy
@@ -89,7 +90,7 @@ contract USDCStrategy is ISimpleStrategy {
 
         // Approving Aave and BLP to transfer funds from this address.
         i_asset.safeApprove(address(i_aave), type(uint256).max);
-        i_asset.safeApprove(address(i_blp), type(uint256).max);
+        i_asset.safeApprove(_vault, type(uint256).max);
     }
 
     /// @notice Restricts function access to the owning vault contract
@@ -116,7 +117,12 @@ contract USDCStrategy is ISimpleStrategy {
 
     /**
      * @notice Returns the total assets under management across all positions
-     * @dev Sums vault balance and deployed assets in external protocols
+     * @dev Sums vault balance and deployed assets in external protocols.
+     *
+     * USDC Vault invariant:
+     * - The tracked aUSDC balance MUST equal the actual aUSDC held by this strategy;
+     *   that is, the value returned here MUST reflect real Aave aToken and BLP aToken
+     *   balances, not a cached or stale amount
      * @return totalBalance The total amount of assets managed by this strategy
      */
     function totalAssets() public view returns (uint256 totalBalance) {
@@ -183,10 +189,8 @@ contract USDCStrategy is ISimpleStrategy {
             i_aave.supply(i_asset, amountToDepositInAave, address(this), REFERRAL_CODE);
         }
 
-        // Supply to BLP
-        if (amountToDepositInBLP != 0) {
-            i_blp.deposit(i_asset, amountToDepositInBLP, address(this), REFERRAL_CODE);
-        }
+        // Supply to BLP (routed through vault)
+        IUSDCVault(i_vault).depositToBLP(amountToDepositInBLP, address(this));
     }
 
     /**
@@ -200,8 +204,14 @@ contract USDCStrategy is ISimpleStrategy {
         i_asset.safeTransfer(msg.sender, amount);
     }
 
-    /// @notice Rebalances assets between Aave and BLP to match the configured `s_externalAllocation` ratio.
-    /// @custom:access Only callable by the vault
+    /**
+     * @notice Rebalances assets between Aave and BLP to match the configured `s_externalAllocation` ratio
+     * @dev USDC Vault invariants:
+     * - Rebalancing MUST follow the target ratio set via `s_externalAllocation`
+     * - MUST NOT change the total assets under management; totalAssets() before
+     *   MUST equal totalAssets() after (excluding accrued interest during the call)
+     * @custom:access Only callable by the vault
+     */
     function reallocateAssets() external onlyVault {
         _reallocateAssets();
     }
@@ -377,7 +387,7 @@ contract USDCStrategy is ISimpleStrategy {
 
         // Redeposit any rounding excess to BLP
         uint256 excess = totalWithdrawn.rawSub(amountToTransfer);
-        if (excess > 0) i_blp.deposit(i_asset, excess, address(this), REFERRAL_CODE);
+        if (excess > 0) IUSDCVault(i_vault).depositToBLP(excess, address(this));
     }
 
     /**
@@ -387,7 +397,7 @@ contract USDCStrategy is ISimpleStrategy {
     function _withdrawFomAaveAndDepositInBLP(uint256 amountToWithdrawFromAave) internal {
         uint256 finalAmountWithdrawn = i_aave.withdraw(i_asset, amountToWithdrawFromAave, address(this));
 
-        i_blp.deposit(i_asset, finalAmountWithdrawn, address(this), REFERRAL_CODE);
+        IUSDCVault(i_vault).depositToBLP(finalAmountWithdrawn, address(this));
     }
 
     /**

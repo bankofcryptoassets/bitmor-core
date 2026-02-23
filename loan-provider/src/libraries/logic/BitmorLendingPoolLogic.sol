@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -35,7 +35,13 @@ library BitmorLendingPoolLogic {
 
     /**
      * @notice Returns the amount of variable debt tokens (vdtTokens) held by an LSA
-     * @dev Queries the variable debt token balance directly from the debt token contract
+     * @dev Queries the variable debt token balance directly from the debt token contract.
+     *
+     * Completed/Liquidated loan invariants:
+     * - MUST return 0 for loans with status Completed or Liquidated (Invariant 2.1.1)
+     * - A non-zero return for a completed/liquidated loan indicates residual debt that
+     *   SHOULD have been fully repaid during close or liquidation
+     *
      * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
      * @param debtAsset Debt asset token address (USDC)
      * @param lsa The Loan Specific Address to query
@@ -53,7 +59,13 @@ library BitmorLendingPoolLogic {
 
     /**
      * @notice Returns the amount of aTokens (collateral tokens) held by an LSA
-     * @dev Queries the aToken balance directly from the aToken contract
+     * @dev Queries the aToken balance directly from the aToken contract.
+     *
+     * Completed/Liquidated loan invariants:
+     * - MUST return 0 for loans with status Completed or Liquidated (Invariant 2.1.2)
+     * - A non-zero return for a completed/liquidated loan indicates residual collateral
+     *   that SHOULD have been fully withdrawn during close or liquidation
+     *
      * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
      * @param collateralAsset Collateral asset token address (bvBTC)
      * @param lsa The Loan Specific Address to query
@@ -87,7 +99,15 @@ library BitmorLendingPoolLogic {
 
     /**
      * @notice Deposits collateral to Aave V2 on behalf of LSA
-     * @dev LSA receives aTokens (abvBTC), Protocol holds bvBTC before deposit
+     * @dev LSA receives aTokens (abvBTC), Protocol holds bvBTC before deposit.
+     *
+     * Lending pool deposit invariants:
+     * - MUST only be callable through the Loan contract for collateral operations (Invariant 1.3)
+     * - MUST restrict depositors to USDC Vault and Loan contract (Invariant 1.7)
+     * - bvBTC shares MUST NOT be borrowable in the BLP; they are deposit-only collateral (Invariant 1.6)
+     * - Access control is enforced at the Loan.sol caller level, which is the only
+     *   contract that invokes this library function for collateral deposits
+     *
      * @param bitmorPool Bitmor Lending Pool address
      * @param asset Collateral asset (bvBTC)
      * @param amount Amount to deposit (8 decimals)
@@ -99,20 +119,34 @@ library BitmorLendingPoolLogic {
 
     /**
      * @notice Borrows debt from Aave V2 on behalf of LSA
-     * @dev Protocol receives USDC, LSA receives variable debt tokens
+     * @dev Protocol receives USDC, LSA receives variable debt tokens.
+     *
+     * Lending pool borrow invariants:
+     * - MUST only be callable through the Loan contract for debt operations (Invariant 1.3)
+     * - bvBTC shares MUST NOT be borrowable in the BLP (Invariant 1.6);
+     *   only USDC (`debtAsset`) is borrowed, enforced by the lending pool reserve configuration
+     * - Access control is enforced at the Loan.sol caller level and by credit delegation
+     *   from the LSA to the Loan contract
+     *
      * @param bitmorPool Bitmor Lending Pool address
      * @param asset Debt asset (USDC)
      * @param amount Amount to borrow (6 decimals)
      * @param onBehalfOf LSA address that receives debt tokens
      */
     function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
-        // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
         ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
     }
 
     /**
      * @notice Executes loan repayment on Aave V2 and updates loan state
      * @dev Updates loanAmount, lastPaymentTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
+     *
+     * Repayment invariants:
+     * - Real debt (VDT balance) MUST strictly decrease after repayment (Invariant 3.3)
+     * - Pool liquidity MUST increase by `finalAmountRepaid` (Invariant 3.4):
+     *   `BLP.available_liquidity_after == BLP.available_liquidity_before + finalAmountRepaid`
+     * - `finalAmountRepaid` MUST be > 0 for a valid repayment
+     *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset USDC token address (debt asset)
      * @param lsa Loan Specific Address (the borrower address on Aave)

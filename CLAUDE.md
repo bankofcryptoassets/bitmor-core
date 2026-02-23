@@ -46,17 +46,27 @@ make format-check            # Check formatting without changes
 # Local Development
 make anvil                   # Start Anvil (port 8545, chainId 31337)
 make anvil-stop              # Stop Anvil
-make deploy-local            # Deploy full protocol to Anvil (run in separate terminal)
+make deploy-local            # Deploy full protocol to Anvil (run in separate terminal after anvil)
 
-# Testing (loan-provider)
+# Testing (loan-provider unit)
 make test                    # Unit tests (default, no RPC needed)
 make test:unit               # Unit tests with mocks
 make test:fork               # Fork tests (requires BASE_SEPOLIA_RPC_URL)
 make test:loan:unit          # Loan contract unit tests
 make test:vault:unit         # Vault unit tests
+make test:strategy:unit      # Strategy unit tests
 make test:liquidation:unit   # Liquidation unit tests
-make test:fuzz               # Fuzz tests (FOUNDRY_PROFILE=fuzz)
+make test:fuzz               # All fuzz tests (FOUNDRY_PROFILE=fuzz)
 make test:invariant          # Invariant tests (FOUNDRY_PROFILE=invariant)
+
+# Testing (loan-provider integration — requires Anvil + deploy-local)
+make test:integration              # All integration tests
+make test:integration:setup        # Deployment validation
+make test:integration:access       # Access control tests
+make test:integration:liquidation  # Liquidation execution
+make test:integration:lifecycle    # Init, repay, close flows
+make test:integration:vault        # Vault/strategy interaction tests
+make test:integration:initloan     # All InitLoan adversarial tests
 
 # Testing (lending-pool)
 make test:lp                 # Bitmor-specific tests
@@ -64,7 +74,7 @@ make test:lp:aave            # Core Aave tests
 make test:lp:scenarios       # Protocol scenario tests
 
 # Combined
-make test:all                # Run all tests (unit + lending-pool)
+make test:all                # Unit tests + lending-pool tests
 ```
 
 ### loan-provider/ (Foundry)
@@ -72,30 +82,18 @@ make test:all                # Run all tests (unit + lending-pool)
 ```bash
 cd loan-provider
 
-# Build
-forge build
+# Single test debugging
+make test:single TEST=test_functionName        # Single test by name (-vvvv)
+make test:contract CONTRACT=ContractName       # All tests in a contract
+make test:fuzz:usdcVault                       # USDC vault fuzz tests only
+forge test --match-test test_X -vvvv           # Direct forge invocation
 
-# Test (additional targets beyond root Makefile)
-make test:strategy:unit      # Strategy unit tests
-make test:single TEST=test_functionName  # Single test by name
-make test:contract CONTRACT=Name         # Tests for a contract
-
-# Deploy full system to Base Sepolia
-make setup
-
-# Individual deployments
-make deployLoan
-make deployLoanVault
-make deployLoanVaultFactory
-make deploySwapAdapterWrapper
-
-# Post-deployment
-make setLoanVaultFactory
-make setBitmorLoan
-make verifyAll
+# Integration single test
+make test:integration:single TEST=test_name
+make test:integration:contract CONTRACT=Name
 
 # Coverage & gas
-make coverage                # Uses FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
+make coverage                # FOUNDRY_PROFILE=coverage forge coverage --ir-minimum
 make coverage-lcov           # Generate lcov report
 make coverage-html           # Generate HTML coverage report
 make gas-report
@@ -113,7 +111,7 @@ npm run aave:baseSepolia:full:migration  # Deploy to Base Sepolia
 npm run prettier:write       # Format
 ```
 
-The local deployment runs an optimized multi-phase orchestration:
+### Local Deployment Flow
 
 ```
 make deploy-local (FOUNDRY_PROFILE=local)
@@ -130,7 +128,7 @@ make deploy-local (FOUNDRY_PROFILE=local)
     └── Execute scheduled operations via AccessManager
 ```
 
-**Note**: The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays for role-protected functions. The `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
+The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays. `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
 
 ## Architecture
 
@@ -171,147 +169,81 @@ make deploy-local (FOUNDRY_PROFILE=local)
 - `usdc-vault/USDCVault.sol` - USDC vault implementation
 
 **Adapters**:
-- `adapters/UniswapV4SwapAdapterWrapper.sol` - Uniswap V4 integration
+- `adapters/UniswapV4SwapAdapterWrapper.sol` - Uniswap V4 integration (testnet/mainnet)
 
 ### Lending Pool (lending-pool/contracts/)
 
-Standard Aave V2 structure:
-- `protocol/` - Core lending protocol (LendingPool, LendingPoolCore)
-- `interfaces/` - Contract interfaces
-- `flashloan/` - Flash loan implementations
-- `adapters/` - Swap and flash loan adapters
-- `mocks/` - Test utilities
-
-### External Dependencies
-
-- **Aave V3**: Flash loans for loan initialization
-- **Bitmor Lending Pool**: Stores collateral, issues aTokens/debt tokens
-- **Uniswap V4**: Token swaps
-- **Chainlink**: Price feeds via `IPriceOracleGetter`
+Standard Aave V2 structure — `protocol/`, `interfaces/`, `flashloan/`, `adapters/`, `mocks/`. Integration with loan-provider is interface-only (Solidity 0.6.12 vs 0.8.30).
 
 ### Script Architecture (loan-provider/script/)
 
-**HelperConfig.s.sol** is the single source of truth for deployment configuration:
-- Network config and chain ID constants (`CHAIN_ID_LOCAL`, `CHAIN_ID_BASE_SEPOLIA`, `CHAIN_ID_BASE_MAINNET`)
-- `_readDeployment(key)` - Chain-aware JSON reading from `deployments.json` (replaced DevOpsTools)
-- **Type A getters** (read from JSON): `getAccessManager()`, `getLoan()`, `getBTCVault()`, `getUSDCVault()`, `getLoanVaultFactory()`, `getAaveTokenizedStrategy()`, `getUSDCStrategy()`, `getSwapAdapterWrapper()`
-- **Type B getters** (mainnet constants): `getAaveV3Pool()`, `getAaveAddressesProvider()` - return constants only for mainnet
-- **Type C getters** (lending pool): `getBitmorPool()`, `getOracle()` - read from `deployed-contracts.json`
-- Token getters: `getCbBTC()`, `getUSDC()` (chain-aware)
-- Path helpers: `getDeploymentsJsonPath()`, `getLendingPoolDeploymentsPath()`
-
-**DeploymentHelper.s.sol** provides utilities:
-- `readLendingPoolAddress()` - Delegates to HelperConfig
-- `warpTime()` / `warpTimeTo()` - Anvil time manipulation
-- `isLocalChain()` - Chain detection
-
-**Consolidated Deployment Scripts** (`deployment/`):
-- `DeployPhase1.s.sol` - Phase 1: AccessManager, MockTokens, MockOracles, BTCVault
-- `DeployPhase3.s.sol` - Phase 3a: USDCVault, SwapAdapter, Loan, Strategies, roles
-- `SchedulePhase3.s.sol` - Phase 3b: Schedule timelocked operations
-- `ExecutePhase3.s.sol` - Phase 3c: Execute scheduled operations
-- `DeploymentConstants.sol` - Shared constants (EXECUTION_DELAY, SCHEDULE_BUFFER)
-
-**AccessManager Setup**:
-- `interaction/AccessManager/LocalFullSetup.s.sol` - Full setup with schedule/execute pattern
-- `StrategyConfig.s.sol` - Strategy deployment configuration
+**HelperConfig.s.sol** is the single source of truth for deployment addresses:
+- **Type A getters** (read from `deployments.json`): `getAccessManager()`, `getLoan()`, `getBTCVault()`, `getUSDCVault()`, `getLoanVaultFactory()`, `getSwapAdapterWrapper()`, etc.
+- **Type B getters** (mainnet constants): `getAaveV3Pool()`, `getAaveAddressesProvider()`
+- **Type C getters** (lending pool): `getBitmorPool()`, `getOracle()` — read from `../lending-pool/deployed-contracts.json`
 
 **Chain Behavior**:
-| Chain | Bitmor Contracts | External Protocols | Lending Pool |
-|-------|------------------|-------------------|--------------|
-| Local (31337) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
-| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) | `deployed-contracts.json` |
-| Mainnet (8453) | `deployments.json` | Constants | `deployed-contracts.json` |
-
-**JSON Key Mapping** (HelperConfig getter → deployments.json key):
-- `getAccessManager()` → `accessManager`
-- `getLoan()` → `loan`
-- `getBTCVault()` → `collateralAsset`
-- `getUSDCVault()` → `usdcVault`
-- `getLoanVaultFactory()` → `loanVaultFactory`
-- `getSwapAdapterWrapper()` → `swapAdapterWrapper`
-- `getCbBTC()` → `cbBTC`
-- `getUSDC()` → `debtAsset`
+| Chain | Bitmor Contracts | External Protocols |
+|-------|------------------|--------------------|
+| Local (31337) | `deployments.json` | `deployments.json` (mocks) |
+| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) |
+| Mainnet (8453) | `deployments.json` | Constants |
 
 ## Testing
 
-### Foundry Tests (loan-provider/)
+### Foundry Profiles (loan-provider/)
 
-**Test Modes:**
-- **Unit tests**: Run locally with mock infrastructure (no fork required)
-- **Fork tests**: Run against Base Sepolia fork for integration testing
+| Profile | Use Case |
+|---------|----------|
+| `unit` | Unit tests with mocks (default for `make test`) |
+| `integration` | Integration tests against local Anvil |
+| `fork` | Fork tests against Base Sepolia |
+| `fuzz` | Fuzz tests (10,000 runs) — `test/fuzz/pure/` (math) and `test/fuzz/stateful/` (vault/loan sequences) |
+| `invariant` | Invariant tests (10,000 runs, depth 50) |
+| `coverage` | Coverage with optimizer disabled |
+| `security` | Model checker (CHC engine, overflow/underflow targets) |
+| `local` | Fast local deployment builds |
 
-Key test files in `test/unit/`:
-- `Loan/BaseLoan.t.sol` - Shared test base with helpers and setup
-- `Loan/InitializeLoan.t.sol`, `RepayLoan.t.sol`, `CloseLoan.t.sol`
-- `MicroLiquidation.t.sol`, `FullLiquidation.t.sol`
-- `Vault/BTC/*.t.sol` - BTCVault tests (mock-based)
-- `Vault/USDC/*.t.sol` - USDCVault tests (mock-based)
-- `Strategy/AaveTokenizedStrategy.t.sol`, `SimpleTokenizedStrategy.t.sol` - Strategy tests
-- `AccessControls.t.sol`, `LSAExploit.t.sol`, `AutoRepayment.t.sol`
+### Test Base Classes (`test/base/`)
 
-**Invariant tests** (`test/invariant/`):
-- `BTCVault.invariant.t.sol`, `USDCVault.invariant.t.sol` with handler contracts
+| Class | Inherits | Provides |
+|-------|----------|----------|
+| `BitmorTestBase` | — | AccessManager, 16 role actors, `_scheduleAndExecute()` |
+| `UnitTestBase` | BitmorTestBase | MockAaveV3Pool, MockERC20, `_fundUSDC()`, `_fundCbBTC()` |
+| `LoanUnitTestBase` | UnitTestBase | Full Loan+mock infrastructure, `_createStandardLoan()` |
+| `ForkTestBase` | BitmorTestBase | Real Aave V3 on fork, `_dealToken()` |
+| `IntegrationTestBase` | BitmorTestBase | Loads addresses from `deployments.json` |
 
-**Fuzz tests** (`test/fuzz/`):
-- `stateful/` - BTCVault, USDCVault, Loan, USDCStrategy fuzz tests
-- `pure/LoanMath.fuzz.t.sol` - Pure math fuzz testing
-- `base/` - Shared fuzz bases (`FuzzTestBase`, `BTCVaultFuzzTestBase`, `USDCVaultFuzzTestBase`)
-- `helpers/FuzzConstants.sol` - Import as `FC`
+**Integration tests** require Anvil running with `make deploy-local` completed first.
 
-**Test Base Classes** (`test/base/`):
-- `BitmorTestBase.sol` - Core: AccessManager, roles, actors, `_scheduleAndExecute()`
-- `UnitTestBase.sol` - Unit tests with mocks, `_fundUSDC()`, `_fundCbBTC()`
-- `ForkTestBase.sol` - Fork tests with real Aave V3, `_dealToken()`
-- `LoanUnitTestBase.sol` - Loan-specific unit test base with mock infrastructure
+### Key Test Gotchas
 
-**Mock Contracts** (`test/mock/`):
-| Mock | Description |
-|------|-------------|
-| `MockERC20.sol` | Configurable ERC20 with unrestricted mint/burn |
-| `MockAToken.sol` | Pool-restricted aToken with underlying asset approval |
-| `MockVariableDebtToken.sol` | Pool-restricted variable debt token |
-| `MockAaveV3Pool.sol` | Flash loans + lending functions (supply, withdraw, getReserveAToken) |
-| `MockBitmorLendingPool.sol` | Full lending pool mock with liquidation logic |
-| `MockAddressesProvider.sol` | Addresses provider for oracle and pool |
-| `MockPriceOracle.sol` | Configurable price oracle |
-| `MockSwapAdapter.sol` | Mock swap adapter with configurable rates |
-| `MockInterestRateStrategy.sol` | Fixed interest rate strategy |
-| `MockChainlinkOracle.sol` | Chainlink AggregatorV3Interface mock |
+**vm.prank with external calls:** Cache role IDs before `vm.prank()` to avoid the prank being consumed:
 
-**Foundry profiles** (`foundry.toml`): `default`, `unit`, `fork`, `fuzz`, `invariant`, `coverage`, `local`, `security`. Use `FOUNDRY_PROFILE=<name>` to select (make targets handle this automatically).
+```solidity
+// WRONG — EXECUTOR_ID() external call consumes the prank
+vm.prank(admin);
+manager.grantRole(EXECUTOR_ID(), borrower, NO_DELAY);
 
-### Hardhat Tests (lending-pool/)
+// CORRECT
+uint64 executorRoleId = EXECUTOR_ID();
+vm.prank(admin);
+manager.grantRole(executorRoleId, borrower, NO_DELAY);
+```
 
-Tests in `test-suites/` organized by protocol area:
-- `test-aave/` - Core Aave tests
-- `test-amm/` - AMM tests
-- `test-bitmor/` - Bitmor-specific tests
-
-Fork testing: Set `FORK=main` environment variable.
+**Delayed operations:** Use `_scheduleAndExecute()` for functions with 1-day role delays (e.g., `unpause`, vault curator ops).
 
 ## Configuration
 
 ### Environment Variables
 
-**lending-pool/.env**:
-```
-MNEMONIC=""
-ALCHEMY_KEY=""
-ETHERSCAN_KEY=""
-```
+**lending-pool/.env**: `MNEMONIC`, `ALCHEMY_KEY`, `ETHERSCAN_KEY`
 
-**loan-provider/.env**:
-```
-BASE_SEPOLIA_RPC_URL=""
-ETHERSCAN_KEY=""
-```
+**loan-provider/.env**: `BASE_SEPOLIA_RPC_URL`, `ETHERSCAN_KEY`
 
-### Wallet Setup (loan-provider/)
+### Wallets (loan-provider/)
 
-Tests and deployments require two cast wallets:
-- `bitmor_owner`: Admin/deployer account
-- `bitmor_user`: Test user account
+Two `cast` wallets required: `bitmor_owner` (admin/deployer) and `bitmor_user` (test user).
 
 ### Import Aliases (loan-provider/)
 
@@ -323,107 +255,75 @@ Tests and deployments require two cast wallets:
 @usdcVault/=src/vaults/usdc-vault/
 ```
 
-### Key Addresses (Base Sepolia)
+### Key Addresses
 
-Deployed addresses are in:
-- `loan-provider/deployments.json`
-- `lending-pool/deployed-contracts.json`
+Deployed addresses: `loan-provider/deployments.json` and `lending-pool/deployed-contracts.json`.
+Base Sepolia Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 
-Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
+## Role Configuration (AccessManager)
+
+Role definitions: `loan-provider/src/accessManager/RolesData.sol`
+
+### Operational Roles
+
+| Role       | ID  | Target      | Delay  | Description                          |
+|------------|-----|-------------|--------|--------------------------------------|
+| ADMIN      | 0   | —           | 0      | Top-level admin                      |
+| EXECUTOR   | 1   | Loan        | 0      | Loan initialization, insurance       |
+| LPCM       | 2   | Loan        | 0      | Liquidation data updates             |
+| LPM_FAST   | 3   | Loan        | 0      | Emergency pause                      |
+| LPM_SLOW   | 30  | Loan        | 1 day  | State variable updates, unpause      |
+| ARE        | 4   | AutoRepay   | 0      | Auto repayment execution             |
+| BVM_FAST   | 11  | BTCVault    | 0      | Pause, emergency withdraw            |
+| BVM_SLOW   | 110 | BTCVault    | 1 day  | Fee recipient, unpause               |
+| BVC        | 12  | BTCVault    | 1 day  | Strategy add/remove/cap              |
+| BVA_FAST   | 13  | BTCVault    | 0      | Asset reallocation                   |
+| BVA_SLOW   | 130 | BTCVault    | 1 day  | Supply/withdraw queue config         |
+| BVD        | 14  | BTCVault    | 0      | Deposit operations (held by Loan)    |
+| UVM_FAST   | 21  | USDCVault   | 0      | Pause, fund withdrawal               |
+| UVM_SLOW   | 210 | USDCVault   | 1 day  | Unpause                              |
+| UVC        | 22  | USDCVault   | 1 day  | Strategy, yield source config        |
+| UVA        | 23  | USDCVault   | 0      | Asset reallocation                   |
+
+### Guardian Roles
+
+Guardians cancel delayed operations before execution:
+- `GUARDIAN_LPM_SLOW` (930), `GUARDIAN_BVM_SLOW` (9110), `GUARDIAN_BVC` (912)
+- `GUARDIAN_BVA_SLOW` (9130), `GUARDIAN_UVM_SLOW` (9210), `GUARDIAN_UVC` (922)
 
 ## Security Analysis
 
 ```bash
-cd loan-provider
-FOUNDRY_PROFILE=security forge build
+# Model checker build
+cd loan-provider && FOUNDRY_PROFILE=security forge build
+
+# Aderyn static analysis (aderyn.toml in repo root)
+aderyn .
 ```
+
+Security documentation: `vulnerability-reports/`, `Vulnerability-testing-list.md`, `Invariants.md`
 
 ## Working with Both Systems
 
-1. **Lending pool changes**: Work in `lending-pool/` with Hardhat
-2. **Loan system changes**: Work in `loan-provider/` with Foundry
+1. **Lending pool changes**: `lending-pool/` with Hardhat; integration with loan-provider is interface-only
+2. **Loan system changes**: `loan-provider/` with Foundry
 3. **Full deployment**: Deploy lending pool first, then loan system
-4. **Integration**: Loan system reads Bitmor addresses from `../lending-pool/deployed-contracts.json`
-5. **Local development**: Use `make anvil` + `make deploy-local` for full local testing
-
-## Role Configuration (AccessManager)
-
-### Operational Roles
-| Role     | ID  | Target        | Grantee                      |
-|----------|-----|---------------|------------------------------|
-| ADMIN    | 0   | -             | admin EOA                    |
-| EXECUTOR | 1   | Loan          | admin EOA                    |
-| LPCM     | 2   | Loan          | LendingPoolCollateralManager |
-| LPM_FAST | 3   | Loan          | admin EOA                    |
-| LPM_SLOW | 30  | Loan          | admin EOA (1-day delay)      |
-| BVC      | 12  | BTCVault      | admin EOA (1-day delay)      |
-| BVD      | 14  | BTCVault      | Loan contract                |
-| UVC      | 22  | USDCVault     | admin EOA (1-day delay)      |
-
-### Guardian Roles
-Guardian roles can cancel delayed operations for their protected roles:
-- `GUARDIAN_LPM_SLOW` (930) → protects LPM_SLOW
-- `GUARDIAN_BVC` (912) → protects BVC
-- `GUARDIAN_UVC` (922) → protects UVC
-
-**Role definitions**: `loan-provider/src/accessManager/RolesData.sol`
+4. **Local development**: `make anvil` + `make deploy-local` for full local stack; integration tests require this
+5. **Address resolution**: `HelperConfig.s.sol` reads `../lending-pool/deployed-contracts.json` for pool/oracle addresses
 
 ## Key Files Reference
 
-| Category                  | File                                                                  |
-|---------------------------|-----------------------------------------------------------------------|
-| **Configuration**         |                                                                       |
-| Network config            | `loan-provider/script/HelperConfig.s.sol`                             |
-| Deployment helper         | `loan-provider/script/helpers/DeploymentHelper.s.sol`                 |
-| Strategy config           | `loan-provider/script/StrategyConfig.s.sol`                           |
-| Deployment constants      | `loan-provider/script/deployment/DeploymentConstants.sol`             |
-| **Deployment Scripts**    |                                                                       |
-| Phase 1 (consolidated)    | `loan-provider/script/deployment/DeployPhase1.s.sol`                  |
-| Phase 3a (deploy)         | `loan-provider/script/deployment/DeployPhase3.s.sol`                  |
-| Phase 3b (schedule)       | `loan-provider/script/deployment/SchedulePhase3.s.sol`                |
-| Phase 3c (execute)        | `loan-provider/script/deployment/ExecutePhase3.s.sol`                 |
-| Orchestrator              | `deploy/scripts/deploy-local.sh`                                      |
-| **AccessManager**         |                                                                       |
-| Role definitions          | `loan-provider/src/accessManager/RolesData.sol`                       |
-| AccessManager contract    | `loan-provider/src/accessManager/BitmorAccessManager.sol`             |
-| Local setup               | `loan-provider/script/interaction/AccessManager/LocalFullSetup.s.sol` |
-| **Addresses**             |                                                                       |
-| loan-provider addresses   | `loan-provider/deployments.json`                                      |
-| lending-pool addresses    | `lending-pool/deployed-contracts.json`                                |
-
-## Documentation
-
-- **Deployment guide**: `DEPLOYMENT_SETUP.md` - Comprehensive deployment instructions
-- **Implementation plans**: `docs/plans/` - Architecture and design decisions
-
-## Recent Production Fixes
-
-### FlashLoanLogic InsufficientSwapOutput Guard (PR #67)
-
-**Location:** `loan-provider/src/libraries/logic/FlashLoanLogic.sol`
-
-Added `InsufficientSwapOutput` guard and refund init surplus to prevent flash loan callback from accepting inadequate swap outputs.
-
-### CloseLoanLogic Balance Sweep Fix (PR #67)
-
-**Location:** `loan-provider/src/libraries/logic/CloseLoanLogic.sol`
-
-Used snapshot-diff pattern to prevent `closeLoan` from sweeping other users' residual balances.
-
-### Tokenized Strategy Access Control (PR #68)
-
-**Location:** `loan-provider/src/vaults/btc-vault/TokenizedStrategy/`
-
-Added `onlyVault` modifier to ERC-4626 functions (`deposit`, `mint`, `withdraw`, `redeem`) that were previously unprotected.
-
-### Full Liquidation Debt Coverage (PR #66)
-
-**Location:** `loan-provider/src/protocol/Loan.sol` (liquidation logic)
-
-Enforced full debt coverage requirement in `liquidationCall` - partial liquidation amounts no longer incorrectly set status to Liquidated.
-
-### USDCStrategy.withdraw() Bug (2026-01-23)
-
-**Location:** `loan-provider/src/vaults/usdc-vault/USDCStrategy.sol`
-
-Added `i_asset.safeTransfer(msg.sender, amount)` after `_withdrawFunds()` to transfer assets to the vault.
+| Category | File |
+|----------|------|
+| Network config | `loan-provider/script/HelperConfig.s.sol` |
+| Deployment constants | `loan-provider/script/deployment/DeploymentConstants.sol` |
+| Role definitions | `loan-provider/src/accessManager/RolesData.sol` |
+| Phase 1 deploy | `loan-provider/script/deployment/DeployPhase1.s.sol` |
+| Phase 3 deploy | `loan-provider/script/deployment/DeployPhase3.s.sol` |
+| Schedule ops | `loan-provider/script/deployment/SchedulePhase3.s.sol` |
+| Execute ops | `loan-provider/script/deployment/ExecutePhase3.s.sol` |
+| Deploy orchestrator | `deploy/scripts/deploy-local.sh` |
+| Protocol invariants | `Invariants.md` |
+| Test constants | `loan-provider/test/helpers/TestConstants.sol` |
+| loan-provider addresses | `loan-provider/deployments.json` |
+| lending-pool addresses | `lending-pool/deployed-contracts.json` |

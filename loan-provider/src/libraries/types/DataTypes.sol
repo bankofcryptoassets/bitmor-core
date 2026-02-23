@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 /**
@@ -538,6 +538,12 @@ library DataTypes {
      * @dev Active: Loan is ongoing and being repaid
      * @dev Completed: Loan has been fully repaid
      * @dev Liquidated: Loan was liquidated due to insufficient collateral or other reasons
+     *
+     * Status transition invariants:
+     * - Status transitions MUST be monotonic: Active -> Completed or Active -> Liquidated
+     * - MUST NOT transition from Completed or Liquidated back to Active
+     * - MUST NOT transition from Completed to Liquidated or vice versa
+     * - A loan MUST start in Active status upon creation
      */
     enum LoanStatus {
         Active,

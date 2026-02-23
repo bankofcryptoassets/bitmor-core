@@ -1,0 +1,80 @@
+name: PR Merge Summary
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches:
+      - main
+
+jobs:
+  pr-summary:
+    name: Generate PR Summary
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Generate PR Summary with Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are generating a pre-merge summary for PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+            The PR is targeting the `main` branch.
+
+            ## Your Task
+
+            Generate a structured summary comment and post it on the PR. Follow these steps exactly:
+
+            ### Step 1: Get PR information
+            Run: `gh pr view ${{ github.event.pull_request.number }} --json title,body,commits,headRefName`
+            Run: `gh pr diff ${{ github.event.pull_request.number }}`
+
+            ### Step 2: Get open security/bug issues
+            Run: `gh issue list --state open --label "security" --json number,title,labels`
+            Run: `gh issue list --state open --label "bug" --json number,title,labels`
+
+            ### Step 3: Scan changed files for pending tasks
+            Use Grep to search for `TODO|FIXME|HACK` patterns in any `.sol` files changed in this PR.
+
+            ### Step 4: Identify closed issues
+            Look at commit messages and PR body for patterns like `Closes #N`, `Fixes #N`, `Resolves #N`.
+
+            ### Step 5: Post the summary comment
+            Post a comment on the PR using:
+            `gh pr comment ${{ github.event.pull_request.number }} --body "<your generated summary>"`
+
+            Format the comment EXACTLY like this (fill in the sections, omit sections with no content):
+
+            ```
+            ## Release Summary — PR #${{ github.event.pull_request.number }}
+
+            ### Changes
+            - <bullet summary of what changed, grouped by contract/area>
+
+            ### Closed Issues
+            - Closes #N — <issue title>
+
+            ### Open Security Issues (unresolved)
+            - #N — <title> [SEVERITY]
+
+            ### Pending Tasks in Changed Files
+            - `path/to/file.sol:LN` — TODO: <description>
+            ```
+
+            If there are no open security issues, omit that section.
+            If there are no TODOs in changed files, omit that section.
+            Keep the Changes section concise — 3-7 bullets max.
+
+          claude_args: >-
+            --allowed-tools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue list:*),Bash(gh pr comment:*)"
+            --max-turns 20

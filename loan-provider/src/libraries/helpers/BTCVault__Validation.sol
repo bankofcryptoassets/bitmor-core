@@ -28,14 +28,19 @@ library BTCVault__Validation {
      * @notice Validates parameters for fund reallocation operations
      * @dev Checks if reallocation is feasible given current asset state
      * @param s The strategy state storage reference
-     * @param totalAssets The total assets available for reallocation
-     * @param asset The underlying asset address
+     * @param allocations The allocation array.
      */
-    function validateReallocateFunds(DataTypes.StrategyState storage s, uint256 totalAssets, address asset)
+    function validateReallocateFunds(DataTypes.StrategyState storage s, DataTypes.Allocation[] memory allocations)
         internal
         view
     {
-        //! TODO: Implement validation logic for fund reallocation
+        uint256 len = allocations.length;
+
+        for (uint256 i = 0; i < len; i++) {
+            if (s.strategies[allocations[i].index].strategy == address(0)) {
+                revert Errors.WrongAllocationArray();
+            }
+        }
     }
 
     /**

@@ -1,7 +1,7 @@
 {
   "MintableERC20": {
     "localhost": {
-      "address": "0x9BcC604D4381C5b0Ad12Ff3Bf32bEdE063416BC7",
+      "address": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -11,7 +11,7 @@
   },
   "WETH": {
     "localhost": {
-      "address": "0x12Bcb546bC60fF39F1Adfc7cE4605d5Bd6a6A876",
+      "address": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -21,19 +21,19 @@
   },
   "bUSDC": {
     "localhost": {
-      "address": "0xaC47e91215fb80462139756f43438402998E4A3a",
+      "address": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     }
   },
   "bcbBTC": {
     "localhost": {
-      "address": "0x9BcC604D4381C5b0Ad12Ff3Bf32bEdE063416BC7",
+      "address": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     }
   },
   "LendingPoolAddressesProviderRegistry": {
     "localhost": {
-      "address": "0x63fea6E447F120B8Faf85B53cdaD8348e645D80E",
+      "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -43,7 +43,7 @@
   },
   "LendingPoolAddressesProvider": {
     "localhost": {
-      "address": "0xdFdE6B33f13de2CA1A75A6F7169f50541B14f75b",
+      "address": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -53,7 +53,7 @@
   },
   "ReserveLogic": {
     "localhost": {
-      "address": "0x54B8d8E2455946f2A5B8982283f2359812e815ce",
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -63,7 +63,7 @@
   },
   "GenericLogic": {
     "localhost": {
-      "address": "0xf090f16dEc8b6D24082Edd25B1C8D26f2bC86128",
+      "address": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -73,7 +73,7 @@
   },
   "ValidationLogic": {
     "localhost": {
-      "address": "0xd9140951d8aE6E5F625a02F5908535e16e3af964",
+      "address": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -83,7 +83,7 @@
   },
   "LendingPoolImpl": {
     "localhost": {
-      "address": "0x56D13Eb21a625EdA8438F55DF2C31dC3632034f5"
+      "address": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"
     },
     "default": {
       "address": "0x910b6a78b413e47401f20aA2350d264b55ae0189"
@@ -91,7 +91,7 @@
   },
   "LendingPool": {
     "localhost": {
-      "address": "0x477044170B5AB7DdF4d688e6C6Da6Cc5465338c4"
+      "address": "0x8dAF17A20c9DBA35f005b6324F493785D239719d"
     },
     "default": {
       "address": "0x910b6a78b413e47401f20aA2350d264b55ae0189",
@@ -100,7 +100,7 @@
   },
   "LendingPoolConfiguratorImpl": {
     "localhost": {
-      "address": "0x071586BA1b380B00B793Cc336fe01106B0BFbE6D"
+      "address": "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d"
     },
     "default": {
       "address": "0x0D8448C0fBB84c30395838C8b3fD64722ea94532"
@@ -108,7 +108,7 @@
   },
   "LendingPoolConfigurator": {
     "localhost": {
-      "address": "0xd7bD70ae52258ee5f7a5853a0D42995030874355"
+      "address": "0x3Ca8f9C04c7e3E1624Ac2008F92f6F366A869444"
     },
     "default": {
       "address": "0x334423C1FCB95523043F81AD2D870866FCda06B3"
@@ -116,7 +116,7 @@
   },
   "StableAndVariableTokensHelper": {
     "localhost": {
-      "address": "0x3C15538ED063e688c8DF3d571Cb7a0062d2fB18D",
+      "address": "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -126,7 +126,7 @@
   },
   "ATokensAndRatesHelper": {
     "localhost": {
-      "address": "0xccf1769D8713099172642EB55DDFFC0c5A444FE9",
+      "address": "0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -136,7 +136,7 @@
   },
   "AToken": {
     "localhost": {
-      "address": "0x3904b8f5b0F49cD206b7d5AABeE5D1F37eE15D8d",
+      "address": "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -146,7 +146,7 @@
   },
   "StableDebtToken": {
     "localhost": {
-      "address": "0x2Dd78Fd9B8F40659Af32eF98555B8b31bC97A351",
+      "address": "0x4A679253410272dd5232B3Ff7cF5dbB88f295319",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -156,7 +156,7 @@
   },
   "VariableDebtToken": {
     "localhost": {
-      "address": "0x56fC17a65ccFEC6B7ad0aDe9BD9416CB365B9BE8",
+      "address": "0x7a2088a1bFc9d81c55368AE168C2C02570cB814F",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -166,7 +166,7 @@
   },
   "AaveOracle": {
     "localhost": {
-      "address": "0x2625760C4A8e8101801D3a48eE64B2bEA42f1E96",
+      "address": "0x09635F643e140090A9A8Dcd712eD6285858ceBef",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -176,7 +176,7 @@
   },
   "LendingRateOracle": {
     "localhost": {
-      "address": "0xD6b040736e948621c5b6E0a494473c47a6113eA8",
+      "address": "0x67d269191c92Caf3cD7723F116c85e6E9bf55933",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -186,7 +186,7 @@
   },
   "AaveProtocolDataProvider": {
     "localhost": {
-      "address": "0x51C65cd0Cdb1A8A8b79dfc2eE965B1bA0bb8fc89"
+      "address": "0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8"
     },
     "default": {
       "address": "0xeB80313502EA077FA9B8E89b45e4a1B236cA17Ea",
@@ -205,7 +205,7 @@
   },
   "USDCReserveInterestRateStrategy": {
     "localhost": {
-      "address": "0x8fC8CFB7f7362E44E472c690A6e025B80E406458",
+      "address": "0x851356ae760d987E095750cCeb3bC6014560891C",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -215,12 +215,12 @@
   },
   "rateStrategyUSDC": {
     "localhost": {
-      "address": "0x8fC8CFB7f7362E44E472c690A6e025B80E406458"
+      "address": "0x851356ae760d987E095750cCeb3bC6014560891C"
     }
   },
   "DefaultReserveInterestRateStrategy": {
     "localhost": {
-      "address": "0xC7143d5bA86553C06f5730c8dC9f8187a621A8D4",
+      "address": "0xf5059a5D33d5853360D16C683c16e67980206f36",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -230,12 +230,12 @@
   },
   "rateStrategyBVBTC": {
     "localhost": {
-      "address": "0xC7143d5bA86553C06f5730c8dC9f8187a621A8D4"
+      "address": "0xf5059a5D33d5853360D16C683c16e67980206f36"
     }
   },
   "LendingPoolCollateralManagerImpl": {
     "localhost": {
-      "address": "0x8B190573374637f144AC8D37375d97fd84cBD3a0"
+      "address": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF"
     },
     "default": {
       "address": "0x4977FC58783ceBCC310311C800B786EcAf45F98f"
@@ -243,7 +243,7 @@
   },
   "LendingPoolCollateralManager": {
     "localhost": {
-      "address": "0x8B190573374637f144AC8D37375d97fd84cBD3a0",
+      "address": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
       "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
     },
     "default": {
@@ -253,7 +253,7 @@
   },
   "MockFlashLoanReceiver": {
     "localhost": {
-      "address": "0x162700d1613DfEC978032A909DE02643bC55df1A"
+      "address": "0x9d4454B023096f34B160D6B654540c56A1F81688"
     },
     "default": {
       "address": "0xbC7Ab6F930D83CB7e80A207d4dD3DD80aA8a2153",

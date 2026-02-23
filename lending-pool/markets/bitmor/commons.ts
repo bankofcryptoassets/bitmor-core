@@ -133,7 +133,7 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
     ReserveFactorTreasuryAddress: {
         [eBaseNetwork.base]: "0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c",
         [eBaseNetwork.sepolia]: "0x464c71f6c2f760dda6093dcb91c24c39e5d6e18c",
-        [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
+        [eEthereumNetwork.hardhat]: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8", // Anvil account 1
     },
     IncentivesController: {
         [eBaseNetwork.base]: ZERO_ADDRESS,

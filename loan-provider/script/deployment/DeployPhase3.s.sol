@@ -16,6 +16,9 @@ import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedSt
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
+import {MintableERC20} from "../../test/mock/MintableERC20.sol";
+import {MockAToken} from "../../test/mock/MockAToken.sol";
+import {MockAaveV3Pool} from "../../test/mock/MockAaveV3Pool.sol";
 
 /// @title DeployPhase3
 /// @author Bitmor Protocol
@@ -43,6 +46,11 @@ contract DeployPhase3 is InitialSetup {
 
     address public bitmorPool;
     address public aaveOracle;
+    address public lendingPoolAddressesProvider;
+
+    // ===== Oracles (from deployments.json Phase 1) =====
+
+    address public usdcOracle;
 
     // ===== Aave V3 Mock (from deployments.json Phase 1) =====
 
@@ -79,6 +87,47 @@ contract DeployPhase3 is InitialSetup {
         mockSwapAdapter = address(new MockUniswapV4SwapAdapter(aaveOracle, mockCbBTC, mockUsdc));
         console2.log("MockSwapAdapter:", mockSwapAdapter);
 
+        // Fund MockSwapAdapter with tokens for swaps
+        MintableERC20(mockCbBTC).mint(mockSwapAdapter, 1000e8); // 1000 BTC
+        MintableERC20(mockUsdc).mint(mockSwapAdapter, 100_000_000e6); // 100M USDC
+        console2.log("Funded MockSwapAdapter with tokens");
+
+        // Fund MockAaveV3Pool with USDC for flash loans
+        MintableERC20(mockUsdc).mint(aaveV3Pool, 10_000_000e6); // 10M USDC
+        console2.log("Funded MockAaveV3Pool with USDC for flash loans");
+
+        // Configure AaveOracle for local deployment
+        //
+        // AaveOracle has a special bvBTC path: if asset == s_bvBTC, it computes
+        //   price = _getAssetPrice(s_btc) * BTCVault.convertToAssets(1e8) / 1e8
+        // But convertToAssets() calls totalAssets() which queries AaveTokenizedStrategy,
+        // which calls getReserveAToken(cbBTC) on the external Aave mock.
+        // For local testing, we disable the special path and use direct oracle sources.
+        //
+        // Fix: Clear s_bvBTC so the special path is never triggered, and instead
+        // use direct assetsSources mapping for btcVault pricing.
+        (bool okBtc,) = aaveOracle.call(abi.encodeWithSignature("setBTC(address)", mockCbBTC));
+        require(okBtc, "Failed to setBTC");
+        (bool okBvBtc,) = aaveOracle.call(abi.encodeWithSignature("setbvBTC(address)", address(0)));
+        require(okBvBtc, "Failed to clear setbvBTC");
+        console2.log("Cleared AaveOracle s_bvBTC (special path disabled for local)");
+
+        // Set Chainlink price sources via direct assetsSources mapping
+        //   - btcVault: direct BTC price (since special bvBTC path is disabled)
+        //   - mockCbBTC: BTC price (for any direct cbBTC price lookups)
+        //   - mockUsdc: USDC price (for Loan contract debt pricing)
+        address[] memory assets = new address[](3);
+        address[] memory sources = new address[](3);
+        assets[0] = btcVault; // bvBTC priced directly via BTC oracle
+        assets[1] = mockCbBTC; // Raw cbBTC
+        assets[2] = mockUsdc; // USDC (debt asset)
+        sources[0] = btcOracle; // BTC/USD Chainlink mock
+        sources[1] = btcOracle; // BTC/USD Chainlink mock
+        sources[2] = usdcOracle; // USDC/USD Chainlink mock
+        (bool ok,) = aaveOracle.call(abi.encodeWithSignature("setAssetSources(address[],address[])", assets, sources));
+        require(ok, "Failed to set oracle sources");
+        console2.log("Configured AaveOracle price sources for bvBTC, cbBTC, and USDC");
+
         // 3. LoanVault implementation
         loanVaultImpl = address(new LoanVault());
         console2.log("LoanVault impl:", loanVaultImpl);
@@ -106,11 +155,36 @@ contract DeployPhase3 is InitialSetup {
         loanVaultFactory = address(new LoanVaultFactory(loanVaultImpl, loan));
         console2.log("LoanVaultFactory:", loanVaultFactory);
 
+        // 5b. Register Loan contract with LendingPoolAddressesProvider
+        // Required for LendingPoolCollateralManager to query loan data during liquidation
+        (bool okSetLoan,) = lendingPoolAddressesProvider.call(abi.encodeWithSignature("setBitmorLoan(address)", loan));
+        require(okSetLoan, "Failed to setBitmorLoan");
+        console2.log("Registered Loan with LendingPoolAddressesProvider");
+
+        // 5c. Register USDCVault with LendingPoolAddressesProvider
+        // Required for USDCReserveInterestRateStrategy.calculateInterestRates()
+        (bool okSetUSDCVault,) =
+            lendingPoolAddressesProvider.call(abi.encodeWithSignature("setUSDCVault(address)", usdcVault));
+        require(okSetUSDCVault, "Failed to setUSDCVault");
+        console2.log("Registered USDCVault with LendingPoolAddressesProvider");
+
         // 6. Strategies
-        aaveStrategy = address(new AaveTokenizedStrategy(bitmorPool, btcVault));
-        usdcStrategy = address(new USDCStrategy(usdcVault, bitmorPool, bitmorPool));
+        aaveStrategy = address(new AaveTokenizedStrategy(aaveV3Pool, btcVault));
+        usdcStrategy = address(new USDCStrategy(usdcVault, aaveV3Pool, bitmorPool));
         console2.log("AaveStrategy:", aaveStrategy);
         console2.log("USDCStrategy:", usdcStrategy);
+
+        // 6b. Initialize MockAaveV3Pool reserves for strategies
+        // AaveTokenizedStrategy calls aaveV3Pool.getReserveAToken(cbBTC)
+        // USDCStrategy calls aaveV3Pool.getReserveAToken(usdc) for its Aave allocation
+        address aTokenCbBTC = address(new MockAToken("Aave Mock cbBTC", "amcbBTC", 8, mockCbBTC, aaveV3Pool));
+        address aTokenUsdc = address(new MockAToken("Aave Mock USDC", "amUSDC", 6, mockUsdc, aaveV3Pool));
+        MockAaveV3Pool(aaveV3Pool).initReserve(mockCbBTC, aTokenCbBTC);
+        MockAaveV3Pool(aaveV3Pool).initReserve(mockUsdc, aTokenUsdc);
+        // Fund pool with underlying for withdrawals
+        MintableERC20(mockCbBTC).mint(aaveV3Pool, 1000e8);
+        // Note: USDC already minted to aaveV3Pool on line 94 (10M for flash loans)
+        console2.log("Initialized MockAaveV3Pool reserves: cbBTC aToken:", aTokenCbBTC, "USDC aToken:", aTokenUsdc);
 
         // 7. AccessManager setup (roles, grants, schedule)
         _setupAccessManagerRoles();
@@ -134,6 +208,7 @@ contract DeployPhase3 is InitialSetup {
         mockCbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
         btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
         btcOracle = vm.parseJsonAddress(json, string.concat(base, "btcOracle"));
+        usdcOracle = vm.parseJsonAddress(json, string.concat(base, "usdcOracle"));
         aaveV3Pool = vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool"));
         aaveAddressesProvider = vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider"));
 
@@ -148,8 +223,11 @@ contract DeployPhase3 is InitialSetup {
         bitmorPool = vm.parseJsonAddress(json, ".LendingPool.localhost.address");
         aaveOracle = vm.parseJsonAddress(json, ".AaveOracle.localhost.address");
 
+        lendingPoolAddressesProvider = vm.parseJsonAddress(json, ".LendingPoolAddressesProvider.localhost.address");
+
         console2.log("Loaded LendingPool:", bitmorPool);
         console2.log("Loaded AaveOracle:", aaveOracle);
+        console2.log("Loaded LendingPoolAddressesProvider:", lendingPoolAddressesProvider);
     }
 
     /// @notice Sets up AccessManager roles using simplified local setup
@@ -182,26 +260,56 @@ contract DeployPhase3 is InitialSetup {
         address admin = msg.sender;
         RolesData rolesData = new RolesData();
 
-        // Get role IDs for scheduling operations
+        // Get role IDs
+        (,,,, uint64 executorId,,,,,) = rolesData.EXECUTOR();
+        (,,,, uint64 lpcmId,,,,,) = rolesData.LPCM();
+        (,,,, uint64 lpmFastId,,,,,) = rolesData.LPM_FAST();
         (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
         (,,,, uint64 bvcId,,,,,) = rolesData.BVC();
         (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
 
-        console2.log("Setting up roles - LPM_SLOW:", lpmSlowId, "BVC:", bvcId);
+        console2.log("Setting up roles - EXECUTOR:", executorId, "LPCM:", lpcmId);
         console2.log("Loan address:", loan);
         console2.log("BTCVault address:", btcVault);
         console2.log("USDCVault address:", usdcVault);
 
-        // Set target function roles for actual deployed contracts
-        // (RolesData has INITIAL_ADMIN as placeholder, we need actual addresses)
+        // Loan selector mappings needed by integration tests + liquidation
+        manager.setTargetFunctionRole(loan, rolesData.getEXECUTOR_SELECTORS(), executorId);
+        console2.log("Set EXECUTOR selectors on Loan");
+        manager.setTargetFunctionRole(loan, rolesData.getLPCM_SELECTORS(), lpcmId);
+        console2.log("Set LPCM selectors on Loan");
+        manager.setTargetFunctionRole(loan, rolesData.getLPM_FAST_SELECTORS(), lpmFastId);
+        console2.log("Set LPM_FAST selectors on Loan");
         manager.setTargetFunctionRole(loan, rolesData.getLPM_SLOW_SELECTORS(), lpmSlowId);
         console2.log("Set LPM_SLOW selectors on Loan");
+
+        // Existing vault mappings
         manager.setTargetFunctionRole(btcVault, rolesData.getBVC_SELECTORS(), bvcId);
         console2.log("Set BVC selectors on BTCVault");
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), uvcId);
         console2.log("Set UVC selectors on USDCVault");
 
-        // Grant roles with execution delays (enables schedule() - requires non-zero delay)
+        // BVD: Loan contract needs deposit/mint access to BTCVault
+        (,,,, uint64 bvdId,,,,,) = rolesData.BVD();
+        manager.setTargetFunctionRole(btcVault, rolesData.getBVD_SELECTORS(), bvdId);
+        manager.grantRole(bvdId, loan, 0);
+        console2.log("Granted BVD to Loan for BTCVault deposit access");
+
+        // UVA: Bitmor Lending Pool calls reallocateAssets on USDCVault during borrow/repay
+        (,,,, uint64 uvaId,,,,,) = rolesData.UVA();
+        manager.setTargetFunctionRole(usdcVault, rolesData.getUVA_SELECTORS(), uvaId);
+        manager.grantRole(uvaId, bitmorPool, 0);
+        console2.log("Granted UVA to bitmorPool for USDCVault reallocateAssets");
+
+        // Grants required for local integration tests
+        manager.grantRole(executorId, admin, 0); // deployer can grant EXECUTOR in tests
+        console2.log("Granted EXECUTOR to admin");
+        manager.grantRole(lpmFastId, admin, 0); // deployer can pause immediately
+        console2.log("Granted LPM_FAST to admin");
+        manager.grantRole(lpcmId, bitmorPool, 0); // lending-pool can update loan state on liquidation
+        console2.log("Granted LPCM to bitmorPool:", bitmorPool);
+
+        // Existing delayed grants for timelocked ops
         uint32 delay = uint32(DeploymentConstants.EXECUTION_DELAY);
         manager.grantRole(lpmSlowId, admin, delay);
         console2.log("Granted LPM_SLOW to admin with delay:", delay);
@@ -302,6 +410,8 @@ contract DeployPhase3 is InitialSetup {
             cfg,
             ',"btcOracle":"',
             vm.toString(btcOracle),
+            '","usdcOracle":"',
+            vm.toString(usdcOracle),
             '","aaveV3Pool":"',
             vm.toString(aaveV3Pool),
             '","aaveAddressesProvider":"',

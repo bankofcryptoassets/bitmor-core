@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    branches:
+      - main
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "ERROR: Version must match vX.Y.Z or vX.Y.Z-suffix format"
+            exit 1
+          fi
+
+      - name: Generate CHANGELOG and create release
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            You are creating a GitHub Release for version ${{ inputs.version }} of ${{ github.repository }}.
+            Pre-release: ${{ inputs.prerelease }}
+
+            ## Your Task
+
+            ### Step 1: Find the previous release tag
+            Run: `git tag --sort=-version:refname | head -5`
+            If no tags exist, use the very first commit: `git rev-list --max-parents=0 HEAD`
+
+            ### Step 2: Get commits since last tag
+            If a previous tag exists (e.g. `v0.1.0`):
+              Run: `git log v0.1.0..HEAD --oneline --no-merges`
+            If no previous tag:
+              Run: `git log --oneline --no-merges`
+
+            ### Step 3: Get closed issues since last tag
+            Run: `gh issue list --state closed --json number,title,labels,closedAt`
+            Filter to issues closed after the date of the previous tag (or all if no previous tag).
+
+            ### Step 4: Write CHANGELOG.md entry
+            Read CHANGELOG.md if it exists (it may not exist yet — that is fine, create it).
+
+            Prepend this entry to CHANGELOG.md (keep any existing content below):
+
+            ```
+            ## [${{ inputs.version }}] — <today's date YYYY-MM-DD>
+
+            ### Added
+            - <new features from commits/issues>
+
+            ### Fixed
+            - <bug fixes from commits/issues>
+
+            ### Security
+            - <security fixes — issues with 'security' label>
+
+            ### Pending (known open issues)
+            - [SEVERITY] <title> (#N)
+            ```
+
+            Rules:
+            - Only include sections that have content
+            - Group by Added / Fixed / Security based on commit prefixes (feat/fix/security) and issue labels
+            - For "Pending", run `gh issue list --state open --label "security" --json number,title,labels` and list them
+            - Keep each bullet to one line
+
+            Write the full updated file using the Write tool to `CHANGELOG.md`.
+
+            ### Step 5: Commit and push CHANGELOG.md
+            Run: `git add CHANGELOG.md`
+            Run: `git commit -m "chore: update CHANGELOG.md for ${{ inputs.version }}"`
+            Run: `git push origin main`
+
+            ### Step 6: Create the GitHub Release
+            Build the release notes string from the same content you wrote to CHANGELOG.md for this version.
+
+            If prerelease is true:
+              Run: `gh release create ${{ inputs.version }} --title "${{ inputs.version }}" --notes "<release notes>" --prerelease`
+            If prerelease is false:
+              Run: `gh release create ${{ inputs.version }} --title "${{ inputs.version }}" --notes "<release notes>"`
+
+            The `gh release create` command will create the git tag automatically.
+
+          claude_args: >-
+            --allowed-tools "Read,Write,Edit,Bash(git log:*),Bash(git tag:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git rev-list:*),Bash(gh release create:*),Bash(gh issue list:*)"
+            --max-turns 20

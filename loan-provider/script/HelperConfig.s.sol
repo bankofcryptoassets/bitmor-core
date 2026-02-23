@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {stdJson} from "forge-std/StdJson.sol";
@@ -304,6 +304,12 @@ contract HelperConfig is Script {
         return _readDeployment("btcOracle");
     }
 
+    /// @notice Returns the deployed USDC/USD Chainlink oracle address (local only)
+    /// @return The USDC/USD mock oracle address from most recent deployment
+    function getUsdcUsdOracle() public view returns (address) {
+        return _readDeployment("usdcOracle");
+    }
+
     /// @notice Returns the path to loan-provider's deployments.json
     /// @return The absolute path to deployments.json
     function getDeploymentsJsonPath() public view returns (string memory) {
@@ -371,8 +377,8 @@ contract HelperConfig is Script {
         string memory path = string.concat(vm.projectRoot(), "/deployments.json");
 
         try vm.readFile(path) returns (string memory json) {
-            // Build jsonpath: .deployments.<chainId>.s_networkConfig.<key>
-            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".s_networkConfig.", key);
+            // Build jsonpath: .deployments.<chainId>.networkConfig.<key>
+            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -92,6 +92,16 @@ library FlashLoanLogic {
      * 4. Borrow `debtAsset` from `bitmorPool`
      * 5. Repay the Flash Loan `amount` and `premium`
      *
+     * Bitmor post-initialization invariants (8.4):
+     * - getVDTTokenAmount(bitmorPool, debtAsset, lsa) MUST equal loanData.loanAmount
+     *   at origination (within 1 wei tolerance).
+     * - btcVault.previewRedeem(getATokenAmount(lsa)) SHOULD approximate
+     *   swap_output(loanData.loanAmount + loanData.depositAmount).
+     * - IERC20(debtAsset).balanceOf(lsa) MUST equal 0 after this operation completes
+     *   (no leftover USDC in the LSA).
+     * - The change in IERC20(debtAsset).balanceOf(address(loan)) across this operation
+     *   MUST equal 0 (the Loan contract MUST NOT keep any USDC).
+     *
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
@@ -172,6 +182,12 @@ library FlashLoanLogic {
      * 5. Swap required collateral amount to debt asset
      * 6. Approve Aave pool to pull flash loan repayment
      *
+     * ## Close Loan Redemption Invariants (Invariant 2.2)
+     * - MUST withdraw all collateral (bvBTC shares) from the Bitmor Pool for the LSA
+     * - MUST redeem all bvBTC shares for underlying cbBTC
+     * - LSA bvBTC share balance MUST be 0 after this operation completes
+     * - Pre-closure fee MUST be deducted from redeemed cbBTC before any swap
+     *
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
      * @param loansByLSA Storage mapping of loans by LSA
@@ -223,8 +239,7 @@ library FlashLoanLogic {
 
             if (vars.collateralAmountWithdrawn == 0) revert Errors.CollateralWithdrawFailed();
 
-            /// @dev Redeem `bvBTC` shares for `btc` from BTC vault to Loan contract
-            /// The Loan contract needs the BTC to deduct fee and swap for flash loan repayment.
+            /// @dev Redeem bvBTC shares for cbBTC to Loan contract for fee deduction and flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
             vars.btcAmtReceived = vars.lsa.redeemBTC(
                 ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
@@ -232,7 +247,6 @@ library FlashLoanLogic {
         }
         // ===============================================================
 
-        // Sends the pre-closure fee to the fee collector
         IERC20(ctx.btc).safeTransfer(ctx.feeCollector, vars.preClosureFeeAmtInBTC);
 
         // =========== Swap the required amount to debt asset ==========

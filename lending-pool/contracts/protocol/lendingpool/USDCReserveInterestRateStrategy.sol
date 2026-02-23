@@ -127,7 +127,7 @@ contract USDCReserveInterestRateStrategy is IReserveInterestRateStrategy {
     ) external view override returns (uint256, uint256, uint256) {
         address vaultAddress = addressesProvider.getUSDCVault();
 
-        require(reserve != IUSDCVault(vaultAddress).asset(), "WA");
+        require(reserve == IUSDCVault(vaultAddress).asset(), "WA");
 
         /// @dev USDCVault.totalAssets() includes the `totalDebt`.
         uint256 totalAssets = IUSDCVault(vaultAddress).totalAssets();

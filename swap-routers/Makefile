@@ -51,12 +51,12 @@ test:
 .PHONY: test-fork
 test-fork:
 	@echo "Running fork tests on Base Mainnet..."
-	forge test --fork-url $(BASE_RPC_URL) -vvv
+	forge test --fork-url base -vvv
 
 .PHONY: test-fork-sepolia
 test-fork-sepolia:
 	@echo "Running fork tests on Base Sepolia..."
-	forge test --fork-url $(BASE_SEPOLIA_RPC_URL) -vvv
+	forge test --fork-url base_sepolia -vvv
 
 .PHONY: coverage
 coverage:

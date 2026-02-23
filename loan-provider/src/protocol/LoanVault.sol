@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -63,7 +63,13 @@ contract LoanVault is ILoanVault {
 
     /**
      * @notice Initializes the vault after deployment
-     * @dev Called by factory immediately after CREATE2 deployment
+     * @dev Called by factory immediately after CREATE2 deployment.
+     *
+     * Initialization invariants:
+     * - MUST revert if already initialized; each LoanVault supports exactly one loan
+     * - MUST NOT allow re-initialization once `s_initialized` is true
+     * - MUST revert if `_owner` or `_borrower` is the zero address
+     *
      * @param _owner The Loan contract address that will control this vault
      * @param _borrower The user who created this loan
      */
@@ -171,7 +177,8 @@ contract LoanVault is ILoanVault {
 
     /**
      * @notice Internal validation to ensure vault is not already initialized
-     * @dev Reverts if `s_initialized` is true
+     * @dev Reverts if `s_initialized` is true.
+     * Enforces invariant: MUST NOT allow re-initialization of same LoanVault.
      */
     function _notInitialized() internal view {
         if (s_initialized) revert Errors.LoanVault__AlreadyInitialized();
