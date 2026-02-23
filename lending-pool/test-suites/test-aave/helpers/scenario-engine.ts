@@ -1,4 +1,4 @@
-import { TestEnv, SignerWithAddress } from './make-suite';
+import type { TestEnv } from './make-suite.js';
 import {
   mint,
   approve,
@@ -10,8 +10,9 @@ import {
   swapBorrowRateMode,
   rebalanceStableBorrowRate,
   delegateBorrowAllowance,
-} from './actions';
-import { RateMode } from '../../../helpers/types';
+} from './actions.js';
+import { RateMode } from '../../../helpers/types.js';
+import type { SignerWithAddress } from '../../../helpers/types.js';
 
 export interface Action {
   name: string;

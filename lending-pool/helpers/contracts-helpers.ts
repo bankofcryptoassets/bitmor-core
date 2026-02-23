@@ -1,79 +1,119 @@
-import { Contract, Signer, utils, ethers, BigNumberish } from 'ethers';
+import { AbiCoder, ethers, parseUnits } from 'ethers';
+import type { Signer, BigNumberish } from 'ethers';
 import { signTypedData_v4 } from 'eth-sig-util';
 import { fromRpcSig, ECDSASignature } from 'ethereumjs-util';
-import BigNumber from 'bignumber.js';
-import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils';
+import BigNumber from "bignumber.js";
+
+import { getDb, DRE, waitForTx, notFalsyOrZeroAddress } from './misc-utils.js';
 import {
-  tEthereumAddress,
   eContractid,
-  tStringTokenSmallUnits,
   eEthereumNetwork,
   AavePools,
-  iParamsPerNetwork,
-  iParamsPerPool,
   ePolygonNetwork,
   eXDaiNetwork,
+  eAvalancheNetwork,
+  eBaseNetwork,
+} from './types.js';
+import type {
+  tEthereumAddress,
+  tStringTokenSmallUnits,
+  iParamsPerNetwork,
+  iParamsPerPool,
   eNetwork,
   iEthereumParamsPerNetwork,
   iPolygonParamsPerNetwork,
   iXDaiParamsPerNetwork,
   iAvalancheParamsPerNetwork,
-  eAvalancheNetwork,
-  eBaseNetwork,
   iBaseParamsPerNetwork,
-} from './types';
-import { MintableERC20 } from '../types/MintableERC20';
-import { Artifact } from 'hardhat/types';
-import { Artifact as BuidlerArtifact } from '@nomiclabs/buidler/types';
-import { verifyEtherscanContract } from './etherscan-verification';
-import { getFirstSigner, getIErc20Detailed } from './contracts-getters';
-import { usingTenderly, verifyAtTenderly } from './tenderly-utils';
-import { usingPolygon, verifyAtPolygon } from './polygon-utils';
-import { ConfigNames, loadPoolConfig } from './configuration';
-import { ZERO_ADDRESS } from './constants';
-import { getDefenderRelaySigner, usingDefender } from './defender-utils';
+} from './types.js';
+import type { MintableERC20 } from '../types/ethers-contracts/index.js';
+import type { Artifact } from 'hardhat/types/artifacts';
+import { verifyEtherscanContract } from './etherscan-verification.js';
+import { getIErc20Detailed } from './contracts-getters.js';
+import { usingTenderly, verifyAtTenderly } from './tenderly-utils.js';
+import { ConfigNames, loadPoolConfig } from './configuration.js';
+import { ZERO_ADDRESS } from './constants.js';
+import { getDefenderRelaySigner, usingDefender } from './defender-utils.js';
+
+const utils = { defaultAbiCoder: AbiCoder.defaultAbiCoder(), parseUnits };
 
 export type MockTokenMap = { [symbol: string]: MintableERC20 };
 
-export const registerContractInJsonDb = async (contractId: string, contractInstance: Contract) => {
-  const currentNetwork = DRE.network.name;
+// Helper function to get contract address from ethers v6 BaseContract or legacy contracts
+export const getContractAddress = (contract: any): string => {
+  if (contract === null || contract === undefined) {
+    throw new Error(`getContractAddress received ${contract} - contract is not initialized`);
+  }
+
+  const candidate =
+    typeof contract?.target === "string"
+      ? contract.target
+      : typeof contract?.address === "string"
+        ? contract.address
+        : undefined;
+
+  if (!candidate) {
+    throw new Error(
+      `Contract does not expose an address. Expected .target (ethers v6) or .address (legacy).`
+    );
+  }
+
+  if (!ethers.isAddress(candidate)) {
+    throw new Error(`Invalid contract address string: "${candidate}"`);
+  }
+
+  const checksummed = ethers.getAddress(candidate);
+
+  if (checksummed === ZERO_ADDRESS) {
+    throw new Error(`Contract address resolved to ZERO_ADDRESS (${ZERO_ADDRESS}) - not a deployed contract`);
+  }
+
+  return checksummed;
+};
+
+export const registerContractInJsonDb = async (contractId: string, contractInstance: any) => {
+  const currentNetwork = DRE.network.networkName;
   const FORK = process.env.FORK;
   if (FORK || (currentNetwork !== 'hardhat' && !currentNetwork.includes('coverage'))) {
     console.log(`*** ${contractId} ***\n`);
     console.log(`Network: ${currentNetwork}`);
-    console.log(`tx: ${contractInstance.deployTransaction.hash}`);
-    console.log(`contract address: ${contractInstance.address}`);
-    console.log(`deployer address: ${contractInstance.deployTransaction.from}`);
-    console.log(`gas price: ${contractInstance.deployTransaction.gasPrice}`);
-    console.log(`gas used: ${contractInstance.deployTransaction.gasLimit}`);
+    console.log(`tx: ${contractInstance.deploymentTransaction?.()?.hash || contractInstance.deployTransaction?.hash || 'N/A'}`);
+    console.log(`contract address: ${getContractAddress(contractInstance)}`);
+    console.log(`deployer address: ${contractInstance.deploymentTransaction?.()?.from || contractInstance.deployTransaction?.from || 'N/A'}`);
+    console.log(`gas price: ${contractInstance.deploymentTransaction?.()?.gasPrice || contractInstance.deployTransaction?.gasPrice || 'N/A'}`);
+    console.log(`gas used: ${contractInstance.deploymentTransaction?.()?.gasLimit || contractInstance.deployTransaction?.gasLimit || 'N/A'}`);
     console.log(`\n******`);
     console.log();
   }
 
   await getDb()
     .set(`${contractId}.${currentNetwork}`, {
-      address: contractInstance.address,
-      deployer: contractInstance.deployTransaction.from,
+      address: getContractAddress(contractInstance),
+      deployer: contractInstance.deploymentTransaction?.()?.from || contractInstance.deployTransaction?.from || 'unknown',
     })
     .write();
 };
 
 export const insertContractAddressInDb = async (id: eContractid, address: tEthereumAddress) =>
   await getDb()
-    .set(`${id}.${DRE.network.name}`, {
+    .set(`${id}.${DRE.network.networkName}`, {
       address,
     })
     .write();
 
 export const rawInsertContractAddressInDb = async (id: string, address: tEthereumAddress) =>
   await getDb()
-    .set(`${id}.${DRE.network.name}`, {
+    .set(`${id}.${DRE.network.networkName}`, {
       address,
     })
     .write();
 
 export const getEthersSigners = async (): Promise<Signer[]> => {
-  const ethersSigners = await Promise.all(await DRE.ethers.getSigners());
+  const hhEthers = (DRE as any).ethers ?? (DRE as any).network?.ethers;
+  if (!hhEthers?.getSigners) {
+    throw new Error("DRE.ethers is not initialized. Did you run the set-DRE task first?");
+  }
+  const ethersSigners = await hhEthers.getSigners();
 
   if (usingDefender()) {
     const [, ...users] = ethersSigners;
@@ -85,6 +125,11 @@ export const getEthersSigners = async (): Promise<Signer[]> => {
 export const getEthersSignersAddresses = async (): Promise<tEthereumAddress[]> =>
   await Promise.all((await getEthersSigners()).map((signer) => signer.getAddress()));
 
+export const getFirstSigner = async () => {
+  const signers = await getEthersSigners();
+  return signers[0];
+};
+
 export const getCurrentBlock = async () => {
   return DRE.ethers.provider.getBlockNumber();
 };
@@ -92,38 +137,45 @@ export const getCurrentBlock = async () => {
 export const decodeAbiNumber = (data: string): number =>
   parseInt(utils.defaultAbiCoder.decode(['uint256'], data).toString());
 
-export const deployContract = async <ContractType extends Contract>(
+export const deployContract = async <ContractType = any>(
   contractName: string,
   args: any[]
 ): Promise<ContractType> => {
   const contract = (await (await DRE.ethers.getContractFactory(contractName))
     .connect(await getFirstSigner())
     .deploy(...args)) as ContractType;
-  await waitForTx(contract.deployTransaction);
+  await (contract as any).waitForDeployment();
   await registerContractInJsonDb(<eContractid>contractName, contract);
   return contract;
 };
 
-export const withSaveAndVerify = async <ContractType extends Contract>(
+export const withSaveAndVerify = async <ContractType = any>(
   instance: ContractType,
   id: string,
   args: (string | string[])[],
   verify?: boolean
 ): Promise<ContractType> => {
-  await waitForTx(instance.deployTransaction);
-  await registerContractInJsonDb(id, instance);
-  if (verify) {
-    await verifyContract(id, instance, args);
+  const tx = (instance as any).deploymentTransaction?.();
+  if (tx?.hash) {
+    console.log(`[deploy:${id}] tx: ${tx.hash} (nonce ${tx.nonce})`);
+    await tx.wait(1); // wait for 1 confirmation
+    console.log(`[deploy:${id}] mined`);
+  } else {
+    await (instance as any).waitForDeployment();
   }
+
+  await registerContractInJsonDb(id, instance);
+  if (verify) await verifyContract(id, instance as any, args);
   return instance;
 };
 
-export const getContract = async <ContractType extends Contract>(
+
+export const getContract = async <ContractType = any>(
   contractName: string,
   address: string
 ): Promise<ContractType> => (await DRE.ethers.getContractAt(contractName, address)) as ContractType;
 
-export const linkBytecode = (artifact: BuidlerArtifact | Artifact, libraries: any) => {
+export const linkBytecode = (artifact: Artifact, libraries: any) => {
   let bytecode = artifact.bytecode;
 
   for (const [fileName, fileReferences] of Object.entries(artifact.linkReferences)) {
@@ -147,7 +199,7 @@ export const linkBytecode = (artifact: BuidlerArtifact | Artifact, libraries: an
 };
 
 export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNetwork) => {
-  const { main, ropsten, kovan, coverage, buidlerevm, tenderly, goerli } =
+  const { main, ropsten, kovan, coverage, buidlerevm, hardhat, tenderly, goerli } =
     param as iEthereumParamsPerNetwork<T>;
   const { matic, mumbai } = param as iPolygonParamsPerNetwork<T>;
   const { xdai } = param as iXDaiParamsPerNetwork<T>;
@@ -163,7 +215,8 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
     case eEthereumNetwork.buidlerevm:
       return buidlerevm;
     case eEthereumNetwork.hardhat:
-      return buidlerevm;
+    case 'localhost' as eNetwork: // Hardhat v3 localhost network
+      return hardhat || buidlerevm;
     case eEthereumNetwork.kovan:
       return kovan;
     case eEthereumNetwork.ropsten:
@@ -188,6 +241,12 @@ export const getParamPerNetwork = <T>(param: iParamsPerNetwork<T>, network: eNet
       return base;
     case eBaseNetwork.sepolia:
       return sepolia;
+    default:
+      console.warn(
+        `[getParamPerNetwork] Unknown network "${network}". Falling back to buidlerevm values. ` +
+        `This may deploy using local config. Consider adding "${network}" to eNetwork/types and params.`
+      );
+      return buidlerevm;
   }
 };
 
@@ -221,14 +280,14 @@ export const getParamPerPool = <T>(
 
 export const convertToCurrencyDecimals = async (tokenAddress: tEthereumAddress, amount: string) => {
   const token = await getIErc20Detailed(tokenAddress);
-  let decimals = (await token.decimals()).toString();
+  let decimals = Number(await token.decimals());
 
-  return ethers.utils.parseUnits(amount, decimals);
+  return parseUnits(amount, decimals);
 };
 
 export const convertToCurrencyUnits = async (tokenAddress: string, amount: string) => {
   const token = await getIErc20Detailed(tokenAddress);
-  let decimals = new BigNumber(await token.decimals());
+  let decimals = new BigNumber((await token.decimals()).toString());
   const currencyUnit = new BigNumber(10).pow(decimals);
   const amountInCurrencyUnits = new BigNumber(amount).div(currencyUnit);
   return amountInCurrencyUnits.toFixed();
@@ -297,7 +356,7 @@ export const buildLiquiditySwapParams = (
   s: (string | Buffer)[],
   useEthPath: boolean[]
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     [
       'address[]',
       'uint256[]',
@@ -334,7 +393,7 @@ export const buildRepayAdapterParams = (
   s: string | Buffer,
   useEthPath: boolean
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     ['address', 'uint256', 'uint256', 'uint256', 'uint256', 'uint8', 'bytes32', 'bytes32', 'bool'],
     [collateralAsset, collateralAmount, rateMode, permitAmount, deadline, v, r, s, useEthPath]
   );
@@ -347,7 +406,7 @@ export const buildFlashLiquidationAdapterParams = (
   debtToCover: BigNumberish,
   useEthPath: boolean
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     ['address', 'address', 'address', 'uint256', 'bool'],
     [collateralAsset, debtAsset, user, debtToCover, useEthPath]
   );
@@ -365,7 +424,7 @@ export const buildParaSwapLiquiditySwapParams = (
   r: string | Buffer,
   s: string | Buffer
 ) => {
-  return ethers.utils.defaultAbiCoder.encode(
+  return utils.defaultAbiCoder.encode(
     [
       'address',
       'uint256',
@@ -387,13 +446,13 @@ export const buildParaSwapLiquiditySwapParams = (
 
 export const verifyContract = async (
   id: string,
-  instance: Contract,
+  instance: any,
   args: (string | string[])[]
 ) => {
   if (usingTenderly()) {
     await verifyAtTenderly(id, instance);
   }
-  await verifyEtherscanContract(instance.address, args);
+  await verifyEtherscanContract(getContractAddress(instance), args);
   return instance;
 };
 
@@ -402,7 +461,7 @@ export const getContractAddressWithJsonFallback = async (
   pool: ConfigNames
 ): Promise<tEthereumAddress> => {
   const poolConfig = loadPoolConfig(pool);
-  const network = <eNetwork>DRE.network.name;
+  const network = <eNetwork>DRE.network.networkName;
   const db = getDb();
 
   const contractAtMarketConfig = getOptionalParamAddressPerNetwork(poolConfig[id], network);
@@ -410,7 +469,7 @@ export const getContractAddressWithJsonFallback = async (
     return contractAtMarketConfig;
   }
 
-  const contractAtDb = await getDb().get(`${id}.${DRE.network.name}`).value();
+  const contractAtDb = await getDb().get(`${id}.${DRE.network.networkName}`).value();
   if (contractAtDb?.address) {
     return contractAtDb.address as tEthereumAddress;
   }

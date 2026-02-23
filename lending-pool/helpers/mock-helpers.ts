@@ -1,12 +1,12 @@
-import { tEthereumAddress } from './types';
+import { tEthereumAddress } from './types.js';
 import { MockAggregator } from '../types/MockAggregator';
-import { MockTokenMap } from './contracts-helpers';
+import { MockTokenMap, getContractAddress } from './contracts-helpers';
 
 export const getAllTokenAddresses = (mockTokens: MockTokenMap) =>
   Object.entries(mockTokens).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, tokenContract]) => ({
       ...accum,
-      [tokenSymbol]: tokenContract.address,
+      [tokenSymbol]: getContractAddress(tokenContract),
     }),
     {}
   );
@@ -16,7 +16,7 @@ export const getAllAggregatorsAddresses = (mockAggregators: {
   Object.entries(mockAggregators).reduce(
     (accum: { [tokenSymbol: string]: tEthereumAddress }, [tokenSymbol, aggregator]) => ({
       ...accum,
-      [tokenSymbol]: aggregator.address,
+      [tokenSymbol]: getContractAddress(aggregator),
     }),
     {}
   );

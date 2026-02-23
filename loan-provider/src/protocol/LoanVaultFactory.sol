@@ -1,24 +1,42 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
-import {Clones} from "../dependencies/openzeppelin/Clones.sol";
+import {Clones} from "@openzeppelin/proxy/Clones.sol";
 import {ILoanVault} from "../interfaces/ILoanVault.sol";
 import {ILoanVaultFactory} from "../interfaces/ILoanVaultFactory.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
 
 /**
  * @title LoanVaultFactory
+ * @author Bitmor Protocol
  * @notice Factory for deploying LoanVault instances using CREATE2
- * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment
- * Produces deterministic addresses that can be computed before deployment
+ * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment.
+ * Produces deterministic addresses that can be computed before deployment.
+ *
+ * ## Design
+ * - Uses OpenZeppelin Clones for minimal proxy deployment
+ * - CREATE2 enables deterministic address computation
+ * - Salt is derived from borrower address and timestamp
+ * - Only the authorized Loan contract can create vaults
+ *
+ * ## Benefits
+ * - Gas efficient: ~10x cheaper than deploying full contract
+ * - Predictable: Addresses can be computed off-chain
+ * - Secure: Only Loan contract can create vaults
+ *
+ * @custom:security Only authorized Loan contract can create vaults
  */
 contract LoanVaultFactory is ILoanVaultFactory {
     // ============ State Variables ============
 
-    /// @notice The LoanVault implementation contract to clone
+    /**
+     * @notice The LoanVault implementation contract to clone
+     */
     address public immutable i_IMPLEMENTATION;
 
-    /// @notice The Loan contract authorized to create vaults
+    /**
+     * @notice The Loan contract authorized to create vaults
+     */
     address public immutable i_LOAN; // This will be our Loan.sol contract address
 
     // ============ Modifiers ============
@@ -59,10 +77,10 @@ contract LoanVaultFactory is ILoanVaultFactory {
 
     /**
      * @notice Creates a new LoanVault using CREATE2
-     * @dev Can only be called by the authorized Loan contract
      * @param borrower The user creating the loan
      * @param timestamp The creation timestamp (for salt generation)
      * @return vault The address of the newly created vault
+     * @custom:access Restricted to the authorized Loan contract
      */
     function createLoanVault(address borrower, uint256 timestamp) external onlyLoanContract returns (address vault) {
         // Generate deterministic salt from borrower and timestamp

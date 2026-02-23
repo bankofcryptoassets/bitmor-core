@@ -21,6 +21,7 @@ import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
 import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
+import {IERC4626} from "../../interfaces/IERC4626.sol";
 
 /**
  * @title LendingPoolCollateralManager contract
@@ -51,6 +52,9 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         uint256 debtAmountNeeded;
         uint256 healthFactor;
         uint256 liquidatorPreviousATokenBalance;
+        uint256 protocolFee;
+        uint256 liquidatorCollateral;
+        uint256 liquidationBonus;
         address oracle;
         IAToken collateralAtoken;
         bool isCollateralEnabled;
@@ -70,7 +74,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
     }
 
     /**
-     * @dev As thIS contract extends the VersionedInitializable contract to match the state
+     * @dev As thiS contract extends the VersionedInitializable contract to match the state
      * of the LendingPool contract, the getRevision() function is needed, but the value is not
      * important, as the initialize() function will never be called here
      */
@@ -82,12 +86,31 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
      * @dev Function to liquidate a position if its Health Factor drops below 1
      * - The caller (liquidator) covers `debtToCover` amount of debt of the user getting liquidated, and receives
      *   a proportionally amount of the `collateralAsset` plus a bonus to cover market risk
+     *
+     * Bitmor full-liquidation invariants:
+     * - MUST revert if collateral is sufficient AND payment is current — i.e., the position
+     *   is healthy and not past due (Invariant 4.10).
+     * - If full liquidation succeeds, `loanData.status` MUST be set to `Liquidated` (Invariant 4.10).
+     * - Fund distribution MUST follow this order (Invariant 4.11):
+     *   Step 1: pool receives min(VDT balance, total liquidation proceeds).
+     *   Step 2: liquidator receives min(bonus - `s_liquidationFee`, proceeds - pool_payment).
+     *   Step 3: protocol receives `s_liquidationFee` portion + any remaining insurance amount.
+     * - Liquidator bonus MUST NOT exceed `(LIQUIDATION_BONUS_BPS - 10000) / 10000 * debtToCover`
+     *   minus the protocol fee portion (Invariant 4.12).
+     * - USDC returned to pool MUST be >= min(VDT balance, collateral sale proceeds + insurance proceeds)
+     *   to protect lender capital (Invariant 4.13).
+     * - If BTC collateral is insufficient to cover the liquidator, insurance MUST be sold
+     *   and proceeds sent to cover the shortfall (Invariant 4.9).
+     *
      * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation
      * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
      * @param user The address of the borrower getting liquidated
-     * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
-     * @param receiveAToken `true` if the liquidators wants to receive the collateral aTokens, `false` if he wants
-     * to receive the underlying collateral asset directly
+     * @param debtToCover The debt amount of borrowed `debtAsset` the liquidator wants to cover.
+     *                    Must be >= the user's full variable debt. Use `type(uint256).max` to guarantee
+     *                    coverage regardless of interest accrual between off-chain read and on-chain execution.
+     *                    The contract caps the actual amount to `userVariableDebt`.
+     * @param receiveAToken `true` if the liquidator wants to receive the collateral aTokens, `false` if he wants
+     * to receive the underlying collateral asset directly. Must be `false` in Bitmor (aToken receipt is rejected).
      *
      */
     function liquidationCall(
@@ -98,7 +121,9 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         bool receiveAToken
     ) external override returns (uint256, string memory) {
         DataTypes.ReserveData storage collateralReserve = _reserves[collateralAsset];
+
         DataTypes.ReserveData storage debtReserve = _reserves[debtAsset];
+
         DataTypes.UserConfigurationMap storage userConfig = _usersConfig[user];
 
         LiquidationCallLocalVars memory vars;
@@ -135,19 +160,29 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
 
         // vars.maxLiquidatableDebt =
         //     vars.userStableDebt.add(vars.userVariableDebt).percentMul(LIQUIDATION_CLOSE_FACTOR_PERCENT);
+        /// @dev Full Liquidation will ALWAYS fully liquidate the user.
+        /// @dev vars.userStableDebt will always be 0 as both collaterals in Bitmor not offers stable borrow rate.
+        vars.maxLiquidatableDebt = vars.userVariableDebt;
 
-        vars.maxLiquidatableDebt = vars.userStableDebt.add(vars.userVariableDebt);
+        // Enforce full debt coverage — prevents griefing via partial debtToCover.
+        if (debtToCover < vars.maxLiquidatableDebt) {
+            return (
+                uint256(Errors.CollateralManagerErrors.INSUFFICIENT_DEBT_COVERAGE),
+                Errors.LPCM_INSUFFICIENT_DEBT_COVERAGE
+            );
+        }
 
         vars.actualDebtToLiquidate = debtToCover > vars.maxLiquidatableDebt ? vars.maxLiquidatableDebt : debtToCover;
 
-        (vars.maxCollateralToLiquidate, vars.debtAmountNeeded) = _calculateAvailableCollateralToLiquidate(
-            collateralReserve,
-            debtReserve,
-            collateralAsset,
-            debtAsset,
-            vars.actualDebtToLiquidate,
-            vars.userCollateralBalance
-        );
+        (vars.maxCollateralToLiquidate, vars.debtAmountNeeded, vars.liquidationBonus) =
+            _calculateAvailableCollateralToLiquidate(
+                collateralReserve,
+                debtReserve,
+                collateralAsset,
+                debtAsset,
+                vars.actualDebtToLiquidate,
+                vars.userCollateralBalance
+            );
 
         // If debtAmountNeeded < actualDebtToLiquidate, there isn't enough
         // collateral to cover the actual amount that is being liquidated, hence we liquidate
@@ -175,35 +210,66 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             IVariableDebtToken(debtReserve.variableDebtTokenAddress)
                 .burn(user, vars.actualDebtToLiquidate, debtReserve.variableBorrowIndex);
         } else {
+            // TODO: Check if this condition will meet.
             // If the user doesn't have variable debt, no need to try to burn variable debt tokens
             if (vars.userVariableDebt > 0) {
                 IVariableDebtToken(debtReserve.variableDebtTokenAddress)
                     .burn(user, vars.userVariableDebt, debtReserve.variableBorrowIndex);
             }
-            IStableDebtToken(debtReserve.stableDebtTokenAddress)
-                .burn(user, vars.actualDebtToLiquidate.sub(vars.userVariableDebt));
+            /// @dev Since there's no stable borrow debt, so no need to burn.
+            // IStableDebtToken(debtReserve.stableDebtTokenAddress).burn(
+            //     user,
+            //     vars.actualDebtToLiquidate.sub(vars.userVariableDebt)
+            // );
         }
 
         debtReserve.updateInterestRates(debtAsset, debtReserve.aTokenAddress, vars.actualDebtToLiquidate, 0);
 
+        // Calculate fee split
+        (vars.protocolFee, vars.liquidatorCollateral) = _calculateProtocolFee(
+            vars.maxCollateralToLiquidate,
+            vars.liquidationBonus,
+            ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeBps()
+        );
         if (receiveAToken) {
-            vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
-            vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
-
-            if (vars.liquidatorPreviousATokenBalance == 0) {
-                DataTypes.UserConfigurationMap storage liquidatorConfig = _usersConfig[msg.sender];
-                liquidatorConfig.setUsingAsCollateral(collateralReserve.id, true);
-                emit ReserveUsedAsCollateralEnabled(collateralAsset, msg.sender);
-            }
+            /// @dev Liquidator SHOULD NOT be able to create a collateral position in the protocol.
+            return (uint256(Errors.CollateralManagerErrors.CANNOT_RECEIVE_ATOKEN), Errors.LPCM_CANNOT_RECEIVE_ATOKEN);
         } else {
             collateralReserve.updateState();
             collateralReserve.updateInterestRates(
                 collateralAsset, address(vars.collateralAtoken), 0, vars.maxCollateralToLiquidate
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+            // Burn aTokens, receive bvBTC to LendingPool
             vars.collateralAtoken
-                .burn(user, msg.sender, vars.maxCollateralToLiquidate, collateralReserve.liquidityIndex);
+                .burn(user, address(this), vars.maxCollateralToLiquidate, collateralReserve.liquidityIndex);
+
+            // Get slippage tolerance from Loan contract
+            uint256 slippageBps = ILoan(_addressesProvider.getBitmorLoan()).getSlippageForSharesToAsset();
+
+            // Redeem bvBTC → cbBTC for liquidator
+            uint256 assetsSent =
+                _redeemCollateralWithSlippage(collateralAsset, vars.liquidatorCollateral, msg.sender, slippageBps);
+
+            if (assetsSent == 0) {
+                return (uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED), Errors.LPCM_SLIPPAGE_EXCEEDED);
+            }
+
+            // Redeem bvBTC → cbBTC for protocol fee collector
+            if (vars.protocolFee > 0) {
+                assetsSent = _redeemCollateralWithSlippage(
+                    collateralAsset,
+                    vars.protocolFee,
+                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
+                    slippageBps
+                );
+
+                if (assetsSent == 0) {
+                    return (uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED), Errors.LPCM_SLIPPAGE_EXCEEDED);
+                }
+
+                emit ProtocolLiquidationFee(collateralAsset, user, msg.sender, vars.protocolFee);
+            }
         }
 
         // If the collateral being liquidated is equal to the user balance,
@@ -212,9 +278,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             userConfig.setUsingAsCollateral(collateralReserve.id, false);
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
-
-        _updateLoanStatusToLiquidated(user);
-
+        _updateLoanForFullLiquidation(user);
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
 
@@ -234,9 +298,21 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
     /**
      * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
      * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
+     *
+     * Bitmor micro-liquidation invariants:
+     * - `debtToCover` MUST equal `estimatedMonthlyPayment`, capped at VDT balance (Invariant 4.6).
+     * - Actual BTC sold MUST equal cash_needed / price (+/- 1 wei rounding) (Invariant 4.6).
+     * - After execution, USDC debt MUST decrease by `debtToCover`, `loanData.duration` MUST
+     *   decrease by 1, `loanData.status` MUST remain Active, and `lastPaymentTimestamp`
+     *   MUST be updated to `block.timestamp` (Invariant 4.8).
+     * - If BTC collateral is insufficient to cover the liquidator, insurance MUST be sold
+     *   and proceeds sent to cover the shortfall (Invariant 4.9).
+     * - Liquidator bonus MUST NOT exceed `liquidation_bonus * estimatedMonthlyPayment - protocol_fee` (Invariant 4.12).
+     *
      * @param data Microliquidation call data
      */
     function microLiquidationCall(bytes calldata data) external override returns (uint256, string memory) {
+        /// @dev Here `user` is the `lsa`.
         (address collateralAsset, address debtAsset, address user) = abi.decode(data, (address, address, address));
 
         /// @dev No one can deposit in the Lending Pool without going through loan creation process.
@@ -278,20 +354,23 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
 
         DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
 
-        // TODO! : Fix this logic to get the remaining debt from the lsa vdt balance
-        // Implemented a fix using Helpers lib, it should work as expected.
-        vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment < vars.userVariableDebt
-            ? loanData.estimatedMonthlyPayment
-            : vars.userVariableDebt;
+        if (loanData.duration == 1) {
+            vars.actualDebtToLiquidate = vars.userVariableDebt;
+        } else {
+            vars.actualDebtToLiquidate = loanData.estimatedMonthlyPayment > vars.userVariableDebt
+                ? vars.userVariableDebt
+                : loanData.estimatedMonthlyPayment;
+        }
 
-        (vars.maxCollateralToLiquidate, vars.debtAmountNeeded) = _calculateAvailableCollateralToLiquidate(
-            collateralReserve,
-            debtReserve,
-            collateralAsset,
-            debtAsset,
-            vars.actualDebtToLiquidate,
-            vars.userCollateralBalance
-        );
+        (vars.maxCollateralToLiquidate, vars.debtAmountNeeded, vars.liquidationBonus) =
+            _calculateAvailableCollateralToLiquidate(
+                collateralReserve,
+                debtReserve,
+                collateralAsset,
+                debtAsset,
+                vars.actualDebtToLiquidate,
+                vars.userCollateralBalance
+            );
 
         // If debtAmountNeeded < actualDebtToLiquidate, there isn't enough
         // collateral to cover the actual amount that is being liquidated, hence we liquidate
@@ -319,35 +398,66 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             IVariableDebtToken(debtReserve.variableDebtTokenAddress)
                 .burn(user, vars.actualDebtToLiquidate, debtReserve.variableBorrowIndex);
         } else {
+            // TODO: Check if this condition will meet.
             // If the user doesn't have variable debt, no need to try to burn variable debt tokens
             if (vars.userVariableDebt > 0) {
                 IVariableDebtToken(debtReserve.variableDebtTokenAddress)
                     .burn(user, vars.userVariableDebt, debtReserve.variableBorrowIndex);
             }
-            IStableDebtToken(debtReserve.stableDebtTokenAddress)
-                .burn(user, vars.actualDebtToLiquidate.sub(vars.userVariableDebt));
+            /// @dev Since there's no stable borrow debt, so no need to burn.
+            // IStableDebtToken(debtReserve.stableDebtTokenAddress).burn(
+            //     user,
+            //     vars.actualDebtToLiquidate.sub(vars.userVariableDebt)
+            // );
         }
 
         debtReserve.updateInterestRates(debtAsset, debtReserve.aTokenAddress, vars.actualDebtToLiquidate, 0);
 
-        if (receiveAToken) {
-            vars.liquidatorPreviousATokenBalance = IERC20(vars.collateralAtoken).balanceOf(msg.sender);
-            vars.collateralAtoken.transferOnLiquidation(user, msg.sender, vars.maxCollateralToLiquidate);
+        // Calculate fee split
+        (vars.protocolFee, vars.liquidatorCollateral) = _calculateProtocolFee(
+            vars.maxCollateralToLiquidate,
+            vars.liquidationBonus,
+            ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeBps()
+        );
 
-            if (vars.liquidatorPreviousATokenBalance == 0) {
-                DataTypes.UserConfigurationMap storage liquidatorConfig = _usersConfig[msg.sender];
-                liquidatorConfig.setUsingAsCollateral(collateralReserve.id, true);
-                emit ReserveUsedAsCollateralEnabled(collateralAsset, msg.sender);
-            }
+        if (receiveAToken) {
+            /// @dev Liquidator SHOULD NOT be able to create a collateral position in the protocol.
+            return (uint256(Errors.CollateralManagerErrors.CANNOT_RECEIVE_ATOKEN), Errors.LPCM_CANNOT_RECEIVE_ATOKEN);
         } else {
             collateralReserve.updateState();
             collateralReserve.updateInterestRates(
                 collateralAsset, address(vars.collateralAtoken), 0, vars.maxCollateralToLiquidate
             );
 
-            // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+            // Burn aTokens, receive bvBTC to LendingPool
             vars.collateralAtoken
-                .burn(user, msg.sender, vars.maxCollateralToLiquidate, collateralReserve.liquidityIndex);
+                .burn(user, address(this), vars.maxCollateralToLiquidate, collateralReserve.liquidityIndex);
+
+            // Get slippage tolerance from Loan contract
+            uint256 slippageBps = ILoan(_addressesProvider.getBitmorLoan()).getSlippageForSharesToAsset();
+
+            // Redeem bvBTC → cbBTC for liquidator
+            uint256 assetsSent =
+                _redeemCollateralWithSlippage(collateralAsset, vars.liquidatorCollateral, msg.sender, slippageBps);
+
+            if (assetsSent == 0) {
+                return (uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED), Errors.LPCM_SLIPPAGE_EXCEEDED);
+            }
+
+            // Redeem bvBTC → cbBTC for protocol fee collector
+            if (vars.protocolFee > 0) {
+                assetsSent = _redeemCollateralWithSlippage(
+                    collateralAsset,
+                    vars.protocolFee,
+                    ILoan(_addressesProvider.getBitmorLoan()).getLiquidationFeeCollector(),
+                    slippageBps
+                );
+
+                if (assetsSent == 0) {
+                    return (uint256(Errors.CollateralManagerErrors.SLIPPAGE_EXCEEDED), Errors.LPCM_SLIPPAGE_EXCEEDED);
+                }
+                emit ProtocolLiquidationFee(collateralAsset, user, msg.sender, vars.protocolFee);
+            }
         }
 
         // If the collateral being liquidated is equal to the user balance,
@@ -357,11 +467,11 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
 
-        // Reduce loan duration by 1 month.
-        loanData.duration = loanData.duration.sub(1);
-        loanData.lastPaymentTimestamp = block.timestamp;
-
-        ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
+        if (loanData.duration.sub(1) == 0) {
+            _updateLoanForMicroLiquidationCompletion(user);
+        } else {
+            _updateLoanForMicroLiquidation(user);
+        }
 
         // Transfers the debt asset being repaid to the aToken, where the liquidity is kept
         IERC20(debtAsset).safeTransferFrom(msg.sender, debtReserve.aTokenAddress, vars.actualDebtToLiquidate);
@@ -380,33 +490,33 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
     }
 
     /**
-     * Returns the type of Liquidation
-     * 0 => No Liquidation
-     * 1 => Full Liquidation
-     * 2 => MicroLiquidation
-     * @param user Address of the borrower
+     * @notice Routes a standard micro-liquidation update to the external Loan contract
+     * @dev Called when `duration > 1`. Reduces loan duration by 1 and updates payment timestamp.
+     * @param lsa The Loan Specific Address
      */
-    function checkTypeOfLiquidation(address user) external override returns (uint256) {
-        address oracle = _addressesProvider.getPriceOracle();
-        (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
-            user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle
-        );
-        return LoanLiquidationLogic.checkTypeOfLiquidation(
-            user, _reserves, hf, oracle, ILoan(_addressesProvider.getBitmorLoan())
-        );
+    function _updateLoanForMicroLiquidation(address lsa) internal {
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        ILoan(bitmorLoan).updateLoanDataForMicroLiquidation(lsa);
     }
 
-    function _updateLoanStatusToLiquidated(address user) internal {
+    /**
+     * @notice Routes a final micro-liquidation completion to the external Loan contract
+     * @dev Called when `duration == 1`. Sets loan to Completed, returns remaining collateral to borrower.
+     * @param lsa The Loan Specific Address
+     */
+    function _updateLoanForMicroLiquidationCompletion(address lsa) internal {
         address bitmorLoan = _addressesProvider.getBitmorLoan();
+        ILoan(bitmorLoan).updateLoanForMicroLiquidationCompletion(lsa);
+    }
 
-        DataTypes.LoanData memory loanData = ILoan(bitmorLoan).getLoanByLSA(user);
-
-        // Reduce loan duration to 0 months and change the status to Liquidated.
-        loanData.duration = 0;
-        loanData.status = DataTypes.LoanStatus.Liquidated;
-        loanData.lastPaymentTimestamp = block.timestamp;
-
-        ILoan(bitmorLoan).updateLoanData(abi.encode(loanData), user);
+    /**
+     * @notice Routes a full liquidation update to the external Loan contract
+     * @dev Sets duration to 0, status to Liquidated, updates payment timestamp.
+     * @param lsa The Loan Specific Address
+     */
+    function _updateLoanForFullLiquidation(address lsa) internal {
+        address bitmorLoan = _addressesProvider.getBitmorLoan();
+        ILoan(bitmorLoan).updateLoanDataForFullLiquidation(lsa);
     }
 
     /**
@@ -432,7 +542,7 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
         address debtAsset,
         uint256 debtToCover,
         uint256 userCollateralBalance
-    ) internal view returns (uint256, uint256) {
+    ) internal view returns (uint256, uint256, uint256) {
         uint256 collateralAmount = 0;
         uint256 debtAmountNeeded = 0;
         IPriceOracleGetter oracle = IPriceOracleGetter(_addressesProvider.getPriceOracle());
@@ -458,6 +568,79 @@ contract LendingPoolCollateralManager is ILendingPoolCollateralManager, Versione
             collateralAmount = vars.maxAmountCollateralToLiquidate;
             debtAmountNeeded = debtToCover;
         }
-        return (collateralAmount, debtAmountNeeded);
+        return (collateralAmount, debtAmountNeeded, vars.liquidationBonus);
+    }
+
+    /**
+     * @notice Calculates the protocol fee and liquidator's share of collateral
+     * @dev The protocol fee is taken as a percentage of the liquidation bonus only, not the base collateral
+     *
+     * Math breakdown:
+     * - maxCollateralToLiquidate = baseCollateral * (liquidationBonus / 10000)
+     * - baseCollateral = maxCollateral / (liquidationBonus / 10000) = maxCollateral * 10000 / liquidationBonus
+     * - bonusCollateral = maxCollateral - baseCollateral
+     * - protocolFee = bonusCollateral * (liquidationFee / 10000)
+     * - liquidatorCollateral = maxCollateral - protocolFee
+     *
+     * Example: If liquidationBonus = 10500 (105%) and liquidationFee = 2000 (20%):
+     * - maxCollateral = 105 tokens
+     * - baseCollateral = 105 * 10000 / 10500 = 100 tokens
+     * - bonusCollateral = 105 - 100 = 5 tokens
+     * - protocolFee = 5 * 2000 / 10000 = 1 token
+     * - liquidatorCollateral = 105 - 1 = 104 tokens
+     *
+     * @param maxCollateralToLiquidate Total collateral to liquidate (includes bonus)
+     * @param liquidationBonusPercent Liquidation bonus in basis points (e.g., 10500 = 105%)
+     * @param liquidationFee Protocol fee as percentage of bonus in basis points (e.g., 2000 = 20%)
+     * @return protocolFee Amount of collateral going to protocol
+     * @return liquidatorCollateral Amount of collateral going to liquidator
+     */
+    function _calculateProtocolFee(
+        uint256 maxCollateralToLiquidate,
+        uint256 liquidationBonusPercent,
+        uint256 liquidationFee
+    ) internal pure returns (uint256 protocolFee, uint256 liquidatorCollateral) {
+        if (liquidationFee == 0) return (0, maxCollateralToLiquidate);
+
+        // Calculate base collateral (what liquidator would get without bonus)
+        // baseCollateral = maxCollateral / (liquidationBonus / PERCENTAGE_FACTOR)
+        uint256 baseCollateral = maxCollateralToLiquidate.percentDiv(liquidationBonusPercent);
+
+        // Bonus is the difference
+        uint256 bonusCollateral = maxCollateralToLiquidate.sub(baseCollateral);
+
+        // Protocol fee is percentage of bonus
+        protocolFee = bonusCollateral.percentMul(liquidationFee);
+
+        // Liquidator gets total minus protocol fee
+        liquidatorCollateral = maxCollateralToLiquidate.sub(protocolFee);
+    }
+
+    /**
+     * @notice Redeems vault shares (bvBTC) for underlying asset (cbBTC) with slippage protection
+     * @param vault The ERC4626 vault address (collateralAsset / bvBTC)
+     * @param shares Amount of vault shares to redeem
+     * @param receiver Address to receive the underlying cbBTC
+     * @param slippageBps Maximum acceptable slippage in basis points
+     * @return assets Amount of underlying assets (cbBTC) received
+     */
+    function _redeemCollateralWithSlippage(address vault, uint256 shares, address receiver, uint256 slippageBps)
+        internal
+        returns (uint256 assets)
+    {
+        // Calculate expected assets from shares
+        uint256 expectedAssets = IERC4626(vault).previewRedeem(shares);
+
+        // Calculate minimum acceptable assets (accounting for slippage)
+        uint256 minAssets =
+            expectedAssets.mul(PercentageMath.PERCENTAGE_FACTOR.sub(slippageBps)).div(PercentageMath.PERCENTAGE_FACTOR);
+
+        // Execute redemption
+        assets = IERC4626(vault).redeem(shares, receiver, address(this));
+
+        // Verify slippage protection
+        if (assets < minAssets) return 0;
+
+        return assets;
     }
 }

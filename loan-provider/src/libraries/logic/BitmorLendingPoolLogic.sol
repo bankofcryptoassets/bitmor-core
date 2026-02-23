@@ -1,50 +1,51 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.8.30;
 
+import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
-import {IERC20} from "../../dependencies/openzeppelin/IERC20.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 /**
  * @title BitmorLendingPoolLogic
- * @notice Handles deposits and borrows on Bitmor Lending Pool
+ * @author Bitmor Protocol
+ * @notice Library for interacting with the Bitmor Lending Pool (Aave V2 fork)
+ * @dev Provides standardized functions for deposit, borrow, repay, and position queries.
+ *
+ * ## Supported Operations
+ * - Depositing collateral (bvBTC) on behalf of LSAs
+ * - Borrowing debt (USDC) on behalf of LSAs
+ * - Repaying debt positions
+ * - Querying user positions and token balances
+ *
+ * ## Interest Rate Mode
+ * All borrow operations use variable rate mode (RATE_MODE = 2).
+ * Stable rate borrowing is not supported in this implementation.
+ *
+ * @custom:security All operations require proper approvals to be set before execution
  */
-
 library BitmorLendingPoolLogic {
+    using SafeERC20 for IERC20;
+
+    /// @dev Variable interest rate mode for Aave V2 borrows
     uint256 constant RATE_MODE = 2;
+
+    /// @dev Referral code for Aave operations (0 = no referral)
     uint16 constant REFERRAL = 0;
 
     /**
-     * @notice Deposits collateral to Aave V2 on behalf of LSA
-     * @dev LSA receives aTokens (acbBTC), Protocol holds cbBTC before deposit
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param asset Collateral asset (cbBTC)
-     * @param amount Amount to deposit (8 decimals)
-     * @param onBehalfOf LSA address that receives aTokens
-     */
-    function depositCollateral(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
-        ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
-    }
-
-    /**
-     * @notice Borrows debt from Aave V2 on behalf of LSA
-     * @dev Protocol receives USDC, LSA receives variable debt tokens
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param asset Debt asset (USDC)
-     * @param amount Amount to borrow (6 decimals)
-     * @param onBehalfOf LSA address that receives debt tokens
-     */
-    function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
-        // Borrow from Aave V2 - onBehalfOf receives debt, caller receives USDC
-        ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
-    }
-
-    /**
-     * Returns the amount of vdtTokens `lsa` holds.
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param debtAsset Debt asset token address
-     * @param lsa The loan vault address
-     * @return vdtTokenAmount The aomunt of variable debt token.
+     * @notice Returns the amount of variable debt tokens (vdtTokens) held by an LSA
+     * @dev Queries the variable debt token balance directly from the debt token contract.
+     *
+     * Completed/Liquidated loan invariants:
+     * - MUST return 0 for loans with status Completed or Liquidated (Invariant 2.1.1)
+     * - A non-zero return for a completed/liquidated loan indicates residual debt that
+     *   SHOULD have been fully repaid during close or liquidation
+     *
+     * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
+     * @param debtAsset Debt asset token address (USDC)
+     * @param lsa The Loan Specific Address to query
+     * @return vdtTokenAmount The amount of variable debt tokens representing outstanding debt
      */
     function getVDTTokenAmount(address bitmorPool, address debtAsset, address lsa)
         internal
@@ -57,11 +58,18 @@ library BitmorLendingPoolLogic {
     }
 
     /**
-     * Returns the amount of aToken `lsa` holds.
-     * @param bitmorPool Bitmor Lending Pool address
-     * @param collateralAsset Collateral asset token address
-     * @param lsa The loan vault address
-     * @return aTokenAmount The aomunt of  aToken.
+     * @notice Returns the amount of aTokens (collateral tokens) held by an LSA
+     * @dev Queries the aToken balance directly from the aToken contract.
+     *
+     * Completed/Liquidated loan invariants:
+     * - MUST return 0 for loans with status Completed or Liquidated (Invariant 2.1.2)
+     * - A non-zero return for a completed/liquidated loan indicates residual collateral
+     *   that SHOULD have been fully withdrawn during close or liquidation
+     *
+     * @param bitmorPool Bitmor Lending Pool address for reserve data lookup
+     * @param collateralAsset Collateral asset token address (bvBTC)
+     * @param lsa The Loan Specific Address to query
+     * @return aTokenAmount The amount of aTokens representing deposited collateral
      */
     function getATokenAmount(address bitmorPool, address collateralAsset, address lsa)
         internal
@@ -74,10 +82,12 @@ library BitmorLendingPoolLogic {
     }
 
     /**
-     * @notice Get the latest position value of the `lsa` in `bitmorPool`.
-     * @param lsa Loan Vault Address
-     * @return totalCollateralUSD Total collateral asset value in USD hold by LSA
-     * @return totalDebtUSD Total debt asset value in USD hold by LSA
+     * @notice Retrieves the current USD-denominated positions for an LSA
+     * @dev Calls `getUserAccountData` on the Bitmor Lending Pool to get aggregate position values
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param lsa The Loan Specific Address to query
+     * @return totalCollateralUSD Total collateral value in USD (8 decimals)
+     * @return totalDebtUSD Total debt value in USD (8 decimals)
      */
     function getUserPositions(address bitmorPool, address lsa)
         internal
@@ -88,8 +98,55 @@ library BitmorLendingPoolLogic {
     }
 
     /**
+     * @notice Deposits collateral to Aave V2 on behalf of LSA
+     * @dev LSA receives aTokens (abvBTC), Protocol holds bvBTC before deposit.
+     *
+     * Lending pool deposit invariants:
+     * - MUST only be callable through the Loan contract for collateral operations (Invariant 1.3)
+     * - MUST restrict depositors to USDC Vault and Loan contract (Invariant 1.7)
+     * - bvBTC shares MUST NOT be borrowable in the BLP; they are deposit-only collateral (Invariant 1.6)
+     * - Access control is enforced at the Loan.sol caller level, which is the only
+     *   contract that invokes this library function for collateral deposits
+     *
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param asset Collateral asset (bvBTC)
+     * @param amount Amount to deposit (8 decimals)
+     * @param onBehalfOf LSA address that receives aTokens
+     */
+    function depositCollateral(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
+        ILendingPool(bitmorPool).deposit(asset, amount, onBehalfOf, REFERRAL);
+    }
+
+    /**
+     * @notice Borrows debt from Aave V2 on behalf of LSA
+     * @dev Protocol receives USDC, LSA receives variable debt tokens.
+     *
+     * Lending pool borrow invariants:
+     * - MUST only be callable through the Loan contract for debt operations (Invariant 1.3)
+     * - bvBTC shares MUST NOT be borrowable in the BLP (Invariant 1.6);
+     *   only USDC (`debtAsset`) is borrowed, enforced by the lending pool reserve configuration
+     * - Access control is enforced at the Loan.sol caller level and by credit delegation
+     *   from the LSA to the Loan contract
+     *
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param asset Debt asset (USDC)
+     * @param amount Amount to borrow (6 decimals)
+     * @param onBehalfOf LSA address that receives debt tokens
+     */
+    function borrowDebt(address bitmorPool, address asset, uint256 amount, address onBehalfOf) internal {
+        ILendingPool(bitmorPool).borrow(asset, amount, RATE_MODE, REFERRAL, onBehalfOf);
+    }
+
+    /**
      * @notice Executes loan repayment on Aave V2 and updates loan state
      * @dev Updates loanAmount, lastPaymentTimestamp, nextDueTimestamp, and status. Marks loan as Completed if fully repaid.
+     *
+     * Repayment invariants:
+     * - Real debt (VDT balance) MUST strictly decrease after repayment (Invariant 3.3)
+     * - Pool liquidity MUST increase by `finalAmountRepaid` (Invariant 3.4):
+     *   `BLP.available_liquidity_after == BLP.available_liquidity_before + finalAmountRepaid`
+     * - `finalAmountRepaid` MUST be > 0 for a valid repayment
+     *
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset USDC token address (debt asset)
      * @param lsa Loan Specific Address (the borrower address on Aave)
@@ -103,5 +160,23 @@ library BitmorLendingPoolLogic {
         // NOTE: Allowance must be set by the caller (Loan.sol) that holds the funds.
         // Aave V2 will pull up to `amount` from the caller (Loan.sol) during `repay`.
         finalAmountRepaid = ILendingPool(bitmorPool).repay(debtAsset, amount, RATE_MODE, lsa);
+    }
+
+    /**
+     * @notice Repays dust debt remaining after a full repayment
+     * @dev Aave V2 `rayDiv` rounding can leave 1-10 wei of residual debt that blocks
+     *      collateral withdrawal via `GenericLogic.balanceDecreaseAllowed`.
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset USDC token address
+     * @param lsa Loan Specific Address
+     * @param dustAmount The dust debt amount to repay (must be <= DEBT_DUST_THRESHOLD)
+     * @return dustRepaid Actual amount repaid
+     */
+    function repayDustDebt(address bitmorPool, address debtAsset, address lsa, uint256 dustAmount)
+        internal
+        returns (uint256 dustRepaid)
+    {
+        IERC20(debtAsset).forceApprove(bitmorPool, dustAmount);
+        dustRepaid = ILendingPool(bitmorPool).repay(debtAsset, dustAmount, RATE_MODE, lsa);
     }
 }

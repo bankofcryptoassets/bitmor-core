@@ -17,5 +17,20 @@ coverage
 forge-out
 */lib/
 broadcast
-.claude
-CLAUDE.md
+
+loan-provider/lcov.info
+loan-provider/lcov.filtered.info
+docs
+lending-pool/types
+loan-provider/coverage-html
+lending-pool/types
+
+# Git worktrees
+.worktrees/
+
+# foundry
+out-foundry
+
+swap-routers/out
+swap-routeres/lib
+swap-routers/cache

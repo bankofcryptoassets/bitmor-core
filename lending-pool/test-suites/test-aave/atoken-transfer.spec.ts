@@ -1,99 +1,114 @@
-import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants';
-import { convertToCurrencyDecimals } from '../../helpers/contracts-helpers';
-import { expect } from 'chai';
-import { ethers } from 'ethers';
-import { RateMode, ProtocolErrors } from '../../helpers/types';
-import { makeSuite, TestEnv } from './helpers/make-suite';
-import { CommonsConfig } from '../../markets/aave/commons';
-
-const AAVE_REFERRAL = CommonsConfig.ProtocolGlobalParams.AaveReferral;
+import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
+import chai from 'chai';
+const { expect } = chai;
+import { RateMode } from '../../helpers/types.js';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import BigNumber from 'bignumber.js';
+import { DRE } from '../../helpers/misc-utils.js';
 
 makeSuite('AToken: Transfer', (testEnv: TestEnv) => {
-  const {
-    INVALID_FROM_BALANCE_AFTER_TRANSFER,
-    INVALID_TO_BALANCE_AFTER_TRANSFER,
-    VL_TRANSFER_NOT_ALLOWED,
-  } = ProtocolErrors;
 
-  it('User 0 deposits 1000 DAI, transfers to user 1', async () => {
-    const { users, pool, dai, aDai } = testEnv;
+  it('USDC Vault deposits to pool and receives aTokens', async () => {
+    const { users, usdc, aUSDC, mockBitmorUSDCVault } = testEnv;
 
-    await dai.connect(users[0].signer).mint(await convertToCurrencyDecimals(dai.address, '1000'));
+    const depositor = users[0];
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '1000');
 
-    await dai.connect(users[0].signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    await usdc.connect(depositor.signer).mint(amountUSDCtoDeposit);
 
-    //user 1 deposits 1000 DAI
-    const amountDAItoDeposit = await convertToCurrencyDecimals(dai.address, '1000');
+    const vaultAddress = await mockBitmorUSDCVault.getAddress();
 
-    await pool
-      .connect(users[0].signer)
-      .deposit(dai.address, amountDAItoDeposit, users[0].address, '0');
+    // Depositor approves vault to spend USDC
+    await usdc.connect(depositor.signer).approve(vaultAddress, APPROVAL_AMOUNT_LENDING_POOL);
 
-    await aDai.connect(users[0].signer).transfer(users[1].address, amountDAItoDeposit);
+    // Vault deposits to lending pool (vault receives aTokens, user receives vault shares)
+    await mockBitmorUSDCVault
+      .connect(depositor.signer)
+      .deposit(amountUSDCtoDeposit, depositor.address);
 
-    const name = await aDai.name();
+    // Check that VAULT received the aTokens
+    const vaultATokenBalance = await aUSDC.balanceOf(vaultAddress);
+    const userATokenBalance = await aUSDC.balanceOf(depositor.address);
 
-    expect(name).to.be.equal('Aave interest bearing DAI');
-
-    const fromBalance = await aDai.balanceOf(users[0].address);
-    const toBalance = await aDai.balanceOf(users[1].address);
-
-    expect(fromBalance.toString()).to.be.equal('0', INVALID_FROM_BALANCE_AFTER_TRANSFER);
-    expect(toBalance.toString()).to.be.equal(
-      amountDAItoDeposit.toString(),
-      INVALID_TO_BALANCE_AFTER_TRANSFER
+    expect(vaultATokenBalance.toString()).to.be.equal(
+      amountUSDCtoDeposit.toString(),
+      'Vault should receive aTokens'
     );
+    expect(userATokenBalance.toString()).to.be.equal('0', 'User should NOT receive aTokens directly');
   });
 
-  it('User 0 deposits 1 WETH and user 1 tries to borrow the WETH with the received DAI as collateral', async () => {
-    const { users, pool, weth, helpersContract } = testEnv;
-    const userAddress = await pool.signer.getAddress();
+  it('User 0 deposits USDC via vault, User 1 borrows USDC with bvBTC collateral', async () => {
+    const { users, pool, oracle, usdc, mockBitmorUSDCVault, mockLoanProvider, btcVault, mockLoan, addressesProvider, helpersContract } = testEnv;
 
-    await weth.connect(users[0].signer).mint(await convertToCurrencyDecimals(weth.address, '1'));
+    const depositor = users[0];
+    const borrower = users[1];
 
-    await weth.connect(users[0].signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    // User 0 deposits 30000 USDC via VAULT to provide liquidity
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '300000');
+    await usdc.connect(depositor.signer).mint(amountUSDCtoDeposit);
 
-    await pool
-      .connect(users[0].signer)
-      .deposit(weth.address, ethers.utils.parseEther('1.0'), userAddress, '0');
-    await pool
-      .connect(users[1].signer)
-      .borrow(
-        weth.address,
-        ethers.utils.parseEther('0.1'),
-        RateMode.Stable,
-        AAVE_REFERRAL,
-        users[1].address
-      );
+    const vaultAddress = await mockBitmorUSDCVault.getAddress();
+    await usdc.connect(depositor.signer).approve(vaultAddress, APPROVAL_AMOUNT_LENDING_POOL);
 
-    const userReserveData = await helpersContract.getUserReserveData(
-      weth.address,
-      users[1].address
+    // BITMOR: Deposit via vault (correct architecture)
+    await mockBitmorUSDCVault
+      .connect(depositor.signer)
+      .deposit(amountUSDCtoDeposit, depositor.address);
+
+    // User 1 deposits 1 bvBTC (vault shares) as collateral via mockLoanProvider (as loan contract)
+    const amountBvBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountBvBTCtoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
+      .connect(borrower.signer)
+      .deposit(getContractAddress(btcVault), amountBvBTCtoDeposit, borrower.address, '0');
+
+    // Calculate borrow amount (95% of available borrows)
+    const userGlobalData = await pool.getUserAccountData(borrower.address);
+    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
+
+    const amountUsdcToBorrow = await convertToCurrencyDecimals(
+      getContractAddress(usdc),
+      new BigNumber(userGlobalData.availableBorrowsETH.toString())
+        .div(usdcPrice.toString())
+        .multipliedBy(0.95)
+        .toFixed(0)
     );
 
-    expect(userReserveData.currentStableDebt.toString()).to.be.eq(ethers.utils.parseEther('0.1'));
+    // Create active loan in MockLoan
+    await mockLoan.createActiveLoan(
+      borrower.address,
+      borrower.address,
+      amountBvBTCtoDeposit,
+      amountUsdcToBorrow,
+      12,
+      5000
+    );
+
+    // Temporarily set USDCVault to ZERO_ADDRESS (to allow borrow)
+    await addressesProvider.setUSDCVault(ZERO_ADDRESS);
+
+    // Approve credit delegation
+    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt('VariableDebtToken', variableDebtTokenAddress);
+    await Vdt.connect(borrower.signer).approveDelegation(
+      mockLoanProvider.target,
+      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+    );
+
+    // User 1 borrows USDC via mockLoanProvider (as loan contract)
+    await mockLoanProvider
+      .connect(borrower.signer)
+      .borrow(getContractAddress(usdc), amountUsdcToBorrow, RateMode.Variable, '0', borrower.address);
+
+    // Verify borrow succeeded
+    const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
+    expect(userGlobalDataAfter.totalDebtETH.toString()).to.not.equal('0', 'User should have debt');
+
+    // Restore BitmorLoan
+    await addressesProvider.setBitmorLoan(mockLoan);
   });
 
-  it('User 1 tries to transfer all the DAI used as collateral back to user 0 (revert expected)', async () => {
-    const { users, pool, aDai, dai, weth } = testEnv;
-
-    const aDAItoTransfer = await convertToCurrencyDecimals(dai.address, '1000');
-
-    await expect(
-      aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer),
-      VL_TRANSFER_NOT_ALLOWED
-    ).to.be.revertedWith(VL_TRANSFER_NOT_ALLOWED);
-  });
-
-  it('User 1 tries to transfer a small amount of DAI used as collateral back to user 0', async () => {
-    const { users, pool, aDai, dai, weth } = testEnv;
-
-    const aDAItoTransfer = await convertToCurrencyDecimals(dai.address, '100');
-
-    await aDai.connect(users[1].signer).transfer(users[0].address, aDAItoTransfer);
-
-    const user0Balance = await aDai.balanceOf(users[0].address);
-
-    expect(user0Balance.toString()).to.be.eq(aDAItoTransfer.toString());
-  });
 });

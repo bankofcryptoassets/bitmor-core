@@ -25,6 +25,9 @@ import {ReserveConfiguration} from "../libraries/configuration/ReserveConfigurat
 import {UserConfiguration} from "../libraries/configuration/UserConfiguration.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {LendingPoolStorage} from "./LendingPoolStorage.sol";
+import {IERC4626, IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+import {LoanLiquidationLogic} from "../libraries/logic/LoanLiquidationLogic.sol";
+import {ILoan} from "../../interfaces/ILoan.sol";
 
 /**
  * @title LendingPool contract
@@ -41,6 +44,13 @@ import {LendingPoolStorage} from "./LendingPoolStorage.sol";
  * - To be covered by a proxy contract, owned by the LendingPoolAddressesProvider of the specific market
  * - All admin functions are callable by the LendingPoolConfigurator contract defined also in the
  *   LendingPoolAddressesProvider
+ *
+ * Bitmor accounting invariant (8.3 - No Value Leakage Across Protocol):
+ * value_in(BLP) + value_in(bvUSDC_aave) + value_in(bvBTC) + value_in(all_LSAs)
+ * MUST equal
+ * sum(LP_deposits) - sum(LP_withdrawals) + sum(borrower_deposits)
+ * - sum(borrower_BTC_withdrawals) + sum(interest_accrued) - sum(interest_paid_to_LPs).
+ *
  * @author Aave
  *
  */
@@ -49,6 +59,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     using WadRayMath for uint256;
     using PercentageMath for uint256;
     using SafeERC20 for IERC20;
+    using ReserveLogic for DataTypes.ReserveData;
 
     uint256 public constant LENDINGPOOL_REVISION = 0x2;
 
@@ -95,6 +106,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @dev Deposits an `amount` of underlying asset into the reserve, receiving in return overlying aTokens.
      * - E.g. User deposits 100 USDC and gets in return 100 aUSDC
+     *
+     * Bitmor lending pool invariants:
+     * - MUST only allow the Loan contract (`loanProvider`) and the USDC Vault (`usdcVaultAddress`)
+     *   to call this function. All other callers MUST revert (Invariant 1.7).
+     * - When `msg.sender` is the Loan contract, the deposit MUST be for bvBTC collateral
+     *   on behalf of an LSA. Only the Loan contract can supply bvBTC to the pool (Invariant 1.3).
+     * - When `msg.sender` is the USDC Vault, the deposit MUST be for USDC liquidity.
+     *
      * @param asset The address of the underlying asset to deposit
      * @param amount The amount to be deposited
      * @param onBehalfOf The address that will receive the aTokens, same as msg.sender if the user
@@ -110,6 +129,17 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         whenNotPaused
     {
         DataTypes.ReserveData storage reserve = _reserves[asset];
+
+        /**
+         * @dev This access control check provides security against external funds.
+         * If `msg.sender` is `loanProvider` it CAN ONLY BE for `bvBTC` deposit.
+         * If `msg.sender` is `usdcVaultAddress` it CAN ONLY BE for `USDC` deposit.
+         */
+        address usdcVaultAddress = _addressesProvider.getUSDCVault();
+        address loanProvider = _addressesProvider.getBitmorLoan();
+        require(
+            msg.sender == usdcVaultAddress || msg.sender == loanProvider, Errors.LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER
+        );
 
         ValidationLogic.validateDeposit(reserve, amount);
 
@@ -133,6 +163,15 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @dev Withdraws an `amount` of underlying asset from the reserve, burning the equivalent aTokens owned
      * E.g. User has 100 aUSDC, calls withdraw() and receives 100 USDC, burning the 100 aUSDC
+     *
+     * Bitmor utilization invariant (9.1):
+     * - LP withdrawals MUST revert at 100% utilization when there is insufficient liquidity
+     *   and no liquidity available in Aave either.
+     *
+     * Bitmor maximum value invariant (9.3):
+     * - When `amount` is type(uint256).max, the function MUST resolve it to `userBalance`
+     *   and MUST NOT overflow silently.
+     *
      * @param asset The address of the underlying asset to withdraw
      * @param amount The underlying amount to be withdrawn
      *   - Send the value type(uint256).max in order to withdraw the whole aToken balance
@@ -188,6 +227,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * corresponding debt token (StableDebtToken or VariableDebtToken)
      * - E.g. User borrows 100 USDC passing as `onBehalfOf` his own address, receiving the 100 USDC in his wallet
      *   and 100 stable/variable debt tokens, depending on the `interestRateMode`
+     *
+     * @dev Bitmor lending pool invariant:
+     * - MUST only allow the Loan contract to borrow USDC on behalf of LSAs.
+     *   Enforced in `_executeBorrow` via the `getBitmorLoan()` check (Invariant 1.3).
+     *
+     * Bitmor utilization invariant (9.1):
+     * - New borrows MUST revert at 100% utilization when there is insufficient liquidity.
+     *
      * @param asset The address of the underlying asset to borrow
      * @param amount The amount to be borrowed
      * @param interestRateMode The interest rate mode at which the user wants to borrow: 1 for Stable, 2 for Variable
@@ -215,6 +262,21 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     /**
      * @notice Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
      * - E.g. User repays 100 USDC, burning 100 variable/stable debt tokens of the `onBehalfOf` address
+     *
+     * @dev Bitmor repayment invariants:
+     * - `paybackAmount` MUST be capped at the remaining VDT balance so that repayment
+     *   never exceeds outstanding debt (Invariant 3.2).
+     * - After execution, available liquidity in the pool MUST increase by exactly
+     *   `paybackAmount` (the transfer to the aToken contract) (Invariant 3.4).
+     *
+     * Bitmor utilization invariant (9.1):
+     * - Repayments MUST still succeed at 100% utilization because they add liquidity
+     *   back to the pool.
+     *
+     * Bitmor maximum value invariant (9.3):
+     * - When `amount` is type(uint256).max, the function MUST resolve it to the
+     *   outstanding debt balance and MUST NOT overflow silently.
+     *
      * @param asset The address of the borrowed underlying asset previously borrowed
      * @param amount The amount to repay
      * - Send the value type(uint256).max in order to repay the whole debt for `asset` on the specific `debtMode`
@@ -270,40 +332,41 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         return paybackAmount;
     }
 
-    /**
-     * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
-     * @param asset The address of the underlying asset borrowed
-     * @param rateMode The rate mode that the user wants to swap to
-     *
-     */
-    function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
-        DataTypes.ReserveData storage reserve = _reserves[asset];
+    // /**
+    //  * @dev Not being used in our BITMOR Protocol as we are only using the variable interest rate mode for borrowing.
+    //  * @dev Allows a borrower to swap his debt between stable and variable mode, or viceversa
+    //  * @param asset The address of the underlying asset borrowed
+    //  * @param rateMode The rate mode that the user wants to swap to
+    //  *
+    //  */
+    // function swapBorrowRateMode(address asset, uint256 rateMode) external override whenNotPaused {
+    //     DataTypes.ReserveData storage reserve = _reserves[asset];
 
-        (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
+    //     (uint256 stableDebt, uint256 variableDebt) = Helpers.getUserCurrentDebt(msg.sender, reserve);
 
-        DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
+    //     DataTypes.InterestRateMode interestRateMode = DataTypes.InterestRateMode(rateMode);
 
-        ValidationLogic.validateSwapRateMode(
-            reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
-        );
+    //     ValidationLogic.validateSwapRateMode(
+    //         reserve, _usersConfig[msg.sender], stableDebt, variableDebt, interestRateMode
+    //     );
 
-        reserve.updateState();
+    //     reserve.updateState();
 
-        if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
-            IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
-        } else {
-            IVariableDebtToken(reserve.variableDebtTokenAddress)
-                .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
-            IStableDebtToken(reserve.stableDebtTokenAddress)
-                .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
-        }
+    //     if (interestRateMode == DataTypes.InterestRateMode.STABLE) {
+    //         IStableDebtToken(reserve.stableDebtTokenAddress).burn(msg.sender, stableDebt);
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, stableDebt, reserve.variableBorrowIndex);
+    //     } else {
+    //         IVariableDebtToken(reserve.variableDebtTokenAddress)
+    //             .burn(msg.sender, variableDebt, reserve.variableBorrowIndex);
+    //         IStableDebtToken(reserve.stableDebtTokenAddress)
+    //             .mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate);
+    //     }
 
-        reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
+    //     reserve.updateInterestRates(asset, reserve.aTokenAddress, 0, 0);
 
-        emit Swap(asset, msg.sender, rateMode);
-    }
+    //     emit Swap(asset, msg.sender, rateMode);
+    // }
 
     /**
      * @dev Rebalances the stable interest rate of a user to the current stable rate defined on the reserve.
@@ -456,6 +519,20 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      *   0 if the action is executed directly by the user, without any middle-man
      *
      */
+    /**
+     * BITMOR: Flash loans are disabled in Bitmor protocol
+     *
+     * REASON: Flash loan modes 1 and 2 require users to have collateral (aTokens).
+     * In Bitmor's vault architecture, users own vault shares while vaults own aTokens.
+     * The lending pool only recognizes aTokens as collateral, not vault shares.
+     * Therefore, flash loans with debt positions (modes 1 & 2) would fail.
+     * Mode 0 (standard flash loan) would work but for consistency and security,
+     * all flash loan functionality is disabled.
+     *
+     * ERROR CODE: 86 (LP_FLASHLOAN_DISABLED)
+     *
+     * Original flash loan code is preserved below for reference (unreachable).
+     */
     function flashLoan(
         address receiverAddress,
         address[] calldata assets,
@@ -465,64 +542,68 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         bytes calldata params,
         uint16 referralCode
     ) external override whenNotPaused {
-        FlashLoanLocalVars memory vars;
+        revert(Errors.LP_FLASHLOAN_DISABLED);
 
-        ValidationLogic.validateFlashloan(assets, amounts);
+        // FlashLoanLocalVars memory vars;
 
-        address[] memory aTokenAddresses = new address[](assets.length);
-        uint256[] memory premiums = new uint256[](assets.length);
+        // ValidationLogic.validateFlashloan(assets, amounts);
 
-        vars.receiver = IFlashLoanReceiver(receiverAddress);
+        // address[] memory aTokenAddresses = new address[](assets.length);
+        // uint256[] memory premiums = new uint256[](assets.length);
 
-        for (vars.i = 0; vars.i < assets.length; vars.i++) {
-            aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress;
+        // vars.receiver = IFlashLoanReceiver(receiverAddress);
 
-            premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000);
+        // for (vars.i = 0; vars.i < assets.length; vars.i++) {
+        //     aTokenAddresses[vars.i] = _reserves[assets[vars.i]].aTokenAddress;
 
-            IAToken(aTokenAddresses[vars.i]).transferUnderlyingTo(receiverAddress, amounts[vars.i]);
-        }
+        //     premiums[vars.i] = amounts[vars.i].mul(_flashLoanPremiumTotal).div(10000);
 
-        require(
-            vars.receiver.executeOperation(assets, amounts, premiums, msg.sender, params),
-            Errors.LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN
-        );
+        //     IAToken(aTokenAddresses[vars.i]).transferUnderlyingTo(receiverAddress, amounts[vars.i]);
+        // }
 
-        for (vars.i = 0; vars.i < assets.length; vars.i++) {
-            vars.currentAsset = assets[vars.i];
-            vars.currentAmount = amounts[vars.i];
-            vars.currentPremium = premiums[vars.i];
-            vars.currentATokenAddress = aTokenAddresses[vars.i];
-            vars.currentAmountPlusPremium = vars.currentAmount.add(vars.currentPremium);
+        // require(
+        //     vars.receiver.executeOperation(assets, amounts, premiums, msg.sender, params),
+        //     Errors.LP_INVALID_FLASH_LOAN_EXECUTOR_RETURN
+        // );
 
-            if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) {
-                _reserves[vars.currentAsset].updateState();
-                _reserves[vars.currentAsset]
-                .cumulateToLiquidityIndex(IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium);
-                _reserves[vars.currentAsset]
-                .updateInterestRates(vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0);
+        // for (vars.i = 0; vars.i < assets.length; vars.i++) {
+        //     vars.currentAsset = assets[vars.i];
+        //     vars.currentAmount = amounts[vars.i];
+        //     vars.currentPremium = premiums[vars.i];
+        //     vars.currentATokenAddress = aTokenAddresses[vars.i];
+        //     vars.currentAmountPlusPremium = vars.currentAmount.add(vars.currentPremium);
 
-                IERC20(vars.currentAsset)
-                    .safeTransferFrom(receiverAddress, vars.currentATokenAddress, vars.currentAmountPlusPremium);
-            } else {
-                // If the user chose to not return the funds, the system checks if there is enough collateral and
-                // eventually opens a debt position
-                _executeBorrow(
-                    ExecuteBorrowParams(
-                        vars.currentAsset,
-                        msg.sender,
-                        onBehalfOf,
-                        vars.currentAmount,
-                        modes[vars.i],
-                        vars.currentATokenAddress,
-                        referralCode,
-                        false
-                    )
-                );
-            }
-            emit FlashLoan(
-                receiverAddress, msg.sender, vars.currentAsset, vars.currentAmount, vars.currentPremium, referralCode
-            );
-        }
+        //     if (DataTypes.InterestRateMode(modes[vars.i]) == DataTypes.InterestRateMode.NONE) {
+        //         _reserves[vars.currentAsset].updateState();
+        //         _reserves[vars.currentAsset].cumulateToLiquidityIndex(
+        //             IERC20(vars.currentATokenAddress).totalSupply(), vars.currentPremium
+        //         );
+        //         _reserves[vars.currentAsset].updateInterestRates(
+        //             vars.currentAsset, vars.currentATokenAddress, vars.currentAmountPlusPremium, 0
+        //         );
+
+        //         IERC20(vars.currentAsset)
+        //             .safeTransferFrom(receiverAddress, vars.currentATokenAddress, vars.currentAmountPlusPremium);
+        //     } else {
+        //         // If the user chose to not return the funds, the system checks if there is enough collateral and
+        //         // eventually opens a debt position
+        //         _executeBorrow(
+        //             ExecuteBorrowParams(
+        //                 vars.currentAsset,
+        //                 msg.sender,
+        //                 onBehalfOf,
+        //                 vars.currentAmount,
+        //                 modes[vars.i],
+        //                 vars.currentATokenAddress,
+        //                 referralCode,
+        //                 false
+        //             )
+        //         );
+        //     }
+        //     emit FlashLoan(
+        //         receiverAddress, msg.sender, vars.currentAsset, vars.currentAmount, vars.currentPremium, referralCode
+        //     );
+        // }
     }
 
     /**
@@ -559,12 +640,9 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
             uint256 healthFactor
         )
     {
-        /**
-         * !TODO: In address provider the oracle address should be the address of the contract which will send the price of the `vBTC` in the contract when `.getAssetPrice(assetAddress)` function is called.
-         * This oracle contract will include a function which will convert 1 $vBTC into $BTC and return (1 $vBTC in $BTC x $BTC price) as price of 1 $vBTC.
-         *
-         */
-        (totalCollateralETH, totalDebtETH, ltv, currentLiquidationThreshold, healthFactor) =
+        (
+            totalCollateralETH, totalDebtETH, ltv, currentLiquidationThreshold, healthFactor
+        ) =
             GenericLogic.calculateUserAccountData(
                 user, _reserves, _usersConfig[user], _reservesList, _reservesCount, _addressesProvider.getPriceOracle()
             );
@@ -646,18 +724,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
      * @param user Address of the user
      * @return type of liquidation.
      */
-    function checkTypeOfLiquidation(address user) external returns (uint256) {
-        address collateralManager = _addressesProvider.getLendingPoolCollateralManager();
-
-        //solium-disable-next-line
-        (bool success, bytes memory result) =
-            collateralManager.delegatecall(abi.encodeWithSignature("checkTypeOfLiquidation(address)", user));
-
-        require(success, Errors.LP_CHECK_TYPE_OF_LIQUIDATION_FAILED);
-
-        uint256 typeOfLiquidation = abi.decode(result, (uint256));
-
-        return typeOfLiquidation;
+    function checkTypeOfLiquidation(address user) external view override returns (uint256) {
+        address oracle = _addressesProvider.getPriceOracle();
+        (,,,, uint256 hf) = GenericLogic.calculateUserAccountData(
+            user, _reserves, _usersConfig[user], _reservesList, _reservesCount, oracle
+        );
+        return LoanLiquidationLogic.checkTypeOfLiquidation(
+            user, _reserves, hf, oracle, ILoan(_addressesProvider.getBitmorLoan())
+        );
     }
 
     /**
@@ -741,11 +815,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         address interestRateStrategyAddress
     ) external override onlyLendingPoolConfigurator {
         require(Address.isContract(asset), Errors.LP_NOT_CONTRACT);
-        /**
-         * !TODO: Here the interet rate strategy address for USDC should include utilizationRate which uses USDC vault's totalAssets() in place of balance of USDC of aToken
-         *
-         *
-         */
+
         _reserves[asset].init(aTokenAddress, stableDebtAddress, variableDebtAddress, interestRateStrategyAddress);
         _addReserveToList(asset);
     }
@@ -802,6 +872,8 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
     }
 
     function _executeBorrow(ExecuteBorrowParams memory vars) internal {
+        require(vars.user == _addressesProvider.getBitmorLoan(), Errors.LP_CALLER_NOT_VAULT_OR_LOAN_PROVIDER);
+
         DataTypes.ReserveData storage reserve = _reserves[vars.asset];
         DataTypes.UserConfigurationMap storage userConfig = _usersConfig[vars.onBehalfOf];
 
@@ -818,10 +890,14 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
          * }
          */
 
-        /**
-         * !TODO: Disable borrowing for vBTC
-         *
-         */
+        address vaultAddress = _addressesProvider.getUSDCVault();
+        if (vaultAddress != address(0) && vars.asset == IERC4626(vaultAddress).asset() && vars.releaseUnderlying) {
+            uint256 availableBalance = IERC20(vars.asset).balanceOf(vars.aTokenAddress);
+
+            if (vars.amount > availableBalance) {
+                IUSDCVault(vaultAddress).reallocateAssets(vars.amount);
+            }
+        }
 
         ValidationLogic.validateBorrow(
             vars.asset,

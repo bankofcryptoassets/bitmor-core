@@ -4,6 +4,12 @@ pragma solidity 0.8.30;
 import {ILendingPoolAddressesProvider} from "./ILendingPoolAddressesProvider.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 
+/**
+ * @title ILendingPool
+ * @author Aave / Bitmor Protocol
+ * @notice Interface for the Bitmor Lending Pool (Aave V2-based) used for collateral deposits and debt management
+ * @dev Extended from Aave V2 LendingPool with Bitmor-specific functions for micro-liquidation and loan integration
+ */
 interface ILendingPool {
     /**
      * @dev Emitted on deposit()
@@ -186,7 +192,6 @@ interface ILendingPool {
      *   0 if the action is executed directly by the user, without any middle-man
      *
      */
-
     function deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
 
     /**
@@ -223,7 +228,7 @@ interface ILendingPool {
         external;
 
     /**
-     * @notice Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
+     * @dev Repays a borrowed `amount` on a specific reserve, burning the equivalent debt tokens owned
      * - E.g. User repays 100 USDC, burning 100 variable/stable debt tokens of the `onBehalfOf` address
      * @param asset The address of the borrowed underlying asset previously borrowed
      * @param amount The amount to repay
@@ -288,11 +293,16 @@ interface ILendingPool {
     /**
      * @dev Function to micro-liquidate a user who didn't pay its monthly installment for their loan.
      * - The caller (liquidator) pays the monthly installment amount, receives equivalent value of underlying asset used as collateral and increase loan's nextDueDate by 30 days.
-     * @param collateralAsset The address of the underlying asset used as collateral, to receive as result of the liquidation.
-     * @param debtAsset The address of the underlying borrowed asset to be repaid with the liquidation
-     * @param user the address of the borrower's LSA getting liquidated
+     * @param data Microliquidation call data (abi.encode(collateralAsset, debtAsset, user))
      */
-    function microLiquidationCall(address collateralAsset, address debtAsset, address user) external;
+    function microLiquidationCall(bytes calldata data) external;
+
+    /**
+     * @dev Checks what type of liquidation is applicable for a user
+     * @param user The address of the user to check
+     * @return The type of liquidation (0 = none, 1 = micro-liquidation, 2 = full liquidation)
+     */
+    function checkTypeOfLiquidation(address user) external returns (uint256);
 
     /**
      * @dev Allows smartcontracts to access the liquidity of the pool within one transaction,
@@ -345,6 +355,14 @@ interface ILendingPool {
             uint256 healthFactor
         );
 
+    /**
+     * @notice Initializes a reserve with its associated token addresses and interest rate strategy
+     * @param reserve The address of the underlying asset
+     * @param aTokenAddress The address of the aToken for this reserve
+     * @param stableDebtAddress The address of the stable debt token
+     * @param variableDebtAddress The address of the variable debt token
+     * @param interestRateStrategyAddress The address of the interest rate strategy
+     */
     function initReserve(
         address reserve,
         address aTokenAddress,
@@ -353,8 +371,18 @@ interface ILendingPool {
         address interestRateStrategyAddress
     ) external;
 
+    /**
+     * @notice Updates the interest rate strategy for a reserve
+     * @param reserve The address of the underlying asset
+     * @param rateStrategyAddress The new interest rate strategy address
+     */
     function setReserveInterestRateStrategyAddress(address reserve, address rateStrategyAddress) external;
 
+    /**
+     * @notice Sets the configuration bitmap for a reserve
+     * @param reserve The address of the underlying asset
+     * @param configuration The configuration bitmap value
+     */
     function setConfiguration(address reserve, uint256 configuration) external;
 
     /**
@@ -395,6 +423,15 @@ interface ILendingPool {
      */
     function getReserveData(address asset) external view returns (DataTypes.ReserveData memory);
 
+    /**
+     * @notice Validates and finalizes an aToken transfer
+     * @param asset The address of the underlying asset
+     * @param from The sender address
+     * @param to The recipient address
+     * @param amount The transfer amount
+     * @param balanceFromAfter The sender's balance after the transfer
+     * @param balanceToBefore The recipient's balance before the transfer
+     */
     function finalizeTransfer(
         address asset,
         address from,
@@ -404,11 +441,18 @@ interface ILendingPool {
         uint256 balanceToBefore
     ) external;
 
+    /// @notice Returns the list of initialized reserve asset addresses.
     function getReservesList() external view returns (address[] memory);
 
+    /// @notice Returns the LendingPoolAddressesProvider connected to this contract.
     function getAddressesProvider() external view returns (ILendingPoolAddressesProvider);
 
+    /**
+     * @notice Pauses or unpauses the lending pool
+     * @param val True to pause, false to unpause
+     */
     function setPause(bool val) external;
 
+    /// @notice Returns whether the lending pool is paused.
     function paused() external view returns (bool);
 }

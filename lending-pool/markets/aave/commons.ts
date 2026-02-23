@@ -2,9 +2,9 @@ import {
   oneRay,
   ZERO_ADDRESS,
   MOCK_CHAINLINK_AGGREGATORS_PRICES,
-  oneEther,
-} from '../../helpers/constants';
-import { ICommonConfiguration, eEthereumNetwork } from '../../helpers/types';
+  oneUsd,
+} from '../../helpers/constants.js';
+import { ICommonConfiguration, eEthereumNetwork } from '../../helpers/types.js';
 
 // ----------------
 // PROTOCOL GLOBAL PARAMS
@@ -17,8 +17,8 @@ export const CommonsConfig: ICommonConfiguration = {
   VariableDebtTokenNamePrefix: 'Aave variable debt bearing',
   SymbolPrefix: '',
   ProviderId: 0, // Overriden in index.ts
-  OracleQuoteCurrency: 'ETH',
-  OracleQuoteUnit: oneEther.toString(),
+  OracleQuoteCurrency: 'USD',
+  OracleQuoteUnit: oneUsd.toString(),
   ProtocolGlobalParams: {
     TokenDistributorPercentageBase: '10000',
     MockUsdPriceInWei: '5848466240000000',
@@ -108,7 +108,6 @@ export const CommonsConfig: ICommonConfiguration = {
   PoolAdmin: {
     [eEthereumNetwork.coverage]: undefined,
     [eEthereumNetwork.buidlerevm]: undefined,
-    [eEthereumNetwork.coverage]: undefined,
     [eEthereumNetwork.hardhat]: undefined,
     [eEthereumNetwork.kovan]: undefined,
     [eEthereumNetwork.ropsten]: undefined,

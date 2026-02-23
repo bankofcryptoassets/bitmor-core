@@ -7,9 +7,10 @@ import {
   ePolygonNetwork,
   eXDaiNetwork,
   iParamsPerNetwork,
-} from './helpers/types';
+} from './helpers/types.js';
+import dotenv from 'dotenv';
 
-require('dotenv').config();
+dotenv.config();
 
 const INFURA_KEY = process.env.INFURA_KEY || '';
 const ALCHEMY_KEY = process.env.ALCHEMY_KEY || '';

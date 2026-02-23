@@ -1,88 +1,32 @@
-import path from 'path';
-import fs from 'fs';
-import { HardhatUserConfig } from 'hardhat/types';
-// @ts-ignore
+import { defineConfig } from "hardhat/config";
+import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import hardhatMocha from "@nomicfoundation/hardhat-mocha";
+import hardhatTypechain from "@nomicfoundation/hardhat-typechain";
+import hardhatVerify from "@nomicfoundation/hardhat-verify";
+import { BUIDLEREVM_CHAINID } from './helpers/buidler-constants.js';
+import { NETWORKS_RPC_URL } from './helper-hardhat-config.js';
+import { eBaseNetwork } from './helpers/types.js';
 import { accounts } from './test-wallets.js';
-import {
-  eAvalancheNetwork,
-  eBaseNetwork,
-  eEthereumNetwork,
-  eNetwork,
-  ePolygonNetwork,
-  eXDaiNetwork,
-} from './helpers/types';
-import { BUIDLEREVM_CHAINID, COVERAGE_CHAINID } from './helpers/buidler-constants';
-import {
-  NETWORKS_RPC_URL,
-  NETWORKS_DEFAULT_GAS,
-  BLOCK_TO_FORK,
-  buildForkConfig,
-} from './helper-hardhat-config';
-
-require('dotenv').config();
-
-import '@nomiclabs/hardhat-ethers';
-import '@nomiclabs/hardhat-waffle';
-import '@nomicfoundation/hardhat-verify';
-
-import 'hardhat-gas-reporter';
-import 'hardhat-typechain';
-import '@tenderly/hardhat-tenderly';
-import 'solidity-coverage';
-import { fork } from 'child_process';
+import registeredTasks from './register-tasks.js';
+type TestWallet = { secretKey: string; balance: string };
+const testWallets = accounts as TestWallet[];
 
 const SKIP_LOAD = process.env.SKIP_LOAD === 'true';
-const DEFAULT_BLOCK_GAS_LIMIT = 8000000;
-const DEFAULT_GAS_MUL = 5;
-const HARDFORK = 'istanbul';
-const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || '';
-const MNEMONIC_PATH = "m/44'/60'/0'/0";
-const MNEMONIC = process.env.MNEMONIC || '';
 const UNLIMITED_BYTECODE_SIZE = process.env.UNLIMITED_BYTECODE_SIZE === 'true';
+const DEFAULT_BLOCK_GAS_LIMIT = 30000000;
+const MNEMONIC = process.env.MNEMONIC || '';
+const MNEMONIC_PATH = "m/44'/60'/0'/0";
+const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || '';
 
-// Prevent to load scripts before compilation and typechain
-if (!SKIP_LOAD) {
-  ['misc', 'migrations', 'dev', 'full', 'verifications', 'deployments', 'helpers'].forEach(
-    (folder) => {
-      const tasksPath = path.join(__dirname, 'tasks', folder);
-      fs.readdirSync(tasksPath)
-        .filter((pth) => pth.includes('.ts'))
-        .forEach((task) => {
-          require(`${tasksPath}/${task}`);
-        });
-    }
-  );
-}
+const tasks = SKIP_LOAD ? [] : registeredTasks;
 
-require(`${path.join(__dirname, 'tasks/misc')}/set-bre.ts`);
-
-const getCommonNetworkConfig = (networkName: eNetwork, networkId: number) => ({
-  url: NETWORKS_RPC_URL[networkName],
-  hardfork: HARDFORK,
-  blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
-  gasMultiplier: DEFAULT_GAS_MUL,
-  gasPrice: NETWORKS_DEFAULT_GAS[networkName],
-  chainId: networkId,
-  accounts: {
-    mnemonic: MNEMONIC,
-    path: MNEMONIC_PATH,
-    initialIndex: 0,
-    count: 20,
-  },
-});
-
-let forkMode;
-
-const buidlerConfig: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain, hardhatVerify],
+  tasks,
   solidity: {
     compilers: [
       {
-        version: '0.8.30',
-        settings: {
-          optimizer: { enabled: true, runs: 200 },
-          // TODO!: evm version
-        },
-      }, {
         version: '0.6.12',
         settings: {
           optimizer: { enabled: true, runs: 200 },
@@ -91,95 +35,84 @@ const buidlerConfig: HardhatUserConfig = {
       }
     ]
   },
-  typechain: {
-    outDir: 'types',
-    target: 'ethers-v5',
-  },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_KEY || '',
-    customChains: [
-      {
-        network: "base",
-        chainId: 8453,
-        urls: {
-          apiURL: "https://api.basescan.org/api",
-          browserURL: "https://basescan.org"
-        }
-      },
-      {
-        network: "baseSepolia",
-        chainId: 84532,
-        urls: {
-          apiURL: "https://api-sepolia.basescan.org/api",
-          browserURL: "https://sepolia.basescan.org"
-        }
-      }
-    ]
-  },
-  sourcify: {
-    enabled: false
-  },
-
-  mocha: {
-    timeout: 0,
-  },
-  tenderly: {
-    project: process.env.TENDERLY_PROJECT || '',
-    username: process.env.TENDERLY_USERNAME || '',
-    forkNetwork: '1', //Network id of the network we want to fork
-  },
   networks: {
-    coverage: {
-      url: 'http://localhost:8555',
-      chainId: COVERAGE_CHAINID,
-    },
-    kovan: getCommonNetworkConfig(eEthereumNetwork.kovan, 42),
-    ropsten: getCommonNetworkConfig(eEthereumNetwork.ropsten, 3),
-    main: getCommonNetworkConfig(eEthereumNetwork.main, 1),
-    tenderly: getCommonNetworkConfig(eEthereumNetwork.tenderly, 3030),
-    matic: getCommonNetworkConfig(ePolygonNetwork.matic, 137),
-    mumbai: getCommonNetworkConfig(ePolygonNetwork.mumbai, 80001),
-    xdai: getCommonNetworkConfig(eXDaiNetwork.xdai, 100),
-    avalanche: getCommonNetworkConfig(eAvalancheNetwork.avalanche, 43114),
-    fuji: getCommonNetworkConfig(eAvalancheNetwork.fuji, 43113),
-    goerli: getCommonNetworkConfig(eEthereumNetwork.goerli, 5),
-    base: getCommonNetworkConfig(eBaseNetwork.base, 8453),
-    sepolia: getCommonNetworkConfig(eBaseNetwork.sepolia, 84532),
-    hardhat: {
-      hardfork: 'berlin',
-      blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
-      gas: DEFAULT_BLOCK_GAS_LIMIT,
-      gasPrice: 8000000000,
-      allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
-      chainId: BUIDLEREVM_CHAINID,
-      throwOnTransactionFailures: true,
-      throwOnCallFailures: true,
-      accounts: accounts.map(({ secretKey, balance }: { secretKey: string; balance: string }) => ({
-        privateKey: secretKey,
-        balance,
-      })),
-      forking: buildForkConfig(),
-    },
-    buidlerevm_docker: {
-      hardfork: 'berlin',
-      blockGasLimit: 9500000,
-      gas: 9500000,
-      gasPrice: 8000000000,
-      chainId: BUIDLEREVM_CHAINID,
-      throwOnTransactionFailures: true,
-      throwOnCallFailures: true,
-      url: 'http://localhost:8545',
-    },
-    ganache: {
-      url: 'http://ganache:8545',
+    sepolia: {
+      type: 'http',
+      url: NETWORKS_RPC_URL[eBaseNetwork.sepolia],
+      chainId: 84532,
       accounts: {
-        mnemonic: 'fox sight canyon orphan hotel grow hedgehog build bless august weather swarm',
-        path: "m/44'/60'/0'/0",
+        mnemonic: MNEMONIC,
+        path: MNEMONIC_PATH,
         initialIndex: 0,
         count: 20,
       },
+      gasPrice: 'auto'
+    },
+    localhost: {
+      type: 'http',
+      url: 'http://127.0.0.1:8545',
+      chainId: BUIDLEREVM_CHAINID,
+      timeout: 60000,
+    },
+    hardhat: {
+      type: 'edr-simulated',
+      hardfork: 'berlin',
+      blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
+      allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
+      chainId: BUIDLEREVM_CHAINID,
+      accounts: testWallets.map(({ secretKey, balance }: TestWallet) => ({
+        privateKey: secretKey,
+        balance,
+      }))
+    },
+    default: {
+      type: 'edr-simulated',
+      hardfork: 'berlin',
+      blockGasLimit: DEFAULT_BLOCK_GAS_LIMIT,
+      allowUnlimitedContractSize: UNLIMITED_BYTECODE_SIZE,
+      chainId: BUIDLEREVM_CHAINID,
+      accounts: testWallets.map(({ secretKey, balance }: TestWallet) => ({
+        privateKey: secretKey,
+        balance,
+      }))
     },
   },
-};
-
-export default buidlerConfig;
+  paths: {
+    tests: "./test-suites"
+  },
+  typechain: {
+    outDir: 'types/ethers-contracts',
+  },
+  verify: {
+    etherscan: {
+      apiKey: ETHERSCAN_KEY,
+    },
+  },
+  chainDescriptors: {
+    84532: {
+      name: "Base Sepolia",
+      blockExplorers: {
+        etherscan: {
+          name: "BaseScan",
+          url: "https://sepolia.basescan.org",
+          apiUrl: "https://api.etherscan.io/v2/api",
+        },
+      },
+    },
+    8453: {
+      name: "Base",
+      blockExplorers: {
+        etherscan: {
+          name: "BaseScan",
+          url: "https://basescan.org",
+          apiUrl: "https://api.etherscan.io/v2/api",
+        },
+      },
+    },
+  },
+  test: {
+    mocha: {
+      timeout: 0,
+    },
+  },
+});

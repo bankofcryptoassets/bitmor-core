@@ -1,14 +1,15 @@
-import BigNumber from 'bignumber.js';
-import { ONE_YEAR, RAY, MAX_UINT_AMOUNT, PERCENTAGE_FACTOR } from '../../../../helpers/constants';
+import BigNumber from "bignumber.js";
+import { ONE_YEAR, RAY, MAX_UINT_AMOUNT, PERCENTAGE_FACTOR } from '../../../../helpers/constants.js';
 import {
   IReserveParams,
   iAavePoolAssets,
   RateMode,
   tEthereumAddress,
-} from '../../../../helpers/types';
+} from '../../../../helpers/types.js';
 import './math';
-import { ReserveData, UserReserveData } from './interfaces';
-import { expect } from 'chai';
+import { ReserveData, UserReserveData } from './interfaces/index.js';
+import chai from 'chai';
+const { expect } = chai;
 
 export const strToBN = (amount: string): BigNumber => new BigNumber(amount);
 

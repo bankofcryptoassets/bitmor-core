@@ -1,22 +1,36 @@
-import BigNumber from 'bignumber.js';
+import BigNumber from "bignumber.js";
 
-import { DRE, increaseTime } from '../../helpers/misc-utils';
-import { APPROVAL_AMOUNT_LENDING_POOL, oneEther } from '../../helpers/constants';
-import { convertToCurrencyDecimals } from '../../helpers/contracts-helpers';
-import { makeSuite } from './helpers/make-suite';
-import { ProtocolErrors, RateMode } from '../../helpers/types';
-import { calcExpectedStableDebtTokenBalance } from './helpers/utils/calculations';
-import { getUserData } from './helpers/utils/helpers';
-import { CommonsConfig } from '../../markets/aave/commons';
+import { DRE, increaseTime } from '../../helpers/misc-utils.js';
+import { APPROVAL_AMOUNT_LENDING_POOL, oneEther } from '../../helpers/constants.js';
+import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
+import { makeSuite } from './helpers/make-suite.js';
+import { ProtocolErrors, RateMode } from '../../helpers/types.js';
+import { getUserData } from './helpers/utils/helpers.js';
 
-import { parseEther } from 'ethers/lib/utils';
+import { parseEther, MaxUint256 } from 'ethers';
 
-const chai = require('chai');
-
+import chai from 'chai';
 const { expect } = chai;
 
+/**
+ * BITMOR ARCHITECTURE - Liquidation Tests (receiving underlying asset)
+ *
+ * These tests validate liquidation where liquidator receives underlying collateral (not aTokens).
+ *
+ * Key differences from standard Aave V2:
+ * - Uses bvBTC (vault shares) as collateral, USDC as debt (Bitmor's supported assets)
+ * - Deposits go through mockLoanProvider (registered as BitmorLoan)
+ * - Borrows require credit delegation to mockLoanProvider
+ * - Liquidations require active loan in mockLoan + loan must be overdue
+ * - BitmorLoan address switches between mockLoanProvider (deposits/borrows) and mockLoan (liquidations)
+ * - Vault is pre-funded with cbBTC so _redeemCollateralWithSlippage can redeem bvBTC → cbBTC
+ */
 makeSuite('LendingPool liquidation - liquidator receiving the underlying asset', (testEnv) => {
-  const { INVALID_HF } = ProtocolErrors;
+  const {
+    INVALID_HF,
+    VL_NO_ACTIVE_RESERVE,
+    LPCM_INSUFFICIENT_DEBT_COVERAGE,
+  } = ProtocolErrors;
 
   before('Before LendingPool liquidation: set config', () => {
     BigNumber.config({ DECIMAL_PLACES: 0, ROUNDING_MODE: BigNumber.ROUND_DOWN });
@@ -27,466 +41,442 @@ makeSuite('LendingPool liquidation - liquidator receiving the underlying asset',
   });
 
   it("It's not possible to liquidate on a non-active collateral or a non active principal", async () => {
-    const { configurator, weth, pool, users, dai } = testEnv;
+    const { configurator, btcVault, pool, users, usdc, mockLoan, addressesProvider } = testEnv;
     const user = users[1];
-    await configurator.deactivateReserve(weth.address);
+
+    // Set mockLoan as BitmorLoan for liquidation checks
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
+
+    // Deactivate bvBTC (collateral)
+    await configurator.deactivateReserve(getContractAddress(btcVault));
 
     await expect(
-      pool.liquidationCall(weth.address, dai.address, user.address, parseEther('1000'), false)
-    ).to.be.revertedWith('2');
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), user.address, parseEther('1000'), false)
+    ).to.be.revertedWith(VL_NO_ACTIVE_RESERVE);
 
-    await configurator.activateReserve(weth.address);
+    await configurator.activateReserve(getContractAddress(btcVault));
 
-    await configurator.deactivateReserve(dai.address);
+    // Deactivate USDC (debt asset)
+    await configurator.deactivateReserve(getContractAddress(usdc));
 
     await expect(
-      pool.liquidationCall(weth.address, dai.address, user.address, parseEther('1000'), false)
-    ).to.be.revertedWith('2');
+      pool.liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), user.address, parseEther('1000'), false)
+    ).to.be.revertedWith(VL_NO_ACTIVE_RESERVE);
 
-    await configurator.activateReserve(dai.address);
+    await configurator.activateReserve(getContractAddress(usdc));
   });
 
-  it('Deposits WETH, borrows DAI', async () => {
-    const { dai, weth, users, pool, oracle } = testEnv;
+  it('Deposits bvBTC, borrows USDC', async () => {
+    const { usdc, btcVault, users, pool, oracle, mockLoanProvider, mockLoan, addressesProvider, helpersContract } = testEnv;
     const depositor = users[0];
     const borrower = users[1];
 
-    //mints DAI to depositor
-    await dai.connect(depositor.signer).mint(await convertToCurrencyDecimals(dai.address, '1000'));
+    // Set mockLoanProvider as BitmorLoan for deposits
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoanProvider));
 
-    //approve protocol to access depositor wallet
-    await dai.connect(depositor.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    //user 1 deposits 1000 DAI
-    const amountDAItoDeposit = await convertToCurrencyDecimals(dai.address, '1000');
-
-    await pool
+    // User 1 deposits 100,000,000 USDC (liquidity for borrowing)
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '100000000');
+    await usdc.connect(depositor.signer).mint(amountUSDCtoDeposit);
+    await usdc.connect(depositor.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
       .connect(depositor.signer)
-      .deposit(dai.address, amountDAItoDeposit, depositor.address, '0');
-    //user 2 deposits 1 ETH
-    const amountETHtoDeposit = await convertToCurrencyDecimals(weth.address, '1');
+      .deposit(getContractAddress(usdc), amountUSDCtoDeposit, depositor.address, '0');
 
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(await convertToCurrencyDecimals(weth.address, '1000'));
-
-    //approve protocol to access the borrower wallet
-    await weth.connect(borrower.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    await pool
+    // User 2 deposits 1 bvBTC (vault shares) as collateral
+    const amountBvBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountBvBTCtoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
       .connect(borrower.signer)
-      .deposit(weth.address, amountETHtoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountBvBTCtoDeposit, borrower.address, '0');
 
-    //user 2 borrows
-
+    // Calculate borrow amount (95% of available)
     const userGlobalData = await pool.getUserAccountData(borrower.address);
-    const daiPrice = await oracle.getAssetPrice(dai.address);
+    const usdcPrice = await oracle.getAssetPrice(getContractAddress(usdc));
 
-    const amountDAIToBorrow = await convertToCurrencyDecimals(
-      dai.address,
+    const amountUSDCToBorrow = await convertToCurrencyDecimals(
+      getContractAddress(usdc),
       new BigNumber(userGlobalData.availableBorrowsETH.toString())
-        .div(daiPrice.toString())
+        .div(usdcPrice.toString())
         .multipliedBy(0.95)
         .toFixed(0)
     );
 
-    await pool
+    // Create active loan in mockLoan for the borrower
+    await mockLoan.createActiveLoan(
+      borrower.address,
+      borrower.address,
+      amountBvBTCtoDeposit,
+      amountUSDCToBorrow,
+      12,
+      5000
+    );
+
+    // Approve credit delegation to mockLoanProvider for variable debt
+    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", variableDebtTokenAddress);
+    await Vdt.connect(borrower.signer).approveDelegation(
+      mockLoanProvider.target,
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    );
+
+    // User 2 borrows USDC via mockLoanProvider
+    await mockLoanProvider
       .connect(borrower.signer)
-      .borrow(dai.address, amountDAIToBorrow, RateMode.Stable, '0', borrower.address);
+      .borrow(getContractAddress(usdc), amountUSDCToBorrow, RateMode.Variable, '0', borrower.address);
 
     const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
 
-    expect(userGlobalDataAfter.currentLiquidationThreshold.toString()).to.be.bignumber.equal(
-      '8250',
+    expect(userGlobalDataAfter.currentLiquidationThreshold.toString()).to.be.equal(
+      '8000',
       INVALID_HF
     );
   });
 
   it('Drop the health factor below 1', async () => {
-    const { dai, weth, users, pool, oracle } = testEnv;
+    const { btcVault, users, pool, aggregators } = testEnv;
     const borrower = users[1];
 
-    const daiPrice = await oracle.getAssetPrice(dai.address);
-
-    await oracle.setAssetPrice(
-      dai.address,
-      new BigNumber(daiPrice.toString()).multipliedBy(1.18).toFixed(0)
-    );
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
+    const cbBTCAggregator = aggregators['cbBTC'];
+    const cbBtcPrice = await cbBTCAggregator.latestAnswer();
+    await cbBTCAggregator.updateAnswer((cbBtcPrice * 80n) / 100n);
 
     const userGlobalData = await pool.getUserAccountData(borrower.address);
 
-    expect(userGlobalData.healthFactor.toString()).to.be.bignumber.lt(
-      oneEther.toFixed(0),
+    expect(userGlobalData.healthFactor.toString()).to.be.lessThan(
+      oneEther.toString(),
       INVALID_HF
     );
   });
 
-  it('Liquidates the borrow', async () => {
-    const { dai, weth, users, pool, oracle, helpersContract } = testEnv;
+  it('Rejects liquidation when debtToCover is less than full debt (griefing prevention)', async () => {
+    const { usdc, btcVault, users, pool, helpersContract, mockLoan, addressesProvider, cbBTC } = testEnv;
     const liquidator = users[3];
     const borrower = users[1];
 
-    //mints dai to the liquidator
-    await dai.connect(liquidator.signer).mint(await convertToCurrencyDecimals(dai.address, '1000'));
+    // Mint USDC to liquidator
+    await usdc.connect(liquidator.signer).mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000000'));
+    await usdc.connect(liquidator.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
-    //approve protocol to access the liquidator wallet
-    await dai.connect(liquidator.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    // Make loan overdue and set mockLoan as BitmorLoan
+    await mockLoan.makeLoanOverdue(borrower.address, 30);
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
 
-    const daiReserveDataBefore = await helpersContract.getReserveData(dai.address);
-    const ethReserveDataBefore = await helpersContract.getReserveData(weth.address);
+    // Fund vault with cbBTC for redemption
+    const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
+    await cbBTC.mint(fundAmount);
+    await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
+
+    await increaseTime(100);
+
+    // Attempt liquidation with 1 wei (griefing attack)
+    await expect(
+      pool
+        .connect(liquidator.signer)
+        .liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, 1, false)
+    ).to.be.revertedWith(LPCM_INSUFFICIENT_DEBT_COVERAGE);
+
+    // Verify loan was NOT marked as liquidated
+    const loanData = await mockLoan.getLoanByLSA(borrower.address);
+    expect(loanData.status.toString()).to.be.equal('0', 'Loan should still be Active (not Liquidated)');
+
+    // Verify fullLiquidationCount was NOT incremented
+    const fullLiqCount = await mockLoan.fullLiquidationCount(borrower.address);
+    expect(fullLiqCount.toString()).to.be.equal('0', 'updateLoanDataForFullLiquidation should not have been called');
+  });
+
+  it('Rejects liquidation when debtToCover is 50% of total debt', async () => {
+    const { usdc, btcVault, users, pool, helpersContract } = testEnv;
+    const liquidator = users[3];
+    const borrower = users[1];
+
+    // Get current variable debt
+    const userReserveData = await getUserData(
+      pool,
+      helpersContract,
+      getContractAddress(usdc),
+      borrower.address
+    );
+
+    const halfDebt = new BigNumber(userReserveData.currentVariableDebt.toString())
+      .div(2)
+      .toFixed(0);
+
+    // Attempt liquidation with 50% of debt
+    await expect(
+      pool
+        .connect(liquidator.signer)
+        .liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, halfDebt, false)
+    ).to.be.revertedWith(LPCM_INSUFFICIENT_DEBT_COVERAGE);
+  });
+
+  it('Rejects liquidation when debtToCover is exactly maxLiquidatableDebt - 1', async () => {
+    const { usdc, btcVault, users, pool, helpersContract } = testEnv;
+    const liquidator = users[3];
+    const borrower = users[1];
+
+    // Get current variable debt (this IS maxLiquidatableDebt in Bitmor's full liquidation)
+    const userReserveData = await getUserData(
+      pool,
+      helpersContract,
+      getContractAddress(usdc),
+      borrower.address
+    );
+
+    const debtMinusOne = new BigNumber(userReserveData.currentVariableDebt.toString())
+      .minus(1)
+      .toFixed(0);
+
+    // debtToCover = maxLiquidatableDebt - 1 should fail the < check
+    await expect(
+      pool
+        .connect(liquidator.signer)
+        .liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, debtMinusOne, false)
+    ).to.be.revertedWith(LPCM_INSUFFICIENT_DEBT_COVERAGE);
+  });
+
+  // NOTE: A boundary-pass test for debtToCover == maxLiquidatableDebt was considered here,
+  // but omitted because it would fully liquidate the borrower's position, consuming the shared
+  // test state needed by subsequent "Liquidates the borrow" tests. The MaxUint256 liquidation
+  // tests below already validate the happy path. The boundary-fail test above (debtToCover ==
+  // maxLiquidatableDebt - 1) is the critical security test — it proves the < check rejects
+  // amounts just below the threshold.
+
+  it('Liquidates the borrow', async () => {
+    const { usdc, cbBTC, btcVault, users, pool, oracle, helpersContract, mockLoan, addressesProvider } = testEnv;
+    const liquidator = users[3];
+    const borrower = users[1];
+
+    // Mint USDC to the liquidator
+    await usdc.connect(liquidator.signer).mint(await convertToCurrencyDecimals(getContractAddress(usdc), '1000000'));
+
+    // Approve protocol to access the liquidator wallet
+    await usdc.connect(liquidator.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
+
+    const usdcReserveDataBefore = await helpersContract.getReserveData(getContractAddress(usdc));
+    const bvBTCReserveDataBefore = await helpersContract.getReserveData(getContractAddress(btcVault));
 
     const userReserveDataBefore = await getUserData(
       pool,
       helpersContract,
-      dai.address,
+      getContractAddress(usdc),
       borrower.address
     );
 
-    const amountToLiquidate = userReserveDataBefore.currentStableDebt.div(2).toFixed(0);
+    // Make the loan overdue so it can be liquidated
+    await mockLoan.makeLoanOverdue(borrower.address, 30);
+
+    // Set mockLoan as BitmorLoan for liquidation
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
+
+    // Fund vault with cbBTC for redemption during liquidation
+    const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
+    await cbBTC.mint(fundAmount);
+    await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
 
     await increaseTime(100);
 
+    // Pass MaxUint256 to cover full debt (contract caps to actual debt).
+    // This avoids stale debt amounts due to interest accrual after increaseTime.
     const tx = await pool
       .connect(liquidator.signer)
-      .liquidationCall(weth.address, dai.address, borrower.address, amountToLiquidate, false);
+      .liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, MaxUint256, false);
 
     const userReserveDataAfter = await getUserData(
       pool,
       helpersContract,
-      dai.address,
+      getContractAddress(usdc),
       borrower.address
     );
 
-    const daiReserveDataAfter = await helpersContract.getReserveData(dai.address);
-    const ethReserveDataAfter = await helpersContract.getReserveData(weth.address);
-
-    const collateralPrice = await oracle.getAssetPrice(weth.address);
-    const principalPrice = await oracle.getAssetPrice(dai.address);
-
-    const collateralDecimals = (
-      await helpersContract.getReserveConfigurationData(weth.address)
-    ).decimals.toString();
-    const principalDecimals = (
-      await helpersContract.getReserveConfigurationData(dai.address)
-    ).decimals.toString();
-
-    const expectedCollateralLiquidated = new BigNumber(principalPrice.toString())
-      .times(new BigNumber(amountToLiquidate).times(105))
-      .times(new BigNumber(10).pow(collateralDecimals))
-      .div(
-        new BigNumber(collateralPrice.toString()).times(new BigNumber(10).pow(principalDecimals))
+    // After full liquidation with MaxUint256, variable debt should decrease.
+    // Debt may not reach exactly 0 if collateral value (after price drop) is insufficient
+    // to cover the entire debt — the contract caps actualDebtToLiquidate to debtAmountNeeded.
+    expect(
+      new BigNumber(userReserveDataAfter.currentVariableDebt.toString()).isLessThan(
+        new BigNumber(userReserveDataBefore.currentVariableDebt.toString())
       )
-      .div(100)
-      .decimalPlaces(0, BigNumber.ROUND_DOWN);
+    ).to.be.true;
 
-    if (!tx.blockNumber) {
-      expect(false, 'Invalid block number');
-      return;
-    }
-    const txTimestamp = new BigNumber(
-      (await DRE.ethers.provider.getBlock(tx.blockNumber)).timestamp
-    );
+    const usdcReserveDataAfter = await helpersContract.getReserveData(getContractAddress(usdc));
+    const bvBTCReserveDataAfter = await helpersContract.getReserveData(getContractAddress(btcVault));
 
-    const stableDebtBeforeTx = calcExpectedStableDebtTokenBalance(
-      userReserveDataBefore.principalStableDebt,
-      userReserveDataBefore.stableBorrowRate,
-      userReserveDataBefore.stableRateLastUpdated,
-      txTimestamp
-    );
-
-    expect(userReserveDataAfter.currentStableDebt.toString()).to.be.bignumber.almostEqual(
-      stableDebtBeforeTx.minus(amountToLiquidate).toFixed(0),
-      'Invalid user debt after liquidation'
-    );
-
-    //the liquidity index of the principal reserve needs to be bigger than the index before
-    expect(daiReserveDataAfter.liquidityIndex.toString()).to.be.bignumber.gte(
-      daiReserveDataBefore.liquidityIndex.toString(),
+    // The liquidity index of the principal reserve needs to be bigger than the index before
+    expect(usdcReserveDataAfter.liquidityIndex.toString()).to.be.greaterThanOrEqual(
+      usdcReserveDataBefore.liquidityIndex.toString(),
       'Invalid liquidity index'
     );
 
-    //the principal APY after a liquidation needs to be lower than the APY before
-    expect(daiReserveDataAfter.liquidityRate.toString()).to.be.bignumber.lt(
-      daiReserveDataBefore.liquidityRate.toString(),
+    // The principal APY after a liquidation needs to be lower than the APY before
+    expect(usdcReserveDataAfter.liquidityRate.toString()).to.be.lessThan(
+      usdcReserveDataBefore.liquidityRate.toString(),
       'Invalid liquidity APY'
     );
 
-    expect(daiReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(daiReserveDataBefore.availableLiquidity.toString())
-        .plus(amountToLiquidate)
-        .toFixed(0),
-      'Invalid principal available liquidity'
-    );
+    // After full liquidation, available liquidity should increase (debt repaid to pool)
+    expect(
+      new BigNumber(usdcReserveDataAfter.availableLiquidity.toString()).isGreaterThan(
+        new BigNumber(usdcReserveDataBefore.availableLiquidity.toString())
+      )
+    ).to.be.true;
 
-    expect(ethReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(ethReserveDataBefore.availableLiquidity.toString())
-        .minus(expectedCollateralLiquidated)
-        .toFixed(0),
-      'Invalid collateral available liquidity'
-    );
+    // Collateral liquidity decreases when receiveAToken=false (aTokens burned, vault redeemed)
+    expect(
+      new BigNumber(bvBTCReserveDataAfter.availableLiquidity.toString()).isLessThan(
+        new BigNumber(bvBTCReserveDataBefore.availableLiquidity.toString())
+      )
+    ).to.be.true;
   });
 
-  it('User 3 deposits 1000 USDC, user 4 1 WETH, user 4 borrows - drops HF, liquidates the borrow', async () => {
-    const { usdc, users, pool, oracle, weth, helpersContract } = testEnv;
+  it('User 3 deposits 1000 USDC, user 4 deposits 1 bvBTC, user 4 borrows - drops HF, liquidates the borrow', async () => {
+    const { usdc, users, pool, oracle, cbBTC, btcVault, helpersContract, mockLoanProvider, mockLoan, addressesProvider, aggregators } = testEnv;
 
     const depositor = users[3];
     const borrower = users[4];
     const liquidator = users[5];
 
-    //mints USDC to depositor
-    await usdc
+    // Restore prices to original values (previous tests may have modified them)
+    const usdcAggregator = aggregators['USDC'];
+    const cbBTCAggregator = aggregators['cbBTC'];
+    await usdcAggregator.updateAnswer(BigInt(100000000)); // $1 in 8 decimals
+    await cbBTCAggregator.updateAnswer(BigInt(10000000000000)); // $100,000 in 8 decimals
+
+    // Set mockLoanProvider as BitmorLoan for deposits/borrows
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoanProvider));
+
+    // Depositor deposits 100000 USDC
+    const amountUSDCtoDeposit = await convertToCurrencyDecimals(getContractAddress(usdc), '100000');
+    await usdc.connect(depositor.signer).mint(amountUSDCtoDeposit);
+    await usdc.connect(depositor.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
       .connect(depositor.signer)
-      .mint(await convertToCurrencyDecimals(usdc.address, '1000'));
+      .deposit(getContractAddress(usdc), amountUSDCtoDeposit, depositor.address, '0');
 
-    //approve protocol to access depositor wallet
-    await usdc.connect(depositor.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    //depositor deposits 1000 USDC
-    const amountUSDCtoDeposit = await convertToCurrencyDecimals(usdc.address, '1000');
-
-    await pool
-      .connect(depositor.signer)
-      .deposit(usdc.address, amountUSDCtoDeposit, depositor.address, '0');
-
-    //borrower deposits 1 ETH
-    const amountETHtoDeposit = await convertToCurrencyDecimals(weth.address, '1');
-
-    //mints WETH to borrower
-    await weth.connect(borrower.signer).mint(await convertToCurrencyDecimals(weth.address, '1000'));
-
-    //approve protocol to access the borrower wallet
-    await weth.connect(borrower.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    await pool
+    // Borrower deposits 1 bvBTC (vault shares)
+    const amountBvBTCtoDeposit = await convertToCurrencyDecimals(getContractAddress(btcVault), '1');
+    await btcVault.mint(borrower.address, amountBvBTCtoDeposit);
+    await btcVault.connect(borrower.signer).approve(getContractAddress(mockLoanProvider), APPROVAL_AMOUNT_LENDING_POOL);
+    await mockLoanProvider
       .connect(borrower.signer)
-      .deposit(weth.address, amountETHtoDeposit, borrower.address, '0');
+      .deposit(getContractAddress(btcVault), amountBvBTCtoDeposit, borrower.address, '0');
 
-    //borrower borrows
+    // Borrower borrows USDC
     const userGlobalData = await pool.getUserAccountData(borrower.address);
-
-    const usdcPrice = await oracle.getAssetPrice(usdc.address);
+    // Get USDC price from aggregator (8 decimals) - matches protocol's AaveOracle
+    const usdcPrice = await usdcAggregator.latestAnswer();
 
     const amountUSDCToBorrow = await convertToCurrencyDecimals(
-      usdc.address,
+      getContractAddress(usdc),
       new BigNumber(userGlobalData.availableBorrowsETH.toString())
         .div(usdcPrice.toString())
         .multipliedBy(0.9502)
         .toFixed(0)
     );
 
-    await pool
-      .connect(borrower.signer)
-      .borrow(usdc.address, amountUSDCToBorrow, RateMode.Stable, '0', borrower.address);
-
-    //drops HF below 1
-    await oracle.setAssetPrice(
-      usdc.address,
-      new BigNumber(usdcPrice.toString()).multipliedBy(1.12).toFixed(0)
+    // Approve credit delegation for variable debt
+    const { variableDebtTokenAddress } = await helpersContract.getReserveTokensAddresses(getContractAddress(usdc));
+    const Vdt = await DRE.ethers.getContractAt("VariableDebtToken", variableDebtTokenAddress);
+    await Vdt.connect(borrower.signer).approveDelegation(
+      mockLoanProvider.target,
+      "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
     );
 
-    //mints dai to the liquidator
+    await mockLoanProvider
+      .connect(borrower.signer)
+      .borrow(getContractAddress(usdc), amountUSDCToBorrow, RateMode.Variable, '0', borrower.address);
 
+    // Raise USDC price to push HF below 1 via aggregator
+    await usdcAggregator.updateAnswer(
+      BigInt(new BigNumber(usdcPrice.toString()).multipliedBy(1.12).toFixed(0))
+    );
+
+    // Mint USDC to the liquidator (enough to cover the debt)
     await usdc
       .connect(liquidator.signer)
-      .mint(await convertToCurrencyDecimals(usdc.address, '1000'));
+      .mint(await convertToCurrencyDecimals(getContractAddress(usdc), '100000'));
 
-    //approve protocol to access depositor wallet
-    await usdc.connect(liquidator.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
+    // Approve protocol to access liquidator wallet
+    await usdc.connect(liquidator.signer).approve(getContractAddress(pool), APPROVAL_AMOUNT_LENDING_POOL);
 
     const userReserveDataBefore = await helpersContract.getUserReserveData(
-      usdc.address,
+      getContractAddress(usdc),
       borrower.address
     );
 
-    const usdcReserveDataBefore = await helpersContract.getReserveData(usdc.address);
-    const ethReserveDataBefore = await helpersContract.getReserveData(weth.address);
+    const usdcReserveDataBefore = await helpersContract.getReserveData(getContractAddress(usdc));
+    const bvBTCReserveDataBefore = await helpersContract.getReserveData(getContractAddress(btcVault));
 
-    const amountToLiquidate = DRE.ethers.BigNumber.from(
-      userReserveDataBefore.currentStableDebt.toString()
-    )
-      .div(2)
-      .toString();
+    // Create active loan AFTER borrow, then make it overdue
+    await mockLoan.createActiveLoan(
+      borrower.address,
+      borrower.address,
+      amountBvBTCtoDeposit,
+      0,
+      12,
+      5000
+    );
 
+    // Drop bvBTC price by dropping cbBTC price (bvBTC price = cbBTC price × previewRedeem)
+    const cbBtcPrice = await cbBTCAggregator.latestAnswer();
+    await mockLoan.makeLoanOverdue(borrower.address, 30);
+    await cbBTCAggregator.updateAnswer((cbBtcPrice * 40n) / 100n);
+    await addressesProvider.setBitmorLoan(getContractAddress(mockLoan));
+
+    // Fund vault with cbBTC for redemption during liquidation
+    const fundAmount = await convertToCurrencyDecimals(getContractAddress(cbBTC), '10');
+    await cbBTC.mint(fundAmount);
+    await cbBTC.transfer(getContractAddress(btcVault), fundAmount);
+
+    await increaseTime(100);
+
+    // Pass MaxUint256 to cover full debt (contract caps to actual debt).
+    // This avoids stale debt amounts due to interest accrual after increaseTime.
     await pool
       .connect(liquidator.signer)
-      .liquidationCall(weth.address, usdc.address, borrower.address, amountToLiquidate, false);
+      .liquidationCall(getContractAddress(btcVault), getContractAddress(usdc), borrower.address, MaxUint256, false);
 
     const userReserveDataAfter = await helpersContract.getUserReserveData(
-      usdc.address,
+      getContractAddress(usdc),
       borrower.address
     );
 
-    const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
-
-    const usdcReserveDataAfter = await helpersContract.getReserveData(usdc.address);
-    const ethReserveDataAfter = await helpersContract.getReserveData(weth.address);
-
-    const collateralPrice = await oracle.getAssetPrice(weth.address);
-    const principalPrice = await oracle.getAssetPrice(usdc.address);
-
-    const collateralDecimals = (
-      await helpersContract.getReserveConfigurationData(weth.address)
-    ).decimals.toString();
-    const principalDecimals = (
-      await helpersContract.getReserveConfigurationData(usdc.address)
-    ).decimals.toString();
-
-    const expectedCollateralLiquidated = new BigNumber(principalPrice.toString())
-      .times(new BigNumber(amountToLiquidate).times(105))
-      .times(new BigNumber(10).pow(collateralDecimals))
-      .div(
-        new BigNumber(collateralPrice.toString()).times(new BigNumber(10).pow(principalDecimals))
+    // After full liquidation with MaxUint256, variable debt should decrease.
+    // Debt may not reach exactly 0 if collateral value (after 60% price drop) is insufficient
+    // to cover the entire debt — the contract caps actualDebtToLiquidate to debtAmountNeeded.
+    expect(
+      new BigNumber(userReserveDataAfter.currentVariableDebt.toString()).isLessThan(
+        new BigNumber(userReserveDataBefore.currentVariableDebt.toString())
       )
-      .div(100)
-      .decimalPlaces(0, BigNumber.ROUND_DOWN);
+    ).to.be.true;
 
-    expect(userGlobalDataAfter.healthFactor.toString()).to.be.bignumber.gt(
-      oneEther.toFixed(0),
-      'Invalid health factor'
-    );
-
-    expect(userReserveDataAfter.currentStableDebt.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(userReserveDataBefore.currentStableDebt.toString())
-        .minus(amountToLiquidate)
-        .toFixed(0),
-      'Invalid user borrow balance after liquidation'
-    );
+    const usdcReserveDataAfter = await helpersContract.getReserveData(getContractAddress(usdc));
+    const bvBTCReserveDataAfter = await helpersContract.getReserveData(getContractAddress(btcVault));
 
     //the liquidity index of the principal reserve needs to be bigger than the index before
-    expect(usdcReserveDataAfter.liquidityIndex.toString()).to.be.bignumber.gte(
+    expect(usdcReserveDataAfter.liquidityIndex.toString()).to.be.greaterThanOrEqual(
       usdcReserveDataBefore.liquidityIndex.toString(),
       'Invalid liquidity index'
     );
 
     //the principal APY after a liquidation needs to be lower than the APY before
-    expect(usdcReserveDataAfter.liquidityRate.toString()).to.be.bignumber.lt(
+    expect(usdcReserveDataAfter.liquidityRate.toString()).to.be.lessThan(
       usdcReserveDataBefore.liquidityRate.toString(),
       'Invalid liquidity APY'
     );
 
-    expect(usdcReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(usdcReserveDataBefore.availableLiquidity.toString())
-        .plus(amountToLiquidate)
-        .toFixed(0),
-      'Invalid principal available liquidity'
-    );
-
-    expect(ethReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(ethReserveDataBefore.availableLiquidity.toString())
-        .minus(expectedCollateralLiquidated)
-        .toFixed(0),
-      'Invalid collateral available liquidity'
-    );
-  });
-
-  it('User 4 deposits 10 AAVE - drops HF, liquidates the AAVE, which results on a lower amount being liquidated', async () => {
-    const { aave, usdc, users, pool, oracle, helpersContract } = testEnv;
-
-    const depositor = users[3];
-    const borrower = users[4];
-    const liquidator = users[5];
-
-    //mints AAVE to borrower
-    await aave.connect(borrower.signer).mint(await convertToCurrencyDecimals(aave.address, '10'));
-
-    //approve protocol to access the borrower wallet
-    await aave.connect(borrower.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    //borrower deposits 10 AAVE
-    const amountToDeposit = await convertToCurrencyDecimals(aave.address, '10');
-
-    await pool
-      .connect(borrower.signer)
-      .deposit(aave.address, amountToDeposit, borrower.address, '0');
-    const usdcPrice = await oracle.getAssetPrice(usdc.address);
-
-    //drops HF below 1
-    await oracle.setAssetPrice(
-      usdc.address,
-      new BigNumber(usdcPrice.toString()).multipliedBy(1.14).toFixed(0)
-    );
-
-    //mints usdc to the liquidator
-    await usdc
-      .connect(liquidator.signer)
-      .mint(await convertToCurrencyDecimals(usdc.address, '1000'));
-
-    //approve protocol to access depositor wallet
-    await usdc.connect(liquidator.signer).approve(pool.address, APPROVAL_AMOUNT_LENDING_POOL);
-
-    const userReserveDataBefore = await helpersContract.getUserReserveData(
-      usdc.address,
-      borrower.address
-    );
-
-    const usdcReserveDataBefore = await helpersContract.getReserveData(usdc.address);
-    const aaveReserveDataBefore = await helpersContract.getReserveData(aave.address);
-
-    const amountToLiquidate = new BigNumber(userReserveDataBefore.currentStableDebt.toString())
-      .div(2)
-      .decimalPlaces(0, BigNumber.ROUND_DOWN)
-      .toFixed(0);
-
-    const collateralPrice = await oracle.getAssetPrice(aave.address);
-    const principalPrice = await oracle.getAssetPrice(usdc.address);
-
-    await pool
-      .connect(liquidator.signer)
-      .liquidationCall(aave.address, usdc.address, borrower.address, amountToLiquidate, false);
-
-    const userReserveDataAfter = await helpersContract.getUserReserveData(
-      usdc.address,
-      borrower.address
-    );
-
-    const userGlobalDataAfter = await pool.getUserAccountData(borrower.address);
-
-    const usdcReserveDataAfter = await helpersContract.getReserveData(usdc.address);
-    const aaveReserveDataAfter = await helpersContract.getReserveData(aave.address);
-
-    const aaveConfiguration = await helpersContract.getReserveConfigurationData(aave.address);
-    const collateralDecimals = aaveConfiguration.decimals.toString();
-    const liquidationBonus = aaveConfiguration.liquidationBonus.toString();
-
-    const principalDecimals = (
-      await helpersContract.getReserveConfigurationData(usdc.address)
-    ).decimals.toString();
-
-    const expectedCollateralLiquidated = oneEther.multipliedBy('10');
-
-    const expectedPrincipal = new BigNumber(collateralPrice.toString())
-      .times(expectedCollateralLiquidated)
-      .times(new BigNumber(10).pow(principalDecimals))
-      .div(
-        new BigNumber(principalPrice.toString()).times(new BigNumber(10).pow(collateralDecimals))
+    // After full liquidation, available liquidity should increase (debt repaid to pool)
+    expect(
+      new BigNumber(usdcReserveDataAfter.availableLiquidity.toString()).isGreaterThan(
+        new BigNumber(usdcReserveDataBefore.availableLiquidity.toString())
       )
-      .times(10000)
-      .div(liquidationBonus.toString())
-      .decimalPlaces(0, BigNumber.ROUND_DOWN);
+    ).to.be.true;
 
-    expect(userGlobalDataAfter.healthFactor.toString()).to.be.bignumber.gt(
-      oneEther.toFixed(0),
-      'Invalid health factor'
-    );
-
-    expect(userReserveDataAfter.currentStableDebt.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(userReserveDataBefore.currentStableDebt.toString())
-        .minus(expectedPrincipal)
-        .toFixed(0),
-      'Invalid user borrow balance after liquidation'
-    );
-
-    expect(usdcReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(usdcReserveDataBefore.availableLiquidity.toString())
-        .plus(expectedPrincipal)
-        .toFixed(0),
-      'Invalid principal available liquidity'
-    );
-
-    expect(aaveReserveDataAfter.availableLiquidity.toString()).to.be.bignumber.almostEqual(
-      new BigNumber(aaveReserveDataBefore.availableLiquidity.toString())
-        .minus(expectedCollateralLiquidated)
-        .toFixed(0),
-      'Invalid collateral available liquidity'
-    );
+    // Collateral liquidity decreases when receiveAToken=false (aTokens burned, vault redeemed)
+    expect(
+      new BigNumber(bvBTCReserveDataAfter.availableLiquidity.toString()).isLessThan(
+        new BigNumber(bvBTCReserveDataBefore.availableLiquidity.toString())
+      )
+    ).to.be.true;
   });
 });

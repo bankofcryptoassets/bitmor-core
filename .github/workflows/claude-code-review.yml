@@ -1,0 +1,68 @@
+name: Claude Code Review
+
+on:
+    pull_request:
+        types: [opened, synchronize]
+        paths:
+            - "loan-provider/src/**/*.sol"
+            - "loan-provider/test/**/*.sol"
+
+jobs:
+    claude-review:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            pull-requests: write
+            issues: write
+            id-token: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 1
+
+            - name: Run Claude Code Review
+              id: claude-review
+              uses: anthropics/claude-code-action@v1
+              with:
+                  claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+                  prompt: |
+                      You are reviewing PR #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+                      ## STEP 1: Load Skills
+                      First, read these skill files to understand the review standards:
+                      - .claude/skills/solidity-review.md (security patterns)
+                      - .claude/skills/natspec-standards.md (documentation requirements)
+                      - .claude/skills/foundry-testing.md (test coverage standards)
+
+                      ## STEP 2: Review Context
+                      Read CLAUDE.md for architecture understanding, then review the PR diff.
+
+                      ## STEP 3: Apply Skills to Review
+                      Using the loaded skills, review all changed files for:
+
+                      ### Security (from solidity-review.md)
+                      - Reentrancy vulnerabilities (CEI pattern)
+                      - Access control issues
+                      - Flash loan attack vectors
+                      - External call safety
+
+                      ### Documentation (from natspec-standards.md)
+                      - NatSpec on all public/external functions
+                      - @param and @return tags
+                      - Custom error documentation
+
+                      ### Testing (from foundry-testing.md)
+                      - Test coverage for new/modified functions
+                      - Fork testing configuration
+                      - Edge case coverage
+
+                      ## STEP 4: Post Review
+                      Post a structured review comment on the PR with findings organized by severity.
+
+                  claude_args: >-
+                      --allowed-tools "Read,Grep,Glob,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+                      --append-system-prompt "You are a senior Solidity auditor for Bitmor Protocol. Always read the skill files in .claude/skills/ before reviewing. Follow the patterns and checklists defined in those skills."
+                      --max-turns 15

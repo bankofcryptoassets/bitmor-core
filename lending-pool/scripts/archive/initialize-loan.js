@@ -82,12 +82,12 @@ async function main() {
     // Find LoanCreated event
     const loanCreatedEvent = receipt.events.find(e => e.event === "LoanCreated");
     if (loanCreatedEvent) {
-      const { borrower, lsa, loanAmount, collateralAmount } = loanCreatedEvent.args;
+      const { borrower, lsa, loanAmount, btcAmount } = loanCreatedEvent.args;
       console.log("Loan Created Successfully!");
       console.log("  Borrower:", borrower);
       console.log("  LSA Address:", lsa);
       console.log("  Loan Amount:", ethers.utils.formatUnits(loanAmount, 6), "USDC");
-      console.log("  Collateral Amount:", ethers.utils.formatUnits(collateralAmount, 8), "cbBTC");
+      console.log("  BTC Amount:", ethers.utils.formatUnits(btcAmount, 8), "cbBTC");
     }
     console.log();
 

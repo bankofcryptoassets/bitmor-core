@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
 
-import {Ownable} from "../dependencies/openzeppelin/contracts/Ownable.sol";
-import {IERC20} from "../dependencies/openzeppelin/contracts/IERC20.sol";
+import { Ownable } from "../dependencies/openzeppelin/contracts/Ownable.sol";
+import { IERC20Detailed } from "../dependencies/openzeppelin/contracts/IERC20Detailed.sol";
+import { SafeMath } from "../dependencies/openzeppelin/contracts/SafeMath.sol";
 
-import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
-import {IChainlinkAggregator} from "../interfaces/IChainlinkAggregator.sol";
-import {SafeERC20} from "../dependencies/openzeppelin/contracts/SafeERC20.sol";
+import { IPriceOracleGetter } from "../interfaces/IPriceOracleGetter.sol";
+import { IChainlinkAggregator } from "../interfaces/IChainlinkAggregator.sol";
+import { IERC4626 } from "../interfaces/IERC4626.sol";
 
 /// @title AaveOracle
 /// @author Aave
@@ -16,20 +17,26 @@ import {SafeERC20} from "../dependencies/openzeppelin/contracts/SafeERC20.sol";
 /// - Owned by the Aave governance system, allowed to add sources for assets, replace them
 ///   and change the fallbackOracle
 contract AaveOracle is IPriceOracleGetter, Ownable {
-    using SafeERC20 for IERC20;
+    using SafeMath for uint256;
 
     event BaseCurrencySet(address indexed baseCurrency, uint256 baseCurrencyUnit);
     event AssetSourceUpdated(address indexed asset, address indexed source);
     event FallbackOracleUpdated(address indexed fallbackOracle);
+    event BTCAddressUpdated(address indexed newBTCAddress);
+    event BVBTCAddressUpdated(address indexed newBVBTCAddress);
 
     mapping(address => IChainlinkAggregator) private assetsSources;
     IPriceOracleGetter private _fallbackOracle;
     address public immutable BASE_CURRENCY;
     uint256 public immutable BASE_CURRENCY_UNIT;
+    address public s_btc;
+    address public s_bvBTC;
 
     /// @notice Constructor
     /// @param assets The addresses of the assets
     /// @param sources The address of the source of each asset
+    /// @param btc The address of the BTC token used for price derivation
+    /// @param bvBTC The address of the bvBTC vault used for share-to-asset conversion
     /// @param fallbackOracle The address of the fallback oracle to use if the data of an
     ///        aggregator is not consistent
     /// @param baseCurrency the base currency used for the price quotes. If USD is used, base currency is 0x0
@@ -37,12 +44,16 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     constructor(
         address[] memory assets,
         address[] memory sources,
+        address btc,
+        address bvBTC,
         address fallbackOracle,
         address baseCurrency,
         uint256 baseCurrencyUnit
     ) public {
         _setFallbackOracle(fallbackOracle);
         _setAssetsSources(assets, sources);
+        _setBTC(btc);
+        _setbvBTC(bvBTC);
         BASE_CURRENCY = baseCurrency;
         BASE_CURRENCY_UNIT = baseCurrencyUnit;
         emit BaseCurrencySet(baseCurrency, baseCurrencyUnit);
@@ -51,7 +62,10 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @notice External function called by the Aave governance to set or replace sources of assets
     /// @param assets The addresses of the assets
     /// @param sources The address of the source of each asset
-    function setAssetSources(address[] calldata assets, address[] calldata sources) external onlyOwner {
+    function setAssetSources(
+        address[] calldata assets,
+        address[] calldata sources
+    ) external onlyOwner {
         _setAssetsSources(assets, sources);
     }
 
@@ -60,6 +74,28 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @param fallbackOracle The address of the fallbackOracle
     function setFallbackOracle(address fallbackOracle) external onlyOwner {
         _setFallbackOracle(fallbackOracle);
+    }
+
+    /// @notice Updates the BTC token address used for price derivation
+    /// @param _btc The new BTC token address
+    function setBTC(address _btc) external onlyOwner {
+        _setBTC(_btc);
+    }
+
+    /// @notice Updates the bvBTC vault address used for share-to-asset conversion
+    /// @param _bvBTC The new bvBTC vault address
+    function setbvBTC(address _bvBTC) external onlyOwner {
+        _setbvBTC(_bvBTC);
+    }
+
+    function _setBTC(address _btc) internal {
+        s_btc = _btc;
+        emit BTCAddressUpdated(_btc);
+    }
+
+    function _setbvBTC(address _bvBTC) internal {
+        s_bvBTC = _bvBTC;
+        emit BVBTCAddressUpdated(_bvBTC);
     }
 
     /// @notice Internal function to set the sources for each asset
@@ -81,17 +117,24 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     }
 
     /// @notice Gets an asset price by address
+    /// @dev For bvBTC, uses `previewRedeem` instead of `convertToAssets` to account for
+    ///      exit fees, ensuring the oracle reflects the actual realizable value of collateral
     /// @param asset The asset address
     function getAssetPrice(address asset) public view override returns (uint256) {
-        /**
-         * !TODO: Implement a condition if asset==vBTC then return the price in USD by calculatign the price of 1 vBTC in BTC and then using BTC price to find the price for vBTC.
-         *
-         */
+        if (asset == s_bvBTC) {
+            uint256 btcPrice = _getAssetPrice(s_btc);
+            uint256 oneShare = 10 ** uint256(IERC20Detailed(s_bvBTC).decimals());
+            uint256 assetPerShare = IERC4626(s_bvBTC).previewRedeem(oneShare);
+
+            return btcPrice.mul(assetPerShare).div(10 ** uint256(IERC20Detailed(s_btc).decimals()));
+        }
+        return _getAssetPrice(asset);
+    }
+
+    function _getAssetPrice(address asset) internal view returns (uint256) {
         IChainlinkAggregator source = assetsSources[asset];
 
-        if (asset == BASE_CURRENCY) {
-            return BASE_CURRENCY_UNIT;
-        } else if (address(source) == address(0)) {
+        if (address(source) == address(0)) {
             return _fallbackOracle.getAssetPrice(asset);
         } else {
             int256 price = IChainlinkAggregator(source).latestAnswer();

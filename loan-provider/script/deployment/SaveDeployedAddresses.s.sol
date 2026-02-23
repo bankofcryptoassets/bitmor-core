@@ -18,7 +18,7 @@ contract SaveDeployedAddresses is Script {
         helperConfig = new HelperConfig();
 
         // Fetch deployed addresses from broadcast files
-        address swapAdapterWrapper = _getAddress("UniswapV4SwapAdapterWrapper");
+        address swapper = _getAddress("MockUniswapV4SwapAdapter");
         address loanVault = _getAddress("LoanVault");
         address loan = _getAddress("Loan");
         address loanVaultFactory = _getAddress("LoanVaultFactory");
@@ -28,7 +28,7 @@ contract SaveDeployedAddresses is Script {
         address mockCbBTC = _getAddressOptional("MockCbBTC");
 
         console2.log("=== Deployed Addresses ===");
-        console2.log("SwapAdapterWrapper:", swapAdapterWrapper);
+        console2.log("Swapper:", swapper);
         console2.log("LoanVault:", loanVault);
         console2.log("Loan:", loan);
         console2.log("LoanVaultFactory:", loanVaultFactory);
@@ -40,7 +40,7 @@ contract SaveDeployedAddresses is Script {
 
         // Build deployment data for current network
         string memory networkDeployment =
-            _buildNetworkDeployment(swapAdapterWrapper, loanVault, loan, loanVaultFactory, mockUSDC, mockCbBTC);
+            _buildNetworkDeployment(swapper, loanVault, loan, loanVaultFactory, mockUSDC, mockCbBTC);
 
         // Write deployment data for current chain
         // Use vm.writeFile to create proper JSON structure
@@ -62,7 +62,7 @@ contract SaveDeployedAddresses is Script {
     }
 
     function _buildNetworkDeployment(
-        address swapAdapterWrapper,
+        address swapper,
         address loanVault,
         address loan,
         address loanVaultFactory,
@@ -71,7 +71,7 @@ contract SaveDeployedAddresses is Script {
     ) internal view returns (string memory) {
         // Build JSON for current network deployment
         string memory json = _buildNetworkInfo();
-        json = string.concat(json, _buildDeployedContracts(swapAdapterWrapper, loanVault, loan, loanVaultFactory));
+        json = string.concat(json, _buildDeployedContracts(swapper, loanVault, loan, loanVaultFactory));
         json = string.concat(json, _buildMockTokens(mockUSDC, mockCbBTC));
         json = string.concat(json, _buildNetworkConfig());
         json = string.concat(json, _buildConstants());
@@ -85,16 +85,15 @@ contract SaveDeployedAddresses is Script {
         return string.concat('{"network":"', _getNetworkName(block.chainid), '"');
     }
 
-    function _buildDeployedContracts(
-        address swapAdapterWrapper,
-        address loanVault,
-        address loan,
-        address loanVaultFactory
-    ) internal pure returns (string memory) {
+    function _buildDeployedContracts(address swapper, address loanVault, address loan, address loanVaultFactory)
+        internal
+        pure
+        returns (string memory)
+    {
         return string.concat(
             ',"deployedContracts":{',
-            '"swapAdapterWrapper":"',
-            vm.toString(swapAdapterWrapper),
+            '"swapper":"',
+            vm.toString(swapper),
             '",',
             '"loanVault":"',
             vm.toString(loanVault),
@@ -131,66 +130,52 @@ contract SaveDeployedAddresses is Script {
     }
 
     function _buildNetworkConfig() internal view returns (string memory) {
-        (
-            address bitmorPool,
-            address aaveV3Pool,
-            address aaveAddressesProvider,
-            address oracle,
-            address collateralAsset,
-            address debtAsset,
-            address getSwapAdapterWrapper,
-            address zQuoter,
-            address premiumCollector,
-            uint256 preClosureFeeBps,
-            uint256 gracePeriod,
-            uint256 liquidationBuffer
-        ) = helperConfig.networkConfig();
-
+        // Use individual getters to avoid stack depth issues
         string memory json = string.concat(
             ',"networkConfig":{',
+            '"accessManager":"',
+            vm.toString(helperConfig.getAccessManager()),
+            '",',
             '"bitmorPool":"',
-            vm.toString(bitmorPool),
+            vm.toString(helperConfig.getBitmorPool()),
             '",',
             '"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
+            vm.toString(helperConfig.getAaveV3Pool()),
             '",',
             '"aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
+            vm.toString(helperConfig.getAaveAddressesProvider()),
             '",',
             '"oracle":"',
-            vm.toString(oracle),
+            vm.toString(helperConfig.getOracle()),
             '",'
         );
 
         json = string.concat(
             json,
             '"collateralAsset":"',
-            vm.toString(collateralAsset),
+            vm.toString(helperConfig.getCollateralAsset()),
             '",',
             '"debtAsset":"',
-            vm.toString(debtAsset),
+            vm.toString(helperConfig.getDebtAsset()),
             '",',
-            '"swapAdapterWrapper":"',
-            vm.toString(getSwapAdapterWrapper),
+            '"btc":"',
+            vm.toString(helperConfig.getCbBTC()),
             '",',
-            '"zQuoter":"',
-            vm.toString(zQuoter),
+            '"swapper":"',
+            vm.toString(helperConfig.getSwapper()),
             '",'
         );
 
         return string.concat(
             json,
             '"premiumCollector":"',
-            vm.toString(premiumCollector),
+            vm.toString(helperConfig.getPremiumCollector()),
             '",',
             '"preClosureFeeBps":"',
-            vm.toString(preClosureFeeBps),
+            vm.toString(helperConfig.getPreClosureFee()),
             '",',
             '"gracePeriod":"',
-            vm.toString(gracePeriod),
-            '",',
-            '"liquidationBuffer":"',
-            vm.toString(liquidationBuffer),
+            vm.toString(helperConfig.getGracePeriod()),
             '"}'
         );
     }

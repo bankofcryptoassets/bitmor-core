@@ -1,16 +1,15 @@
 import BigNumber from 'bignumber.js';
-import BN = require('bn.js');
+import BN from 'bn.js';
 import low from 'lowdb';
-import FileSync from 'lowdb/adapters/FileSync';
-import { WAD } from './constants';
-import { Wallet, ContractTransaction } from 'ethers';
-import { HardhatRuntimeEnvironment } from 'hardhat/types';
-import { BuidlerRuntimeEnvironment } from '@nomiclabs/buidler/types';
-import { tEthereumAddress } from './types';
-import { isAddress } from 'ethers/lib/utils';
+import FileSync from 'lowdb/adapters/FileSync.js';
+import { WAD } from './constants.js';
+import { Wallet, isAddress } from 'ethers';
+import type { ContractTransaction } from 'ethers';
+import type { tEthereumAddress, SignerWithAddress } from './types.js';
 import { isZeroAddress } from 'ethereumjs-util';
-import { SignerWithAddress } from '../test-suites/test-aave/helpers/make-suite';
-import { usingTenderly } from './tenderly-utils';
+import { usingTenderly } from './tenderly-utils.js';
+import { DRE, setDRE } from './dre.js';
+import type { TransactionResponse, TransactionReceipt } from 'ethers';
 
 export const toWad = (value: string | number) => new BigNumber(value).times(WAD).toFixed();
 
@@ -19,11 +18,8 @@ export const stringToBigNumber = (amount: string): BigNumber => new BigNumber(am
 
 export const getDb = () => low(new FileSync('./deployed-contracts.json'));
 
-export let DRE: HardhatRuntimeEnvironment | BuidlerRuntimeEnvironment;
-
-export const setDRE = (_DRE: HardhatRuntimeEnvironment | BuidlerRuntimeEnvironment) => {
-  DRE = _DRE;
-};
+// Re-export DRE for backward compatibility
+export { DRE, setDRE };
 
 export const sleep = (milliseconds: number) => {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -68,11 +64,23 @@ export const advanceTimeAndBlock = async function (forwardTime: number) {
   await DRE.ethers.provider.send('evm_mine', []);
 };
 
-export const waitForTx = async (tx: ContractTransaction) => {
-  const network = DRE.network.name;
-  // Use 5 confirmations for Base Sepolia due to fast block times and RPC indexing delays
-  const confirmations = network === 'sepolia' ? 5 : 1;
-  return await tx.wait(confirmations);
+export const waitForTx = async (
+  tx: TransactionResponse
+): Promise<TransactionReceipt> => {
+  const confirmations =
+    DRE.network.networkName === 'base' ? 10 :
+    DRE.network.networkName === 'sepolia' ? 5 :
+    1;
+
+  const receipt = await tx.wait(confirmations);
+  if (receipt) return receipt;
+
+  // ethers v6 can return null if the tx was replaced; try to resolve a receipt anyway
+  const fallback = await DRE.ethers.provider.getTransactionReceipt(tx.hash);
+  if (!fallback) {
+    throw new Error(`Tx receipt not found (tx hash: ${tx.hash})`);
+  }
+  return fallback;
 };
 
 export const filterMapBy = (raw: { [key: string]: any }, fn: (key: string) => boolean) =>
@@ -101,7 +109,7 @@ interface DbEntry {
 }
 
 export const printContracts = () => {
-  const network = DRE.network.name;
+  const network = DRE.network.networkName;
   const db = getDb();
   console.log('Contracts deployed at', network);
   console.log('---------------------------------');

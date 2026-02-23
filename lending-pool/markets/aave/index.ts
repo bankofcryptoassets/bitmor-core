@@ -1,7 +1,7 @@
-import { oneRay, ZERO_ADDRESS } from '../../helpers/constants';
-import { IAaveConfiguration, eEthereumNetwork } from '../../helpers/types';
+import { oneRay, ZERO_ADDRESS } from '../../helpers/constants.js';
+import { IAaveConfiguration, eEthereumNetwork } from '../../helpers/types.js';
 
-import { CommonsConfig } from './commons';
+import { CommonsConfig } from './commons.js';
 import {
   strategyBUSD,
   strategyDAI,
@@ -24,7 +24,8 @@ import {
   strategyYFI,
   strategyXSUSHI,
   strategyENJ,
-} from './reservesConfigs';
+  strategyBvBTC
+} from './reservesConfigs.js';
 
 // ----------------
 // POOL--SPECIFIC PARAMS
@@ -56,6 +57,7 @@ export const AaveConfig: IAaveConfiguration = {
     YFI: strategyYFI,
     ZRX: strategyZRX,
     xSUSHI: strategyXSUSHI,
+    bvBTC: strategyBvBTC
   },
   ReserveAssets: {
     [eEthereumNetwork.goerli]: {},

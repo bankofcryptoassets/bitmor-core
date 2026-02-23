@@ -101,7 +101,14 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
     }
 
     /**
-     * @dev Calculates the interest rates depending on the reserve's state and configurations
+     * @dev Calculates the interest rates depending on the reserve's state and configurations.
+     * Computes `availableLiquidity` from `IERC20(reserve).balanceOf(aToken)` plus `liquidityAdded`
+     * minus `liquidityTaken`, then delegates to the public overload.
+     *
+     * Invariant 7.5: `availableLiquidity` MUST include all USDC held by the aToken contract
+     * (which includes deposits routed from Aave via USDCStrategy). The borrow rate MUST be
+     * calculated against this full liquidity pool, not just direct BLP deposits.
+     *
      * @param reserve The address of the reserve
      * @param liquidityAdded The liquidity added during the operation
      * @param liquidityTaken The liquidity taken during the operation
@@ -122,14 +129,10 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
         uint256 averageStableBorrowRate,
         uint256 reserveFactor
     ) external view override returns (uint256, uint256, uint256) {
-        /**
-         * !TODO: Total available liquidity will be required to be fetched from the vault.
-         * vault.totalAssets();
-         */
         uint256 availableLiquidity = IERC20(reserve).balanceOf(aToken);
+
         //avoid stack too deep
         availableLiquidity = availableLiquidity.add(liquidityAdded).sub(liquidityTaken);
-
         return calculateInterestRates(
             reserve, availableLiquidity, totalStableDebt, totalVariableDebt, averageStableBorrowRate, reserveFactor
         );
@@ -147,6 +150,31 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
      * @dev Calculates the interest rates depending on the reserve's state and configurations.
      * NOTE This function is kept for compatibility with the previous DefaultInterestRateStrategy interface.
      * New protocol implementation uses the new calculateInterestRates() interface
+     *
+     * Invariant 7.5 - Utilization:
+     * `utilizationRate` MUST equal `totalDebt.rayDiv(availableLiquidity + totalDebt)`.
+     * When `totalDebt` == 0 the utilization MUST be 0.
+     *
+     * Invariant 7.5 - Rate bounds:
+     * `currentVariableBorrowRate` MUST be in the range
+     * [`_baseVariableBorrowRate`, `_baseVariableBorrowRate + _variableRateSlope1 + _variableRateSlope2`].
+     * At zero utilization the rate MUST equal `_baseVariableBorrowRate`; at 100% utilization the
+     * rate MUST equal `_baseVariableBorrowRate + _variableRateSlope1 + _variableRateSlope2`.
+     *
+     * Invariant 7.5 - Monotonicity:
+     * The rate MUST monotonically increase with utilization: if `utilization_a` > `utilization_b`
+     * then `rate(utilization_a)` >= `rate(utilization_b)`. This follows from the two-slope model
+     * where both slopes are non-negative.
+     *
+     * Bitmor utilization invariant (9.1 - Behavior at 100% Utilization):
+     * When `utilizationRate` reaches 100% (all liquidity borrowed):
+     * - LP withdrawals MUST revert due to insufficient liquidity (no idle USDC in the aToken
+     *   contract and no available liquidity in Aave either).
+     * - New borrows MUST revert due to insufficient liquidity.
+     * - Repayments MUST still succeed because they add liquidity back to the pool.
+     * The interest rate model applies `_variableRateSlope2` above `OPTIMAL_UTILIZATION_RATE`
+     * to strongly incentivize repayments and discourage further borrowing.
+     *
      * @param reserve The address of the reserve
      * @param availableLiquidity The liquidity available in the corresponding aToken
      * @param totalStableDebt The total borrowed from the reserve a stable rate
@@ -167,6 +195,7 @@ contract DefaultReserveInterestRateStrategy is IReserveInterestRateStrategy {
         CalcInterestRatesLocalVars memory vars;
 
         vars.totalDebt = totalStableDebt.add(totalVariableDebt);
+
         vars.currentVariableBorrowRate = 0;
         vars.currentStableBorrowRate = 0;
         vars.currentLiquidityRate = 0;

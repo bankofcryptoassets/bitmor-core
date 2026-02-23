@@ -1,13 +1,30 @@
-import 'hardhat/types/config';
-import 'hardhat/types/runtime';
+import "hardhat/types/config";
+import "hardhat/types/hre";
 
-import { TenderlyConfig } from './types';
-declare module 'hardhat/types/config' {
-  export interface HardhatUserConfig {
-    tenderly?: TenderlyConfig;
+declare module "hardhat/types/config" {
+  export interface HttpNetworkUserConfig {
+    tenderly?: boolean;
+    tenderlyContractName?: string;
   }
 
-  export interface HardhatConfig {
-    tenderly: TenderlyConfig;
+  export interface HttpNetworkConfig {
+    tenderly?: boolean;
+    tenderlyContractName?: string;
+  }
+}
+
+/**
+ * Runtime typing for Tenderly plugin objects.
+ * Keep this minimal & structural — Tenderly plugin versions vary.
+ */
+declare module "hardhat/types/hre" {
+  export interface HardhatRuntimeEnvironment {
+    tenderlyNetwork?: {
+      getHead(): string;
+      getFork(): string;
+    };
+    tenderly?: {
+      network(): any;
+    };
   }
 }

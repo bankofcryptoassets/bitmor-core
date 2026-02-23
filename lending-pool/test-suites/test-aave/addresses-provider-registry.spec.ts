@@ -1,8 +1,11 @@
-import { TestEnv, makeSuite } from './helpers/make-suite';
-import { ZERO_ADDRESS } from '../../helpers/constants';
-import { ProtocolErrors } from '../../helpers/types';
+import { makeSuite } from './helpers/make-suite.js';
+import type { TestEnv } from './helpers/make-suite.js';
+import { ZERO_ADDRESS } from '../../helpers/constants.js';
+import { ProtocolErrors } from '../../helpers/types.js';
+import { getContractAddress } from '../../helpers/contracts-helpers.js';
 
-const { expect } = require('chai');
+import chai from 'chai';
+const { expect } = chai;
 
 makeSuite('AddressesProviderRegistry', (testEnv: TestEnv) => {
   it('Checks the addresses provider is added to the registry', async () => {
@@ -12,7 +15,7 @@ makeSuite('AddressesProviderRegistry', (testEnv: TestEnv) => {
 
     expect(providers.length).to.be.equal(1, 'Invalid length of the addresses providers list');
     expect(providers[0].toString()).to.be.equal(
-      addressesProvider.address,
+      getContractAddress(addressesProvider),
       ' Invalid addresses provider added to the list'
     );
   });
@@ -54,7 +57,7 @@ makeSuite('AddressesProviderRegistry', (testEnv: TestEnv) => {
 
     expect(providers.length).to.be.equal(2, 'Invalid length of the addresses providers list');
     expect(providers[0].toString()).to.be.equal(
-      addressesProvider.address,
+      getContractAddress(addressesProvider),
       ' Invalid addresses provider added to the list'
     );
     expect(providers[1].toString()).to.be.equal(ZERO_ADDRESS, ' Invalid addresses');
@@ -83,16 +86,16 @@ makeSuite('AddressesProviderRegistry', (testEnv: TestEnv) => {
   it('Tries to add an already added addressesProvider with a different id. Should overwrite the previous id', async () => {
     const { users, registry, addressesProvider } = testEnv;
 
-    await registry.registerAddressesProvider(addressesProvider.address, '2');
+    await registry.registerAddressesProvider(getContractAddress(addressesProvider), '2');
 
     const providers = await registry.getAddressesProvidersList();
 
-    const id = await registry.getAddressesProviderIdByAddress(addressesProvider.address);
+    const id = await registry.getAddressesProviderIdByAddress(getContractAddress(addressesProvider));
 
     expect(providers.length).to.be.equal(2, 'Invalid length of the addresses providers list');
 
     expect(providers[0].toString()).to.be.equal(
-      addressesProvider.address,
+      getContractAddress(addressesProvider),
       ' Invalid addresses provider added to the list'
     );
     expect(providers[1].toString()).to.be.equal(ZERO_ADDRESS, ' Invalid addresses');

@@ -52,7 +52,9 @@ library DataTypes {
         uint128 variableBorrowIndex;
         //the current variable borrow rate. Expressed in ray
         uint128 currentVariableBorrowRate;
-        /// @notice reused `__deprecatedStableBorrowRate` storage from pre 3.2
+        /**
+         * @notice reused `__deprecatedStableBorrowRate` storage from pre 3.2
+         */
         // the current accumulate deficit in underlying tokens
         uint128 deficit;
         //timestamp of last update
@@ -102,7 +104,6 @@ library DataTypes {
         //bit 212-251: debt ceiling for isolation mode with (ReserveConfiguration::DEBT_CEILING_DECIMALS) decimals
         //bit 252: DEPRECATED: virtual accounting is enabled for the reserve
         //bit 253-255 unused
-
         uint256 data;
     }
 

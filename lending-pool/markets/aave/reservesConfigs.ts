@@ -1,4 +1,4 @@
-import { eContractid, IReserveParams } from '../../helpers/types';
+import { eContractid, IReserveParams } from '../../helpers/types.js';
 
 import {
   rateStrategyStableOne,
@@ -10,7 +10,7 @@ import {
   rateStrategyVolatileTwo,
   rateStrategyVolatileThree,
   rateStrategyVolatileFour,
-} from './rateStrategies';
+} from './rateStrategies.js';
 
 export const strategyBUSD: IReserveParams = {
   strategy: rateStrategyStableOne,
@@ -263,4 +263,16 @@ export const strategyXSUSHI: IReserveParams = {
   reserveDecimals: '18',
   aTokenImpl: eContractid.AToken,
   reserveFactor: '3500',
+};
+
+export const strategyBvBTC: IReserveParams = {
+  strategy: rateStrategyStableTwo,
+  baseLTVAsCollateral: '7500',
+  liquidationThreshold: '8000',
+  liquidationBonus: '10500',
+  borrowingEnabled: false,
+  stableBorrowRateEnabled: false,
+  reserveDecimals: '8',
+  aTokenImpl: eContractid.AToken,
+  reserveFactor: '1000',
 };

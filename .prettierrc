@@ -4,12 +4,18 @@
   "semi": true,
   "singleQuote": false,
   "tabWidth": 4,
+  "plugins": ["prettier-plugin-solidity"],
   "overrides": [
     {
       "files": "*.sol",
       "options": {
-        "semi": true,
-        "printWidth": 100
+        "parser": "slang",
+        "printWidth": 100,
+        "tabWidth": 4,
+        "useTabs": false,
+        "singleQuote": false,
+        "bracketSpacing": true,
+        "compiler": "0.8.30"
       }
     }
   ]
