@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
