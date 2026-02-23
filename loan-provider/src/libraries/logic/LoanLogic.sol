@@ -265,7 +265,7 @@ library LoanLogic {
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        // Get oracle prices
+        // Get oracle prices (use underlying BTC, not vault shares, for price lookup)
         IPriceOracleGetter oracle = IPriceOracleGetter(data.oracle);
         uint256 btcPriceUSD = oracle.getAssetPrice(data.btc);
         uint256 debtPriceUSD = oracle.getAssetPrice(data.debtAsset);

@@ -221,12 +221,22 @@ contract MockBitmorLendingPool is ILendingPool {
     }
 
     /// @inheritdoc ILendingPool
-    function getConfiguration(address asset) external view override returns (DataTypes.ReserveConfigurationMap memory) {
+    function getConfiguration(address asset)
+        external
+        view
+        override
+        returns (DataTypes.ReserveConfigurationMap memory)
+    {
         return _reserves[asset].configuration;
     }
 
     /// @inheritdoc ILendingPool
-    function getUserConfiguration(address user) external view override returns (DataTypes.UserConfigurationMap memory) {
+    function getUserConfiguration(address user)
+        external
+        view
+        override
+        returns (DataTypes.UserConfigurationMap memory)
+    {
         return _userConfigurations[user];
     }
 
@@ -323,8 +333,9 @@ contract MockBitmorLendingPool is ILendingPool {
                 aToken.mint(msg.sender, actualCollateralSeized);
             } else {
                 aToken.burn(user, actualCollateralSeized);
-                IERC20(collateralAsset)
-                    .transferFrom(_reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized);
+                IERC20(collateralAsset).transferFrom(
+                    _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
+                );
             }
 
             // Update loan status in Loan contract (like real LendingPool does)
@@ -422,8 +433,9 @@ contract MockBitmorLendingPool is ILendingPool {
             uint256 actualCollateralSeized = collateralToSeize > userCollateral ? userCollateral : collateralToSeize;
 
             aToken.burn(user, actualCollateralSeized);
-            IERC20(collateralAsset)
-                .transferFrom(_reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized);
+            IERC20(collateralAsset).transferFrom(
+                _reserves[collateralAsset].aTokenAddress, msg.sender, actualCollateralSeized
+            );
 
             // Update loan status in Loan contract for micro liquidation
             address bitmorLoan = _addressesProvider.getBitmorLoan();

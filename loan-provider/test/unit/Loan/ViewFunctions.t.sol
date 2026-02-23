@@ -249,4 +249,80 @@ contract ViewFunctionsTest is BaseLoanTest {
         // Assert: higher premium produces higher preview EMI
         assertGt(emiHighPremium, emiLowPremium, "preview EMI should increase with higher flash loan premium");
     }
+
+    // ============ Divergent Share Price (issue #112) ============
+
+    /// @notice Test that getLoanDetails uses cbBTC price, not bvBTC share price, when share ratio diverges
+    /// @dev Simulates vault yield by sending extra cbBTC to the vault (inflating convertToAssets).
+    ///      After the fix, getLoanDetails should return the same values regardless of vault share ratio
+    ///      because it queries oracle.getAssetPrice(cbBTC) not oracle.getAssetPrice(bvBTC).
+    function test_getLoanDetails_UsesCbBTCPrice_NotBvBTCSharePrice() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Get baseline values with 1:1 share ratio
+        (uint256 loanAmtBefore, uint256 monthlyPayBefore,) = loan.getLoanDetails(collateral, duration);
+
+        // Simulate vault yield: send extra cbBTC to vault to make 1 bvBTC > 1 cbBTC
+        // This inflates convertToAssets() and thus the bvBTC oracle price
+        uint256 yieldAmount = 10e8; // 10 BTC of yield
+        mockCbBTC.mint(address(mockBTCVault), yieldAmount);
+
+        // Get values after share price divergence
+        (uint256 loanAmtAfter, uint256 monthlyPayAfter,) = loan.getLoanDetails(collateral, duration);
+
+        // After fix: loan amount should be identical because LoanLogic uses cbBTC price
+        assertEq(loanAmtAfter, loanAmtBefore, "loan amount should not change with vault yield");
+        assertEq(monthlyPayAfter, monthlyPayBefore, "monthly payment should not change with vault yield");
+    }
+
+    /// @notice Test that calculateStrikePrice uses cbBTC price, not bvBTC share price
+    /// @dev After the fix, strike price should remain stable when vault share ratio changes
+    function test_calculateStrikePrice_UsesCbBTCPrice() public {
+        uint256 loanAmount = 50_000e6; // 50k USDC
+        uint256 deposit = 30_000e6; // 30k USDC
+
+        // Get baseline strike price with 1:1 share ratio
+        uint256 strikePriceBefore = loan.calculateStrikePrice(loanAmount, deposit);
+
+        // Simulate vault yield: inflate bvBTC share price
+        uint256 yieldAmount = 10e8;
+        mockCbBTC.mint(address(mockBTCVault), yieldAmount);
+
+        // Get strike price after share price divergence
+        uint256 strikePriceAfter = loan.calculateStrikePrice(loanAmount, deposit);
+
+        // After fix: strike price should be identical because it uses cbBTC price
+        assertEq(strikePriceAfter, strikePriceBefore, "strike price should not change with vault yield");
+    }
+
+    /// @notice Test that preview loan amount matches actual loan when share ratio diverges
+    /// @dev Proves that initializeLoan and getLoanDetails both use cbBTC price consistently
+    function test_getLoanDetails_PreviewMatchesActual_WithDivergentSharePrice() public {
+        uint256 collateral = STANDARD_COLLATERAL_AMOUNT;
+        uint256 duration = STANDARD_DURATION;
+
+        // Simulate vault yield before any loan creation
+        uint256 yieldAmount = 5e8; // 5 BTC of yield
+        mockCbBTC.mint(address(mockBTCVault), yieldAmount);
+
+        // Get preview values with divergent share price
+        (uint256 previewLoanAmt, uint256 previewMonthlyPay, uint256 minDeposit) =
+            loan.getLoanDetails(collateral, duration);
+
+        // Create actual loan with the same divergent share price
+        _mintDebtAssetToUser();
+        vm.prank(user);
+        address lsa = loan.initializeLoan(minDeposit, PREMIUM_AMOUNT, collateral, duration, "");
+
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        // Preview should match actual even with divergent share price
+        assertEq(previewLoanAmt, loanData.loanAmount, "preview loanAmount should equal actual with divergent shares");
+        assertEq(
+            previewMonthlyPay,
+            loanData.estimatedMonthlyPayment,
+            "preview monthlyPay should equal actual with divergent shares"
+        );
+    }
 }

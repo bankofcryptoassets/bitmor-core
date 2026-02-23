@@ -37,8 +37,8 @@ library SwapLogic {
         uint256 minAmountAcceptable,
         address recipient
     ) internal returns (uint256 amountOut) {
-        amountOut = ISwapAdaptor(swapper)
-            .swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
+        amountOut =
+            ISwapAdaptor(swapper).swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
 
         if (minAmountAcceptable > amountOut) revert Errors.LessThanMinimumAmtReceived();
 
