@@ -64,9 +64,7 @@ contract InitLoanTest is IntegrationTestBase {
         // Generic revert: cross-version BLP call (zero-price revert origin is version-dependent)
         vm.expectRevert();
         vm.prank(testUser);
-        loanContract.initializeLoan(
-            minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, ""
-        );
+        loanContract.initializeLoan(minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, "");
     }
 
     /// @notice Verifies that a 5x oracle price inflation produces loan terms that become
@@ -91,9 +89,7 @@ contract InitLoanTest is IntegrationTestBase {
 
         // Assert - sanity: inflated collateral valuation must exceed reference
         assertGt(
-            inflatedCollateral,
-            refCollateral,
-            "inflated collateral valuation must exceed reference at normal price"
+            inflatedCollateral, refCollateral, "inflated collateral valuation must exceed reference at normal price"
         );
 
         // Assert - health factor at inflated price must be above 1 (loan appears healthy)
@@ -127,19 +123,11 @@ contract InitLoanTest is IntegrationTestBase {
 
         // Assert - bvBTC oracle price must reflect cbBTC drop
         uint256 bvBTCPriceAfter = _getOraclePrice(address(btcVault));
-        assertLt(
-            bvBTCPriceAfter,
-            bvBTCPriceBefore,
-            "cbBTC drop must propagate to bvBTC oracle price"
-        );
+        assertLt(bvBTCPriceAfter, bvBTCPriceBefore, "cbBTC drop must propagate to bvBTC oracle price");
 
         // Assert - health factor must decrease after BTC price drop
         (, uint256 debtAfter, uint256 healthFactorAfter) = _getUserAccountData(lsa);
-        assertLt(
-            healthFactorAfter,
-            healthFactorBefore,
-            "health factor must decrease after BTC price drop"
-        );
+        assertLt(healthFactorAfter, healthFactorBefore, "health factor must decrease after BTC price drop");
     }
 
     // ============ IRM Tests ============
@@ -254,7 +242,9 @@ contract InitLoanTest is IntegrationTestBase {
 
         // Assert - protocol must remain solvent after oracle correction
         (,, uint256 healthFactorAfterDrop) = _getUserAccountData(lsa);
-        assertGt(healthFactorAfterDrop, TC.PRECISION, "protocol must remain solvent if oracle corrects to execution price");
+        assertGt(
+            healthFactorAfterDrop, TC.PRECISION, "protocol must remain solvent if oracle corrects to execution price"
+        );
     }
 
     /// @notice Verifies that USDC leftovers from loan A do not leak into or subsidize loan B
@@ -309,8 +299,8 @@ contract InitLoanTest is IntegrationTestBase {
         address lsaB = _createLoanForUser(user2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
         // Assert - both loans must be healthy and distinct
-        (, , uint256 healthFactorA) = _getUserAccountData(lsaA);
-        (, , uint256 healthFactorB) = _getUserAccountData(lsaB);
+        (,, uint256 healthFactorA) = _getUserAccountData(lsaA);
+        (,, uint256 healthFactorB) = _getUserAccountData(lsaB);
 
         assertGt(healthFactorA, TC.PRECISION, "first loan health factor must be > 1");
         assertGt(healthFactorB, TC.PRECISION, "second loan health factor must be > 1");
@@ -340,13 +330,10 @@ contract InitLoanTest is IntegrationTestBase {
         assertEq(userLoans.length, 2, "user must have 2 loans tracked");
 
         // Assert - each loan's BLP debt should be approximately equal (isolated positions)
-        (, uint256 debt1, ) = _getUserAccountData(lsa1);
-        (, uint256 debt2, ) = _getUserAccountData(lsa2);
+        (, uint256 debt1,) = _getUserAccountData(lsa1);
+        (, uint256 debt2,) = _getUserAccountData(lsa2);
         assertApproxEqRel(
-            debt1,
-            debt2,
-            TC.SHARE_PRICE_IMPACT_TOLERANCE,
-            "second loan must not benefit from first loan's collateral"
+            debt1, debt2, TC.SHARE_PRICE_IMPACT_TOLERANCE, "second loan must not benefit from first loan's collateral"
         );
     }
 
@@ -447,8 +434,7 @@ contract InitLoanTest is IntegrationTestBase {
         address lsaA = _createLoan(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
         // Act - User B creates identical loan in the same block
-        address lsaB =
-            _createLoanForUser(user2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
+        address lsaB = _createLoanForUser(user2, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
 
         // Assert - User B's loan must still be healthy
         (,, uint256 healthFactorB) = _getUserAccountData(lsaB);
@@ -458,10 +444,7 @@ contract InitLoanTest is IntegrationTestBase {
         uint256 sharesA = btcVault.balanceOf(lsaA);
         uint256 sharesB = btcVault.balanceOf(lsaB);
         assertApproxEqRel(
-            sharesA,
-            sharesB,
-            TC.SHARE_PRICE_IMPACT_TOLERANCE,
-            "same-block loans must get similar share amounts"
+            sharesA, sharesB, TC.SHARE_PRICE_IMPACT_TOLERANCE, "same-block loans must get similar share amounts"
         );
     }
 

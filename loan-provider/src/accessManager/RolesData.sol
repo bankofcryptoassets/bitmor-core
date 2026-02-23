@@ -54,7 +54,7 @@ contract RolesData {
 
     /// @notice Initial admin address for the AccessManager deployment
     /// @dev This address gets the ADMIN role (0) and can grant all other roles
-    //! TODO: Verify this admin address is correct for production deployment
+    //! TODO: For production, every role will have its own address.
     address public constant INITIAL_ADMIN = 0x2Acdf6a2f893687CcD341a1Ad7e27102b665d8c4;
 
     /// @notice Standard time delay of 1 day for sensitive operations

@@ -47,15 +47,9 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 collateralReturnAttack = cbBTC.balanceOf(testUser) - cbBTCBeforeAttack;
 
         // Assert
-        assertLt(
-            collateralReturnAttack, collateralReturnRef, "strategy loss must reduce collateral return"
-        );
+        assertLt(collateralReturnAttack, collateralReturnRef, "strategy loss must reduce collateral return");
         assertGt(collateralReturnAttack, 0, "borrower must still receive some collateral");
-        assertGt(
-            collateralReturnAttack,
-            collateralReturnRef * 1 / 100,
-            "slippage floor must prevent near-total loss"
-        );
+        assertGt(collateralReturnAttack, collateralReturnRef * 1 / 100, "slippage floor must prevent near-total loss");
     }
 
     // ============ Test 2: Exit Fee Reduces Collateral Return ============
@@ -118,11 +112,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         _repayLoan(lsa, testUser, remainingDebt);
 
         // Assert: USDC must not be consumed if collateral cannot be returned
-        assertEq(
-            usdc.balanceOf(testUser),
-            usdcBefore,
-            "USDC must not be consumed if collateral can't be returned"
-        );
+        assertEq(usdc.balanceOf(testUser), usdcBefore, "USDC must not be consumed if collateral can't be returned");
 
         // Cleanup: unpause via admin (defaults to ADMIN role 0)
         vm.prank(admin);
@@ -174,11 +164,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         uint256 actualReturn = cbBTC.balanceOf(testUser);
 
         // Assert: borrower should benefit from vault yield
-        assertGt(
-            actualReturn,
-            originalCollateral,
-            "borrower must benefit from vault yield on full repay"
-        );
+        assertGt(actualReturn, originalCollateral, "borrower must benefit from vault yield on full repay");
     }
 
     // ============ Test 6: BTCVault Donation Has No Effect ============
@@ -223,11 +209,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Assert: repayment must be unaffected by donation (repay goes to BLP, not vault)
         DataTypes.LoanData memory afterSecondPayment = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            afterSecondPayment.duration,
-            durationAfterFirstPayment - 1,
-            "repayment must be unaffected by donation"
-        );
+        assertEq(afterSecondPayment.duration, durationAfterFirstPayment - 1, "repayment must be unaffected by donation");
     }
 
     // ============ Test 7: USDCVault Liquidity Drain Does Not Block Repay ============
@@ -256,9 +238,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Assert: repay must still work since it repays to BLP, not vault directly
         assertLt(
-            _getDebtBalanceUSDC(lsa),
-            debtBefore,
-            "repay must still work since it repays to BLP, not vault directly"
+            _getDebtBalanceUSDC(lsa), debtBefore, "repay must still work since it repays to BLP, not vault directly"
         );
     }
 
@@ -280,11 +260,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Assert
         uint256 liquidityAfter = _getBLPAvailableLiquidity(address(usdc));
-        assertGt(
-            liquidityAfter,
-            liquidityBefore,
-            "repayment must increase BLP available liquidity"
-        );
+        assertGt(liquidityAfter, liquidityBefore, "repayment must increase BLP available liquidity");
         assertApproxEqAbs(
             liquidityAfter - liquidityBefore,
             loanData.estimatedMonthlyPayment,
@@ -318,11 +294,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Assert: donation inflates vault share price
         uint256 sharePriceAfter = usdcVault.convertToAssets(1e6);
-        assertGt(
-            sharePriceAfter,
-            sharePriceBefore,
-            "USDC donation must inflate vault share price"
-        );
+        assertGt(sharePriceAfter, sharePriceBefore, "USDC donation must inflate vault share price");
 
         // Capture EMI before second payment
         uint256 emiBefore = loanData.estimatedMonthlyPayment;
@@ -333,11 +305,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
 
         // Assert: EMI stored in loan must not change due to vault donation
         DataTypes.LoanData memory updatedData = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            updatedData.estimatedMonthlyPayment,
-            emiBefore,
-            "EMI must not change due to vault donation"
-        );
+        assertEq(updatedData.estimatedMonthlyPayment, emiBefore, "EMI must not change due to vault donation");
     }
 
     // ============ Test 10: Mass Repayment Same Block ============
@@ -396,20 +364,8 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         DataTypes.LoanData memory updated2 = loanContract.getLoanByLSA(lsa2);
         DataTypes.LoanData memory updated3 = loanContract.getLoanByLSA(lsa3);
 
-        assertEq(
-            updated1.duration,
-            TC.STANDARD_DURATION - 1,
-            "user1 duration must decrease by 1"
-        );
-        assertEq(
-            updated2.duration,
-            TC.STANDARD_DURATION - 1,
-            "user2 duration must decrease by 1"
-        );
-        assertEq(
-            updated3.duration,
-            TC.STANDARD_DURATION - 1,
-            "user3 duration must decrease by 1"
-        );
+        assertEq(updated1.duration, TC.STANDARD_DURATION - 1, "user1 duration must decrease by 1");
+        assertEq(updated2.duration, TC.STANDARD_DURATION - 1, "user2 duration must decrease by 1");
+        assertEq(updated3.duration, TC.STANDARD_DURATION - 1, "user3 duration must decrease by 1");
     }
 }

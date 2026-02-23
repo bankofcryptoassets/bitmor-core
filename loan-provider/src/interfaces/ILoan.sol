@@ -25,16 +25,6 @@ interface ILoan {
     );
 
     /**
-     * @notice Emitted when a loan's status changes
-     * @param lsa Address of the Loan Specific Address
-     * @param oldStatus Previous loan status
-     * @param newStatus New loan status
-     */
-    event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
-    );
-
-    /**
      * @notice Emitted when the maximum loan amount is updated
      * @param newAmount New maximum loan amount
      */

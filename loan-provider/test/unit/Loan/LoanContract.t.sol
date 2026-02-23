@@ -229,5 +229,4 @@ contract LoanContract is BaseLoanTest {
             TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
         );
     }
-
 }

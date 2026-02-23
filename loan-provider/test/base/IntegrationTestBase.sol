@@ -242,10 +242,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     }
 
     /// @notice Creates a standard loan and returns the LSA + loan data
-    function _createStandardLoanWithData()
-        internal
-        returns (address lsa, DataTypes.LoanData memory loanData)
-    {
+    function _createStandardLoanWithData() internal returns (address lsa, DataTypes.LoanData memory loanData) {
         return _createLoanWithData(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, TC.PREMIUM_AMOUNT);
     }
 
@@ -290,8 +287,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Queries the Bitmor Lending Pool oracle price for an asset
     function _getOraclePrice(address asset) internal view returns (uint256) {
         address oracle = config.getOracle();
-        (bool ok, bytes memory data) =
-            oracle.staticcall(abi.encodeWithSignature("getAssetPrice(address)", asset));
+        (bool ok, bytes memory data) = oracle.staticcall(abi.encodeWithSignature("getAssetPrice(address)", asset));
         require(ok, "getAssetPrice failed");
         return abi.decode(data, (uint256));
     }
@@ -342,8 +338,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         view
         returns (uint128 liqIndex, uint128 borrowIndex, address aToken, address vdt)
     {
-        (bool ok, bytes memory data) =
-            bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", asset));
+        (bool ok, bytes memory data) = bitmorPool.staticcall(abi.encodeWithSignature("getReserveData(address)", asset));
         require(ok, "getReserveData failed");
         // Aave V2 ReserveData: config, liqIdx, borrowIdx, liqRate, varBorrowRate,
         // stableBorrowRate, lastUpdateTs, aToken, stableDebtToken, variableDebtToken, IRS, id
@@ -356,8 +351,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Gets the USDC-denominated debt balance for an LSA (includes accrued interest)
     function _getDebtBalanceUSDC(address lsa) internal view returns (uint256 debt) {
         (,,, address vdt) = _getReserveDataDecoded(address(usdc));
-        (bool ok, bytes memory data) =
-            vdt.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
+        (bool ok, bytes memory data) = vdt.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
         require(ok, "VDT balanceOf failed");
         debt = abi.decode(data, (uint256));
     }
@@ -365,8 +359,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Gets the scaled (principal-only) debt balance for an LSA
     function _getScaledDebtBalance(address lsa) internal view returns (uint256 scaledDebt) {
         (,,, address vdt) = _getReserveDataDecoded(address(usdc));
-        (bool ok, bytes memory data) =
-            vdt.staticcall(abi.encodeWithSignature("scaledBalanceOf(address)", lsa));
+        (bool ok, bytes memory data) = vdt.staticcall(abi.encodeWithSignature("scaledBalanceOf(address)", lsa));
         require(ok, "VDT scaledBalanceOf failed");
         scaledDebt = abi.decode(data, (uint256));
     }
@@ -380,8 +373,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Gets the aToken (collateral) balance for an LSA in the BLP
     function _getATokenBalance(address lsa) internal view returns (uint256 balance) {
         (,, address aTokenAddr,) = _getReserveDataDecoded(address(btcVault));
-        (bool ok, bytes memory data) =
-            aTokenAddr.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
+        (bool ok, bytes memory data) = aTokenAddr.staticcall(abi.encodeWithSignature("balanceOf(address)", lsa));
         require(ok, "aToken balanceOf failed");
         balance = abi.decode(data, (uint256));
     }
@@ -389,8 +381,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Gets the total scaled debt supply (sum of all scaledBalanceOf) for USDC
     function _getTotalScaledDebtSupply() internal view returns (uint256 totalScaled) {
         (,,, address vdt) = _getReserveDataDecoded(address(usdc));
-        (bool ok, bytes memory data) =
-            vdt.staticcall(abi.encodeWithSignature("scaledTotalSupply()"));
+        (bool ok, bytes memory data) = vdt.staticcall(abi.encodeWithSignature("scaledTotalSupply()"));
         require(ok, "VDT scaledTotalSupply failed");
         totalScaled = abi.decode(data, (uint256));
     }
@@ -431,9 +422,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     function _triggerMicroLiquidation(address lsa) internal returns (bool success) {
         bytes memory mlData = abi.encode(address(btcVault), address(usdc), lsa);
         vm.prank(testLiquidator);
-        (success,) = bitmorPool.call(
-            abi.encodeWithSignature("microLiquidationCall(bytes)", mlData)
-        );
+        (success,) = bitmorPool.call(abi.encodeWithSignature("microLiquidationCall(bytes)", mlData));
     }
 
     /// @notice Triggers a full liquidation on the BLP for a given LSA
@@ -444,7 +433,11 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         (success,) = bitmorPool.call(
             abi.encodeWithSignature(
                 "liquidationCall(address,address,address,uint256,bool)",
-                address(btcVault), address(usdc), lsa, type(uint256).max, false
+                address(btcVault),
+                address(usdc),
+                lsa,
+                type(uint256).max,
+                false
             )
         );
     }
@@ -457,7 +450,11 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         (success,) = bitmorPool.call(
             abi.encodeWithSignature(
                 "liquidationCall(address,address,address,uint256,bool)",
-                address(btcVault), address(usdc), lsa, debtToCover, false
+                address(btcVault),
+                address(usdc),
+                lsa,
+                debtToCover,
+                false
             )
         );
     }
@@ -519,9 +516,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
         vm.prank(donator);
         (bool ok,) = aaveV3Pool.call(
-            abi.encodeWithSignature(
-                "supply(address,uint256,address,uint16)", address(cbBTC), amount, strategyAddr, 0
-            )
+            abi.encodeWithSignature("supply(address,uint256,address,uint16)", address(cbBTC), amount, strategyAddr, 0)
         );
         require(ok, "strategy donation via Aave supply failed");
     }
@@ -676,11 +671,12 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @notice Sets the liquidation fee and collector via schedule-and-execute
     function _setLiquidationFee(uint256 feeBps, address collector) internal {
         _scheduleAndExecute(
-            address(loanContract), admin, LPM_SLOW_ID(),
-            abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
+            address(loanContract), admin, LPM_SLOW_ID(), abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
         );
         _scheduleAndExecute(
-            address(loanContract), admin, LPM_SLOW_ID(),
+            address(loanContract),
+            admin,
+            LPM_SLOW_ID(),
             abi.encodeCall(loanContract.setLiquidationFeeCollector, (collector))
         );
     }
