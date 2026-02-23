@@ -2,6 +2,8 @@ name: Release
 
 on:
   workflow_dispatch:
+    branches:
+      - main
     inputs:
       version:
         description: 'Release version (e.g. v0.2.0)'
@@ -13,15 +15,17 @@ on:
         type: boolean
         default: true
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: read
       issues: read
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -34,6 +38,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "ERROR: Version must match vX.Y.Z or vX.Y.Z-suffix format"
+            exit 1
+          fi
 
       - name: Generate CHANGELOG and create release
         uses: anthropics/claude-code-action@v1
