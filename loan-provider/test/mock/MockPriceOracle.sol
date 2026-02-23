@@ -2,21 +2,23 @@
 pragma solidity 0.8.30;
 
 import {ERC20} from "@solady/tokens/ERC20.sol";
-import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
+import {IPriceOracleGetterWithFreshness} from "@bitmor/interfaces/IPriceOracleGetterWithFreshness.sol";
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 /// @title MockPriceOracle
 /// @author Bitmor Protocol
-/// @notice Mock price oracle for unit testing with configurable asset prices
-/// @dev Implements IPriceOracleGetter. For `btcVault`, computes price as BTC price scaled by
-///      the vault's share-to-asset conversion rate. All other assets return stored prices directly.
-//! TODO: Align mock with AaveOracle setup from the lending pool for closer parity
-contract MockPriceOracle is IPriceOracleGetter {
+/// @notice Mock price oracle for unit testing with configurable asset prices and staleness
+/// @dev Implements IPriceOracleGetterWithFreshness. For `btcVault`, computes price as BTC price
+///      scaled by the vault's share-to-asset conversion rate. All other assets return stored prices directly.
+contract MockPriceOracle is IPriceOracleGetterWithFreshness {
     using FixedPointMathLib for uint256;
 
     /// @dev Mapping of asset address to price (8 decimals, e.g., 100000e8 = $100,000)
     mapping(address => uint256) private _prices;
+
+    /// @dev Mapping of asset address to last updated timestamp
+    mapping(address => uint256) private _lastUpdatedAt;
 
     /// @notice Address of the BTC vault whose price is derived from share conversion
     address public btcVault;
@@ -56,11 +58,57 @@ contract MockPriceOracle is IPriceOracleGetter {
         return _getAssetPrice(asset);
     }
 
+    /// @notice Returns the price and last update timestamp for an asset
+    /// @dev For `btcVault`, derives price from BTC and uses BTC's timestamp.
+    ///      For assets without a custom timestamp, returns block.timestamp (effectively fresh).
+    /// @param asset The asset address
+    /// @return price The price in 8 decimals
+    /// @return updatedAt The timestamp of the last price update
+    function getAssetPriceWithTimestamp(address asset)
+        external
+        view
+        override
+        returns (uint256 price, uint256 updatedAt)
+    {
+        if (asset == btcVault) {
+            uint256 oneShare = 10 ** ERC4626(btcVault).decimals();
+            uint256 pricePerShare = ERC4626(btcVault).convertToAssets(oneShare);
+            uint256 btcPrice = _getAssetPrice(asset);
+
+            price = btcPrice.mulDiv(pricePerShare, (10 ** ERC20(btc).decimals()));
+            // Use BTC's timestamp for bvBTC (mirrors AaveOracle behavior)
+            updatedAt = _getUpdatedAt(btc);
+            return (price, updatedAt);
+        }
+
+        price = _getAssetPrice(asset);
+        updatedAt = _getUpdatedAt(asset);
+    }
+
     /// @dev Returns the stored price for `asset` from the internal mapping
     /// @param asset The asset address
     /// @return The price in 8 decimals
     function _getAssetPrice(address asset) internal view returns (uint256) {
         return _prices[asset];
+    }
+
+    /// @dev Returns the stored updatedAt timestamp, defaulting to block.timestamp if not set
+    function _getUpdatedAt(address asset) internal view returns (uint256) {
+        uint256 ts = _lastUpdatedAt[asset];
+        return ts == 0 ? block.timestamp : ts;
+    }
+
+    /// @notice Make an asset's oracle price stale by setting its update timestamp
+    /// @param asset The asset address
+    /// @param timestamp The timestamp to set (use a past timestamp to make stale)
+    function makeStale(address asset, uint256 timestamp) external {
+        _lastUpdatedAt[asset] = timestamp;
+    }
+
+    /// @notice Reset an asset to "fresh" by clearing its custom timestamp
+    /// @param asset The asset address
+    function makeFresh(address asset) external {
+        delete _lastUpdatedAt[asset];
     }
 
     /// @notice Drop an asset's price by a percentage

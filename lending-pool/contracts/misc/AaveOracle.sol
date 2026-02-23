@@ -146,6 +146,43 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
         }
     }
 
+    /// @notice Returns the price of an asset along with the last update timestamp
+    /// @dev For bvBTC, derives price from BTC price and vault share ratio, using BTC feed's timestamp.
+    ///      For other assets with Chainlink sources, returns the feed's latestTimestamp.
+    ///      For assets using fallback oracle, returns block.timestamp (effectively "fresh").
+    /// @param asset The asset address
+    /// @return price The price of the asset
+    /// @return updatedAt The timestamp of the last price update
+    function getAssetPriceWithTimestamp(address asset) public view returns (uint256 price, uint256 updatedAt) {
+        if (asset == s_bvBTC) {
+            uint256 btcPrice;
+            uint256 btcUpdatedAt;
+            (btcPrice, btcUpdatedAt) = _getAssetPriceWithTimestamp(s_btc);
+            uint256 oneShare = 10 ** uint256(IERC20Detailed(s_bvBTC).decimals());
+            uint256 assetPerShare = IERC4626(s_bvBTC).previewRedeem(oneShare);
+
+            price = btcPrice.mul(assetPerShare).div(10 ** uint256(IERC20Detailed(s_btc).decimals()));
+            updatedAt = btcUpdatedAt;
+            return (price, updatedAt);
+        }
+        return _getAssetPriceWithTimestamp(asset);
+    }
+
+    function _getAssetPriceWithTimestamp(address asset) internal view returns (uint256, uint256) {
+        IChainlinkAggregator source = assetsSources[asset];
+
+        if (address(source) == address(0)) {
+            return (_fallbackOracle.getAssetPrice(asset), block.timestamp);
+        } else {
+            int256 price = source.latestAnswer();
+            if (price > 0) {
+                return (uint256(price), source.latestTimestamp());
+            } else {
+                return (_fallbackOracle.getAssetPrice(asset), block.timestamp);
+            }
+        }
+    }
+
     /// @notice Gets a list of prices from a list of assets addresses
     /// @param assets The list of assets addresses
     function getAssetsPrices(address[] calldata assets) external view returns (uint256[] memory) {

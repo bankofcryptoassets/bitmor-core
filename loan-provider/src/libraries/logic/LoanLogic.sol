@@ -9,12 +9,13 @@ import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
 import {ILoanVaultFactory} from "../../interfaces/ILoanVaultFactory.sol";
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
+
 import {IReserveInterestRateStrategy} from "../../interfaces/IReserveInterestRateStrategy.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 import {Constants} from "../helpers/Constants.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
+import {OracleLib} from "../helpers/OracleLib.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 
@@ -103,7 +104,8 @@ library LoanLogic {
                 btcAmount: params.btcAmount,
                 btcAssetDecimals: IERC20Metadata(ctx.btc).decimals(),
                 duration: params.duration,
-                minDepositBps: ctx.minDepositBps
+                minDepositBps: ctx.minDepositBps,
+                maxOracleStaleness: ctx.maxOracleStaleness
             })
         );
 
@@ -284,10 +286,9 @@ library LoanLogic {
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
-        // Get oracle prices
-        IPriceOracleGetter oracle = IPriceOracleGetter(data.oracle);
-        uint256 btcPriceUSD = oracle.getAssetPrice(data.btc);
-        uint256 debtPriceUSD = oracle.getAssetPrice(data.debtAsset);
+        // Get oracle prices (validated for freshness + non-zero when maxOracleStaleness > 0)
+        uint256 btcPriceUSD = OracleLib.getPrice(data.oracle, data.btc, data.maxOracleStaleness);
+        uint256 debtPriceUSD = OracleLib.getPrice(data.oracle, data.debtAsset, data.maxOracleStaleness);
 
         if (btcPriceUSD == 0 || debtPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
@@ -352,9 +353,8 @@ library LoanLogic {
         p.minDepositBps = ctx.minDepositBps;
 
         {
-            IPriceOracleGetter oracle = IPriceOracleGetter(ctx.oracle);
-            p.btcPriceUSD = oracle.getAssetPrice(ctx.btc);
-            p.debtPriceUSD = oracle.getAssetPrice(ctx.debtAsset);
+            p.btcPriceUSD = OracleLib.getPrice(ctx.oracle, ctx.btc, ctx.maxOracleStaleness);
+            p.debtPriceUSD = OracleLib.getPrice(ctx.oracle, ctx.debtAsset, ctx.maxOracleStaleness);
             p.btcAssetDecimals = IERC20Metadata(ctx.btc).decimals();
             p.debtAssetDecimals = IERC20Metadata(ctx.debtAsset).decimals();
         }

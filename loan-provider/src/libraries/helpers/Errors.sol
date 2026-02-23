@@ -54,6 +54,11 @@ library Errors {
      */
     error InvalidAssetPrice();
 
+    /**
+     * @notice Thrown when oracle price is older than the configured maximum staleness threshold
+     */
+    error StaleOraclePrice();
+
     // ============ Flash Loan Errors ============
 
     /**

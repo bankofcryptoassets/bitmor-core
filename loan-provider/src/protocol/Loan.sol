@@ -7,7 +7,8 @@ import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
 import {LSALogic} from "../libraries/logic/LSALogic.sol";
-import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
+
+import {OracleLib} from "../libraries/helpers/OracleLib.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {RepayLogic} from "../libraries/logic/RepayLogic.sol";
 import {CloseLoanLogic} from "../libraries/logic/CloseLoanLogic.sol";
@@ -145,7 +146,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             maxBTCAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
             minDepositBps: s_minDeposit,
-            maxDuration: s_maxDuration
+            maxDuration: s_maxDuration,
+            maxOracleStaleness: s_maxOracleStaleness
         });
 
         lsa = s_loansByLSA.executeInitializeLoan(
@@ -190,7 +192,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_COLLATERAL_ASSET,
             i_BTC,
             s_preClosureFeeBps,
-            s_slippage_swap
+            s_slippage_swap,
+            s_maxOracleStaleness
         );
         DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
         ctx.executeCloseLoan(params, s_loansByLSA);
@@ -359,9 +362,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkZeroAmount(deposit)
         returns (uint256 strikePrice)
     {
-        IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
-
-        uint256 btcPriceUSD = oracle.getAssetPrice(i_BTC);
+        uint256 btcPriceUSD = OracleLib.getPrice(i_ORACLE, i_BTC, s_maxOracleStaleness);
         if (btcPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         strikePrice = LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
@@ -384,7 +385,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             oracle: i_ORACLE,
             aavePool: i_AAVE_V3_POOL,
             btc: i_BTC,
-            debtAsset: i_DEBT_ASSET
+            debtAsset: i_DEBT_ASSET,
+            maxOracleStaleness: s_maxOracleStaleness
         });
 
         (loanAmount, monthlyPayment, minDepositRequired) = ctx.calculateLoanDetails(btcAmount, duration);
@@ -460,6 +462,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     /// @inheritdoc ILoan
     function getMaxDuration() external view returns (uint256) {
         return s_maxDuration;
+    }
+
+    /// @inheritdoc ILoan
+    function getMaxOracleStaleness() external view returns (uint256) {
+        return s_maxOracleStaleness;
     }
 
     /// @inheritdoc ILoan
@@ -560,6 +567,13 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     function setMaxDuration(uint256 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
         s_maxDuration = newMaxDuration;
         emit Loan__MaxDurationUpdated(newMaxDuration);
+    }
+
+    /// @inheritdoc ILoan
+    function setMaxOracleStaleness(uint256 newMaxOracleStaleness) external whenNotPaused restricted {
+        if (newMaxOracleStaleness > MAX_ORACLE_STALENESS) revert Errors.InvalidInputs();
+        s_maxOracleStaleness = newMaxOracleStaleness;
+        emit Loan__MaxOracleStalenessUpdated(newMaxOracleStaleness);
     }
 
     /// @inheritdoc ILoan

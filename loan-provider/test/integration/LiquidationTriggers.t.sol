@@ -17,6 +17,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     uint256 constant VAULT_LOSS_30_PERCENT = 3000;
     uint256 constant VAULT_LOSS_40_PERCENT = 4000;
     // ============ Setup ============
+
     function setUp() public override {
         super.setUp();
         _setupLiquidator();
@@ -50,11 +51,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         // Verify loan status transitioned to Liquidated
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
-        assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Liquidated),
-            "loan status should be Liquidated"
-        );
+        assertEq(uint256(loanData.status), uint256(DataTypes.LoanStatus.Liquidated), "loan status should be Liquidated");
 
         // Verify liquidator received cbBTC proceeds
         uint256 liquidatorCbBTCAfter = cbBTC.balanceOf(testLiquidator);
@@ -201,7 +198,9 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         (,, uint256 hfPathB) = _getUserAccountData(lsa);
 
         // Assert: combined damage should produce worse (lower) health factor
-        assertLt(hfPathB, hfPathA, "combined oracle drop + strategy loss should produce lower HF than oracle drop alone");
+        assertLt(
+            hfPathB, hfPathA, "combined oracle drop + strategy loss should produce lower HF than oracle drop alone"
+        );
     }
 
     // ========================================================================
@@ -279,9 +278,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         // Assert: liquidator received LESS with fee
         assertLt(
-            resultB.cbBTCReceived,
-            resultA.cbBTCReceived,
-            "liquidator should receive less cbBTC when exit fee is active"
+            resultB.cbBTCReceived, resultA.cbBTCReceived, "liquidator should receive less cbBTC when exit fee is active"
         );
 
         // Assert: liquidation was still profitable (liquidator received non-zero cbBTC)
@@ -358,7 +355,9 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         // Assert: remaining loan's HF should be stable or improved
         (,, uint256 hfAfter) = _getUserAccountData(lsa1);
-        assertGe(hfAfter, hfBefore, "remaining loan HF should be stable or improve (exit fee benefits remaining holders)");
+        assertGe(
+            hfAfter, hfBefore, "remaining loan HF should be stable or improve (exit fee benefits remaining holders)"
+        );
     }
 
     // ========================================================================
@@ -424,7 +423,11 @@ contract LiquidationTriggersTest is IntegrationTestBase {
 
         // Assert: escalated to full liquidation
         uint256 checkType = _checkTypeOfLiquidation(lsa);
-        assertEq(checkType, TC.LIQUIDATION_TYPE_FULL, "insured loan with price drop + overdue should escalate to full liquidation");
+        assertEq(
+            checkType,
+            TC.LIQUIDATION_TYPE_FULL,
+            "insured loan with price drop + overdue should escalate to full liquidation"
+        );
 
         // Execute full liquidation
         bool success = _triggerFullLiquidation(lsa);
@@ -508,9 +511,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
         // Loan remains Active
         DataTypes.LoanData memory loanData = loanContract.getLoanByLSA(lsa);
         assertEq(
-            uint256(loanData.status),
-            uint256(DataTypes.LoanStatus.Active),
-            "insured current loan should remain active"
+            uint256(loanData.status), uint256(DataTypes.LoanStatus.Active), "insured current loan should remain active"
         );
     }
 

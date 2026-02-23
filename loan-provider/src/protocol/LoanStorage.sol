@@ -101,6 +101,12 @@ contract LoanStorage {
     /// @notice Maximum loan duration in months
     uint256 internal s_maxDuration;
 
+    /// @notice Maximum allowed staleness for oracle prices in seconds (0 = disabled)
+    uint256 internal s_maxOracleStaleness;
+
+    /// @notice Upper bound for oracle staleness setting (24 hours)
+    uint256 internal constant MAX_ORACLE_STALENESS = 86_400;
+
     // ============ Storage Mappings ============
 
     /**
@@ -171,8 +177,7 @@ contract LoanStorage {
     ) {
         if (
             _aaveV3Pool == address(0) || _aaveAddressesProvider == address(0) || _bitmorPool == address(0)
-                || _oracle == address(0) || _collateralAsset == address(0) || _debtAsset == address(0)
-                || _btc == address(0)
+                || _oracle == address(0) || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;

@@ -237,6 +237,10 @@ library DataTypes {
          * @dev Maximum loan duration in months
          */
         uint256 maxDuration;
+        /**
+         * @dev Maximum allowed staleness for oracle prices in seconds (0 = disabled)
+         */
+        uint256 maxOracleStaleness;
     }
 
     /**
@@ -367,6 +371,10 @@ library DataTypes {
          * @dev Maximum slippage in basis points
          */
         uint256 maxSlippage;
+        /**
+         * @dev Maximum allowed staleness for oracle prices in seconds (0 = disabled)
+         */
+        uint256 maxOracleStaleness;
     }
 
     /**
@@ -401,6 +409,8 @@ library DataTypes {
         address aavePool;
         address btc;
         address debtAsset;
+        /// @dev Maximum allowed staleness for oracle prices in seconds (0 = disabled)
+        uint256 maxOracleStaleness;
     }
 
     /**
@@ -450,6 +460,8 @@ library DataTypes {
         uint256 duration;
         /// @dev Minimum deposit requirement in basis points (e.g., 3300 = 33%)
         uint256 minDepositBps;
+        /// @dev Maximum allowed staleness for oracle prices in seconds (0 = disabled)
+        uint256 maxOracleStaleness;
     }
 
     /**

@@ -5,7 +5,6 @@ import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {ISwapAdaptor} from "../../interfaces/ISwapAdaptor.sol";
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 
@@ -78,8 +77,8 @@ library SwapLogic {
         uint256 minAmountAcceptable,
         address recipient
     ) internal returns (uint256 amountOut) {
-        amountOut = ISwapAdaptor(swapper)
-            .swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
+        amountOut =
+            ISwapAdaptor(swapper).swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
 
         /// @dev Slippage guard: MUST revert if received output is below the minimum acceptable
         if (minAmountAcceptable > amountOut) revert Errors.LessThanMinimumAmtReceived();

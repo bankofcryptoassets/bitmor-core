@@ -110,4 +110,8 @@ library TestConstants {
     uint256 internal constant EXIT_FEE_HIGH_BPS = 500; // 5% exit fee
     uint256 internal constant DUST_TOLERANCE_USDC = 100; // 100 units USDC dust
     uint256 internal constant DUST_TOLERANCE_BTC = 10; // 10 sats dust
+
+    // ============ Oracle Staleness Parameters ============
+    uint256 internal constant DEFAULT_MAX_ORACLE_STALENESS = 3600; // 1 hour
+    uint256 internal constant STALE_PRICE_AGE = 7200; // 2 hours
 }

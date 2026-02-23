@@ -6,10 +6,10 @@ import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
 
 import {Errors} from "../helpers/Errors.sol";
+import {OracleLib} from "../helpers/OracleLib.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
 import {AavePoolLogic} from "./AavePoolLogic.sol";
@@ -127,8 +127,10 @@ library CloseLoanLogic {
         /// @dev Price is in 8 decimals as per Chainlink Price Feed.
         (vars.totalCollateralUSD, vars.totalDebtUSD) = ctx.bitmorPool.getUserPositions(params.lsa);
 
-        vars.debtAssetPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.debtAsset);
-        vars.btcPrice = IPriceOracleGetter(ctx.oracle).getAssetPrice(ctx.btc);
+        vars.debtAssetPrice = OracleLib.getPrice(ctx.oracle, ctx.debtAsset, ctx.maxOracleStaleness);
+        vars.btcPrice = OracleLib.getPrice(ctx.oracle, ctx.btc, ctx.maxOracleStaleness);
+
+        if (vars.debtAssetPrice == 0 || vars.btcPrice == 0) revert Errors.InvalidAssetPrice();
 
         /// @dev Here the decimals will be
         /// decimals = IERC20Metadata(ctx.collateralAsset).decimals();
