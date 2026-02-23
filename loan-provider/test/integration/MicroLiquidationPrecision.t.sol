@@ -552,7 +552,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
     function test_MicroLiquidation_CollateralAmountStaleAfterMicroLiq() public {
         // Arrange
         (address lsa, DataTypes.LoanData memory loanDataOriginal) = _createStandardLoanWithData();
-        uint256 originalCollateralAmount = loanDataOriginal.collateralAmount;
+        uint256 originalCollateralAmount = loanDataOriginal.btcAmount;
         _makeFirstPaymentOverdue();
 
         // Act: first micro-liq
@@ -567,7 +567,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // collateralAmount may or may not be updated depending on implementation.
         // The key vulnerability is if it's stale and used for liquidation type determination.
-        if (loanDataAfterFirst.collateralAmount == originalCollateralAmount) {
+        if (loanDataAfterFirst.btcAmount == originalCollateralAmount) {
             // STALE: collateralAmount not updated — document the discrepancy
             assertLt(
                 aTokenBalanceAfterFirst,

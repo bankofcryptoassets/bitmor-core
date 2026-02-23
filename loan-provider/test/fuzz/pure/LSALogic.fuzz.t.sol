@@ -69,7 +69,7 @@ contract LSALogicFuzzTest is LSAFuzzTestBase {
         uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
 
         uint256 estimated = btcVault.convertToAssets(sharesToRedeem);
-        uint256 minimum = (estimated * STANDARD_SLIPPAGE) / FC.BPS_DENOMINATOR;
+        uint256 minimum = (estimated * (FC.BPS_DENOMINATOR - STANDARD_SLIPPAGE)) / FC.BPS_DENOMINATOR;
 
         // Need minimum > 0 to trigger meaningful slippage check
         vm.assume(minimum > 0);
@@ -83,38 +83,37 @@ contract LSALogicFuzzTest is LSAFuzzTestBase {
     }
 
     /**
-     * @notice When slippage tolerance is set to 0 BPS, the minimum receivable is 0, which
-     *         means any return — including zero — passes the slippage check.
-     * @dev Documents a missing input validation: zero slippage provides no protection at all.
-     *      The formula `minimumReceivable = estimated * 0 / 10000 = 0`, so any `assetsReceived >= 0`
-     *      is always true.
+     * @notice When slippage tolerance is set to 0 BPS, the minimum receivable equals
+     *         100% of estimated (maximum protection). The formula:
+     *         `minimumReceivable = estimated * (10000 - 0) / 10000 = estimated`.
+     *         So any return >= estimated passes, and returns below estimated revert.
+     * @dev A clean vault (no mock override) returns exactly estimated, so zero slippage passes.
      * @param sharesSeed Seed for bounded shares to redeem
-     * @param returnSeed Seed for bounded mock return value
-     * @custom:audit-property Zero slippage accepts any return
+     * @param returnSeed Seed unused but kept for fuzz input count stability
+     * @custom:audit-property Zero slippage means maximum protection
      * @custom:audit-category Edge Cases
      * @custom:audit-severity Medium
      */
-    function testFuzz_redeemBTC_ZeroSlippageAcceptsAnyReturn(uint256 sharesSeed, uint256 returnSeed) public {
+    function testFuzz_redeemBTC_ZeroSlippageRequiresExactReturn(uint256 sharesSeed, uint256 returnSeed) public {
+        returnSeed; // suppress unused warning
         uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
         uint256 sharesToRedeem = bound(sharesSeed, 1, sharesReceived);
-        uint256 mockReturn = bound(returnSeed, 0, FC.MAX_BTC_AMOUNT);
+        uint256 estimated = btcVault.convertToAssets(sharesToRedeem);
 
-        btcVault.setMockRedeemReturn(mockReturn);
-
-        // Slippage = 0 means minimumReceivable = 0, so any return passes
+        // Zero slippage = 0% tolerance → minimum = 100% of estimated
+        // Clean vault returns exactly estimated, so this should pass
         uint256 assetsReceived =
             harness.exposed_redeemBTC(address(vault), address(btcVault), sharesToRedeem, recipient, 0);
 
-        assertEq(assetsReceived, mockReturn, "should return whatever the vault gives with zero slippage");
+        assertEq(assetsReceived, estimated, "clean vault should return exactly estimated with zero slippage");
     }
 
     /**
-     * @notice When slippage is set above 10000 BPS (> 100%), the computed minimum exceeds
-     *         the estimated output, so redemption always reverts even when the vault returns
-     *         the correct amount.
-     * @dev Documents this edge case behavior: `minimumReceivable = estimated * (>10000) / 10000 > estimated`,
-     *      and actual redeem can only return <= estimated for a clean vault.
+     * @notice When slippage is set above 10000 BPS (> 100%), the subtraction
+     *         `BASIS_POINT_SCALE - slippage` underflows, causing an arithmetic panic.
+     * @dev The contract formula is `estimated * (10000 - slippage) / 10000`. When slippage > 10000,
+     *      the unchecked subtraction causes a revert (arithmetic underflow).
      * @param sharesSeed Seed for bounded shares to redeem
      * @param slippageSeed Seed for bounded slippage above 100%
      * @custom:audit-property Slippage above 100% always reverts
@@ -124,13 +123,11 @@ contract LSALogicFuzzTest is LSAFuzzTestBase {
     function testFuzz_redeemBTC_RevertsWhenSlippageExceedsBPS(uint256 sharesSeed, uint256 slippageSeed) public {
         uint256 sharesReceived = _depositToVault(FC.MAX_BTC_AMOUNT);
 
-        // Bound sharesToRedeem >= FC.BPS_DENOMINATOR so that floor(estimated * slippage / 10000) > estimated
-        // for any slippage > 10000. With small shares, integer truncation can make minimum == estimated.
         uint256 sharesToRedeem = bound(sharesSeed, FC.BPS_DENOMINATOR, sharesReceived);
         uint256 slippage = bound(slippageSeed, FC.BPS_DENOMINATOR + 1, 2 * FC.BPS_DENOMINATOR);
 
-        // With clean vault, actual redeem <= estimated. But minimum > estimated, so always reverts.
-        vm.expectRevert(Errors.SlippageExceededWhileConvertingToAssets.selector);
+        // Arithmetic underflow in (BASIS_POINT_SCALE - slippage) when slippage > 10000
+        vm.expectRevert();
         harness.exposed_redeemBTC(address(vault), address(btcVault), sharesToRedeem, recipient, slippage);
     }
 

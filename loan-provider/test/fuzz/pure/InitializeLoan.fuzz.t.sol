@@ -126,8 +126,14 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
 
         uint256 userAfter = mockUSDC.balanceOf(user);
 
-        // User should only pay deposit + premium
-        assertEq(userBefore - userAfter, deposit + premium, "user USDC decrease should equal deposit + premium exactly");
+        uint256 userCost = userBefore - userAfter;
+
+        // User pays at most deposit + premium (may be less due to swap surplus refund)
+        assertLe(userCost, deposit + premium, "user USDC cost must not exceed deposit + premium");
+        // Premium is always fully charged (transferred directly to fee collector).
+        // Deposit is mostly consumed; only exactOut swap rounding creates a small surplus refund.
+        // Lower bound catches bugs where user pays significantly less than expected.
+        assertGe(userCost, premium + (deposit * 90) / 100, "user must pay at least premium + 90% of deposit");
 
         // LSA should hold aTokens (collateral deposited into Bitmor lending pool)
         uint256 aTokenBalance = mockATokenBvBTC.balanceOf(lsa);

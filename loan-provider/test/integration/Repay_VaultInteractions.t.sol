@@ -157,7 +157,7 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         // Arrange
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
         uint256 monthlyPayment = loanData.estimatedMonthlyPayment;
-        uint256 originalCollateral = loanData.collateralAmount;
+        uint256 originalCollateral = loanData.btcAmount;
         _ensureSufficientUSDC(monthlyPayment, TC.STANDARD_DURATION);
 
         // Make 11 monthly payments

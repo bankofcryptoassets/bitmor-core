@@ -274,7 +274,7 @@ contract RepayTest is IntegrationTestBase {
     function test_FullRepay_SingleLumpSum_ReturnsCollateralAndCompletes() public {
         // Arrange
         (address lsa, DataTypes.LoanData memory loanData) = _createStandardLoanWithData();
-        uint256 originalCollateral = loanData.collateralAmount;
+        uint256 originalCollateral = loanData.btcAmount;
         uint256 totalDebt = _getDebtBalanceUSDC(lsa);
 
         // Fund extra for full repay
