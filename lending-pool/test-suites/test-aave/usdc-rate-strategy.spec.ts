@@ -315,16 +315,13 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
     expect(vaultTotalAssets.toString()).to.be.equal(depositAmount, 'Vault should have deposited assets');
 
     // Call the 8-param version - it should use vault's totalAssets as available liquidity
-    // Use DAI as reserve (not USDC) to avoid the "WA" require check
-    const { dai, aDai } = testEnv;
-
     const {
       0: currentLiquidityRate,
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      getContractAddress(dai), // reserve
-      getContractAddress(aDai), // aToken
+      getContractAddress(usdc), // reserve
+      getContractAddress(aUSDC), // aToken
       0, // liquidityAdded
       0, // liquidityTaken
       0, // totalStableDebt
@@ -341,14 +338,14 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
     );
   });
 
-  it('Checks 8-param version reverts when reserve equals vault asset', async () => {
-    const { usdc, aUSDC, mockBitmorUSDCVault } = testEnv;
+  it('Checks 8-param version reverts when reserve does not match vault asset', async () => {
+    const { dai, aDai, mockBitmorUSDCVault } = testEnv;
 
-    // This should revert with "WA" because reserve == vault.asset()
+    // This should revert with "WA" because reserve != vault.asset()
     await expect(
       strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-        getContractAddress(usdc), // reserve = USDC (same as vault asset)
-        getContractAddress(aUSDC), // aToken
+        getContractAddress(dai), // reserve = DAI (differs from vault asset USDC)
+        getContractAddress(aDai), // aToken
         0,
         0,
         0,
@@ -360,7 +357,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
   });
 
   it('Checks 8-param version with liquidityAdded increases available liquidity', async () => {
-    const { dai, aDai, mockBitmorUSDCVault } = testEnv;
+    const { usdc, aUSDC, mockBitmorUSDCVault } = testEnv;
 
     const liquidityAdded = '500000000'; // 500 USDC worth
 
@@ -369,8 +366,8 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      getContractAddress(dai),
-      getContractAddress(aDai),
+      getContractAddress(usdc),
+      getContractAddress(aUSDC),
       liquidityAdded, // liquidityAdded
       0, // liquidityTaken
       0, // totalStableDebt
@@ -388,7 +385,7 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
   });
 
   it('Checks 8-param version with liquidityTaken decreases available liquidity', async () => {
-    const { dai, aDai, mockBitmorUSDCVault } = testEnv;
+    const { usdc, aUSDC, mockBitmorUSDCVault } = testEnv;
 
     // Take 500 USDC from vault (simulating a borrow)
     const liquidityTaken = '500000000'; // 500 USDC
@@ -398,8 +395,8 @@ makeSuite('USDCReserveInterestRateStrategy tests', (testEnv: TestEnv) => {
       1: currentStableBorrowRate,
       2: currentVariableBorrowRate,
     } = await strategyInstance['calculateInterestRates(address,address,uint256,uint256,uint256,uint256,uint256,uint256)'](
-      getContractAddress(dai),
-      getContractAddress(aDai),
+      getContractAddress(usdc),
+      getContractAddress(aUSDC),
       0, // liquidityAdded
       liquidityTaken, // liquidityTaken
       0, // totalStableDebt
