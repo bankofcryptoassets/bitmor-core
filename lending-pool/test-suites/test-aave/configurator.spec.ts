@@ -9,8 +9,7 @@ import { depositViaVault } from './helpers/vault-helpers.js';
 import { deployDefaultReserveInterestRateStrategy } from '../../helpers/contracts-deployments.js';
 import { rateStrategyStableTwo } from '../../markets/aave/rateStrategies.js';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('LendingPoolConfigurator', (testEnv: TestEnv) => {
   const {

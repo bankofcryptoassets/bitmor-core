@@ -78,14 +78,13 @@ contract MockAaveV3Pool {
         require(IERC20(asset).transfer(receiverAddress, amount), "MockAaveV3Pool: transfer failed");
 
         // Call receiver's executeOperation
-        bool success = IFlashLoanSimpleReceiver(receiverAddress)
-            .executeOperation(
-                asset,
-                amount,
-                premium,
-                msg.sender, // initiator
-                params
-            );
+        bool success = IFlashLoanSimpleReceiver(receiverAddress).executeOperation(
+            asset,
+            amount,
+            premium,
+            msg.sender, // initiator
+            params
+        );
         require(success, "MockAaveV3Pool: callback failed");
 
         // Pull repayment (amount + premium) from receiver

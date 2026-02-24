@@ -665,7 +665,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
     }
 
     /// @custom:audit-property BTC-STRAT-18 maxDeposit reflects remaining caps
-    function testFuzz_MaxDeposit_ReflectsRemainingCaps(uint256 depositSeed, uint256 cap1Seed, uint256 cap2Seed) public {
+    function testFuzz_MaxDeposit_ReflectsRemainingCaps(uint256 depositSeed, uint256 cap1Seed, uint256 cap2Seed)
+        public
+    {
         // Arrange
         uint256 cap1 = bound(cap1Seed, 1e8, 50e8);
         uint256 cap2 = bound(cap2Seed, 1e8, 50e8);

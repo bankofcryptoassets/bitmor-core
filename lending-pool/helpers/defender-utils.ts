@@ -1,4 +1,4 @@
-import { formatEther } from '@ethersproject/units';
+import { formatEther } from 'ethers';
 import type { Signer } from 'ethers';
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import { DRE, impersonateAccountsHardhat } from './misc-utils.js';
