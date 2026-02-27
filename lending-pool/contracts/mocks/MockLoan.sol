@@ -205,20 +205,8 @@ contract MockLoan is ILoan {
         revert("MockLoan: NOT_IMPLEMENTED");
     }
 
-    function setLoanVaultFactory(address) external override {
+    function claimSurplusCollateral(address) external override returns (uint256) {
         revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function setSwapper(address) external override {
-        revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function setPremiumCollector(address) external override {
-        revert("MockLoan: NOT_IMPLEMENTED");
-    }
-
-    function getPremiumCollector() external view override returns (address) {
-        return address(0);
     }
 
     function setGracePeriod(uint256) external override {
@@ -290,12 +278,20 @@ contract MockLoan is ILoan {
         return 0;
     }
 
-    function getLiquidationFeeCollector() external view override returns (address) {
-        return address(0);
+    function setMaxDuration(uint256) external override {
+        revert("MockLoan: NOT_IMPLEMENTED");
     }
 
-    function setLiquidationFeeCollector(address) external override {
+    function getMaxDuration() external view override returns (uint256) {
+        return 0;
+    }
+
+    function setBitmorAddressesProvider(address) external override {
         revert("MockLoan: NOT_IMPLEMENTED");
+    }
+
+    function getBitmorAddressesProvider() external view override returns (address) {
+        return address(0);
     }
 
     // ========== TEST HELPERS ==========
