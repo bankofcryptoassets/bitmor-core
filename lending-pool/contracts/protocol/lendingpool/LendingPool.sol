@@ -252,7 +252,7 @@ contract LendingPool is VersionedInitializable, ILendingPool, LendingPoolStorage
         uint256 interestRateMode,
         uint16 referralCode,
         address onBehalfOf
-    ) external override whenNotPaused bitmorAccessCheck {
+    ) external override whenNotPaused {
         DataTypes.ReserveData storage reserve = _reserves[asset];
 
         _executeBorrow(
