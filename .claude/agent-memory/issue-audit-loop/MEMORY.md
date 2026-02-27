@@ -4,104 +4,57 @@
 
 ### Issue #70 - Collateral Stuck in LSA on Last Micro-Liquidation (2026-02-19)
 - Branch: `fix/vuln-8-collateral-stuck-last-microliq`
-- Iteration 1: Initial audit - found H-01, M-01, M-02, L-01, I-01, I-02, I-03
-- Iteration 2: Re-audit after fixes
-  - H-01 (zero-balance revert) RESOLVED
-  - M-01 fix INTRODUCED REGRESSION (C-01): `&& loanData.duration != 1` on line 132
-  - M-02: ACCEPTED by user
-- Iteration 3: Re-audit after C-01 fix - ALL CRITICAL/HIGH/MEDIUM RESOLVED
-  - C-01/M-01 RESOLVED: `amountToBeDeducted = currentDebtBalance` when duration==1 (line 107)
-  - Line 132 reverted to original (no duration!=1 exclusion)
-  - Guard now correctly returns type 2 for duration==1 (aligned with LPCM)
-  - H-01 still in place (getATokenAmount==0 early return)
-  - Remaining: L-01 (defensive check), I-01 (missing event in LP ILoan), test gaps
-  - APPROVED for merge
-- Iteration 4 (2026-02-20): Final audit of all 8 fix implementations
-  - All 8 findings (C-01, C-02, M-01, L-01, I-01, I-02, I-03, I-04) implemented correctly
-  - 0 Critical, 0 High, 0 Medium, 2 Low (non-blocking), 4 Info
-  - 127/127 loan-provider unit tests pass, 230/230 lending-pool tests pass
-  - APPROVED for merge and PR creation
-
-### CRITICAL LESSON: checkTypeOfLiquidation Return Values Drive Routing
-- Return 1 -> only `liquidationCall` works (validateLiquidationCall requires type==1)
-- Return 2 -> only `microLiquidationCall` works (validateMicroLiquidationCall requires type==2)
-- `liquidationCall` ALWAYS calls `_updateLoanForFullLiquidation` (marks as Liquidated)
-- `microLiquidationCall` has branching: duration==1 -> completion, else -> regular micro
-- NEVER change guard to return 1 for duration==1 unless full liquidation is intended
-
-## Common Patterns
-
-### LendingPoolCollateralManager Flow
-- LPCM runs via DELEGATECALL from LendingPool
-- Micro-liquidation: seize collateral -> burn aTokens -> redeem bvBTC -> update loan state
-- Full liquidation: same flow but with full debt coverage requirement
-- State updates happen AFTER collateral operations
-
-### Aave V2 Lending Pool Withdraw Validation
-- `LendingPool.withdraw()` with `type(uint256).max` resolves to `userBalance`
-- `ValidationLogic.validateWithdraw()` reverts if `amount == 0` (Error: VL_INVALID_AMOUNT)
-- If all aTokens burned during liquidation, subsequent withdraw will revert
-
-### Access Control for Liquidation Functions
-- `updateLoanDataForMicroLiquidation`: LPCM role (id=2), no delay
-- `updateLoanForMicroLiquidationCompletion`: LPCM role (id=2), no delay
-- `updateLoanDataForFullLiquidation`: LPCM role (id=2), no delay
-- LPCM role granted to LendingPoolCollateralManager contract
-
-### Test Infrastructure Notes
-- Pre-existing test failure: `Insurance.t.sol::test_insurance_initializeLoan_premiumAboveEstimate_dontRefundExcess`
-- Liquidation tests: `test/unit/MicroLiquidation.t.sol`, `test/unit/FullLiquidation.t.sol`
-- LiquidationUpdates tests: `test/unit/Loan/LiquidationUpdates.t.sol`
-## Key Patterns Discovered
-
-### RepayLogic caps transfer at min(amount, totalDebt)
-- `RepayLogic.executeRepay` at `src/libraries/logic/RepayLogic.sol:74` caps `maxRepayableAmt = min(amount, totalDebt)`
-- Only pulls `maxRepayableAmt` from caller, not the full `amount`
-- If amount > totalDebt, the difference stays with the caller (e.g., AutoRepayment)
-- Refunds `maxRepayableAmt - finalAmountRepaid` back to `msg.sender`
-- This means excess refund tests must use `amount > totalDebt` to trigger the excess path
-
-### MockBitmorLendingPool behavior
-- `repay()` caps at `currentDebt` (line 184-186 in mock)
-- Has `_repaymentShortfall` mechanism for simulating pool returning less
-- Use `setRepaymentShortfall()` in tests when needed
-
-### Common test anti-patterns found
-- Generic `vm.expectRevert()` for AccessManaged unauthorized checks (should use specific selector)
-- False positive tests that pass without exercising the code path under test (e.g., excess refund tests where amount < totalDebt)
-
-### Pre-existing issues (not in scope for individual PRs)
-- `AutoRepayment` constructor has no zero-address validation for `_loan` and `_debtAsset` immutables
-- `Insurance.t.sol:test_insurance_initializeLoan_premiumAboveEstimate_dontRefundExcess` is a known failing test
-
-### Access Control Architecture
-- ARE role (ID: 4) is EOA, no delay, no guardian -- suitable for bot operations
-- Rescue/sweep functions assigned to same role as operational functions is acceptable when contract normally holds zero funds
-- For higher security: separate admin role with timelock for rescue operations
-
-### Lending-pool Foundry test infrastructure
-- `lending-pool/` has `foundry.toml` but requires manual `forge install foundry-rs/forge-std` to get lib
-- Fuzz tests in `test-foundry/fuzz/` use interfaces to interact with harness contracts (cross-version workaround: tests >=0.8.13, contracts 0.6.12)
-- Harness contracts in `contracts/test-harness/` expose internal library functions
-- When adding new reads from ReserveData fields, harness MUST have a setter for that field
-
-### LoanLiquidationLogic pattern: live balance vs stale LoanData
-- `checkTypeOfLiquidation()` should always read live on-chain state for collateral and debt
-- `loanData.btcAmount` is set once at creation and never updated after micro-liquidations
-- Fix pattern: use `Helpers.getUserCurrentCollateral(user, reserve)` which reads `aTokenAddress.balanceOf(user)`
-- `Helpers.getUserCurrentDebt(user, reserve)` was already used for debt -- collateral was the gap
-
-## Audit History
+- APPROVED after 4 iterations
 
 ### Issue #88 (Finding #41) - AutoRepayment Token Rescue
 - Branch: `fix/vuln-41-autorepayment-no-sweep`
-- Iteration 1: 0C/0H/1M/2L/4I
-- M-01: Excess refund test doesn't trigger the code path
 - Status: Changes required (test coverage gap)
 
 ### Issue #75 (Finding #21) - Stale btcAmount in checkTypeOfLiquidation
 - Branch: `fix/vuln-21-stale-collateral-amount`
-- Iteration 1: 0C/1H/0M/1L/3I
-- H-01: Fuzz test harness missing `setReserveAToken` -- 5/10 fuzz tests fail
-- Hardhat tests: all 12 micro-liquidation tests pass including vuln-21 specific test
 - Status: Changes required (harness/fuzz test breakage)
+
+### Issue #124 - Permissionless Repay Desynchronizes Loan State (2026-02-27)
+- Branch: `fix/vuln-124-permissionless-repay-desync`
+- Iteration 1: See report below
+
+## Key Patterns Discovered
+
+### LendingPool Access Control (bitmorAccessCheck)
+- `LendingPool.repay()` has `bitmorAccessCheck` modifier (line 305)
+- `bitmorAccessCheck` requires `msg.sender == usdcVaultAddress || msg.sender == loanProvider`
+- This is a GLOBAL restriction -- covers Path A of issue #124 by preventing ANY direct calls
+- `_executeBorrow` additionally checks `msg.sender == getBitmorLoan()` (line 963)
+
+### RepayLogic Caller Check Pattern
+- RepayLogic.sol line 84-85: `if (loan.borrower != msg.sender && msg.sender != autoRepayer) revert`
+- AutoRepayer is fetched via `BitmorAddressesProvider.getAutoRepayer()`
+- This covers Path B of issue #124
+
+### BitmorAddressesProvider Architecture
+- New contract: `loan-provider/src/protocol/BitmorAddressesProvider.sol`
+- Stores: LoanVaultFactory, Swapper, PremiumCollector, LiquidationFeeCollector, AutoRepayer
+- Interface: `loan-provider/src/interfaces/IBitmorAddressesProvider.sol`
+- Addresses stored in mapping by keccak256 key, access-controlled setters
+
+### claimSurplusCollateral Pattern
+- New function for borrower to claim remaining collateral after liquidation/completion
+- Replaces auto-claim during liquidation/completion (prevents force-completion timing attack)
+- Guards: status != Active, msg.sender == borrower, debt <= DEBT_DUST_THRESHOLD
+- Dust debt (1-10 wei) handled during claim
+
+### Micro-Liquidation Completion Pattern
+- New `updateLoanForMicroLiquidationCompletion()` for duration==1 case
+- Sets status to Completed (not Liquidated) -- correct distinction
+- LPCM routes: `duration.sub(1) == 0` -> completion, else -> regular micro
+
+### CRITICAL LESSON: checkTypeOfLiquidation Return Values Drive Routing
+- Return 1 -> only `liquidationCall` works
+- Return 2 -> only `microLiquidationCall` works
+- NEVER change guard to return 1 for duration==1 unless full liquidation is intended
+
+## Common Patterns
+- RepayLogic caps transfer at min(amount, totalDebt), refunds excess
+- LendingPool `bitmorAccessCheck` restricts deposit/repay to Loan + USDCVault
+- LPCM runs via DELEGATECALL from LendingPool
+- Duration clamp to 1 when debt remains but all periods covered

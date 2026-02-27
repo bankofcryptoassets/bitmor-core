@@ -168,6 +168,8 @@ interface ILoan {
      */
     event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
 
+    event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
+
     // ============ Main Functions ============
 
     /**
@@ -336,31 +338,6 @@ interface ILoan {
     // ============ Admin Functions ============
 
     /**
-     * @notice Updates the loan vault factory address
-     * @param newFactory New factory address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setLoanVaultFactory(address newFactory) external;
-
-    /**
-     * @notice Updates the swapper contract address
-     * @param newSwapper New swapper address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setSwapper(address newSwapper) external;
-
-    /**
-     * @notice Updates the premium collector address
-     * @param newPremiumCollector New premium collector address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setPremiumCollector(address newPremiumCollector) external;
-
-    /// @notice Returns the `s_premiumCollector` address.
-    /// @return premiumCollector The premium collector address
-    function getPremiumCollector() external view returns (address premiumCollector);
-
-    /**
      * @notice Updates the grace period for monthly payment overdue checks
      * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
@@ -472,10 +449,6 @@ interface ILoan {
     /// @return The current liquidation fee in basis points
     function getLiquidationFeeBps() external view returns (uint256);
 
-    /// @notice Returns the `s_liquidationFeeCollector` address.
-    /// @return The address that receives liquidation fees
-    function getLiquidationFeeCollector() external view returns (address);
-
     /**
      * @notice Updates the maximum allowed loan duration
      * @dev Reverts if `newMaxDuration` is zero
@@ -488,10 +461,7 @@ interface ILoan {
     /// @return The maximum loan duration in months
     function getMaxDuration() external view returns (uint256);
 
-    /**
-     * @notice Updates the liquidation fee collector address
-     * @param newFeeCollector New liquidation fee collector address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setLiquidationFeeCollector(address newFeeCollector) external;
+    function setBitmorAddressesProvider(address newBitmorAddressesProvider) external;
+
+    function getBitmorAddressesProvider() external view returns (address);
 }
