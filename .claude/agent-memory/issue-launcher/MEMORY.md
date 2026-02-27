@@ -64,5 +64,15 @@
 - `setupUserWithVaultDebt()`: deposits via mockLoanProvider for execution tests (CollateralManager calls IERC4626.redeem())
 - `test-bitmor/` directory does not exist -- `npm run test-bitmor` will fail (pre-existing)
 
+## Repay Access Control (Issue #124)
+- `Loan.repay()` has NO `msg.sender` check -- only `whenNotPaused` + `nonReentrant` (line 164-177)
+- `CloseLoanLogic` enforces `loan.borrower != msg.sender` -> `Errors.UnauthorizedCaller()` (line 124)
+- `LoanLogic.executeClaimRemainingCollateral` enforces `msg.sender != borrower` -> `Errors.Loan__OnlyBorrower()` (line 400)
+- `RepayLogic.executeRepay()` uses `msg.sender` for `safeTransferFrom` (line 89) and refund (line 134) but no ownership check
+- `AutoRepayment.sol` calls `ILoan(i_LOAN).repay()` -- will need whitelisting if repay is restricted
+- `LendingPool.repay()` (0.6.12) is fully permissionless -- any caller can repay `onBehalfOf` any address
+- `_addressesProvider.getBitmorLoan()` already exists in LendingPool for borrow access control (line 875)
+- New error code needed in lending-pool: next available after "89" is "90"
+
 ## Git Config Issue
 - Empty branch name config entries (`branch..gh-merge-base`) can appear from `gh issue develop` -- clean with `git config --local --unset 'branch..gh-merge-base'`
