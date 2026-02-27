@@ -298,4 +298,6 @@ library Errors {
 
     /// @notice Thrown when `claimSurplusCollateral` is called and either BLP or BTC vault returns 0.
     error Loan__ClaimingSurplusCollateralFailed();
+
+    error WrongAllocationArray();
 }

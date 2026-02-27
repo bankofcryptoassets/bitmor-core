@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -40,7 +40,7 @@ contract CloseLoanTest is IntegrationTestBase {
         uint256 btcReceivedA = cbBTC.balanceOf(testUser) - userBtcBeforeA;
         uint256 usdcReceivedA = usdc.balanceOf(testUser) - userUsdcBeforeA;
         // Normalize BTC to 6-dec USDC: btc(8d) * price(8d) / 1e8 / 1e2
-        uint256 btcValueInUSDC6_A = btcReceivedA * uint256(btcPrice) / TC.PRICE_PRECISION / 1e2;
+        uint256 btcValueInUSDC6_A = (btcReceivedA * uint256(btcPrice)) / TC.PRICE_PRECISION / 1e2;
         uint256 totalValueA = btcValueInUSDC6_A + usdcReceivedA;
 
         // --- Path B: withdrawInBTC = false ---
@@ -50,7 +50,7 @@ contract CloseLoanTest is IntegrationTestBase {
         _closeLoanEarly(lsa, testUser, false);
         uint256 btcReceivedB = cbBTC.balanceOf(testUser) - userBtcBeforeB;
         uint256 usdcReceivedB = usdc.balanceOf(testUser) - userUsdcBeforeB;
-        uint256 btcValueInUSDC6_B = btcReceivedB * uint256(btcPrice) / TC.PRICE_PRECISION / 1e2;
+        uint256 btcValueInUSDC6_B = (btcReceivedB * uint256(btcPrice)) / TC.PRICE_PRECISION / 1e2;
         uint256 totalValueB = btcValueInUSDC6_B + usdcReceivedB;
 
         // Assert: economically equivalent within 2% (swap slippage + fee variance)
@@ -69,9 +69,9 @@ contract CloseLoanTest is IntegrationTestBase {
 
         uint256 aTokenBalance = _getATokenBalance(lsa);
         uint256 collateralInBTC = btcVault.previewRedeem(aTokenBalance);
-        uint256 feeFloor = collateralInBTC * feeBps / TC.BPS_DENOMINATOR;
+        uint256 feeFloor = (collateralInBTC * feeBps) / TC.BPS_DENOMINATOR;
 
-        address premiumCollector = loanContract.getPremiumCollector();
+        address premiumCollector = bitmorAddressesProvider.getPremiumCollector();
         uint256 collectorBtcBefore = cbBTC.balanceOf(premiumCollector);
 
         _closeLoanEarly(lsa, testUser, true);
@@ -273,7 +273,7 @@ contract CloseLoanTest is IntegrationTestBase {
     function test_CloseLoan_AfterVaultAppreciation_FeeReflectsYield() public {
         // --- Baseline: close loan WITHOUT vault yield ---
         address lsa1 = _createStandardLoan();
-        address premiumCollector = loanContract.getPremiumCollector();
+        address premiumCollector = bitmorAddressesProvider.getPremiumCollector();
         uint256 collectorBefore1 = cbBTC.balanceOf(premiumCollector);
         _closeLoanEarly(lsa1, testUser, true);
         uint256 feeWithoutYield = cbBTC.balanceOf(premiumCollector) - collectorBefore1;
@@ -298,7 +298,7 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(feeWithYield, feeWithoutYield, "fee with vault yield should exceed baseline fee");
 
         // Verify increase is ~proportional to yield (within 20% tolerance)
-        uint256 expectedIncrease = feeWithoutYield * TC.SIMULATED_YIELD_BPS / TC.BPS_DENOMINATOR;
+        uint256 expectedIncrease = (feeWithoutYield * TC.SIMULATED_YIELD_BPS) / TC.BPS_DENOMINATOR;
         uint256 actualIncrease = feeWithYield - feeWithoutYield;
         assertApproxEqRel(
             actualIncrease, expectedIncrease, 0.2e18, "fee increase should be ~proportional to vault yield"
@@ -356,11 +356,17 @@ contract CloseLoanTest is IntegrationTestBase {
 
         // Act + Assert — duration=0 should revert
         vm.prank(testUser);
-        (bool success,) = address(loanContract).call(
-            abi.encodeWithSignature(
-                "initializeLoan(uint256,uint256,uint256,uint256,bytes)", deposit, TC.PREMIUM_AMOUNT, collateral, 0, ""
-            )
-        );
+        (bool success,) = address(loanContract)
+            .call(
+                abi.encodeWithSignature(
+                    "initializeLoan(uint256,uint256,uint256,uint256,bytes)",
+                    deposit,
+                    TC.PREMIUM_AMOUNT,
+                    collateral,
+                    0,
+                    ""
+                )
+            );
         assertFalse(success, "duration=0 loan creation should revert");
     }
 
@@ -405,7 +411,7 @@ contract CloseLoanTest is IntegrationTestBase {
         // For a 1% slippage tolerance:
         // CORRECT minimum = estimated * (10000 - 100) / 10000 = estimated * 99%
         uint256 estimatedReceivable = 1e8; // 1 BTC
-        uint256 expectedMinimum = estimatedReceivable * (TC.BPS_DENOMINATOR - slippageValue) / TC.BPS_DENOMINATOR;
+        uint256 expectedMinimum = (estimatedReceivable * (TC.BPS_DENOMINATOR - slippageValue)) / TC.BPS_DENOMINATOR;
 
         // Verify: the correct formula protects 99% of the estimate
         assertEq(expectedMinimum, 99_000_000, "correct formula should protect 99% of 1 BTC");

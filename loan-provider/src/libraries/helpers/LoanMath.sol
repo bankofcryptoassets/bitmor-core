@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {Errors} from "./Errors.sol";
@@ -219,7 +219,7 @@ library LoanMath {
     {
         uint256 totalAmount = loanAmount + deposit;
 
-        strikePrice = (btcPriceUSD * loanAmount * 110) / (totalAmount * 100);
+        strikePrice = btcPriceUSD.mulDivUp((loanAmount * 11000), (totalAmount * BASIS_POINTS));
 
         return strikePrice;
     }

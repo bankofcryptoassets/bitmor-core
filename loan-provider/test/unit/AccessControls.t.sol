@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
@@ -6,6 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 
 /// @title AccessControlsTest
 /// @author Bitmor Protocol
@@ -26,15 +27,6 @@ contract AccessControlsTest is BaseLoanTest {
     function setUp() public override {
         super.setUp();
         attacker = makeAddr("attacker");
-
-        // Add missing LPM_SLOW selectors that aren't in RolesData.getLPM_SLOW_SELECTORS()
-        // These selectors are tested but not included in the default RolesData config
-        bytes4[] memory additionalSelectors = new bytes4[](1);
-        additionalSelectors[0] = Loan.setSwapper.selector;
-
-        vm.startPrank(admin);
-        manager.setTargetFunctionRole(address(loan), additionalSelectors, LPM_SLOW_ID());
-        vm.stopPrank();
     }
 
     /// @notice Unauthorized caller cannot call admin setter functions (expects AccessManagedUnauthorized)
@@ -42,13 +34,7 @@ contract AccessControlsTest is BaseLoanTest {
         vm.startPrank(attacker);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.setLoanVaultFactory(NEW_FACTORY);
-
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.setSwapper(NEW_SWAP_ADAPTER);
-
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
-        loan.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
+        loan.setBitmorAddressesProvider(NEW_FACTORY);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, attacker));
         loan.setGracePeriod(NEW_GRACE_PERIOD);
@@ -61,14 +47,20 @@ contract AccessControlsTest is BaseLoanTest {
 
     /// @notice LPM_SLOW role can call admin setters and updates are persisted
     function test_lpmSlow_adminSetters_updateState() public {
-        // Use _scheduleAndExecute with lpm_slow role for each setter
-        _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setLoanVaultFactory, (NEW_FACTORY))
-        );
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setSwapper, (NEW_SWAP_ADAPTER)));
+        // Deploy a new BitmorAddressesProvider to use as replacement
+        vm.startPrank(admin);
+        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        newProvider.setVaultFactory(NEW_FACTORY);
+        newProvider.setSwapper(NEW_SWAP_ADAPTER);
+        newProvider.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
+        vm.stopPrank();
 
+        // Use _scheduleAndExecute with lpm_slow role
         _scheduleAndExecute(
-            address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPremiumCollector, (NEW_PREMIUM_COLLECTOR))
+            address(loan),
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeCall(Loan.setBitmorAddressesProvider, (address(newProvider)))
         );
         _scheduleAndExecute(
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setGracePeriod, (NEW_GRACE_PERIOD))
@@ -77,9 +69,10 @@ contract AccessControlsTest is BaseLoanTest {
             address(loan), lpm_slow, LPM_SLOW_ID(), abi.encodeCall(Loan.setPreClosureFee, (NEW_PRE_CLOSURE_FEE))
         );
 
-        assertEq(loan.s_loanVaultFactory(), NEW_FACTORY);
-        assertEq(loan.s_swapper(), NEW_SWAP_ADAPTER);
-        assertEq(loan.getPremiumCollector(), NEW_PREMIUM_COLLECTOR);
+        assertEq(loan.getBitmorAddressesProvider(), address(newProvider));
+        assertEq(newProvider.getLoanVaultFactory(), NEW_FACTORY);
+        assertEq(newProvider.getSwapper(), NEW_SWAP_ADAPTER);
+        assertEq(newProvider.getPremiumCollector(), NEW_PREMIUM_COLLECTOR);
         assertEq(loan.getGracePeriod(), NEW_GRACE_PERIOD);
         assertEq(loan.getPreClosureFee(), NEW_PRE_CLOSURE_FEE);
     }
@@ -90,23 +83,7 @@ contract AccessControlsTest is BaseLoanTest {
             address(loan),
             lpm_slow,
             LPM_SLOW_ID(),
-            abi.encodeCall(Loan.setLoanVaultFactory, (address(0))),
-            abi.encodeWithSelector(Errors.ZeroAddress.selector)
-        );
-
-        _scheduleAndExpectRevert(
-            address(loan),
-            lpm_slow,
-            LPM_SLOW_ID(),
-            abi.encodeCall(Loan.setSwapper, (address(0))),
-            abi.encodeWithSelector(Errors.ZeroAddress.selector)
-        );
-
-        _scheduleAndExpectRevert(
-            address(loan),
-            lpm_slow,
-            LPM_SLOW_ID(),
-            abi.encodeCall(Loan.setPremiumCollector, (address(0))),
+            abi.encodeCall(Loan.setBitmorAddressesProvider, (address(0))),
             abi.encodeWithSelector(Errors.ZeroAddress.selector)
         );
     }

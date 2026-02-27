@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
@@ -123,12 +123,13 @@ library FlashLoanLogic {
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
-        uint256 maxAmountIn = ctx.swapper.calculateMaxAmountIn(
-            ctx.debtAsset, // tokenIn
-            ctx.btc, // tokenOut
-            btcAmount,
-            ctx.maxSlippage
-        );
+        uint256 maxAmountIn = ctx.swapper
+            .calculateMaxAmountIn(
+                ctx.debtAsset, // tokenIn
+                ctx.btc, // tokenOut
+                btcAmount,
+                ctx.maxSlippage
+            );
 
         if (maxAmountIn > totalSwapAmount) revert Errors.LessAmountForExactOutSwap();
 
@@ -240,9 +241,10 @@ library FlashLoanLogic {
 
             /// @dev Redeem bvBTC shares for cbBTC to Loan contract for fee deduction and flash loan repayment.
             /// CloseLoanLogic transfers remaining BTC/USDC to borrower after flash loan completes.
-            vars.btcAmtReceived = vars.lsa.redeemBTC(
-                ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
-            );
+            vars.btcAmtReceived = vars.lsa
+                .redeemBTC(
+                    ctx.collateralAsset, vars.collateralAmountWithdrawn, address(this), params.slippage_sharesToAsset
+                );
         }
         // ===============================================================
 
@@ -258,13 +260,14 @@ library FlashLoanLogic {
         // Approve SwapAdaptor to spend tokens
         IERC20(ctx.btc).forceApprove(ctx.swapper, vars.btcAmtToSwap);
 
-        vars.debtAssetAmtReceived = ctx.swapper.executeExactInSwap(
-            ctx.btc, //tokenIn
-            ctx.debtAsset, // tokenOut
-            vars.btcAmtToSwap, // amountIn
-            vars.minimumAcceptable,
-            address(this)
-        );
+        vars.debtAssetAmtReceived = ctx.swapper
+            .executeExactInSwap(
+                ctx.btc, //tokenIn
+                ctx.debtAsset, // tokenOut
+                vars.btcAmtToSwap, // amountIn
+                vars.minimumAcceptable,
+                address(this)
+            );
 
         if (vars.debtAssetAmtReceived < vars.totalFlashLoanBorrowedAmt) {
             revert Errors.InsufficientSwapOutput();

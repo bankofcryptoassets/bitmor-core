@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
@@ -279,10 +279,10 @@ contract MicroLiquidationTest is BaseLoanTest {
                 _executeMicroLiquidation(lsa);
 
                 _updateLiquidatorSnapshotAfter(state.liquidatorState);
-                state.totalDebtPaid +=
-                    state.liquidatorState.liquidatorDebtBefore - state.liquidatorState.liquidatorDebtAfter;
-                state.totalCollateralReceived +=
-                    state.liquidatorState.liquidatorCollateralAfter - state.liquidatorState.liquidatorCollateralBefore;
+                state.totalDebtPaid += state.liquidatorState.liquidatorDebtBefore
+                - state.liquidatorState.liquidatorDebtAfter;
+                state.totalCollateralReceived += state.liquidatorState.liquidatorCollateralAfter
+                - state.liquidatorState.liquidatorCollateralBefore;
                 state.monthsLiquidated++;
             }
         }

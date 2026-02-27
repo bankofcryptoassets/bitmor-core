@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
@@ -467,10 +467,7 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
     }
 
     /// @notice Sets up full liquidation without time warp (price drop only, loan not overdue)
-    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop)
-        internal
-        returns (uint256 liquidationType)
-    {
+    function _setupForFullLiquidationNoWarp(address lsa, uint256 priceDrop) internal returns (uint256 liquidationType) {
         _updateAddressesProviderBitmorLoan();
         _fundLiquidator();
         _dropOraclePrice(priceDrop);

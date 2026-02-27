@@ -18,7 +18,7 @@ interface ILoan {
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
      * @param loanAmount Total loan amount in USDC (6 decimals)
-     * @param btcAmount Amount of cbBTC collateral (8 decimals)
+     * @param btcAmount Target cbBTC amount (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
@@ -27,18 +27,6 @@ interface ILoan {
         uint256 loanAmount,
         uint256 btcAmount,
         bytes data
-    );
-
-    /**
-     * @notice Emitted when a loan's status changes
-     * @param lsa Address of the Loan Specific Address
-     * @param oldStatus Previous loan status
-     * @param newStatus New loan status
-     */
-    event Loan__LoanStatusUpdated(
-        address indexed lsa,
-        DataTypes.LoanStatus indexed oldStatus,
-        DataTypes.LoanStatus indexed newStatus
     );
 
     /**
@@ -52,6 +40,19 @@ interface ILoan {
      * @param lsa Address of the closed Loan Specific Address
      */
     event Loan__ClosedLoan(address indexed lsa);
+
+    /**
+     * @notice Emitted when a loan is completed.
+     * @param lsa Address of the completed Loan Specific Address
+     */
+    event Loan__Completed(address indexed lsa);
+
+    /// @notice Emitted when a loan is completed with negligible dust debt remaining
+    /// @dev Dust debt arises from Aave V2 rayMul/rayDiv rounding during repayment.
+    ///      Amount is bounded by `Constants.DEBT_DUST_THRESHOLD` (10 wei).
+    /// @param lsa Address of the Loan Specific Address
+    /// @param dustAmount Amount of residual debt in wei
+    event Loan__DustDebtAbsorbed(address indexed lsa, uint256 dustAmount);
 
     /**
      * @notice Emitted when the LoanVaultFactory address is updated
@@ -95,12 +96,6 @@ interface ILoan {
     event Loan__LoanDataForFullLiquidationUpdated(address indexed lsa);
 
     /**
-     * @notice Emitted when a loan is completed (all payments made or final micro-liquidation)
-     * @param lsa Address of the Loan Specific Address
-     */
-    event Loan__Completed(address indexed lsa);
-
-    /**
      * @notice Emitted when the insurance ID for a loan is updated
      * @param lsa Address of the Loan Specific Address
      * @param insuranceID New insurance ID assigned to the loan
@@ -138,14 +133,14 @@ interface ILoan {
     event Loan__SlippageForSwapUpdated(uint256 indexed newSlippage);
 
     /**
-     * @notice Emitted when the maximum BTC collateral amount is updated
-     * @param newMaxBTCAmount New maximum BTC amount (8 decimals)
+     * @notice Emitted when the maximum cbBTC amount is updated
+     * @param newMaxBTCAmount New maximum cbBTC amount (8 decimals)
      */
     event Loan__MaxBTCAmountUpdated(uint256 indexed newMaxBTCAmount);
 
     /**
-     * @notice Emitted when the minimum BTC collateral amount is updated
-     * @param newMinBTCAmount New minimum BTC amount (8 decimals)
+     * @notice Emitted when the minimum cbBTC amount is updated
+     * @param newMinBTCAmount New minimum cbBTC amount (8 decimals)
      */
     event Loan__MinBTCAmountUpdated(uint256 indexed newMinBTCAmount);
 
@@ -167,11 +162,41 @@ interface ILoan {
      */
     event Loan__LiquidationFeeCollectorUpdated(address indexed newLiquidationFeeCollector);
 
+    /**
+     * @notice Emitted when the maximum loan duration is updated
+     * @param newMaxDuration New maximum duration in months
+     */
+    event Loan__MaxDurationUpdated(uint256 indexed newMaxDuration);
+
+    /**
+     * @notice Emitted when a borrower successfully claims surplus collateral after liquidation or completion
+     * @param lsa Address of the Loan Specific Address
+     * @param borrower Address of the borrower who received the collateral
+     * @param assetsClaimed Amount of assets claimed by the borrower
+     */
+    event Loan__SurplusCollateralClaimed(
+        address indexed lsa,
+        address indexed borrower,
+        uint256 assetsClaimed
+    );
+
+    event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
+
     // ============ Main Functions ============
 
     /**
      * @notice Initializes a new loan with `depositAmount` USDC deposit
-     * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow
+     * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow.
+     *
+     * Initialization invariants:
+     * - MUST be called by an account with the `EXECUTOR` role only
+     * - MUST NOT allow re-initialization of an existing LSA; each LoanVault is one-loan-only
+     * - MUST deploy a new LoanVault via the factory, and that vault MUST NOT have been previously initialized
+     * - MUST set `loanData.status` to `Active` for the newly created LSA
+     * - MUST revert if `depositAmount` or `btcAmount` is zero
+     * - MUST revert if `duration` is zero or exceeds `s_maxDuration`
+     * - MUST revert if `btcAmount` is outside `[s_minBTCAmt, s_maxBTCAmt]`
+     *
      * @param depositAmount USDC deposit amount (6 decimals)
      * @param premiumAmount USDC premium amount (6 decimals)
      * @param btcAmount Target cbBTC amount user wants to achieve (8 decimals)
@@ -190,6 +215,10 @@ interface ILoan {
 
     /**
      * @notice Updates the `insuranceID` for a given `lsa`
+     * @dev Insurance ID invariants:
+     * - MUST be called by an account with the `EXECUTOR` role only
+     * - MUST revert if the loan does not exist for the given `lsa`
+     *
      * @param lsa The LSA address
      * @param insuranceID New insurance ID for the `lsa`
      * @dev Access: Restricted to `EXECUTOR` role
@@ -199,17 +228,15 @@ interface ILoan {
     /**
      * @notice Updates the LoanData for a specific `_lsa` in case of micro liquidation
      * @dev Reduces the loan `duration` by 1 and updates `lastPaymentTimestamp` to `block.timestamp`.
-     * Only called when `duration > 1`. For the final period (`duration == 1`),
-     * use `updateLoanForMicroLiquidationCompletion` instead.
-     * Access: Restricted to `LPCM` role.
      * @param _lsa The Loan Specific Address
+     * @dev Access: Restricted to `LPCM` role
      */
     function updateLoanDataForMicroLiquidation(address _lsa) external;
 
     /**
      * @notice Completes a micro-liquidation for `_lsa` when `duration == 1`
      * @dev Sets `duration` to 0, `status` to `LoanStatus.Completed`, and updates `lastPaymentTimestamp`.
-     * Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @dev Access: Restricted to `LPCM` role
      */
@@ -217,7 +244,8 @@ interface ILoan {
 
     /**
      * @notice Updates the LoanData for a specific `_lsa` in case of full liquidation
-     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp` to `block.timestamp`.
+     * @dev Sets `duration` to 0, `status` to `LoanStatus.Liquidated`, and updates `lastPaymentTimestamp`.
+     *      Surplus collateral (if any) must be claimed separately by the borrower via `claimSurplusCollateral`.
      * @param _lsa The Loan Specific Address
      * @dev Access: Restricted to `LPCM` role
      */
@@ -282,7 +310,15 @@ interface ILoan {
 
     /**
      * @notice Allows borrower to repay their loan with `amount` USDC
-     * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp)
+     * @dev Repays debt on Aave V2 and updates loan state (loanAmount, lastPaymentTimestamp, nextDueTimestamp).
+     *
+     * Repayment invariants:
+     * - MUST reduce outstanding debt; can never increase it
+     * - MUST cap: `finalAmountRepaid` = min(`amount`, `getVDTTokenAmount(lsa)`)
+     * - MUST revert if loan status is `Completed` or `Liquidated`
+     * - MUST NOT allow repayment on any loan that is not `Active`
+     * - MUST refund excess payment (amount pulled minus amount actually repaid) to the caller
+     *
      * @param lsa The Loan Specific Address
      * @param amount Amount of USDC to repay (6 decimals)
      * @return finalAmountRepaid The actual amount repaid
@@ -291,41 +327,34 @@ interface ILoan {
 
     /**
      * @notice Close the debt position of the `lsa` using flash loan and send the collateral asset or debt asset (as requested)
-     * @dev Withdraws from escrow where excess collateral is locked
+     * @dev Withdraws from escrow where excess collateral is locked.
+     *
+     * Close-loan invariants:
+     * - MUST verify caller is `loanData.borrower`; only the borrower can close their own loan
+     * - MUST revert if loan status is not `Active`
+     * - Borrower MUST be able to close the loan at any time by paying the remaining debt (plus fees)
+     * - MUST transfer remaining collateral (or equivalent debt asset) to the borrower after debt repayment
+     *
      * @param lsa The Loan Specific Address
-     * @param withdrawInBTC If true, the collateral asset will be transfered to the `loan.borrower` else collateral value worth of debt asset will be transferred.
+     * @param withdrawInBTC If true, the underlying cbBTC will be transferred to the `loan.borrower` else collateral value worth of debt asset will be transferred.
      */
     function closeLoan(address lsa, bool withdrawInBTC) external;
+
+    /**
+     * @notice Allows the borrower to claim surplus collateral after liquidation or micro-liquidation completion
+     * @dev Only callable by the loan's borrower when loan is no longer Active (i.e., Liquidated or Completed).
+     *      Withdraws aToken collateral from the Bitmor Lending Pool, redeems bvBTC shares, and transfers
+     *      the underlying cbBTC to the borrower. Reverts if outstanding debt exists or no collateral remains.
+     * @param _lsa The Loan Specific Address with surplus collateral
+     * @return assetsClaimed The amount of assets claimed by the borrower
+     */
+    function claimSurplusCollateral(address _lsa) external returns (uint256 assetsClaimed);
 
     // ============ Admin Functions ============
 
     /**
-     * @notice Updates the loan vault factory address
-     * @param newFactory New factory address
-     * @dev Access: Restricted to `LPM_SLOW` role
-     */
-    function setLoanVaultFactory(address newFactory) external;
-
-    /**
-     * @notice Updates the swapper contract address
-     * @param newSwapper New swapper address
-     * @dev Access: Restricted to `LPM_SLOW` role
-     */
-    function setSwapper(address newSwapper) external;
-
-    /**
-     * @notice Updates the premium collector address
-     * @param newPremiumCollector New premium collector address
-     * @dev Access: Restricted to `LPM_SLOW` role
-     */
-    function setPremiumCollector(address newPremiumCollector) external;
-
-    /// @notice Returns the `s_premiumCollector` address.
-    /// @return premiumCollector The premium collector address
-    function getPremiumCollector() external view returns (address premiumCollector);
-
-    /**
      * @notice Updates the grace period for monthly payment overdue checks
+     * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
      * @dev Access: Restricted to `LPM_SLOW` role
      */
@@ -345,6 +374,7 @@ interface ILoan {
 
     /**
      * @notice Updates the pre-closure fee
+     * @dev Reverts with `InvalidFee` if `newFee` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newFee New pre-closure fee in basis points
      * @dev Access: Restricted to `LPM_SLOW` role
      */
@@ -368,6 +398,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for `bvBTC` shares-to-asset conversion
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @dev Access: Restricted to `LPM_SLOW` role
      */
@@ -379,6 +410,7 @@ interface ILoan {
 
     /**
      * @notice Updates the slippage tolerance for token swaps
+     * @dev Reverts with `InvalidSlippage` if `newSlippage` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newSlippage New slippage value in basis points
      * @dev Access: Restricted to `LPM_SLOW` role
      */
@@ -389,26 +421,26 @@ interface ILoan {
     function getSlippageForSwap() external view returns (uint256);
 
     /**
-     * @notice Updates the maximum BTC collateral amount
+     * @notice Updates the maximum cbBTC amount
      * @dev Reverts if `newMaxBTCAmt` is less than the current minimum
-     * @param newMaxBTCAmt New maximum BTC amount (8 decimals)
+     * @param newMaxBTCAmt New maximum cbBTC amount (8 decimals)
      * @dev Access: Restricted to `LPM_SLOW` role
      */
     function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
 
     /// @notice Returns the `s_maxBTCAmt` value (8 decimals).
-    /// @return The maximum BTC collateral amount
+    /// @return The maximum cbBTC amount
     function getMaxBTCAmount() external view returns (uint256);
 
     /**
-     * @notice Updates the minimum BTC collateral amount
-     * @param newMinBTCAmt New minimum BTC amount (8 decimals)
+     * @notice Updates the minimum cbBTC amount
+     * @param newMinBTCAmt New minimum cbBTC amount (8 decimals)
      * @dev Access: Restricted to `LPM_SLOW` role
      */
     function setMinBTCAmount(uint256 newMinBTCAmt) external;
 
     /// @notice Returns the `s_minBTCAmt` value (8 decimals).
-    /// @return The minimum BTC collateral amount
+    /// @return The minimum cbBTC amount
     function getMinBTCAmount() external view returns (uint256);
 
     /// @notice Returns the `s_minDeposit` value in basis points.
@@ -417,6 +449,7 @@ interface ILoan {
 
     /**
      * @notice Updates the minimum deposit percentage
+     * @dev Reverts with `InvalidInputs` if `newMinDepositBps` >= `BASIS_POINT_SCALE` (10000 bps)
      * @param newMinDepositBps New minimum deposit in basis points
      * @dev Access: Restricted to `LPM_SLOW` role
      */
@@ -434,14 +467,19 @@ interface ILoan {
     /// @return The current liquidation fee in basis points
     function getLiquidationFeeBps() external view returns (uint256);
 
-    /// @notice Returns the `s_liquidationFeeCollector` address.
-    /// @return The address that receives liquidation fees
-    function getLiquidationFeeCollector() external view returns (address);
-
     /**
-     * @notice Updates the liquidation fee collector address
-     * @param newFeeCollector New liquidation fee collector address
+     * @notice Updates the maximum allowed loan duration
+     * @dev Reverts if `newMaxDuration` is zero
+     * @param newMaxDuration New maximum duration in months
      * @dev Access: Restricted to `LPM_SLOW` role
      */
-    function setLiquidationFeeCollector(address newFeeCollector) external;
+    function setMaxDuration(uint256 newMaxDuration) external;
+
+    /// @notice Returns the `s_maxDuration` value in months.
+    /// @return The maximum loan duration in months
+    function getMaxDuration() external view returns (uint256);
+
+    function setBitmorAddressesProvider(address newBitmorAddressesProvider) external;
+
+    function getBitmorAddressesProvider() external view returns (address);
 }

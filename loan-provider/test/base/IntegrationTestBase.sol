@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BitmorTestBase} from "./BitmorTestBase.sol";
@@ -16,6 +16,8 @@ import {USDCVault} from "@usdcVault/USDCVault.sol";
 
 // Interfaces
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 // Mocks (for minting and oracle manipulation on deployed mock contracts)
 import {MintableERC20} from "../mock/MintableERC20.sol";
 import {MockChainlinkOracle} from "../mock/MockChainlinkOracle.sol";
@@ -40,6 +42,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     address public bitmorPool;
     address public addressesProvider;
     address public swapper;
+    BitmorAddressesProvider public bitmorAddressesProvider;
 
     // Tokens
     IERC20 public cbBTC;
@@ -109,6 +112,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         addressesProvider = config.getAddressesProvider();
         loanVaultFactory = LoanVaultFactory(config.getLoanVaultFactory());
         swapper = config.getSwapper();
+        bitmorAddressesProvider = BitmorAddressesProvider(config.getBitmorAddressesProvider());
 
         // Vaults
         btcVault = BTCVault(config.getBTCVault());
@@ -274,7 +278,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     ///      our own protocol contracts (e.g., LendingPool, Loan), which should use real deployments.
     function _dropOraclePrice(uint256 dropPercent) internal {
         (, int256 currentPrice,,,) = btcOracle.latestRoundData();
-        int256 newPrice = currentPrice * int256(100 - dropPercent) / 100;
+        int256 newPrice = (currentPrice * int256(100 - dropPercent)) / 100;
         btcOracle.updateAnswer(newPrice);
     }
 
@@ -475,7 +479,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         address aToken = abi.decode(data, (address));
         uint256 currentBalance = IERC20(aToken).balanceOf(strategy);
         require(currentBalance > 0, "strategy must have deposits before simulating yield");
-        uint256 yieldAmount = currentBalance * yieldBps / 10_000;
+        uint256 yieldAmount = (currentBalance * yieldBps) / 10_000;
         deal(aToken, strategy, currentBalance + yieldAmount);
     }
 
@@ -489,7 +493,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         require(ok, "getReserveAToken failed");
         address aToken = abi.decode(data, (address));
         uint256 currentBalance = IERC20(aToken).balanceOf(strategy);
-        uint256 lossAmount = currentBalance * lossBps / 10_000;
+        uint256 lossAmount = (currentBalance * lossBps) / 10_000;
         deal(aToken, strategy, currentBalance - lossAmount);
     }
 
@@ -674,10 +678,10 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             address(loanContract), admin, LPM_SLOW_ID(), abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
         );
         _scheduleAndExecute(
-            address(loanContract),
+            address(bitmorAddressesProvider),
             admin,
             LPM_SLOW_ID(),
-            abi.encodeCall(loanContract.setLiquidationFeeCollector, (collector))
+            abi.encodeCall(bitmorAddressesProvider.setLiquidationFeeCollector, (collector))
         );
     }
 

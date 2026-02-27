@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -16,6 +16,7 @@ contract LiquidationTriggersTest is IntegrationTestBase {
     uint256 constant VAULT_YIELD_20_PERCENT = 2000;
     uint256 constant VAULT_LOSS_30_PERCENT = 3000;
     uint256 constant VAULT_LOSS_40_PERCENT = 4000;
+
     // ============ Setup ============
 
     function setUp() public override {

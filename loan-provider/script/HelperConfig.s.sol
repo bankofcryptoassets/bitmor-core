@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {stdJson} from "forge-std/StdJson.sol";
@@ -235,6 +235,19 @@ contract HelperConfig is Script {
         return _readDeployment("loan");
     }
 
+    /// @notice Returns the deployed BitmorAddressesProvider address
+    /// @return The BitmorAddressesProvider address from most recent deployment
+    function getBitmorAddressesProvider() public view returns (address) {
+        return _readDeployment("bitmorAddressesProvider");
+    }
+
+    /// @notice Returns the deployed AutoRepayment contract address
+    /// @dev This is the address to configure as autoRepayer in BitmorAddressesProvider
+    /// @return The AutoRepayment contract address from deployments.json
+    function getAutoRepayer() public view returns (address) {
+        return _readDeployment("autoRepayment");
+    }
+
     /// @notice Returns the deployed BTCVault address
     /// @return The BTCVault proxy address from most recent deployment
     function getBTCVault() public view returns (address) {
@@ -326,9 +339,10 @@ contract HelperConfig is Script {
     /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
     /// @return The absolute path to the broadcast directory
     function getBroadcastPath(string memory scriptName) public view returns (string memory) {
-        return string.concat(
-            vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
-        );
+        return
+            string.concat(
+                vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+            );
     }
 
     function getLoanConfig()

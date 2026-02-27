@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -22,8 +22,6 @@ contract LoanContract is BaseLoanTest {
         address collateralAsset;
         address debtAsset;
         address btc;
-        address swapper;
-        address premiumCollector;
         uint256 preClosureFeeBps;
         uint256 gracePeriod;
     }
@@ -38,8 +36,6 @@ contract LoanContract is BaseLoanTest {
         p.collateralAsset = collateralAsset; // mockBTCVault
         p.debtAsset = debtAsset; // mockUSDC
         p.btc = btc; // mockCbBTC
-        p.swapper = address(mockSwapAdapter);
-        p.premiumCollector = premiumCollector;
         p.preClosureFeeBps = config.getPreClosureFee();
         p.gracePeriod = config.getGracePeriod();
     }
@@ -134,18 +130,9 @@ contract LoanContract is BaseLoanTest {
         uint256 preClosureFeeBps = config.getPreClosureFee();
         uint256 gracePeriod = config.getGracePeriod();
 
-        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc, 6=swapper, 7=premiumCollector
-        for (uint256 i = 0; i < 8; i++) {
-            address[8] memory params = [
-                p.aaveV3Pool,
-                p.bitmorPool,
-                p.oracle,
-                p.collateralAsset,
-                p.debtAsset,
-                p.btc,
-                p.swapper,
-                p.premiumCollector
-            ];
+        // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc
+        for (uint256 i = 0; i < 6; i++) {
+            address[6] memory params = [p.aaveV3Pool, p.bitmorPool, p.oracle, p.collateralAsset, p.debtAsset, p.btc];
 
             params[i] = address(0);
 
@@ -159,8 +146,6 @@ contract LoanContract is BaseLoanTest {
                 params[3], // collateralAsset
                 params[4], // debtAsset
                 params[5], // btc
-                params[6], // swapper
-                params[7], // premiumCollector
                 preClosureFeeBps,
                 gracePeriod
             );
@@ -181,8 +166,6 @@ contract LoanContract is BaseLoanTest {
             p.collateralAsset,
             p.debtAsset,
             p.btc,
-            p.swapper,
-            p.premiumCollector,
             p.preClosureFeeBps,
             p.gracePeriod
         );
@@ -202,8 +185,6 @@ contract LoanContract is BaseLoanTest {
             p.collateralAsset,
             p.debtAsset,
             p.btc,
-            p.swapper,
-            p.premiumCollector,
             TC.BASIS_POINT_SCALE, // _preClosureFeeBps == BASIS_POINT_SCALE
             p.gracePeriod
         );
@@ -223,8 +204,6 @@ contract LoanContract is BaseLoanTest {
             p.collateralAsset,
             p.debtAsset,
             p.btc,
-            p.swapper,
-            p.premiumCollector,
             p.preClosureFeeBps,
             TC.MAX_GRACE_PERIOD + 1 // _gracePeriod > MAX_GRACE_PERIOD
         );

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
@@ -238,7 +238,9 @@ contract SaveDeployedAddresses is Script {
             string.concat(
                 vm.projectRoot(), "/broadcast/DeployMockTokens.s.sol/", vm.toString(block.chainid), "/run-latest.json"
             )
-        ) returns (string memory) {
+        ) returns (
+            string memory
+        ) {
             // File exists, try to get the deployment
             return DevOpsTools.get_most_recent_deployment(contractName, block.chainid);
         } catch {

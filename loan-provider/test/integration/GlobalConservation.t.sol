@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
@@ -20,7 +20,7 @@ contract GlobalConservationTest is IntegrationTestBase {
 
     function setUp() public override {
         super.setUp();
-        feeCollector = loanContract.getPremiumCollector();
+        feeCollector = bitmorAddressesProvider.getPremiumCollector();
     }
 
     // ============ Conservation Helpers ============

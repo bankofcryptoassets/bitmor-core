@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {DataTypes} from "../libraries/types/DataTypes.sol";
+import { DataTypes } from "../libraries/types/DataTypes.sol";
 
 /**
  * @title ILoan
@@ -21,17 +21,11 @@ interface ILoan {
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 btcAmount, bytes data
-    );
-
-    /**
-     * @notice Emitted when a loan's status changes
-     * @param lsa Address of the Loan Specific Address
-     * @param oldStatus Previous loan status
-     * @param newStatus New loan status
-     */
-    event Loan__LoanStatusUpdated(
-        address indexed lsa, DataTypes.LoanStatus indexed oldStatus, DataTypes.LoanStatus indexed newStatus
+        address indexed borrower,
+        address indexed lsa,
+        uint256 loanAmount,
+        uint256 btcAmount,
+        bytes data
     );
 
     /**
@@ -89,7 +83,10 @@ interface ILoan {
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
      */
-    event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
+    event Loan__LoanDataForMicroLiquidationUpdated(
+        address indexed lsa,
+        uint256 indexed newDuration
+    );
 
     /**
      * @notice Emitted when loan data is updated after a full liquidation
@@ -182,7 +179,13 @@ interface ILoan {
      * @param borrower Address of the borrower who received the collateral
      * @param assetsClaimed Amount of assets claimed by the borrower
      */
-    event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
+    event Loan__SurplusCollateralClaimed(
+        address indexed lsa,
+        address indexed borrower,
+        uint256 assetsClaimed
+    );
+
+    event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
 
     // ============ Main Functions ============
 
@@ -303,7 +306,10 @@ interface ILoan {
      * @param deposit The deposit amount in USDC (6 decimals)
      * @return strikePrice Strike price in USD (8 decimals)
      */
-    function calculateStrikePrice(uint256 loanAmount, uint256 deposit) external view returns (uint256 strikePrice);
+    function calculateStrikePrice(
+        uint256 loanAmount,
+        uint256 deposit
+    ) external view returns (uint256 strikePrice);
 
     // ============ User Actions ============
 
@@ -352,31 +358,6 @@ interface ILoan {
     // ============ Admin Functions ============
 
     /**
-     * @notice Updates the loan vault factory address
-     * @param newFactory New factory address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setLoanVaultFactory(address newFactory) external;
-
-    /**
-     * @notice Updates the swapper contract address
-     * @param newSwapper New swapper address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setSwapper(address newSwapper) external;
-
-    /**
-     * @notice Updates the premium collector address
-     * @param newPremiumCollector New premium collector address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setPremiumCollector(address newPremiumCollector) external;
-
-    /// @notice Returns the `s_premiumCollector` address.
-    /// @return premiumCollector The premium collector address
-    function getPremiumCollector() external view returns (address premiumCollector);
-
-    /**
      * @notice Updates the grace period for monthly payment overdue checks
      * @dev Reverts with `InvalidInputs` if `gracePeriod` > `MAX_GRACE_PERIOD` (45 days)
      * @param gracePeriod New grace period in seconds
@@ -412,7 +393,10 @@ interface ILoan {
      * @return monthlyPayment Estimated monthly payment amount in USDC (6 decimals)
      * @return minDepositRequired Minimum deposit required in USDC to initialize loan (6 decimals)
      */
-    function getLoanDetails(uint256 btcAmount, uint256 duration)
+    function getLoanDetails(
+        uint256 btcAmount,
+        uint256 duration
+    )
         external
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired);
@@ -488,10 +472,6 @@ interface ILoan {
     /// @return The current liquidation fee in basis points
     function getLiquidationFeeBps() external view returns (uint256);
 
-    /// @notice Returns the `s_liquidationFeeCollector` address.
-    /// @return The address that receives liquidation fees
-    function getLiquidationFeeCollector() external view returns (address);
-
     /**
      * @notice Updates the maximum allowed loan duration
      * @dev Reverts if `newMaxDuration` is zero
@@ -505,13 +485,6 @@ interface ILoan {
     function getMaxDuration() external view returns (uint256);
 
     /**
-     * @notice Updates the liquidation fee collector address
-     * @param newFeeCollector New liquidation fee collector address
-     * @custom:access Restricted to `LPM_SLOW` role
-     */
-    function setLiquidationFeeCollector(address newFeeCollector) external;
-
-    /**
      * @notice Updates the maximum oracle staleness threshold
      * @dev Set to 0 to disable staleness checks (default)
      * @param newMaxOracleStaleness New maximum staleness in seconds
@@ -522,4 +495,8 @@ interface ILoan {
     /// @notice Returns the `s_maxOracleStaleness` value in seconds.
     /// @return The maximum oracle staleness threshold (0 = disabled)
     function getMaxOracleStaleness() external view returns (uint256);
+
+    function setBitmorAddressesProvider(address newBitmorAddressesProvider) external;
+
+    function getBitmorAddressesProvider() external view returns (address);
 }

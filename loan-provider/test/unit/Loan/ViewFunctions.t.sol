@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -21,7 +21,7 @@ contract ViewFunctionsTest is BaseLoanTest {
         // Verify addresses against known mock addresses
         assertEq(loan.getCollateralAsset(), address(mockBTCVault), "Collateral asset mismatch");
         assertEq(loan.getDebtAsset(), address(mockUSDC), "Debt asset mismatch");
-        assertEq(loan.getPremiumCollector(), premiumCollector, "Premium collector mismatch");
+        assertEq(bitmorAddressesProvider.getPremiumCollector(), premiumCollector, "Premium collector mismatch");
 
         // Verify against exact config values from HelperConfig
         assertEq(loan.getGracePeriod(), config.getGracePeriod(), "Grace period should match config");
@@ -44,7 +44,9 @@ contract ViewFunctionsTest is BaseLoanTest {
         // Verify liquidation fee defaults (uninitialized = 0)
         assertEq(loan.getLiquidationFeeBps(), 0, "Liquidation fee should default to 0");
         assertEq(
-            loan.getLiquidationFeeCollector(), address(0), "Liquidation fee collector should default to address(0)"
+            bitmorAddressesProvider.getLiquidationFeeCollector(),
+            address(0),
+            "Liquidation fee collector should default to address(0)"
         );
     }
 

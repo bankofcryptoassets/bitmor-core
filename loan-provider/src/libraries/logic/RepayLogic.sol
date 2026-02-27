@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
@@ -69,6 +69,7 @@ library RepayLogic {
         address bitmorPool,
         address debtAsset,
         address collateralAsset,
+        address autoRepayer,
         DataTypes.ExecuteRepayParams memory params,
         mapping(address => DataTypes.LoanData) storage loansByLSA
     ) internal returns (uint256 finalAmountRepaid) {
@@ -80,6 +81,9 @@ library RepayLogic {
         DataTypes.LoanData storage loan = loansByLSA[params.lsa];
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
+        if (loan.borrower != msg.sender && msg.sender != autoRepayer) {
+            revert Errors.UnauthorizedCaller();
+        }
         if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
         uint256 totalDebt = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);

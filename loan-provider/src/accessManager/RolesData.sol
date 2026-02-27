@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {ILoan} from "../interfaces/ILoan.sol";
@@ -54,7 +54,7 @@ contract RolesData {
 
     /// @notice Initial admin address for the AccessManager deployment
     /// @dev This address gets the ADMIN role (0) and can grant all other roles
-    //! TODO: Verify this admin address is correct for production deployment
+    //! TODO: For production, every role will have its own address.
     address public constant INITIAL_ADMIN = 0x2Acdf6a2f893687CcD341a1Ad7e27102b665d8c4;
 
     /// @notice Standard time delay of 1 day for sensitive operations
@@ -418,22 +418,19 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](15);
-        selectors[0] = ILoan.setLoanVaultFactory.selector;
-        selectors[1] = ILoan.setPremiumCollector.selector;
-        selectors[2] = ILoan.setGracePeriod.selector;
-        selectors[3] = ILoan.setPreClosureFee.selector;
-        selectors[4] = bytes4(keccak256("unpause()"));
-        selectors[5] = ILoan.setMaxBTCAmount.selector;
-        selectors[6] = ILoan.setMinBTCAmount.selector;
-        selectors[7] = ILoan.setSlippageForSwap.selector;
-        selectors[8] = ILoan.setSlippageForSharesToAsset.selector;
-        selectors[9] = ILoan.setMinDepositBps.selector;
-        selectors[10] = ILoan.setLiquidationFeeBps.selector;
-        selectors[11] = ILoan.setLiquidationFeeCollector.selector;
-        selectors[12] = ILoan.setSwapper.selector;
-        selectors[13] = ILoan.setMaxDuration.selector;
-        selectors[14] = ILoan.setMaxOracleStaleness.selector;
+        selectors = new bytes4[](11);
+
+        selectors[0] = ILoan.setGracePeriod.selector;
+        selectors[1] = ILoan.setPreClosureFee.selector;
+        selectors[2] = bytes4(keccak256("unpause()"));
+        selectors[3] = ILoan.setMaxBTCAmount.selector;
+        selectors[4] = ILoan.setMinBTCAmount.selector;
+        selectors[5] = ILoan.setSlippageForSwap.selector;
+        selectors[6] = ILoan.setSlippageForSharesToAsset.selector;
+        selectors[7] = ILoan.setMinDepositBps.selector;
+        selectors[8] = ILoan.setLiquidationFeeBps.selector;
+        selectors[9] = ILoan.setMaxDuration.selector;
+        selectors[10] = ILoan.setBitmorAddressesProvider.selector;
     }
 
     /// @notice Returns function selectors for ARE role

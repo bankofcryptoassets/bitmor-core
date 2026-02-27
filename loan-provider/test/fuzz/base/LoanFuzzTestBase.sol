@@ -10,6 +10,7 @@ import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 // Mock contracts
@@ -44,6 +45,9 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
     /// @notice LoanVault implementation address used by the factory
     address public loanVaultImplementation;
 
+    /// @notice BitmorAddressesProvider registry for swapper, premiumCollector, etc.
+    BitmorAddressesProvider public bitmorAddressesProvider;
+
     // ============ Test Actors ============
 
     /// @notice Primary test user (borrower) for loan operations
@@ -54,6 +58,9 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
 
     /// @notice Address that receives loan premiums
     address public premiumCollector;
+
+    /// @notice Address of the auto repayer
+    address public autoRepayer;
 
     // ============ Mock Infrastructure ============
 
@@ -115,6 +122,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
         // Create test actors BEFORE initializing AccessManager
         user = makeAddr("user");
         liquidator = makeAddr("liquidator");
+        autoRepayer = makeAddr("autoRepayer");
 
         // Initialize AccessManager with test contract as admin (matching vault fuzz base pattern)
         _initializeAccessManager(address(this));
@@ -265,7 +273,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
         mockUSDC.mint(address(mockAavePool), TC.LENDING_POOL_USDC_BALANCE);
     }
 
-    /// @notice Deploys the real Loan contract and LoanVaultFactory
+    /// @notice Deploys the real Loan contract, LoanVaultFactory, and BitmorAddressesProvider
     function _deployLoanInfrastructure() internal {
         loanVaultImplementation = address(new LoanVault());
 
@@ -278,14 +286,19 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
             address(mockBTCVault),
             address(mockUSDC),
             address(mockCbBTC),
-            address(mockSwapAdapter),
-            premiumCollector,
             config.getPreClosureFee(),
             config.getGracePeriod()
         );
 
         loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
-        loan.setLoanVaultFactory(address(loanVaultFactory));
+
+        bitmorAddressesProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        bitmorAddressesProvider.setVaultFactory(address(loanVaultFactory));
+        bitmorAddressesProvider.setSwapper(address(mockSwapAdapter));
+        bitmorAddressesProvider.setPremiumCollector(premiumCollector);
+        bitmorAddressesProvider.setAutoRepayer(autoRepayer);
+        loan.setBitmorAddressesProvider(address(bitmorAddressesProvider));
+
         loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
 
         // Register loan in addresses provider

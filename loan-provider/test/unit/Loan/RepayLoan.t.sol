@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -638,5 +638,47 @@ contract RepayLoanTest is BaseLoanTest {
         );
 
         mockBitmorPool.setRepaymentShortfall(0);
+    }
+
+    // ============ Authorization Tests (vuln-124) ============
+
+    /// @notice Non-borrower cannot repay another user's loan
+    function test_repay_RevertWhen_CallerIsNotBorrower() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+        address nonBorrower = makeAddr("nonBorrower");
+
+        _fundUSDC(nonBorrower, loanData.estimatedMonthlyPayment);
+        vm.prank(nonBorrower);
+        IERC20(address(mockUSDC)).approve(address(loan), loanData.estimatedMonthlyPayment);
+
+        vm.prank(nonBorrower);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
+        loan.repay(lsa, loanData.estimatedMonthlyPayment);
+    }
+
+    /// @notice AutoRepayer address can call repay on behalf of borrower
+    /// @dev RepayLogic allows `msg.sender == autoRepayer` as an alternative to being the borrower
+    function test_repay_SucceedsWhen_CallerIsAutoRepayer() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        _fundUSDC(autoRepayer, loanData.estimatedMonthlyPayment);
+        vm.prank(autoRepayer);
+        IERC20(address(mockUSDC)).approve(address(loan), loanData.estimatedMonthlyPayment);
+
+        vm.prank(autoRepayer);
+        uint256 repaid = loan.repay(lsa, loanData.estimatedMonthlyPayment);
+        assertGt(repaid, 0, "autoRepayer should successfully repay");
+    }
+
+    /// @notice Borrower can repay their own loan (sanity check for vuln-124 fix)
+    function test_repay_SucceedsWhen_CallerIsBorrower() public setUpLoanForUser {
+        address lsa = loan.getUserLoanAtIndex(user, 0);
+        DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
+
+        vm.prank(user);
+        uint256 repaid = loan.repay(lsa, loanData.estimatedMonthlyPayment);
+        assertGt(repaid, 0, "repaid amount should be positive");
     }
 }

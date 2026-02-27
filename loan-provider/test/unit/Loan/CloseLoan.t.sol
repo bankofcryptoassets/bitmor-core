@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {console2} from "forge-std/console2.sol";
@@ -186,8 +186,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
 
-        // Get premium collector address for fee verification
-        address premiumCollector = loan.getPremiumCollector();
+        // Get premium collector balance for fee verification
         uint256 collectorBalanceBefore = IERC20(btc).balanceOf(premiumCollector);
 
         // Record logs
@@ -222,9 +221,6 @@ contract CloseLoanTest is BaseLoanTest {
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
 
-        // Get premium collector address for fee verification
-        address premiumCollector = loan.getPremiumCollector();
-
         // Record logs
         vm.recordLogs();
 
@@ -257,7 +253,7 @@ contract CloseLoanTest is BaseLoanTest {
                 address(loan), // receiver
                 debtAsset, // asset
                 debtAmt // amount - the debt amount
-                    // params and referralCode are variable, so we only check the key parameters
+                // params and referralCode are variable, so we only check the key parameters
             )
         );
 

@@ -6,6 +6,7 @@ import {DeploymentHelper} from "../helpers/DeploymentHelper.s.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
 
 /// @title SchedulePhase3
@@ -29,6 +30,9 @@ contract SchedulePhase3 is Script, DeploymentHelper {
     address public loanVaultFactory;
     address public aaveStrategy;
     address public usdcStrategy;
+    address public bitmorAddressesProvider;
+    address public swapper;
+    address public autoRepayment;
 
     /// @notice Main entry point - schedules all timelocked operations
     function run() external {
@@ -59,6 +63,9 @@ contract SchedulePhase3 is Script, DeploymentHelper {
         loanVaultFactory = helperConfig.getLoanVaultFactory();
         aaveStrategy = helperConfig.getAaveTokenizedStrategy();
         usdcStrategy = helperConfig.getUSDCStrategy();
+        bitmorAddressesProvider = helperConfig.getBitmorAddressesProvider();
+        swapper = helperConfig.getSwapper();
+        autoRepayment = helperConfig.getAutoRepayer();
 
         console2.log("Loaded addresses from HelperConfig");
         console2.log("  AccessManager:", accessManager);
@@ -74,11 +81,24 @@ contract SchedulePhase3 is Script, DeploymentHelper {
             uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
 
         // LPM_SLOW Operations (Loan config) - use HelperConfig getters
-        manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())), when);
+
+        // BitmorAddressesProvider Operations
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory)), when
+        );
+        manager.schedule(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)), when);
+        manager.schedule(
+            bitmorAddressesProvider,
+            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (helperConfig.getPremiumCollector())),
+            when
+        );
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment)), when
+        );
 
         // Loan parameter configuration (required for loan creation to work)
         // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)

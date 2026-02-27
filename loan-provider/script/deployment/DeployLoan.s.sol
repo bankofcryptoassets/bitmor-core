@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
@@ -15,8 +15,6 @@ contract DeployLoan is Script {
         address collateralAsset;
         address debtAsset;
         address btc;
-        address swapper;
-        address premiumCollector;
         uint256 preClosureFee;
         uint256 gracePeriod;
     }
@@ -32,8 +30,6 @@ contract DeployLoan is Script {
             p.collateralAsset,
             p.debtAsset,
             p.btc,
-            p.swapper,
-            p.premiumCollector,
             p.preClosureFee,
             p.gracePeriod
         );
@@ -52,8 +48,6 @@ contract DeployLoan is Script {
                 collateralAsset: config.getCollateralAsset(),
                 debtAsset: config.getDebtAsset(),
                 btc: config.getCbBTC(),
-                swapper: config.getSwapper(),
-                premiumCollector: config.getPremiumCollector(),
                 preClosureFee: config.getPreClosureFee(),
                 gracePeriod: config.getGracePeriod()
             })

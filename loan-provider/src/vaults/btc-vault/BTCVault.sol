@@ -265,7 +265,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVA_FAST role
      */
     function reallocateFunds(DataTypes.Allocation[] calldata allocations) external restricted {
-        s_strategy.validateReallocateFunds(totalAssets(), i_asset);
+        s_strategy.validateReallocateFunds(allocations);
 
         _reallocateFunds(allocations);
 

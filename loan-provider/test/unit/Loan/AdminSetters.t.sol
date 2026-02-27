@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
@@ -7,6 +7,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 
 /// @title AdminSettersTest
 /// @author Bitmor Protocol
@@ -23,53 +24,51 @@ contract AdminSettersTest is BaseLoanTest {
 
     // ============ Address Setters Success ============
 
-    /// @notice Test successfully setting the LoanVaultFactory address
-    function test_setLoanVaultFactory() public {
-        address originalFactory = loan.s_loanVaultFactory();
+    /// @notice Test successfully setting the BitmorAddressesProvider address
+    function test_setBitmorAddressesProvider() public {
+        address originalProvider = loan.getBitmorAddressesProvider();
 
-        bytes memory data = abi.encodeWithSelector(Loan.setLoanVaultFactory.selector, newAddress);
+        // Deploy a new BitmorAddressesProvider to use as the new value
+        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+
+        bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(newProvider));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
-        assertEq(loan.s_loanVaultFactory(), newAddress, "LoanVaultFactory should be updated");
-        assertTrue(loan.s_loanVaultFactory() != originalFactory, "Should differ from original");
+        assertEq(loan.getBitmorAddressesProvider(), address(newProvider), "BitmorAddressesProvider should be updated");
+        assertTrue(loan.getBitmorAddressesProvider() != originalProvider, "Should differ from original");
     }
 
-    /// @notice Test successfully setting the PremiumCollector address
-    function test_setPremiumCollector() public {
-        address originalCollector = loan.getPremiumCollector();
+    /// @notice Test successfully setting the PremiumCollector via BitmorAddressesProvider
+    function test_setPremiumCollector_viaBitmorAddressesProvider() public {
+        address originalCollector = bitmorAddressesProvider.getPremiumCollector();
 
-        bytes memory data = abi.encodeWithSelector(Loan.setPremiumCollector.selector, newAddress);
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+        vm.prank(admin);
+        bitmorAddressesProvider.setPremiumCollector(newAddress);
 
-        assertEq(loan.getPremiumCollector(), newAddress, "PremiumCollector should be updated");
-        assertTrue(loan.getPremiumCollector() != originalCollector, "Should differ from original");
+        assertEq(bitmorAddressesProvider.getPremiumCollector(), newAddress, "PremiumCollector should be updated");
+        assertTrue(bitmorAddressesProvider.getPremiumCollector() != originalCollector, "Should differ from original");
     }
 
-    /// @notice Test successfully setting the liquidation fee collector address
-    function test_setLiquidationFeeCollector() public {
-        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeCollector.selector, newAddress);
-        _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
+    /// @notice Test successfully setting the liquidation fee collector via BitmorAddressesProvider
+    function test_setLiquidationFeeCollector_viaBitmorAddressesProvider() public {
+        vm.prank(admin);
+        bitmorAddressesProvider.setLiquidationFeeCollector(newAddress);
 
-        assertEq(loan.getLiquidationFeeCollector(), newAddress, "LiquidationFeeCollector should be updated");
+        assertEq(
+            bitmorAddressesProvider.getLiquidationFeeCollector(),
+            newAddress,
+            "LiquidationFeeCollector should be updated"
+        );
     }
 
     // ============ Address Setters Zero Address Reverts ============
 
-    /// @notice Test that address setters revert when given zero address
-    function test_addressSetters_RevertWhen_ZeroAddress() public {
-        // Only test setters that are assigned to LPM_SLOW role
-        bytes4[3] memory selectors = [
-            Loan.setLoanVaultFactory.selector,
-            Loan.setPremiumCollector.selector,
-            Loan.setLiquidationFeeCollector.selector
-        ];
-
-        for (uint256 i = 0; i < selectors.length; i++) {
-            bytes memory data = abi.encodeWithSelector(selectors[i], address(0));
-            _scheduleAndExpectRevert(
-                address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
-            );
-        }
+    /// @notice Test that setBitmorAddressesProvider reverts when given zero address
+    function test_setBitmorAddressesProvider_RevertWhen_ZeroAddress() public {
+        bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(0));
+        _scheduleAndExpectRevert(
+            address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
+        );
     }
 
     // ============ Uint256 Setters Success ============
@@ -293,16 +292,13 @@ contract AdminSettersTest is BaseLoanTest {
         vm.startPrank(user);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
-        loan.setLoanVaultFactory(newAddress);
+        loan.setBitmorAddressesProvider(newAddress);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setMinBTCAmount(TC.MIN_COLLATERAL);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setLiquidationFeeBps(TC.DEFAULT_LIQUIDATION_FEE_BPS);
-
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
-        loan.setLiquidationFeeCollector(newAddress);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setMaxDuration(60);

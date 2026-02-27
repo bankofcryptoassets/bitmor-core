@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: agpl-3.0
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
 import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
@@ -77,8 +77,8 @@ library SwapLogic {
         uint256 minAmountAcceptable,
         address recipient
     ) internal returns (uint256 amountOut) {
-        amountOut =
-            ISwapAdaptor(swapper).swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
+        amountOut = ISwapAdaptor(swapper)
+            .swapExactInput(tokenIn, tokenOut, exactAmountIn, minAmountAcceptable, recipient);
 
         /// @dev Slippage guard: MUST revert if received output is below the minimum acceptable
         if (minAmountAcceptable > amountOut) revert Errors.LessThanMinimumAmtReceived();
