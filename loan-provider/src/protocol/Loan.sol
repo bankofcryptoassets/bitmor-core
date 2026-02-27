@@ -17,6 +17,7 @@ import {Errors} from "../libraries/helpers/Errors.sol";
 import {ILoan} from "../interfaces/ILoan.sol";
 import {IFlashLoanSimpleReceiver} from "../interfaces/IFlashLoanSimpleReceiver.sol";
 import {IPool, IPoolAddressesProvider} from "../interfaces/IPool.sol";
+import {IBitmorAddressesProvider} from "../interfaces/IBitmorAddressesProvider.sol";
 
 import {LoanStorage} from "./LoanStorage.sol";
 
@@ -60,8 +61,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @param _collateralAsset `bvBTC` address
      * @param _debtAsset USDC address
      * @param _btc Wrapped BTC address
-     * @param _swapper Swapper contract address for token swaps
-     * @param _premiumCollector Address that collects insurance premiums
      * @param _preClosureFeeBps Loan pre-closure fee (in bps)
      * @param _gracePeriod Grace period for monthly payment in seconds
      */
@@ -74,22 +73,15 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         address _collateralAsset,
         address _debtAsset,
         address _btc,
-        address _swapper,
-        address _premiumCollector,
         uint256 _preClosureFeeBps,
         uint256 _gracePeriod
     )
         LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
         AccessManaged(_manager)
     {
-        if (_swapper == address(0) || _premiumCollector == address(0)) {
-            revert Errors.ZeroAddress();
-        }
         if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
         if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
 
-        s_swapper = _swapper;
-        s_premiumCollector = _premiumCollector;
         s_preClosureFeeBps = _preClosureFeeBps;
         s_gracePeriod = _gracePeriod;
     }
@@ -139,8 +131,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             btc: i_BTC,
             debtAsset: i_DEBT_ASSET,
             aavePool: i_AAVE_V3_POOL,
-            loanVaultFactory: s_loanVaultFactory,
-            premiumCollector: s_premiumCollector,
+            loanVaultFactory: getLoanVaultFactory(),
+            premiumCollector: getPremiumCollector(),
             minBTCAmt: s_minBTCAmt,
             maxBTCAmt: s_maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
@@ -171,6 +163,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             i_BITMOR_POOL,
             i_DEBT_ASSET,
             i_COLLATERAL_ASSET,
+            getAutoRepayer(),
             DataTypes.ExecuteRepayParams(lsa, amount, s_slippage_sharesToAsset),
             s_loansByLSA
         );
@@ -263,11 +256,11 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext({
             aavePool: i_AAVE_V3_POOL,
             bitmorPool: i_BITMOR_POOL,
-            swapper: s_swapper,
+            swapper: getSwapper(),
             debtAsset: i_DEBT_ASSET,
             collateralAsset: i_COLLATERAL_ASSET,
             btc: i_BTC,
-            feeCollector: s_premiumCollector,
+            feeCollector: getPremiumCollector(),
             oracle: i_ORACLE,
             maxSlippage: s_slippage_swap
         });
@@ -397,11 +390,8 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_gracePeriod;
     }
 
-    /**
-     * @inheritdoc ILoan
-     */
-    function getPremiumCollector() external view returns (address) {
-        return s_premiumCollector;
+    function getPremiumCollector() internal view returns (address) {
+        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getPremiumCollector();
     }
 
     /**
@@ -467,40 +457,40 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         return s_liquidationFee;
     }
 
-    /// @inheritdoc ILoan
-    function getLiquidationFeeCollector() external view returns (address) {
-        return s_liquidationFeeCollector;
+    function getAutoRepayer() internal view returns (address) {
+        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getAutoRepayer();
+    }
+
+    function getLoanVaultFactory() internal view returns (address) {
+        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getLoanVaultFactory();
+    }
+
+    function getSwapper() internal view returns (address) {
+        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getSwapper();
+    }
+
+    function getBitmorAddressesProvider() external view returns (address) {
+        return s_bitmorAddressesProvider;
     }
 
     // ============ Admin Functions ============
 
-    /**
-     * @inheritdoc ILoan
-     */
-    function setLoanVaultFactory(address newFactory) external whenNotPaused restricted checkZeroAddress(newFactory) {
-        s_loanVaultFactory = newFactory;
-        emit Loan__LoanVaultFactoryUpdated(newFactory);
-    }
-
-    /**
-     * @inheritdoc ILoan
-     */
-    function setSwapper(address newSwapper) external whenNotPaused restricted checkZeroAddress(newSwapper) {
-        s_swapper = newSwapper;
-        emit Loan__SwapperUpdated(newSwapper);
-    }
-
-    /**
-     * @inheritdoc ILoan
-     */
-    function setPremiumCollector(address newPremiumCollector)
+    /// @notice Updates the BitmorAddressesProvider address
+    /// @dev BitmorAddressesProvider cannot be set in the constructor due to a circular dependency:
+    ///      BitmorAddressesProvider requires Loan's address as an immutable, so Loan must be deployed first.
+    ///      This creates an initialization gap between Loan deployment and when this setter is called via
+    ///      the timelocked AccessManager operation. During this gap, functions that read from
+    ///      BitmorAddressesProvider (initializeLoan, repay, closeLoan, executeOperation) will revert.
+    /// @param newBitmorAddressesProvider The new BitmorAddressesProvider contract address
+    /// @custom:access Restricted to `LPM_SLOW` role (1-day delay)
+    function setBitmorAddressesProvider(address newBitmorAddressesProvider)
         external
         whenNotPaused
         restricted
-        checkZeroAddress(newPremiumCollector)
+        checkZeroAddress(newBitmorAddressesProvider)
     {
-        s_premiumCollector = newPremiumCollector;
-        emit Loan__PremiumCollectorUpdated(s_premiumCollector);
+        s_bitmorAddressesProvider = newBitmorAddressesProvider;
+        emit Loan__BitmorAddressesProviderUpdated(newBitmorAddressesProvider);
     }
 
     /**
@@ -567,17 +557,6 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         if (newLiquidationFeeBps > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
         s_liquidationFee = newLiquidationFeeBps;
         emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);
-    }
-
-    /// @inheritdoc ILoan
-    function setLiquidationFeeCollector(address newLiquidationFeeCollector)
-        external
-        whenNotPaused
-        restricted
-        checkZeroAddress(newLiquidationFeeCollector)
-    {
-        s_liquidationFeeCollector = newLiquidationFeeCollector;
-        emit Loan__LiquidationFeeCollectorUpdated(newLiquidationFeeCollector);
     }
 
     /**

@@ -8,6 +8,7 @@ import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
 
@@ -101,6 +102,12 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     /// @notice Mock aToken for bvBTC vault shares (the actual collateral in the lending pool)
     MockAToken public mockATokenBvBTC;
 
+    /// @notice Real BitmorAddressesProvider deployed in tests
+    BitmorAddressesProvider public bitmorAddressesProvider;
+
+    /// @notice Test autoRepayer address (used in RepayLogic authorization)
+    address public autoRepayer;
+
     // ============ Price Constants ============
 
     /// @notice Default BTC price for tests: $100,000 (8 decimals)
@@ -114,6 +121,7 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
         user = makeAddr("user");
         liquidator = makeAddr("liquidator");
+        autoRepayer = makeAddr("autoRepayer");
         premiumCollector = config.getPremiumCollector();
 
         vm.startPrank(admin);
@@ -254,14 +262,18 @@ abstract contract LoanUnitTestBase is UnitTestBase {
             address(mockBTCVault), // collateralAsset = bvBTC (vault shares)
             address(mockUSDC), // debtAsset
             address(mockCbBTC), // btc token (underlying)
-            address(mockSwapAdapter), // Our mock swap adapter (swapper)
-            premiumCollector, // premiumCollector
             config.getPreClosureFee(), // preClosureFeeBps
             config.getGracePeriod() // gracePeriod
         );
 
         loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
-        loan.setLoanVaultFactory(address(loanVaultFactory));
+
+        bitmorAddressesProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        bitmorAddressesProvider.setVaultFactory(address(loanVaultFactory));
+        bitmorAddressesProvider.setSwapper(address(mockSwapAdapter));
+        bitmorAddressesProvider.setPremiumCollector(premiumCollector);
+        bitmorAddressesProvider.setAutoRepayer(autoRepayer);
+        loan.setBitmorAddressesProvider(address(bitmorAddressesProvider));
 
         loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
 
@@ -276,6 +288,11 @@ abstract contract LoanUnitTestBase is UnitTestBase {
     function _configureLoanRoles() internal virtual {
         _setLoanRoles(user);
         _setLoanTargetSelectors(address(loan));
+
+        // Register setBitmorAddressesProvider under LPM_SLOW role (not in RolesData defaults)
+        bytes4[] memory bapSelectors = new bytes4[](1);
+        bapSelectors[0] = Loan.setBitmorAddressesProvider.selector;
+        manager.setTargetFunctionRole(address(loan), bapSelectors, LPM_SLOW_ID());
 
         // Grant LPCM role to mock pool so it can call updateLoanDataFor* functions
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);

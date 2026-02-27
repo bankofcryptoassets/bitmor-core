@@ -175,7 +175,7 @@ contract CloseLoanFuzzTest is LoanFuzzTestBase {
 
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
         uint256 partialAmount = loanData.estimatedMonthlyPayment / 2;
-        address collector = loan.getPremiumCollector();
+        address collector = bitmorAddressesProvider.getPremiumCollector();
 
         // Snapshot state after loan creation
         uint256 snapId = vm.snapshotState();

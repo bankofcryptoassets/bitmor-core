@@ -20,7 +20,7 @@ contract GlobalConservationTest is IntegrationTestBase {
 
     function setUp() public override {
         super.setUp();
-        feeCollector = loanContract.getPremiumCollector();
+        feeCollector = bitmorAddressesProvider.getPremiumCollector();
     }
 
     // ============ Conservation Helpers ============

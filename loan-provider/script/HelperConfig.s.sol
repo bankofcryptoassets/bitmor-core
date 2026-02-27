@@ -235,6 +235,19 @@ contract HelperConfig is Script {
         return _readDeployment("loan");
     }
 
+    /// @notice Returns the deployed BitmorAddressesProvider address
+    /// @return The BitmorAddressesProvider address from most recent deployment
+    function getBitmorAddressesProvider() public view returns (address) {
+        return _readDeployment("bitmorAddressesProvider");
+    }
+
+    /// @notice Returns the deployed AutoRepayment contract address
+    /// @dev This is the address to configure as autoRepayer in BitmorAddressesProvider
+    /// @return The AutoRepayment contract address from deployments.json
+    function getAutoRepayer() public view returns (address) {
+        return _readDeployment("autoRepayment");
+    }
+
     /// @notice Returns the deployed BTCVault address
     /// @return The BTCVault proxy address from most recent deployment
     function getBTCVault() public view returns (address) {

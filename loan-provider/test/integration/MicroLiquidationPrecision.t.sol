@@ -613,7 +613,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Verify settings
         assertEq(loanContract.getLiquidationFeeBps(), LIQUIDATION_FEE_BPS, "fee bps should be set");
-        assertEq(loanContract.getLiquidationFeeCollector(), feeCollector, "fee collector should be set");
+        assertEq(bitmorAddressesProvider.getLiquidationFeeCollector(), feeCollector, "fee collector should be set");
 
         address lsaB = _createStandardLoan();
         uint256 liquidatorCbBTCBeforeB = cbBTC.balanceOf(testLiquidator);

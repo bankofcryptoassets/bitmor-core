@@ -66,22 +66,18 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepay.createAutoRepayment(address(0));
     }
 
-    /// @notice Tests that executor can successfully execute auto repayment
-    /// @dev Covers happy path for executeAutoRepayment at lines 87-94, verifies loan duration decreases
-    function test_executeAutoRepayment() public setUpAutoRepayment {
+    /// @notice Tests that executeAutoRepayment reverts because AutoRepayment contract is not the borrower
+    /// @dev After vuln-124 fix, RepayLogic enforces `msg.sender == borrower`. The AutoRepayment contract
+    ///      calls loan.repay() as msg.sender, which is not the borrower, so it reverts with UnauthorizedCaller.
+    function test_executeAutoRepayment_RevertsUnauthorizedCaller() public setUpAutoRepayment {
         uint256 index = 0;
         address lsa = loan.getUserLoanAtIndex(user, index);
 
         DataTypes.LoanData memory loanDataBefore = loan.getLoanByLSA(lsa);
-        uint256 durationBefore = loanDataBefore.duration;
 
         vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
         autoRepay.executeAutoRepayment(lsa, user, loanDataBefore.estimatedMonthlyPayment);
-
-        DataTypes.LoanData memory loanDataAfter = loan.getLoanByLSA(lsa);
-        uint256 durationAfter = loanDataAfter.duration;
-
-        assertEq(durationBefore - durationAfter, 1, "Duration should decrease by 1");
     }
 
     /// @notice Tests that user can cancel auto repayment for their authorized LSA
@@ -148,18 +144,17 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
     }
 
-    /// @notice Tests that executeAutoRepayment emits RepaymentExecuted with correct parameters
-    /// @dev Covers event emission at line 94
-    function test_executeAutoRepayment_EmitsEvent() public setUpAutoRepayment {
+    /// @notice Tests that executeAutoRepayment reverts (no event emitted) due to vuln-124 borrower-only repay
+    /// @dev After vuln-124, loan.repay() rejects non-borrower callers. AutoRepayment contract is not the borrower.
+    function test_executeAutoRepayment_EmitsEvent_RevertsUnauthorizedCaller() public setUpAutoRepayment {
         // Arrange
         address lsa = loan.getUserLoanAtIndex(user, 0);
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
         uint256 repayAmount = loanData.estimatedMonthlyPayment;
 
-        // Act & Assert
+        // Act & Assert - reverts before any event can be emitted
         vm.prank(autoRepaymentExecutor);
-        vm.expectEmit(true, true, false, true);
-        emit IAutoRepayment.AutoRepayment__RepaymentExecuted(lsa, user, repayAmount, repayAmount);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
         autoRepay.executeAutoRepayment(lsa, user, repayAmount);
     }
 
@@ -285,17 +280,15 @@ contract AutoRepaymentTest is BaseLoanTest {
 
     // ============ Excess Refund Tests ============
 
-    /// @notice Tests that excess repayment funds are refunded directly to the user
-    /// @dev Amount must exceed totalDebt to trigger the excess refund branch.
-    ///      RepayLogic caps pulls at min(amount, totalDebt), so only amount > totalDebt
-    ///      leaves excess in AutoRepayment that needs refunding.
-    function test_executeAutoRepayment_RefundsExcessToUser() public setUpAutoRepayment {
+    /// @notice Tests that executeAutoRepayment reverts on overpayment due to vuln-124 borrower-only repay
+    /// @dev After vuln-124, the AutoRepayment contract cannot call loan.repay() because it is not the borrower.
+    ///      The excess refund logic is never reached.
+    function test_executeAutoRepayment_RefundsExcessToUser_RevertsUnauthorizedCaller() public setUpAutoRepayment {
         // Arrange
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Get the actual total debt for this loan
         uint256 totalDebt = _getDebtBalance(lsa);
-        // Overpay beyond total debt to trigger the excess refund branch
         uint256 excessAmount = 1000e6;
         uint256 overpayAmount = totalDebt + excessAmount;
 
@@ -304,28 +297,15 @@ contract AutoRepaymentTest is BaseLoanTest {
         vm.prank(user);
         IERC20(debtAsset).approve(address(autoRepay), overpayAmount);
 
-        uint256 userBalanceBefore = IERC20(debtAsset).balanceOf(user);
-
-        // Act
+        // Act & Assert - reverts because AutoRepayment contract is not the borrower
         vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
         autoRepay.executeAutoRepayment(lsa, user, overpayAmount);
-
-        // Assert - no tokens stuck in AutoRepayment contract
-        assertEq(
-            IERC20(debtAsset).balanceOf(address(autoRepay)),
-            0,
-            "AutoRepayment contract should have zero USDC balance after execution"
-        );
-
-        // User should only be debited totalDebt (the excess was refunded)
-        uint256 userBalanceAfter = IERC20(debtAsset).balanceOf(user);
-        uint256 actualCost = userBalanceBefore - userBalanceAfter;
-        assertLe(actualCost, totalDebt, "user should not pay more than totalDebt");
-        assertGt(actualCost, 0, "user should pay something");
     }
 
-    /// @notice Tests that ExcessRefunded event is emitted when overpaying beyond totalDebt
-    function test_executeAutoRepayment_EmitsExcessRefundedEvent() public setUpAutoRepayment {
+    /// @notice Tests that executeAutoRepayment reverts on overpay (no ExcessRefunded event) due to vuln-124
+    /// @dev After vuln-124, the AutoRepayment contract cannot call loan.repay() because it is not the borrower.
+    function test_executeAutoRepayment_EmitsExcessRefundedEvent_RevertsUnauthorizedCaller() public setUpAutoRepayment {
         // Arrange
         address lsa = loan.getUserLoanAtIndex(user, 0);
         uint256 totalDebt = _getDebtBalance(lsa);
@@ -336,26 +316,23 @@ contract AutoRepaymentTest is BaseLoanTest {
         vm.prank(user);
         IERC20(debtAsset).approve(address(autoRepay), overpayAmount);
 
-        // Act & Assert - expect ExcessRefunded event
+        // Act & Assert - reverts before any event can be emitted
         vm.prank(autoRepaymentExecutor);
-        vm.expectEmit(true, false, false, true);
-        emit IAutoRepayment.AutoRepayment__ExcessRefunded(user, excessAmount);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
         autoRepay.executeAutoRepayment(lsa, user, overpayAmount);
     }
 
-    /// @notice Tests that Loan approval is cleaned up after executeAutoRepayment
-    function test_executeAutoRepayment_CleansUpApproval() public setUpAutoRepayment {
+    /// @notice Tests that executeAutoRepayment reverts (approval not relevant) due to vuln-124 borrower-only repay
+    /// @dev After vuln-124, loan.repay() rejects non-borrower callers, so the approval cleanup is never reached.
+    function test_executeAutoRepayment_CleansUpApproval_RevertsUnauthorizedCaller() public setUpAutoRepayment {
         // Arrange
         address lsa = loan.getUserLoanAtIndex(user, 0);
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
 
-        // Act
+        // Act & Assert - reverts because AutoRepayment contract is not the borrower
         vm.prank(autoRepaymentExecutor);
+        vm.expectRevert(Errors.UnauthorizedCaller.selector);
         autoRepay.executeAutoRepayment(lsa, user, loanData.estimatedMonthlyPayment);
-
-        // Assert - approval should be zeroed out
-        uint256 allowance = IERC20(debtAsset).allowance(address(autoRepay), address(loan));
-        assertEq(allowance, 0, "Loan allowance should be zero after execution");
     }
 
     // ============ Internal Helper Functions ============
