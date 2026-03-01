@@ -156,7 +156,8 @@ contract LoanStorage {
     ) {
         if (
             _aaveV3Pool == address(0) || _aaveAddressesProvider == address(0) || _bitmorPool == address(0)
-                || _oracle == address(0) || _collateralAsset == address(0) || _debtAsset == address(0) || _btc == address(0)
+                || _oracle == address(0) || _collateralAsset == address(0) || _debtAsset == address(0)
+                || _btc == address(0)
         ) revert Errors.ZeroAddress();
 
         i_AAVE_V3_POOL = _aaveV3Pool;

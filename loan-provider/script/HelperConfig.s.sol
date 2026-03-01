@@ -339,9 +339,10 @@ contract HelperConfig is Script {
     /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
     /// @return The absolute path to the broadcast directory
     function getBroadcastPath(string memory scriptName) public view returns (string memory) {
-        return string.concat(
-            vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
-        );
+        return
+            string.concat(
+                vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
+            );
     }
 
     function getLoanConfig()
