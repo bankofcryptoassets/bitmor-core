@@ -7,6 +7,7 @@ import {DeploymentHelper} from "../../helpers/DeploymentHelper.s.sol";
 import {StrategyConfig} from "../../StrategyConfig.s.sol";
 import {RolesData} from "@bitmor/accessManager/RolesData.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 
 /// @title LocalFullSetup
 /// @author Bitmor Protocol
@@ -69,7 +70,7 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         loan = config.getLoan();
         btcVault = config.getBTCVault();
         usdcVault = config.getUSDCVault();
-        autoRepayment = address(0); // AutoRepayment not deployed in current flow
+        autoRepayment = config.getAutoRepayer();
     }
 
     /// @notice Loads configuration instances
@@ -179,12 +180,27 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
 
         // LPM_SLOW Operations (Loan config)
         address loanVaultFactory = config.getLoanVaultFactory();
+        address bitmorAddressesProvider = config.getBitmorAddressesProvider();
+        address swapper = config.getSwapper();
 
-        manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (config.getMaxDuration())), when);
+
+        // BitmorAddressesProvider Operations
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory)), when
+        );
+        manager.schedule(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)), when);
+        manager.schedule(
+            bitmorAddressesProvider,
+            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (config.getPremiumCollector())),
+            when
+        );
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment)), when
+        );
 
         // BVC Operations (BTCVault strategy) - if strategy deployed
         address aaveStrategy = config.getAaveTokenizedStrategy();
@@ -214,12 +230,26 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
     function _executeOperations() internal {
         // LPM_SLOW Operations
         address loanVaultFactory = config.getLoanVaultFactory();
+        address bitmorAddressesProvider = config.getBitmorAddressesProvider();
+        address swapper = config.getSwapper();
 
-        manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
+        manager.execute(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)));
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (config.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
         manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (config.getMaxDuration())));
+
+        // BitmorAddressesProvider Operations
+        manager.execute(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory))
+        );
+        manager.execute(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)));
+        manager.execute(
+            bitmorAddressesProvider,
+            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (config.getPremiumCollector()))
+        );
+        manager.execute(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment))
+        );
 
         // BVC Operations
         address aaveStrategy = config.getAaveTokenizedStrategy();

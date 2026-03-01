@@ -2,10 +2,9 @@ import { APPROVAL_AMOUNT_LENDING_POOL } from '../../helpers/constants.js';
 import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
 import { makeSuite } from './helpers/make-suite.js';
 import BigNumber from "bignumber.js";
-import chai from 'chai';
+import { expect } from 'chai';
 import { getReserveAddressFromSymbol, getReserveData, getReserveFactorFromData } from './helpers/utils/helpers.js';
 import { DRE } from '../../helpers/dre.js';
-const { expect } = chai;
 
 makeSuite('Withdraw', (testEnv) => {
     it("should allow withdraw after setting reserve factor to zero", async () => {

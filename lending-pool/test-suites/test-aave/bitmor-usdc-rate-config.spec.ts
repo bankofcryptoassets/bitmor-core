@@ -10,8 +10,7 @@ import { rateStrategyUSDC } from '../../markets/bitmor/rateStrategies.js';
 import type { USDCReserveInterestRateStrategy } from '../../types/ethers-contracts/index.js';
 import BigNumber from 'bignumber.js';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 /**
  * Validates the Bitmor USDC rate strategy configuration against intended values.

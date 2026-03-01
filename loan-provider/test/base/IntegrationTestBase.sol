@@ -16,6 +16,8 @@ import {USDCVault} from "@usdcVault/USDCVault.sol";
 
 // Interfaces
 import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 // Mocks (for minting and oracle manipulation on deployed mock contracts)
 import {MintableERC20} from "../mock/MintableERC20.sol";
 import {MockChainlinkOracle} from "../mock/MockChainlinkOracle.sol";
@@ -40,6 +42,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     address public bitmorPool;
     address public addressesProvider;
     address public swapper;
+    BitmorAddressesProvider public bitmorAddressesProvider;
 
     // Tokens
     IERC20 public cbBTC;
@@ -109,6 +112,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         addressesProvider = config.getAddressesProvider();
         loanVaultFactory = LoanVaultFactory(config.getLoanVaultFactory());
         swapper = config.getSwapper();
+        bitmorAddressesProvider = BitmorAddressesProvider(config.getBitmorAddressesProvider());
 
         // Vaults
         btcVault = BTCVault(config.getBTCVault());
@@ -674,10 +678,10 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             address(loanContract), admin, LPM_SLOW_ID(), abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
         );
         _scheduleAndExecute(
-            address(loanContract),
+            address(bitmorAddressesProvider),
             admin,
             LPM_SLOW_ID(),
-            abi.encodeCall(loanContract.setLiquidationFeeCollector, (collector))
+            abi.encodeCall(bitmorAddressesProvider.setLiquidationFeeCollector, (collector))
         );
     }
 

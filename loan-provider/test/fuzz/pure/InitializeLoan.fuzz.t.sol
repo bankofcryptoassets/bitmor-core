@@ -76,7 +76,7 @@ contract InitializeLoanFuzzTest is LoanFuzzTestBase {
 
         (,, uint256 minDeposit) = loan.getLoanDetails(collateral, duration);
 
-        address collector = loan.getPremiumCollector();
+        address collector = bitmorAddressesProvider.getPremiumCollector();
         uint256 collectorBefore = mockUSDC.balanceOf(collector);
 
         _fundAndApprove(minDeposit + premium + TC.USER_USDC_BALANCE);

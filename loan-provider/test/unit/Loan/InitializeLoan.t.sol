@@ -13,6 +13,7 @@ import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
@@ -307,16 +308,21 @@ contract InitializeLoanTest is BaseLoanTest {
             collateralAsset,
             debtAsset,
             btc,
-            loan.s_swapper(),
-            loan.getPremiumCollector(),
             loan.getPreClosureFee(),
             loan.getGracePeriod()
         );
 
-        // Set up roles for loan2 before setting target selectors
-        address loanVaultImplementation = address(new LoanVault());
-        address loanVaultFactory = address(new LoanVaultFactory(loanVaultImplementation, address(loan2)));
-        loan2.setLoanVaultFactory(loanVaultFactory);
+        // Set up BitmorAddressesProvider for loan2
+        address loanVaultImpl2 = address(new LoanVault());
+        address loanVaultFactory2 = address(new LoanVaultFactory(loanVaultImpl2, address(loan2)));
+
+        BitmorAddressesProvider provider2 = new BitmorAddressesProvider(address(manager2), address(loan2));
+        provider2.setVaultFactory(loanVaultFactory2);
+        provider2.setSwapper(address(mockSwapAdapter));
+        provider2.setPremiumCollector(premiumCollector);
+        provider2.setAutoRepayer(autoRepayer);
+        loan2.setBitmorAddressesProvider(address(provider2));
+
         loan2.setMaxBTCAmount(TC.MAX_COLLATERAL);
         loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
         loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);

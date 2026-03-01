@@ -8,8 +8,7 @@ import {
 } from '../../../../helpers/types.js';
 import './math';
 import { ReserveData, UserReserveData } from './interfaces/index.js';
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 export const strToBN = (amount: string): BigNumber => new BigNumber(amount);
 

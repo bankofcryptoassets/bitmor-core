@@ -186,8 +186,7 @@ contract CloseLoanTest is BaseLoanTest {
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
 
-        // Get premium collector address for fee verification
-        address premiumCollector = loan.getPremiumCollector();
+        // Get premium collector balance for fee verification
         uint256 collectorBalanceBefore = IERC20(btc).balanceOf(premiumCollector);
 
         // Record logs
@@ -221,9 +220,6 @@ contract CloseLoanTest is BaseLoanTest {
         uint256 expectedFee = _calculatePreClosureFee(state.loanState.collateralBefore);
 
         assertGt(expectedFee, 0, "Pre-closure fee should be non-zero");
-
-        // Get premium collector address for fee verification
-        address premiumCollector = loan.getPremiumCollector();
 
         // Record logs
         vm.recordLogs();

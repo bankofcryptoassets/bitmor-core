@@ -53,22 +53,7 @@ contract LoanStorage {
 
     // ============ Protocol Contract Addresses ============
 
-    /**
-     * @notice Factory contract for deploying Loan Specific Address (LSAs)
-     */
-    address public s_loanVaultFactory;
-
-    /// @notice Swapper contract for executing token swaps
-
-    address public s_swapper;
-
-    /**
-     * @notice Collects insurance premium amount.
-     */
-    address internal s_premiumCollector;
-
-    /// @notice Collects fee on liquidation from Liquidation Bonus.
-    address internal s_liquidationFeeCollector;
+    address internal s_bitmorAddressesProvider;
 
     /**
      * @notice Grace period for monthly installments in `seconds`.

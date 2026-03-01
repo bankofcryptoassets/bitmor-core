@@ -418,21 +418,19 @@ contract RolesData {
     /// @dev Selectors for state variable updates and unpause function
     /// @return selectors Array of function selectors
     function getLPM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](14);
-        selectors[0] = ILoan.setLoanVaultFactory.selector;
-        selectors[1] = ILoan.setPremiumCollector.selector;
-        selectors[2] = ILoan.setGracePeriod.selector;
-        selectors[3] = ILoan.setPreClosureFee.selector;
-        selectors[4] = bytes4(keccak256("unpause()"));
-        selectors[5] = ILoan.setMaxBTCAmount.selector;
-        selectors[6] = ILoan.setMinBTCAmount.selector;
-        selectors[7] = ILoan.setSlippageForSwap.selector;
-        selectors[8] = ILoan.setSlippageForSharesToAsset.selector;
-        selectors[9] = ILoan.setMinDepositBps.selector;
-        selectors[10] = ILoan.setLiquidationFeeBps.selector;
-        selectors[11] = ILoan.setLiquidationFeeCollector.selector;
-        selectors[12] = ILoan.setSwapper.selector;
-        selectors[13] = ILoan.setMaxDuration.selector;
+        selectors = new bytes4[](11);
+
+        selectors[0] = ILoan.setGracePeriod.selector;
+        selectors[1] = ILoan.setPreClosureFee.selector;
+        selectors[2] = bytes4(keccak256("unpause()"));
+        selectors[3] = ILoan.setMaxBTCAmount.selector;
+        selectors[4] = ILoan.setMinBTCAmount.selector;
+        selectors[5] = ILoan.setSlippageForSwap.selector;
+        selectors[6] = ILoan.setSlippageForSharesToAsset.selector;
+        selectors[7] = ILoan.setMinDepositBps.selector;
+        selectors[8] = ILoan.setLiquidationFeeBps.selector;
+        selectors[9] = ILoan.setMaxDuration.selector;
+        selectors[10] = ILoan.setBitmorAddressesProvider.selector;
     }
 
     /// @notice Returns function selectors for ARE role

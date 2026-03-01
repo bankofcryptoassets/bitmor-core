@@ -9,8 +9,7 @@ import { getUserData } from './helpers/utils/helpers.js';
 
 import { MaxUint256 } from 'ethers';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('LendingPool liquidation - liquidator receiving aToken', (testEnv) => {
   const {

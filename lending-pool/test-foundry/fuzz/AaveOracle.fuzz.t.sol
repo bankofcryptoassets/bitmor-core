@@ -36,6 +36,10 @@ contract AaveOracleFuzzTest is Test {
     uint8 constant BVBTC_DECIMALS = 8;
 
     function setUp() public {
+        // Warp to a realistic timestamp so that `block.timestamp - MAX_STALENESS` (3600)
+        // does not underflow in the 0.6.12 AaveOracle staleness check.
+        vm.warp(100_000);
+
         // Deploy mocks
         chainlink = IMockChainlinkForOracle(deployCode("AaveOracleHarness.sol:MockChainlinkForOracle"));
         bvBTC = IMockVaultForOracle(deployCode("AaveOracleHarness.sol:MockVaultForOracle"));

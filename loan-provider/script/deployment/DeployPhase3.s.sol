@@ -15,6 +15,9 @@ import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
 import {MintableERC20} from "../../test/mock/MintableERC20.sol";
 import {MockAToken} from "../../test/mock/MockAToken.sol";
@@ -66,6 +69,8 @@ contract DeployPhase3 is InitialSetup {
     address public loanVaultFactory;
     address public aaveStrategy;
     address public usdcStrategy;
+    address public bitmorAddressesProvider;
+    address public autoRepayment;
 
     /// @notice Main entry point for Phase 3 deployment
     /// @dev Deploys all Phase 3 contracts, configures AccessManager, and saves addresses
@@ -143,8 +148,6 @@ contract DeployPhase3 is InitialSetup {
                 btcVault, // collateralAsset (bvBTC)
                 mockUsdc, // debtAsset
                 mockCbBTC, // btc
-                mockSwapAdapter, // swapper (direct, no wrapper)
-                msg.sender, // premiumCollector
                 PRE_CLOSURE_FEE,
                 GRACE_PERIOD
             )
@@ -154,6 +157,14 @@ contract DeployPhase3 is InitialSetup {
         // 5. LoanVaultFactory
         loanVaultFactory = address(new LoanVaultFactory(loanVaultImpl, loan));
         console2.log("LoanVaultFactory:", loanVaultFactory);
+
+        // 5a. BitmorAddressesProvider
+        bitmorAddressesProvider = address(new BitmorAddressesProvider(accessManager, loan));
+        console2.log("BitmorAddressesProvider:", bitmorAddressesProvider);
+
+        // 5d. AutoRepayment
+        autoRepayment = address(new AutoRepayment(accessManager, loan, mockUsdc));
+        console2.log("AutoRepayment:", autoRepayment);
 
         // 5b. Register Loan contract with LendingPoolAddressesProvider
         // Required for LendingPoolCollateralManager to query loan data during liquidation
@@ -289,6 +300,16 @@ contract DeployPhase3 is InitialSetup {
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), uvcId);
         console2.log("Set UVC selectors on USDCVault");
 
+        // BitmorAddressesProvider: all setters controlled by LPM_SLOW
+        bytes4[] memory bapSelectors = new bytes4[](5);
+        bapSelectors[0] = IBitmorAddressesProvider.setVaultFactory.selector;
+        bapSelectors[1] = IBitmorAddressesProvider.setSwapper.selector;
+        bapSelectors[2] = IBitmorAddressesProvider.setPremiumCollector.selector;
+        bapSelectors[3] = IBitmorAddressesProvider.setLiquidationFeeCollector.selector;
+        bapSelectors[4] = IBitmorAddressesProvider.setAutoRepayer.selector;
+        manager.setTargetFunctionRole(bitmorAddressesProvider, bapSelectors, lpmSlowId);
+        console2.log("Set LPM_SLOW selectors on BitmorAddressesProvider");
+
         // BVD: Loan contract needs deposit/mint access to BTCVault
         (,,,, uint64 bvdId,,,,,) = rolesData.BVD();
         manager.setTargetFunctionRole(btcVault, rolesData.getBVD_SELECTORS(), bvdId);
@@ -308,6 +329,12 @@ contract DeployPhase3 is InitialSetup {
         console2.log("Granted LPM_FAST to admin");
         manager.grantRole(lpcmId, bitmorPool, 0); // lending-pool can update loan state on liquidation
         console2.log("Granted LPCM to bitmorPool:", bitmorPool);
+
+        // ARE: AutoRepayment executor role
+        (,,,, uint64 areId,,,,,) = rolesData.ARE();
+        manager.setTargetFunctionRole(autoRepayment, rolesData.getARE_SELECTORS(), areId);
+        manager.grantRole(areId, admin, 0);
+        console2.log("Set ARE selectors on AutoRepayment and granted to admin");
 
         // Existing delayed grants for timelocked ops
         uint32 delay = uint32(DeploymentConstants.EXECUTION_DELAY);
@@ -371,11 +398,24 @@ contract DeployPhase3 is InitialSetup {
         uint48 when = uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY);
 
         // LPM_SLOW Operations (Loan config)
-        manager.schedule(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (GRACE_PERIOD)), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setPremiumCollector, (msg.sender)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (PRE_CLOSURE_FEE)), when);
         manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (MAX_DURATION)), when);
+
+        // BitmorAddressesProvider Operations
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory)), when
+        );
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (mockSwapAdapter)), when
+        );
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (msg.sender)), when
+        );
+        manager.schedule(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment)), when
+        );
 
         // BVC Operations (BTCVault strategy)
         manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
@@ -431,10 +471,14 @@ contract DeployPhase3 is InitialSetup {
             vm.toString(loanVaultImpl),
             '","swapper":"',
             vm.toString(mockSwapAdapter),
+            '","bitmorAddressesProvider":"',
+            vm.toString(bitmorAddressesProvider),
             '","aaveStrategy":"',
             vm.toString(aaveStrategy),
             '","usdcStrategy":"',
             vm.toString(usdcStrategy),
+            '","autoRepayment":"',
+            vm.toString(autoRepayment),
             '"}'
         );
 

@@ -5,6 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 
 contract Loan_InitializeLoan is Script {
     HelperConfig config = new HelperConfig();
@@ -42,18 +43,20 @@ contract Loan_InitializeLoan is Script {
 contract Loan_SetLoanVaultFactory is Script {
     HelperConfig config = new HelperConfig();
 
-    function _setLoanVaultFactoryWithConfigs(address loanAddress, address loanVaultFactory) internal {
-        ILoan loan = ILoan(loanAddress);
+    function _setLoanVaultFactoryWithConfigs(address bitmorAddressesProviderAddress, address loanVaultFactory)
+        internal
+    {
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider(bitmorAddressesProviderAddress);
 
         vm.broadcast();
-        loan.setLoanVaultFactory(loanVaultFactory);
+        bap.setVaultFactory(loanVaultFactory);
     }
 
     function _setLoanVaultFactory() internal {
         address loanVaultFactory = config.getLoanVaultFactory();
-        address loanAddress = config.getLoan();
+        address bitmorAddressesProviderAddress = config.getBitmorAddressesProvider();
 
-        _setLoanVaultFactoryWithConfigs(loanAddress, loanVaultFactory);
+        _setLoanVaultFactoryWithConfigs(bitmorAddressesProviderAddress, loanVaultFactory);
     }
 
     function run() public {
