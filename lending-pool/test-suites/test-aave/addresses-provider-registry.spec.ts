@@ -4,8 +4,7 @@ import { ZERO_ADDRESS } from '../../helpers/constants.js';
 import { ProtocolErrors } from '../../helpers/types.js';
 import { getContractAddress } from '../../helpers/contracts-helpers.js';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('AddressesProviderRegistry', (testEnv: TestEnv) => {
   it('Checks the addresses provider is added to the registry', async () => {

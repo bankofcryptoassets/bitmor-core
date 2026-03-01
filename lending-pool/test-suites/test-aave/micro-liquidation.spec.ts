@@ -10,9 +10,8 @@ import { ProtocolErrors } from '../../helpers/types.js';
 import { DRE } from '../../helpers/misc-utils.js';
 import { parseEther, parseUnits, AbiCoder, MaxUint256 } from 'ethers';
 import BigNumber from 'bignumber.js';
-import chai from 'chai';
+import { expect } from 'chai';
 
-const { expect } = chai;
 
 makeSuite('Micro-Liquidation', (testEnv: TestEnv) => {
   const abiCoder = new AbiCoder();

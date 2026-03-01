@@ -356,17 +356,11 @@ contract CloseLoanTest is IntegrationTestBase {
 
         // Act + Assert — duration=0 should revert
         vm.prank(testUser);
-        (bool success,) = address(loanContract)
-            .call(
-                abi.encodeWithSignature(
-                    "initializeLoan(uint256,uint256,uint256,uint256,bytes)",
-                    deposit,
-                    TC.PREMIUM_AMOUNT,
-                    collateral,
-                    0,
-                    ""
-                )
-            );
+        (bool success,) = address(loanContract).call(
+            abi.encodeWithSignature(
+                "initializeLoan(uint256,uint256,uint256,uint256,bytes)", deposit, TC.PREMIUM_AMOUNT, collateral, 0, ""
+            )
+        );
         assertFalse(success, "duration=0 loan creation should revert");
     }
 

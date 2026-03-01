@@ -32,7 +32,7 @@ import type { MintableERC20 } from '../../../types/ethers-contracts/mocks/tokens
 import type { AToken } from '../../../types/ethers-contracts/protocol/tokenization/AToken.js';
 import type { LendingPoolConfigurator } from '../../../types/ethers-contracts/protocol/lendingpool/LendingPoolConfigurator.js';
 
-import chai from 'chai';
+import * as chai from 'chai';
 // @ts-ignore
 import bignumberChai from 'chai-bignumber';
 import { almostEqual } from './almost-equal.js';

@@ -1,7 +1,6 @@
 import { APPROVAL_AMOUNT_LENDING_POOL, MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
 import { convertToCurrencyDecimals, getContractAddress } from '../../helpers/contracts-helpers.js';
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 import { RateMode } from '../../helpers/types.js';
 import { makeSuite } from './helpers/make-suite.js';
 import type { TestEnv } from './helpers/make-suite.js';

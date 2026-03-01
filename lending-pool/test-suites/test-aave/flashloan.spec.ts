@@ -6,8 +6,7 @@ import type { MockFlashLoanReceiver } from '../../types/ethers-contracts/index.j
 import { getMockFlashLoanReceiver } from '../../helpers/contracts-getters.js';
 import { depositViaVault } from "./helpers/vault-helpers.js";
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('LendingPool FlashLoan function', (testEnv: TestEnv) => {
   let _mockFlashLoanReceiver = {} as MockFlashLoanReceiver;
