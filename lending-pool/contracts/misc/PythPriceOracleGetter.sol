@@ -1,75 +1,79 @@
 // SPDX-License-Identifier: agpl-3.0
 pragma solidity 0.6.12;
+pragma experimental ABIEncoderV2;
 
 import { Ownable } from "../dependencies/openzeppelin/contracts/Ownable.sol";
 import { IERC20Detailed } from "../dependencies/openzeppelin/contracts/IERC20Detailed.sol";
 import { SafeMath } from "../dependencies/openzeppelin/contracts/SafeMath.sol";
 
+import { IPyth, PythStructs } from "../dependencies/pythNetwork/IPyth.sol";
 import { IPriceOracleGetter } from "../interfaces/IPriceOracleGetter.sol";
-import { IChainlinkAggregator } from "../interfaces/IChainlinkAggregator.sol";
 import { IERC4626 } from "../interfaces/IERC4626.sol";
 
-/// @title AaveOracle
-/// @author Aave
-/// @notice Proxy smart contract to get the price of an asset from a price source, with Chainlink Aggregator
-///         smart contracts as primary option
-/// - If the returned price by a Chainlink aggregator is <= 0, the call is forwarded to a fallbackOracle
-/// - Owned by the Aave governance system, allowed to add sources for assets, replace them
-///   and change the fallbackOracle
-contract AaveOracle is IPriceOracleGetter, Ownable {
+/**
+ * @title PythPriceOracleGetter
+ * @author Bitmor Protocol
+ * @notice Fallback oracle for AaveOracle
+ */
+contract PythPriceOracleGetter is IPriceOracleGetter, Ownable {
     using SafeMath for uint256;
 
-    mapping(address => IChainlinkAggregator) private assetsSources;
-    IPriceOracleGetter private _fallbackOracle;
+    event PythPriceOracleGetter__AssetSourceUpdated(address indexed asset, bytes32 indexed source);
+
+    mapping(address => bytes32) private assetsSources;
+
+    address public immutable PYTH;
     address public immutable BASE_CURRENCY;
     uint256 public immutable BASE_CURRENCY_UNIT;
     address public s_btc;
     address public s_bvBTC;
 
     uint256 public constant MAX_STALENESS = 3600;
+    uint256 public constant PRICE_PRECISION = 10 ** 8;
 
     /// @notice Constructor
+    /// @dev No fallback oracle -- this is the terminal oracle.
+    /// @param pyth Pyth contract address
     /// @param assets The addresses of the assets
     /// @param sources The address of the source of each asset
     /// @param btc The address of the BTC token used for price derivation
     /// @param bvBTC The address of the bvBTC vault used for share-to-asset conversion
-    /// @param fallbackOracle The address of the fallback oracle to use if the data of an
-    ///        aggregator is not consistent
     /// @param baseCurrency the base currency used for the price quotes. If USD is used, base currency is 0x0
     /// @param baseCurrencyUnit the unit of the base currency
     constructor(
+        address pyth,
         address[] memory assets,
-        address[] memory sources,
+        bytes32[] memory sources,
         address btc,
         address bvBTC,
-        address fallbackOracle,
         address baseCurrency,
         uint256 baseCurrencyUnit
     ) public {
-        _setFallbackOracle(fallbackOracle);
         _setAssetsSources(assets, sources);
         _setBTC(btc);
         _setbvBTC(bvBTC);
         BASE_CURRENCY = baseCurrency;
         BASE_CURRENCY_UNIT = baseCurrencyUnit;
+        PYTH = pyth;
+
         emit PriceOracleGetter__BaseCurrencySet(baseCurrency, baseCurrencyUnit);
     }
 
+    /// @notice This is a fallback oracle.
+    function setFallbackOracle(address fallbackOracle) external override onlyOwner {
+        revert("PythPriceOracleGetter__FallbackOracleNotSupported");
+    }
+
     /**
-     * @notice External function called by the Aave governance to set or replace sources of assets
+     * @notice External function called by the owner to set or replace sources of assets
      * @param assets The addresses of the assets
-     * @param sources The address of the source of each asset
+     * @param sources The Pyth price feed ID of each asset
      */
     function setAssetSources(
         address[] calldata assets,
-        address[] calldata sources
+        bytes32[] calldata sources
     ) external onlyOwner {
         _setAssetsSources(assets, sources);
-    }
-
-    /// @inheritdoc IPriceOracleGetter
-    function setFallbackOracle(address fallbackOracle) external override onlyOwner {
-        _setFallbackOracle(fallbackOracle);
     }
 
     /// @inheritdoc IPriceOracleGetter
@@ -80,6 +84,11 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     /// @inheritdoc IPriceOracleGetter
     function setbvBTC(address _bvBTC) external override onlyOwner {
         _setbvBTC(_bvBTC);
+    }
+
+    /// @notice This is a fallback oracle.
+    function getFallbackOracle() external view override returns (address) {
+        return address(0);
     }
 
     /// @inheritdoc IPriceOracleGetter
@@ -106,32 +115,30 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
     }
 
     /**
-     * @notice Gets the address of the source for an asset address
+     * @notice Gets the Pyth price feed ID for an asset address
      * @param asset The address of the asset
-     * @return address The address of the source
+     * @return The Pyth price feed ID
      */
-    function getSourceOfAsset(address asset) external view returns (address) {
-        return address(assetsSources[asset]);
-    }
-
-    /// @inheritdoc IPriceOracleGetter
-    function getFallbackOracle() external view override returns (address) {
-        return address(_fallbackOracle);
+    function getSourceOfAsset(address asset) external view returns (bytes32) {
+        return assetsSources[asset];
     }
 
     function _getAssetPrice(address asset) internal view returns (uint256) {
-        IChainlinkAggregator source = assetsSources[asset];
+        bytes32 source = assetsSources[asset];
 
-        if (address(source) == address(0)) {
-            return _fallbackOracle.getAssetPrice(asset);
+        require(source != bytes32(0), "FallbackOracle__NoSource");
+
+        PythStructs.Price memory price = IPyth(PYTH).getPriceNoOlderThan(source, MAX_STALENESS);
+
+        require(price.price > 0, "PythPriceOracleGetter__PriceNotFound");
+
+        uint256 priceValue = (uint256(uint64(price.price)) * PRICE_PRECISION) /
+            (10 ** uint256(uint32(-1 * price.expo)));
+
+        if (priceValue > 0) {
+            return priceValue;
         } else {
-            (, int256 price, , uint256 updatedAt, ) = IChainlinkAggregator(source)
-                .latestRoundData();
-            if (price > 0 && updatedAt > block.timestamp - MAX_STALENESS) {
-                return uint256(price);
-            } else {
-                return _fallbackOracle.getAssetPrice(asset);
-            }
+            revert("PythPriceOracleGetter__PriceNotFound");
         }
     }
 
@@ -150,20 +157,11 @@ contract AaveOracle is IPriceOracleGetter, Ownable {
      * @param assets The addresses of the assets
      * @param sources The address of the source of each asset
      */
-    function _setAssetsSources(address[] memory assets, address[] memory sources) internal {
+    function _setAssetsSources(address[] memory assets, bytes32[] memory sources) internal {
         require(assets.length == sources.length, "INCONSISTENT_PARAMS_LENGTH");
         for (uint256 i = 0; i < assets.length; i++) {
-            assetsSources[assets[i]] = IChainlinkAggregator(sources[i]);
-            emit PriceOracleGetter__AssetSourceUpdated(assets[i], sources[i]);
+            assetsSources[assets[i]] = sources[i];
+            emit PythPriceOracleGetter__AssetSourceUpdated(assets[i], sources[i]);
         }
-    }
-
-    /**
-     * @notice Internal function to set the fallbackOracle
-     * @param fallbackOracle The address of the fallbackOracle
-     */
-    function _setFallbackOracle(address fallbackOracle) internal {
-        _fallbackOracle = IPriceOracleGetter(fallbackOracle);
-        emit PriceOracleGetter__FallbackOracleUpdated(fallbackOracle);
     }
 }

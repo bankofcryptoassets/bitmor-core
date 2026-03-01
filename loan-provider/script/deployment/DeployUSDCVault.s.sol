@@ -41,11 +41,7 @@ contract DeployUSDCVault is Script {
         return usdcVault;
     }
 
-    function _getRequiredAddress(string memory contractName, string memory scriptName)
-        internal
-        view
-        returns (address)
-    {
+    function _getRequiredAddress(string memory contractName, string memory scriptName) internal view returns (address) {
         string memory broadcastPath = string.concat(
             vm.projectRoot(), "/broadcast/", scriptName, "/", vm.toString(block.chainid), "/run-latest.json"
         );
