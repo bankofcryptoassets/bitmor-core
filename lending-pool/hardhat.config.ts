@@ -8,7 +8,6 @@ import { BUIDLEREVM_CHAINID } from './helpers/buidler-constants.js';
 import { NETWORKS_RPC_URL } from './helper-hardhat-config.js';
 import { eBaseNetwork } from './helpers/types.js';
 import { accounts } from './test-wallets.js';
-import registeredTasks from './register-tasks.js';
 type TestWallet = { secretKey: string; balance: string };
 const testWallets = accounts as TestWallet[];
 
@@ -19,7 +18,7 @@ const MNEMONIC = process.env.MNEMONIC || '';
 const MNEMONIC_PATH = "m/44'/60'/0'/0";
 const ETHERSCAN_KEY = process.env.ETHERSCAN_KEY || '';
 
-const tasks = SKIP_LOAD ? [] : registeredTasks;
+const tasks = SKIP_LOAD ? [] : (await import('./register-tasks.js')).default;
 
 export default defineConfig({
   plugins: [hardhatEthers, hardhatToolboxMochaEthers, hardhatMocha, hardhatTypechain, hardhatVerify],
