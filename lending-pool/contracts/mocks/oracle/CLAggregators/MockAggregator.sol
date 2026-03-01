@@ -24,6 +24,20 @@ contract MockAggregator {
     emit AnswerUpdated(_answer, 0, block.timestamp);
   }
 
+  function latestRoundData()
+    external
+    view
+    returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound
+    )
+  {
+    return (0, _latestAnswer, block.timestamp, block.timestamp, 0);
+  }
+
   function getTokenType() external view returns (uint256) {
     return 1;
   }

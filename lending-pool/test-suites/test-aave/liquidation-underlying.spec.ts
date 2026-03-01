@@ -9,8 +9,7 @@ import { getUserData } from './helpers/utils/helpers.js';
 
 import { parseEther, MaxUint256 } from 'ethers';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 /**
  * BITMOR ARCHITECTURE - Liquidation Tests (receiving underlying asset)

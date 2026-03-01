@@ -71,7 +71,7 @@ contract CloseLoanTest is IntegrationTestBase {
         uint256 collateralInBTC = btcVault.previewRedeem(aTokenBalance);
         uint256 feeFloor = collateralInBTC * feeBps / TC.BPS_DENOMINATOR;
 
-        address premiumCollector = loanContract.getPremiumCollector();
+        address premiumCollector = bitmorAddressesProvider.getPremiumCollector();
         uint256 collectorBtcBefore = cbBTC.balanceOf(premiumCollector);
 
         _closeLoanEarly(lsa, testUser, true);
@@ -273,7 +273,7 @@ contract CloseLoanTest is IntegrationTestBase {
     function test_CloseLoan_AfterVaultAppreciation_FeeReflectsYield() public {
         // --- Baseline: close loan WITHOUT vault yield ---
         address lsa1 = _createStandardLoan();
-        address premiumCollector = loanContract.getPremiumCollector();
+        address premiumCollector = bitmorAddressesProvider.getPremiumCollector();
         uint256 collectorBefore1 = cbBTC.balanceOf(premiumCollector);
         _closeLoanEarly(lsa1, testUser, true);
         uint256 feeWithoutYield = cbBTC.balanceOf(premiumCollector) - collectorBefore1;

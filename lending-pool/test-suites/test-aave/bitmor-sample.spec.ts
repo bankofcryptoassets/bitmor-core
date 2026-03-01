@@ -1,7 +1,6 @@
 import { makeSuite } from './helpers/make-suite.js';
 import type { TestEnv } from './helpers/make-suite.js';
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 /**
  * Bitmor Sample Tests

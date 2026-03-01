@@ -13,8 +13,7 @@ import BigNumber from "bignumber.js";
 
 import './helpers/utils/math';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('Interest rate strategy tests', (testEnv: TestEnv) => {
   let strategyInstance: DefaultReserveInterestRateStrategy;

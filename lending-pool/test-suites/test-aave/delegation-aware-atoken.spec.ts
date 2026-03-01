@@ -2,8 +2,7 @@ import { MAX_UINT_AMOUNT, ZERO_ADDRESS } from '../../helpers/constants.js';
 import { BUIDLEREVM_CHAINID } from '../../helpers/buidler-constants.js';
 import {buildPermitParams, getSignatureFromTypedData,
   getContractAddress} from '../../helpers/contracts-helpers.js';
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 import { parseEther } from 'ethers';
 import { ProtocolErrors } from '../../helpers/types.js';
 import { makeSuite } from './helpers/make-suite.js';

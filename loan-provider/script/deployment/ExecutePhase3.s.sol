@@ -6,6 +6,7 @@ import {DeploymentHelper} from "../helpers/DeploymentHelper.s.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 
 /// @title ExecutePhase3
 /// @author Bitmor Protocol
@@ -29,6 +30,9 @@ contract ExecutePhase3 is Script, DeploymentHelper {
     address public usdcStrategy;
     address public aaveOracle;
     address public mockCbBTC;
+    address public bitmorAddressesProvider;
+    address public swapper;
+    address public autoRepayment;
 
     /// @notice Main entry point - executes all scheduled operations
     function run() public {
@@ -43,11 +47,25 @@ contract ExecutePhase3 is Script, DeploymentHelper {
 
         // Execute LPM_SLOW operations (Loan config)
         console2.log("Executing Loan configuration...");
-        manager.execute(loan, abi.encodeCall(ILoan.setLoanVaultFactory, (loanVaultFactory)));
+        manager.execute(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)));
         manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setPremiumCollector, (helperConfig.getPremiumCollector())));
         manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())));
         manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())));
+
+        // Execute BitmorAddressesProvider operations
+        console2.log("Executing BitmorAddressesProvider configuration...");
+        manager.execute(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory))
+        );
+        manager.execute(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)));
+        manager.execute(
+            bitmorAddressesProvider,
+            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (helperConfig.getPremiumCollector()))
+        );
+        manager.execute(
+            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment))
+        );
+        console2.log("BitmorAddressesProvider configuration complete.");
 
         // Loan parameter configuration (required for loan creation to work)
         // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)
@@ -92,6 +110,9 @@ contract ExecutePhase3 is Script, DeploymentHelper {
         usdcStrategy = helperConfig.getUSDCStrategy();
         aaveOracle = helperConfig.getOracle();
         mockCbBTC = helperConfig.getCbBTC();
+        bitmorAddressesProvider = helperConfig.getBitmorAddressesProvider();
+        swapper = helperConfig.getSwapper();
+        autoRepayment = helperConfig.getAutoRepayer();
 
         console2.log("Loaded addresses from HelperConfig:");
         console2.log("  AccessManager:", accessManager);

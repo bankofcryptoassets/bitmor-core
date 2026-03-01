@@ -10,8 +10,7 @@ import BigNumber from "bignumber.js";
 import type { MockFlashLoanReceiver } from '../../types/ethers-contracts/index.js';
 import { getMockFlashLoanReceiver } from '../../helpers/contracts-getters.js';
 
-import chai from 'chai';
-const { expect } = chai;
+import { expect } from 'chai';
 
 makeSuite('Pausable Pool', (testEnv: TestEnv) => {
   let _mockFlashLoanReceiver = {} as MockFlashLoanReceiver;
