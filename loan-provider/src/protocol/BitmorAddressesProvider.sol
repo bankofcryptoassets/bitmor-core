@@ -125,6 +125,11 @@ contract BitmorAddressesProvider is Initializable, UUPSUpgradeable, IBitmorAddre
         autoRepayer = _getAddressesProviderStorage().addresses[AUTO_REPAYER];
     }
 
+    /// @inheritdoc IBitmorAddressesProvider
+    function i_LOAN_PROVIDER() external view returns (address) {
+        return _getAddressesProviderStorage().loanProvider;
+    }
+
     // ============ Internal ============
 
     function _checkZeroAddress(address _address) internal pure {

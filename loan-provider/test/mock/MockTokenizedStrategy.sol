@@ -5,6 +5,7 @@ import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {ERC20, ERC4626, SimpleTokenizedStrategy} from "@btcVault/TokenizedStrategy/SimpleTokenizedStrategy.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockYieldSource} from "./MockYieldSource.sol";
 
 /// @title MockTokenizedStrategy
@@ -25,14 +26,14 @@ contract MockTokenizedStrategy is SimpleTokenizedStrategy {
     /// @notice Returns the name of the mock strategy token
     /// @inheritdoc ERC20
     /// @return The mock strategy token name
-    function name() public pure override returns (string memory) {
+    function name() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "mockTokenizedStrategy";
     }
 
     /// @notice Returns the symbol of the mock strategy token
     /// @inheritdoc ERC20
     /// @return The mock strategy token symbol
-    function symbol() public pure override returns (string memory) {
+    function symbol() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "mockTS";
     }
 
