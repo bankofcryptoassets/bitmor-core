@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title LiquidationTriggersTest
 /// @notice Integration tests for liquidation trigger conditions: oracle manipulation,

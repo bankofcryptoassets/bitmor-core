@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";

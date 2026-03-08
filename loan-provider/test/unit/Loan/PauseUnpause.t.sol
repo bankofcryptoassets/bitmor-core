@@ -3,8 +3,8 @@ pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title PauseUnpauseTest

@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {USDCVaultHandler} from "./handlers/USDCVaultHandler.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /**
  * @title USDCVaultInvariantTest

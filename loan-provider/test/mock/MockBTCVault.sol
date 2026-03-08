@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {ERC4626} from "@solady/tokens/ERC4626.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title MockBTCVault
 /// @author Bitmor Protocol

@@ -4,10 +4,10 @@ pragma solidity 0.8.30;
 import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {IAccessManager} from "@openzeppelin/access/manager/IAccessManager.sol";
+import {IAccessManager} from "@openzeppelin/contracts/access/manager/IAccessManager.sol";
 
 /// @title USDCVaultTest
 /// @author Bitmor Protocol

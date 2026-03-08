@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IReserveInterestRateStrategy} from "@bitmor/interfaces/IReserveInterestRateStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title MockDefaultInterestRateStrategy
 /// @author Bitmor Protocol

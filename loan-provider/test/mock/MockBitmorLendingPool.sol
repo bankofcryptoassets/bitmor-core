@@ -7,8 +7,8 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockAToken} from "./MockAToken.sol";
 import {MockVariableDebtToken} from "./MockVariableDebtToken.sol";
 

@@ -15,7 +15,7 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
 
 // Interfaces
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 // Mocks (for minting and oracle manipulation on deployed mock contracts)

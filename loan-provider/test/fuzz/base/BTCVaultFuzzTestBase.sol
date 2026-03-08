@@ -8,7 +8,7 @@ import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {MockAToken} from "../../mock/MockAToken.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title BTCVaultFuzzTestBase

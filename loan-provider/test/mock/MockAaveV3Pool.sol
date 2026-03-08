@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IFlashLoanSimpleReceiver} from "@bitmor/interfaces/IFlashLoanSimpleReceiver.sol";
 import {MockAToken} from "./MockAToken.sol";
 

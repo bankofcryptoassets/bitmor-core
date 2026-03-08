@@ -5,7 +5,7 @@ import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
 import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
 import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";

@@ -5,7 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 
