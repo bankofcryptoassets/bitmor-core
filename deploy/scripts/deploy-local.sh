@@ -23,6 +23,8 @@ log "Anvil running (chainId: $CHAIN_ID)"
 
 [ "$CHAIN_ID" = "31337" ] || error "Expected chainId 31337, got $CHAIN_ID"
 
+mkdir -p "$ROOT/loan-provider/deployments"
+
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
 log "=========================================="
@@ -30,7 +32,7 @@ log "Phase 1: loan-provider (AccessManager, Tokens, Oracles, BTCVault)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-FOUNDRY_PROFILE=local forge script script/deployment/DeployPhase1.s.sol:DeployPhase1 \
+FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local \
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
 
 log "Phase 1 complete."
@@ -53,7 +55,7 @@ log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-FOUNDRY_PROFILE=local forge script script/deployment/DeployPhase3.s.sol:DeployPhase3 \
+FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local \
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow -v
 
 log "Phase 3a complete. Contracts deployed, roles granted."
@@ -64,7 +66,7 @@ log "=========================================="
 log "Phase 3b: Schedule timelocked operations"
 log "=========================================="
 
-FOUNDRY_PROFILE=local forge script script/deployment/SchedulePhase3.s.sol:SchedulePhase3 \
+FOUNDRY_PROFILE=local forge script script/deployment/local/SchedulePhase3Local.s.sol:SchedulePhase3Local \
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
 
 log "Phase 3b complete. Operations scheduled."
@@ -84,10 +86,21 @@ cast rpc evm_mine --rpc-url "$RPC" > /dev/null
 log "Time advanced and block mined."
 
 # Execute scheduled operations
-FOUNDRY_PROFILE=local forge script script/deployment/ExecutePhase3.s.sol:ExecutePhase3 \
+FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local \
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
 
 log "Phase 3c complete. All operations executed."
+
+# ============ Phase 4: Post-Deploy Validation ============
+log ""
+log "=========================================="
+log "Phase 4: Post-Deploy Validation"
+log "=========================================="
+
+FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" -v
+
+log "Phase 4 complete. All deployment checks passed."
 
 # ============ Summary ============
 log ""
