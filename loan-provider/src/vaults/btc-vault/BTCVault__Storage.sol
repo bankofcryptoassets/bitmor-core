@@ -8,15 +8,12 @@ import {Errors} from "../../libraries/helpers/Errors.sol";
  * @title BTCVault__Storage
  * @author Bitmor Protocol
  * @notice Storage contract for BTCVault containing state variables, events, and constants
- * @dev Implements the separated storage pattern for:
- * - Clear state variable organization
- * - Gas optimization through immutable variables
- * - Potential future upgradeability support
+ * @dev Uses ERC-7201 namespaced storage for proxy-safe state management.
  *
  * ## Storage Layout
- * - `i_asset`: Immutable underlying asset address
- * - `s_vault`: Vault configuration (fees, recipient)
- * - `s_strategy`: Strategy management state (strategies array, queues)
+ * - `asset`: Underlying asset address (set once in initialize)
+ * - `vault`: Vault configuration (fees, recipient)
+ * - `strategy`: Strategy management state (strategies array, queues)
  *
  * ## Constants
  * - `BASIS_POINT_SCALE`: 10,000 (100% = 10000 bps)
@@ -125,14 +122,6 @@ contract BTCVault__Storage {
      */
     event BTCVault__MaxStrategiesUpdated(uint256 indexed newMaxStrategies);
 
-    // ============ Immutable Storage ============
-
-    /**
-     * @notice The underlying asset that the vault accepts (cbBTC)
-     * @dev Set once in constructor and cannot be changed
-     */
-    address internal immutable i_asset;
-
     // ============ Constants ============
 
     /**
@@ -155,28 +144,24 @@ contract BTCVault__Storage {
      */
     uint256 internal constant MIN_STRATEGY_DEPOSIT = 10_000;
 
-    // ============ Mutable Storage ============
+    // ============ ERC-7201 Namespaced Storage ============
 
-    /**
-     * @notice Vault configuration state including fees and recipient
-     * @dev Contains entryFee, exitFee, feeRecipient, maxStrategies
-     */
-    DataTypes.VaultState internal s_vault;
+    bytes32 private constant BTCVAULT_STORAGE_LOCATION =
+        0xead2824e01062ee53f8cc97d40fb6c4da922218d0a6d6f0d0dd88d462a1cd500;
 
-    /**
-     * @notice Complete strategy management state including strategies array and queues
-     * @dev Contains strategies mapping, supplyQueue, withdrawQueue, nextStrategyIndex
-     */
-    DataTypes.StrategyState internal s_strategy;
+    /// @custom:storage-location erc7201:bitmor.storage.BTCVault
+    struct BTCVaultStorageData {
+        /// @dev Underlying asset address (cbBTC), set once in initialize
+        address asset;
+        /// @dev Vault configuration state including fees and recipient
+        DataTypes.VaultState vault;
+        /// @dev Complete strategy management state including strategies mapping and queues
+        DataTypes.StrategyState strategy;
+    }
 
-    // ============ Constructor ============
-
-    /**
-     * @notice Initializes the storage contract with the underlying asset
-     * @param asset_ The address of the ERC20 token to be used as the underlying asset
-     */
-    constructor(address asset_) {
-        if (asset_ == address(0)) revert Errors.ZeroAddress();
-        i_asset = asset_;
+    function _getBTCVaultStorage() internal pure returns (BTCVaultStorageData storage $) {
+        assembly {
+            $.slot := BTCVAULT_STORAGE_LOCATION
+        }
     }
 }
