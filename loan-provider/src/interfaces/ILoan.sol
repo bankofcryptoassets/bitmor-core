@@ -170,6 +170,34 @@ interface ILoan {
 
     event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
 
+    // ============ Initialization ============
+
+    /**
+     * @notice Initializes the Loan contract (called once via proxy)
+     * @param _manager Access Manager address
+     * @param _aaveV3Pool Aave V3 pool address for flash loans
+     * @param _aaveAddressesProvider Aave addresses provider
+     * @param _bitmorPool Bitmor lending pool address
+     * @param _oracle Price oracle address
+     * @param _collateralAsset Collateral asset address (bvBTC)
+     * @param _debtAsset Debt asset address (USDC)
+     * @param _btc BTC asset address (cbBTC)
+     * @param _preClosureFeeBps Pre-closure fee in basis points
+     * @param _gracePeriod Grace period for repayments in seconds
+     */
+    function initialize(
+        address _manager,
+        address _aaveV3Pool,
+        address _aaveAddressesProvider,
+        address _bitmorPool,
+        address _oracle,
+        address _collateralAsset,
+        address _debtAsset,
+        address _btc,
+        uint256 _preClosureFeeBps,
+        uint256 _gracePeriod
+    ) external;
+
     // ============ Main Functions ============
 
     /**
