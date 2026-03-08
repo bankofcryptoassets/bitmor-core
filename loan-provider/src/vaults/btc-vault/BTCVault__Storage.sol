@@ -138,7 +138,7 @@ contract BTCVault__Storage {
 
     /**
      * @notice Minimum amount of assets that must be deposited into strategies per vault deposit
-     * @dev Prevents the tiny-shares scenario where Solady's virtual offset causes
+     * @dev Prevents the tiny-shares scenario where ERC4626's virtual offset causes
      *      disproportionate rounding. 10,000 sat = 0.0001 BTC provides 110x safety margin
      *      over the theoretical threshold (~91 sat for <0.01% orphaned fraction).
      */
