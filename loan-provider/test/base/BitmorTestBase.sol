@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {TestConstants} from "../helpers/TestConstants.sol";
 
 /// @title BitmorTestBase

@@ -1,4 +1,4 @@
-@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/
 @openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @openzeppelin-foundry-upgrades/=lib/openzeppelin-foundry-upgrades/src/
 ds-test/=node_modules/ds-test/src/
@@ -7,5 +7,6 @@ forge-std/=lib/forge-std/src/
 @solady/=lib/solady/src/
 @btcVault/=src/vaults/btc-vault/
 @usdcVault/=src/vaults/usdc-vault/
+@bitmor-config/=script/config/
 @lending-pool/=../lending-pool/contracts/
 @oz-v3/=../lending-pool/node_modules/@openzeppelin/contracts/

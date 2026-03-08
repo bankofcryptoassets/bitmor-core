@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ILoan} from "../interfaces/ILoan.sol";
-import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
-import {BTCVault} from "../vaults/btc-vault/BTCVault.sol";
-import {USDCVault} from "../vaults/usdc-vault/USDCVault.sol";
-import {ISimpleStrategy} from "../interfaces/ISimpleStrategy.sol";
-import {IBeaconController} from "../interfaces/IBeaconController.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
+import {USDCVault} from "@usdcVault/USDCVault.sol";
+import {ISimpleStrategy} from "@bitmor/interfaces/ISimpleStrategy.sol";
+import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 
 /// @title RolesData
 /// @author Bitmor Protocol

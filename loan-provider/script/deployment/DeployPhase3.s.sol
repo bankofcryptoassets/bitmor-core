@@ -5,7 +5,7 @@ import {Script, console2} from "forge-std/Script.sol";
 import {InitialSetup} from "../interaction/AccessManager/InitialSetup.s.sol";
 import {StrategyConfig} from "../StrategyConfig.s.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
 import {MockUniswapV4SwapAdapter} from "../../test/mock/MockUniswapV4SwapAdapter.sol";
