@@ -3,7 +3,9 @@ pragma solidity 0.8.30;
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AccessManaged} from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {AccessManagedUpgradeable} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 
 import {Errors} from "../libraries/helpers/Errors.sol";
 
@@ -15,6 +17,7 @@ import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
  * @author Bitmor Protocol
  * @notice Contract for automatic repayment of loans
  * @dev Implements IAutoRepayment interface for scheduled loan repayments.
+ * Uses UUPS proxy pattern with ERC-7201 namespaced storage.
  *
  * ## Overview
  * Enables users to authorize automatic repayments for their loans. An off-chain
@@ -30,24 +33,38 @@ import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
  * @custom:security Executor role required for executing repayments
  * @custom:security Users must explicitly authorize each LSA for auto-repayment
  */
-contract AutoRepayment is IAutoRepayment, AccessManaged {
+contract AutoRepayment is Initializable, UUPSUpgradeable, IAutoRepayment, AccessManagedUpgradeable {
     using SafeERC20 for IERC20;
 
-    /**
-     * @notice Tracks authorization status for each user-LSA pair
-     * @dev `isAuthorized[user][lsa]` = true means user has authorized auto-repayment for that LSA
-     */
-    mapping(address user => mapping(address lsa => bool)) public isAuthorized;
+    // ============ ERC-7201 Namespaced Storage ============
 
-    /**
-     * @notice The Loan contract that processes repayments
-     */
-    address public immutable i_LOAN;
+    bytes32 private constant AUTOREPAYMENT_STORAGE_LOCATION =
+        0x7f92c81ed602f5d316d76c0137db9f43ea8643a0e7f06a282198a60578d61c00;
 
-    /**
-     * @notice The debt asset (USDC) used for repayments
-     */
-    address public immutable i_DEBT_ASSET;
+    /// @custom:storage-location erc7201:bitmor.storage.AutoRepayment
+    struct AutoRepaymentStorageData {
+        /// @dev The Loan contract that processes repayments
+        address loan;
+        /// @dev The debt asset (USDC) used for repayments
+        address debtAsset;
+        /// @dev Tracks authorization status for each user-LSA pair
+        mapping(address user => mapping(address lsa => bool)) isAuthorized;
+    }
+
+    function _getAutoRepaymentStorage() internal pure returns (AutoRepaymentStorageData storage $) {
+        assembly {
+            $.slot := AUTOREPAYMENT_STORAGE_LOCATION
+        }
+    }
+
+    // ============ Constructor ============
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initialization ============
 
     /**
      * @notice Initializes the AutoRepayment contract
@@ -55,10 +72,19 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
      * @param _loan The Loan contract address
      * @param _debtAsset The debt asset address (USDC)
      */
-    constructor(address _manager, address _loan, address _debtAsset) AccessManaged(_manager) {
-        i_LOAN = _loan;
-        i_DEBT_ASSET = _debtAsset;
+    function initialize(address _manager, address _loan, address _debtAsset) public initializer {
+        __AccessManaged_init(_manager);
+
+        AutoRepaymentStorageData storage $ = _getAutoRepaymentStorage();
+        $.loan = _loan;
+        $.debtAsset = _debtAsset;
     }
+
+    // ============ UUPS ============
+
+    function _authorizeUpgrade(address) internal override restricted {}
+
+    // ============ Public Functions ============
 
     /**
      * @inheritdoc IAutoRepayment
@@ -66,9 +92,8 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
     function createAutoRepayment(address lsa) external override {
         if (lsa == address(0)) revert Errors.ZeroAddress();
 
-        isAuthorized[msg.sender][lsa] = true;
+        _getAutoRepaymentStorage().isAuthorized[msg.sender][lsa] = true;
 
-        // Return hash for interface compatibility (though not stored)
         emit AutoRepayment__RepaymentCreated(lsa, msg.sender);
     }
 
@@ -76,8 +101,9 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
      * @inheritdoc IAutoRepayment
      */
     function cancelAutoRepayment(address lsa) external {
-        if (!isAuthorized[msg.sender][lsa]) revert Errors.InvalidRepaymentHash();
-        isAuthorized[msg.sender][lsa] = false;
+        AutoRepaymentStorageData storage $ = _getAutoRepaymentStorage();
+        if (!$.isAuthorized[msg.sender][lsa]) revert Errors.InvalidRepaymentHash();
+        $.isAuthorized[msg.sender][lsa] = false;
         emit AutoRepayment__RepaymentCancelled(lsa, msg.sender);
     }
 
@@ -86,17 +112,18 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
      * @custom:access Restricted to `ARE` (Auto Repayment Executor) role
      */
     function executeAutoRepayment(address lsa, address user, uint256 amount) external restricted {
-        if (!isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash();
+        AutoRepaymentStorageData storage $ = _getAutoRepaymentStorage();
+        if (!$.isAuthorized[user][lsa]) revert Errors.InvalidRepaymentHash();
 
-        IERC20(i_DEBT_ASSET).safeTransferFrom(user, address(this), amount);
-        IERC20(i_DEBT_ASSET).forceApprove(i_LOAN, amount);
-        uint256 amountRepaid = ILoan(i_LOAN).repay(lsa, amount);
+        IERC20($.debtAsset).safeTransferFrom(user, address(this), amount);
+        IERC20($.debtAsset).forceApprove($.loan, amount);
+        uint256 amountRepaid = ILoan($.loan).repay(lsa, amount);
 
-        IERC20(i_DEBT_ASSET).forceApprove(i_LOAN, 0);
+        IERC20($.debtAsset).forceApprove($.loan, 0);
 
         uint256 excess = amount - amountRepaid;
         if (excess > 0) {
-            IERC20(i_DEBT_ASSET).safeTransfer(user, excess);
+            IERC20($.debtAsset).safeTransfer(user, excess);
             emit AutoRepayment__ExcessRefunded(user, excess);
         }
 
@@ -115,5 +142,15 @@ contract AutoRepayment is IAutoRepayment, AccessManaged {
         IERC20(token).safeTransfer(to, amount);
 
         emit AutoRepayment__TokensRescued(token, to, amount);
+    }
+
+    /**
+     * @notice Returns the authorization status for a user-LSA pair
+     * @param user The user address
+     * @param lsa The LSA address
+     * @return True if the user has authorized auto-repayment for the LSA
+     */
+    function getIsAuthorized(address user, address lsa) external view returns (bool) {
+        return _getAutoRepaymentStorage().isAuthorized[user][lsa];
     }
 }
