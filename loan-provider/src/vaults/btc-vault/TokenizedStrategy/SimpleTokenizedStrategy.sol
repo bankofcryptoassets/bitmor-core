@@ -2,8 +2,10 @@
 pragma solidity 0.8.30;
 
 import {Address} from "@openzeppelin/contracts/utils/Address.sol";
-import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
-import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
+import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {Errors} from "../../../libraries/helpers/Errors.sol";
 
@@ -16,6 +18,7 @@ import {Errors} from "../../../libraries/helpers/Errors.sol";
  */
 abstract contract SimpleTokenizedStrategy is ERC4626 {
     using Address for address;
+    using SafeERC20 for IERC20;
 
     /**
      * @notice The yield-generating protocol or contract address (e.g., Aave pool, Morpho vault)
@@ -26,11 +29,6 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      * @notice The vault contract that owns and manages this strategy
      */
     address public immutable i_vault;
-
-    /**
-     * @notice The underlying asset that this strategy accepts and manages
-     */
-    address private immutable i_asset;
 
     /// @notice Restricts function access to the vault contract only
     /// @custom:security Critical access control - prevents direct strategy manipulation bypassing vault accounting
@@ -45,33 +43,12 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
      * @param yieldSource_ The address of the yield-generating protocol
      * @param vault_ The address of the vault that will manage this strategy
      */
-    constructor(address yieldSource_, address vault_) {
+    constructor(address yieldSource_, address vault_)
+        ERC20("TokenizedStrategy", "TS")
+        ERC4626(IERC20(abi.decode(Address.functionStaticCall(vault_, abi.encodeWithSignature("asset()")), (address))))
+    {
         i_yieldSource = yieldSource_;
         i_vault = vault_;
-
-        // Query vault for its underlying asset to ensure compatibility
-        bytes memory data = i_vault.functionStaticCall(abi.encodeWithSignature("asset()"));
-
-        i_asset = abi.decode(data, (address));
-    }
-
-    /**
-     * @notice Returns the underlying asset managed by this strategy
-     * @inheritdoc ERC4626
-     * @return assetAddress The address of the underlying ERC20 token
-     */
-    function asset() public view override returns (address assetAddress) {
-        return i_asset;
-    }
-
-    /**
-     * @notice Returns the number of decimals used by the underlying asset
-     * @inheritdoc ERC4626
-     * @dev Used internally for precise share calculations
-     * @return The number of decimals of the underlying asset
-     */
-    function _underlyingDecimals() internal view override returns (uint8) {
-        return ERC20(asset()).decimals();
     }
 
     /**
@@ -85,18 +62,52 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
     }
 
     /**
-     * @notice Internal deposit hook that guards against zero-share mints
+     * @notice Hook called after assets are deposited into the strategy
+     * @dev Override in derived strategies to deploy assets to yield source
+     * @param assets The amount of assets deposited
+     * @param shares The amount of shares minted
+     */
+    function _afterDeposit(uint256 assets, uint256 shares) internal virtual {}
+
+    /**
+     * @notice Hook called before assets are withdrawn from the strategy
+     * @dev Override in derived strategies to retrieve assets from yield source
+     * @param assets The amount of assets to withdraw
+     * @param shares The amount of shares to burn
+     */
+    function _beforeWithdraw(uint256 assets, uint256 shares) internal virtual {}
+
+    /**
+     * @notice Internal deposit that guards against zero-share mints and calls the after-deposit hook
      * @dev Defense-in-depth: prevents donation attacks at the strategy level.
      *      If share price is inflated such that `shares` rounds to 0, the depositor
      *      would lose their assets. This guard reverts instead.
-     * @param by Address where the `assets` will be transferred from
-     * @param to Address where the `shares` will be minted to
+     * @param caller Address where the `assets` will be transferred from
+     * @param receiver Address where the `shares` will be minted to
      * @param assets The amount of underlying assets to deposit
      * @param shares The amount of shares to mint
      */
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual override {
         if (shares == 0) revert Errors.ZeroAmount();
-        super._deposit(by, to, assets, shares);
+        super._deposit(caller, receiver, assets, shares);
+        _afterDeposit(assets, shares);
+    }
+
+    /**
+     * @notice Internal withdraw that calls the before-withdraw hook before executing
+     * @param caller Address initiating the withdrawal
+     * @param receiver Address that will receive the assets
+     * @param owner Address whose shares will be burned
+     * @param assets The amount of underlying assets to withdraw
+     * @param shares The amount of shares to burn
+     */
+    function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares)
+        internal
+        virtual
+        override
+    {
+        _beforeWithdraw(assets, shares);
+        super._withdraw(caller, receiver, owner, assets, shares);
     }
 
     /// @inheritdoc ERC4626
@@ -125,7 +136,7 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
 
     /**
      * @notice Withdraws ALL assets from the strategy, bypassing ERC-4626 share conversion
-     * @dev Prevents orphaned yield caused by Solady's virtual offset when share count is low.
+     * @dev Prevents orphaned yield caused by ERC4626's virtual offset when share count is low.
      *      When `totalSupply` is small relative to `totalAssets`, `convertToAssets(shares)` returns
      *      significantly less than actual assets (e.g., 2/3 with 2 shares). This function reads the
      *      raw `totalAssets()` balance, withdraws it from the yield source, burns all vault shares,
@@ -151,6 +162,6 @@ abstract contract SimpleTokenizedStrategy is ERC4626 {
         if (shares > 0) _burn(i_vault, shares);
 
         // Transfer ALL underlying assets to vault
-        SafeTransferLib.safeTransfer(asset(), i_vault, assets);
+        IERC20(asset()).safeTransfer(i_vault, assets);
     }
 }
