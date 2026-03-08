@@ -248,6 +248,48 @@ contract HelperConfig is Script {
         return _readDeployment("autoRepayment");
     }
 
+    /// @notice Returns the BTCVault implementation address
+    /// @return The BTCVault implementation address from most recent deployment
+    function getBTCVaultImpl() public view returns (address) {
+        return _readDeployment("btcVaultImpl");
+    }
+
+    /// @notice Returns the Loan implementation address
+    /// @return The Loan implementation address from most recent deployment
+    function getLoanImpl() public view returns (address) {
+        return _readDeployment("loanImpl");
+    }
+
+    /// @notice Returns the USDCVault implementation address
+    /// @return The USDCVault implementation address from most recent deployment
+    function getUSDCVaultImpl() public view returns (address) {
+        return _readDeployment("usdcVaultImpl");
+    }
+
+    /// @notice Returns the AutoRepayment implementation address
+    /// @return The AutoRepayment implementation address from most recent deployment
+    function getAutoRepaymentImpl() public view returns (address) {
+        return _readDeployment("autoRepaymentImpl");
+    }
+
+    /// @notice Returns the BitmorAddressesProvider implementation address
+    /// @return The BitmorAddressesProvider implementation address from most recent deployment
+    function getBitmorAddressesProviderImpl() public view returns (address) {
+        return _readDeployment("bitmorAddressesProviderImpl");
+    }
+
+    /// @notice Returns the UpgradeableBeacon address for LoanVault proxies
+    /// @return The UpgradeableBeacon address from most recent deployment
+    function getBeacon() public view returns (address) {
+        return _readDeployment("beacon");
+    }
+
+    /// @notice Returns the BeaconController address
+    /// @return The BeaconController address from most recent deployment
+    function getBeaconController() public view returns (address) {
+        return _readDeployment("beaconController");
+    }
+
     /// @notice Returns the deployed BTCVault address
     /// @return The BTCVault proxy address from most recent deployment
     function getBTCVault() public view returns (address) {
