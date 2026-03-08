@@ -2,10 +2,10 @@
 pragma solidity 0.8.30;
 
 import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
+import {AccessManaged} from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";

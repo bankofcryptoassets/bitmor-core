@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
+import {AccessManaged} from "@openzeppelin/contracts/access/manager/AccessManaged.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import {IBitmorAddressesProvider} from "../interfaces/IBitmorAddressesProvider.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
