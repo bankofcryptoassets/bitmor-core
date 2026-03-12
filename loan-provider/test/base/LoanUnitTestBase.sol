@@ -268,9 +268,9 @@ abstract contract LoanUnitTestBase is UnitTestBase, ProxyTestHelper {
             config.getGracePeriod()
         );
 
-        // Deploy beacon chain (simplified -- no BeaconController for unit tests)
+        // Deploy beacon proxy (simplified -- no BeaconController for unit tests)
         address factoryAddr;
-        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconChain(address(loan));
+        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconProxy(address(loan));
         loanVaultFactory = LoanVaultFactory(factoryAddr);
 
         // Deploy BitmorAddressesProvider via UUPS proxy

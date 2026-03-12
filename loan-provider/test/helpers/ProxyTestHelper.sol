@@ -132,15 +132,15 @@ abstract contract ProxyTestHelper is Test {
         return LoanVault(payable(address(proxy)));
     }
 
-    // ===== Beacon Chain Helpers =====
+    // ===== Beacon Proxy Helpers =====
 
-    /// @notice Deploys simplified beacon chain for unit/fuzz tests
+    /// @notice Deploys simplified beacon proxy for unit/fuzz tests
     /// @dev No BeaconController -- test contract owns beacon directly
     /// @param _loanProxy Loan proxy address (passed to LoanVaultFactory)
     /// @return loanVaultImpl LoanVault implementation address
     /// @return beacon UpgradeableBeacon address (owned by test contract)
     /// @return factory LoanVaultFactory address
-    function _deploySimpleBeaconChain(address _loanProxy)
+    function _deploySimpleBeaconProxy(address _loanProxy)
         internal
         returns (address loanVaultImpl, address beacon, address factory)
     {
@@ -149,7 +149,7 @@ abstract contract ProxyTestHelper is Test {
         factory = address(new LoanVaultFactory(beacon, _loanProxy));
     }
 
-    /// @notice Deploys full beacon chain for integration/upgrade tests
+    /// @notice Deploys full beacon proxy infrastructure for integration/upgrade tests
     /// @dev Includes BeaconController with ownership transfer
     /// @param _accessManager AccessManager address for BeaconController
     /// @param _loanProxy Loan proxy address for LoanVaultFactory
@@ -157,7 +157,7 @@ abstract contract ProxyTestHelper is Test {
     /// @return beacon UpgradeableBeacon address
     /// @return beaconController BeaconController address (owns beacon)
     /// @return factory LoanVaultFactory address
-    function _deployFullBeaconChain(address _accessManager, address _loanProxy)
+    function _deployFullBeaconProxy(address _accessManager, address _loanProxy)
         internal
         returns (address loanVaultImpl, address beacon, address beaconController, address factory)
     {

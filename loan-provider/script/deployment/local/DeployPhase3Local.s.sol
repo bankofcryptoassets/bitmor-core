@@ -22,12 +22,12 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * @title DeployPhase3Local
  * @author Bitmor Protocol
  * @notice Phase 3 local deployment: USDCVault, Loan, BitmorAddressesProvider, AutoRepayment (all UUPS proxies),
- *         LoanVault beacon chain, strategies, mock infrastructure, and AccessManager role wiring
+ *         LoanVault beacon proxy, strategies, mock infrastructure, and AccessManager role wiring
  * @dev Replaces the original DeployPhase3.s.sol for the upgradeable architecture.
  *
  * Key changes from the original:
  * - USDCVault, Loan, BitmorAddressesProvider, AutoRepayment deploy as UUPS proxies via `_deployUUPSProxy()`
- * - LoanVault uses beacon chain via `_deployBeaconChain()` (impl + beacon + controller + factory)
+ * - LoanVault uses beacon proxy via `_deployBeaconProxy()` (impl + beacon + controller + factory)
  * - Role setup uses `_grantOperationalRoles()`, `_wireUpgraderRole()`, and `_setupGuardians()` from DeploymentBase
  * - Address persistence uses `_mergeAndSave()` instead of manual JSON building
  * - Saves implementation addresses directly from deployed contracts
@@ -155,7 +155,7 @@ contract DeployPhase3Local is LocalRolesConfig {
      * 3. Mock token funding
      * 4. AaveOracle configuration
      * 5. Loan (UUPS proxy)
-     * 6. LoanVault beacon chain (impl + beacon + controller + factory)
+     * 6. LoanVault beacon proxy (impl + beacon + controller + factory)
      * 7. BitmorAddressesProvider (UUPS proxy)
      * 8. AutoRepayment (UUPS proxy)
      * 9. LendingPoolAddressesProvider registration
@@ -260,8 +260,8 @@ contract DeployPhase3Local is LocalRolesConfig {
         console2.log("Loan proxy:", loan);
         console2.log("Loan impl:", loanImpl);
 
-        // 6. LoanVault beacon chain (impl + beacon + controller + factory)
-        (loanVaultImpl, beacon, beaconController, loanVaultFactory) = _deployBeaconChain(accessManager, loan);
+        // 6. LoanVault beacon proxy (impl + beacon + controller + factory)
+        (loanVaultImpl, beacon, beaconController, loanVaultFactory) = _deployBeaconProxy(accessManager, loan);
         console2.log("LoanVault impl:", loanVaultImpl);
         console2.log("Beacon:", beacon);
         console2.log("BeaconController:", beaconController);
@@ -409,7 +409,7 @@ contract DeployPhase3Local is LocalRolesConfig {
      * @notice Saves all deployed addresses to deployments.json using `_mergeAndSave()`
      * @dev Includes all keys from the original DeployPhase3._saveDeployments() plus new keys:
      * - `loanImpl`, `usdcVaultImpl`, `autoRepaymentImpl`, `bitmorAddressesProviderImpl` (implementation addresses)
-     * - `beacon`, `beaconController` (beacon chain addresses)
+     * - `beacon`, `beaconController` (beacon proxy addresses)
      *
      * Implementation addresses are stored directly from the deployed implementation contracts.
      */
@@ -491,7 +491,7 @@ contract DeployPhase3Local is LocalRolesConfig {
             '"'
         );
 
-        // Chunk 5: Beacon chain addresses
+        // Chunk 5: Beacon proxy addresses
         keys = string.concat(
             keys,
             ',"loanVaultImpl":"',

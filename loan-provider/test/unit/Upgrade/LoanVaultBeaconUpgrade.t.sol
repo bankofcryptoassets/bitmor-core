@@ -23,7 +23,7 @@ contract LoanVaultV2 is LoanVault {
 
 /// @title LoanVaultBeaconUpgradeTest
 /// @notice Tests beacon upgrade atomicity - upgrading the beacon upgrades all LoanVault proxies
-/// @dev Deploys the full beacon chain (BeaconController + UpgradeableBeacon) to test access-controlled upgrades
+/// @dev Deploys the full beacon proxy infrastructure (BeaconController + UpgradeableBeacon) to test access-controlled upgrades
 contract LoanVaultBeaconUpgradeTest is LoanUnitTestBase {
     /// @notice BeaconController wrapping the UpgradeableBeacon with AccessManager access control
     BeaconController public beaconController;
@@ -34,21 +34,21 @@ contract LoanVaultBeaconUpgradeTest is LoanUnitTestBase {
     function setUp() public override {
         super.setUp();
 
-        // Replace the simple beacon chain with a full beacon chain that uses BeaconController
-        _deployFullBeaconChainForTest();
+        // Replace the simple beacon proxy with full beacon proxy infrastructure that uses BeaconController
+        _deployFullBeaconProxyForTest();
     }
 
-    /// @notice Deploys the full beacon chain with BeaconController and reconfigures the Loan contract
-    /// @dev Creates new beacon chain, transfers beacon ownership, updates factory in AddressesProvider.
+    /// @notice Deploys the full beacon proxy infrastructure with BeaconController and reconfigures the Loan contract
+    /// @dev Creates new beacon proxy infrastructure, transfers beacon ownership, updates factory in AddressesProvider.
     ///      Beacon deploy/transferOwnership run unpranked (beacon owner is address(this)).
     ///      AccessManager operations use admin prank (admin holds ADMIN_ROLE).
-    function _deployFullBeaconChainForTest() internal {
-        // Step 1: Deploy beacon chain without prank -- beacon owner is address(this)
+    function _deployFullBeaconProxyForTest() internal {
+        // Step 1: Deploy beacon proxy without prank -- beacon owner is address(this)
         address lvImpl;
         address beaconAddr;
         address bcAddr;
         address factoryAddr;
-        (lvImpl, beaconAddr, bcAddr, factoryAddr) = _deployFullBeaconChain(address(manager), address(loan));
+        (lvImpl, beaconAddr, bcAddr, factoryAddr) = _deployFullBeaconProxy(address(manager), address(loan));
 
         beaconController = BeaconController(bcAddr);
         loanVaultFactory = LoanVaultFactory(factoryAddr);

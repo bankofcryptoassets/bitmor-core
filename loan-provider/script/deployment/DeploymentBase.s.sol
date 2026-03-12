@@ -20,7 +20,7 @@ import {DeploymentConstants} from "./DeploymentConstants.sol";
  * @title DeploymentBase
  * @author Bitmor Protocol
  * @notice Abstract base contract providing shared deployment utilities for all Bitmor deployment scripts
- * @dev Encapsulates common logic for proxy deployment, beacon chain setup, AccessManager role wiring,
+ * @dev Encapsulates common logic for proxy deployment, beacon proxy setup, AccessManager role wiring,
  * JSON persistence, and preflight validation. Concrete deployment scripts inherit from this and implement
  * `_getRoleGrantees()` to supply chain-specific role assignments.
  *
@@ -129,10 +129,10 @@ abstract contract DeploymentBase is Script {
         console2.log("Deployed UUPS proxy for", contractName, "at:", proxy);
     }
 
-    // ============ Beacon Chain Deployment ============
+    // ============ Beacon Proxy Deployment ============
 
     /**
-     * @notice Deploys the complete LoanVault beacon chain: implementation, beacon, controller, and factory
+     * @notice Deploys the complete LoanVault beacon proxy infrastructure: implementation, beacon, controller, and factory
      * @dev Deployment sequence:
      * 1. Deploy LoanVault implementation (disables initializers in constructor)
      * 2. Deploy UpgradeableBeacon with implementation, owned by this script temporarily
@@ -147,7 +147,7 @@ abstract contract DeploymentBase is Script {
      * @return beaconController The BeaconController address (new beacon owner)
      * @return factory The LoanVaultFactory address
      */
-    function _deployBeaconChain(address accessManager, address loanProxy)
+    function _deployBeaconProxy(address accessManager, address loanProxy)
         internal
         returns (address loanVaultImpl, address beacon, address beaconController, address factory)
     {

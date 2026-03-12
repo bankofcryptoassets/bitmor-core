@@ -293,9 +293,9 @@ abstract contract LoanFuzzTestBase is FuzzTestBase, ProxyTestHelper {
             config.getGracePeriod()
         );
 
-        // Deploy beacon chain (simplified -- no BeaconController for fuzz tests)
+        // Deploy beacon proxy (simplified -- no BeaconController for fuzz tests)
         address factoryAddr;
-        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconChain(address(loan));
+        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconProxy(address(loan));
         loanVaultFactory = LoanVaultFactory(factoryAddr);
 
         // Deploy BitmorAddressesProvider via UUPS proxy

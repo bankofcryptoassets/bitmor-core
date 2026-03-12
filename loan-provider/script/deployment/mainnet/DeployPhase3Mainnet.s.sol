@@ -18,7 +18,7 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
  * @title DeployPhase3Mainnet
  * @author Bitmor Protocol
  * @notice Phase 3 mainnet deployment: USDCVault, Loan, BitmorAddressesProvider, AutoRepayment (all UUPS proxies),
- *         LoanVault beacon chain, strategies, and AccessManager role wiring
+ *         LoanVault beacon proxy, strategies, and AccessManager role wiring
  * @dev Deploys all Phase 3 contracts using real external protocol addresses from HelperConfig.
  *
  * Key differences from DeployPhase3Local:
@@ -150,7 +150,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
      * 2. Loan (UUPS proxy)
-     * 3. LoanVault beacon chain (impl + beacon + controller + factory)
+     * 3. LoanVault beacon proxy (impl + beacon + controller + factory)
      * 4. BitmorAddressesProvider (UUPS proxy)
      * 5. AutoRepayment (UUPS proxy)
      * 6. LendingPoolAddressesProvider registration
@@ -210,8 +210,8 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         console2.log("Loan proxy:", loan);
         console2.log("Loan impl:", loanImpl);
 
-        // 3. LoanVault beacon chain (impl + beacon + controller + factory)
-        (loanVaultImpl, beacon, beaconController, loanVaultFactory) = _deployBeaconChain(accessManager, loan);
+        // 3. LoanVault beacon proxy (impl + beacon + controller + factory)
+        (loanVaultImpl, beacon, beaconController, loanVaultFactory) = _deployBeaconProxy(accessManager, loan);
         console2.log("LoanVault impl:", loanVaultImpl);
         console2.log("Beacon:", beacon);
         console2.log("BeaconController:", beaconController);
@@ -363,7 +363,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
     /**
      * @notice Saves all deployed addresses to deployments.json using `_mergeAndSave()`
-     * @dev Includes all proxy addresses, implementation addresses, beacon chain addresses,
+     * @dev Includes all proxy addresses, implementation addresses, beacon proxy addresses,
      * strategies, and external protocol addresses needed for HelperConfig resolution.
      */
     function _saveDeployments() internal {
@@ -423,7 +423,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
             '"'
         );
 
-        // Chunk 4: Beacon chain addresses
+        // Chunk 4: Beacon proxy addresses
         keys = string.concat(
             keys,
             ',"loanVaultImpl":"',
