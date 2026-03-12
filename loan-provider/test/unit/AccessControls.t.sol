@@ -7,6 +7,7 @@ import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title AccessControlsTest
 /// @author Bitmor Protocol
@@ -49,7 +50,7 @@ contract AccessControlsTest is BaseLoanTest {
     function test_lpmSlow_adminSetters_updateState() public {
         // Deploy a new BitmorAddressesProvider to use as replacement
         vm.startPrank(admin);
-        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(address(manager), address(loan));
         newProvider.setVaultFactory(NEW_FACTORY);
         newProvider.setSwapper(NEW_SWAP_ADAPTER);
         newProvider.setPremiumCollector(NEW_PREMIUM_COLLECTOR);

@@ -33,7 +33,7 @@ log "=========================================="
 cd "$ROOT/loan-provider"
 
 FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --force -v
 
 log "Phase 1 complete."
 
@@ -55,8 +55,25 @@ log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
+# Deploy LoanLogic as a linked library (must exist on-chain before Loan.sol)
+log "Deploying LoanLogic linked library..."
+LOAN_LOGIC_JSON=$(FOUNDRY_PROFILE=local forge create src/libraries/logic/LoanLogic.sol:LoanLogic \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --json)
+LOAN_LOGIC_ADDR=$(echo "$LOAN_LOGIC_JSON" | jq -r '.deployedTo')
+[ -n "$LOAN_LOGIC_ADDR" ] && [ "$LOAN_LOGIC_ADDR" != "null" ] || error "Failed to deploy LoanLogic"
+log "LoanLogic deployed at: $LOAN_LOGIC_ADDR"
+
+# Write LoanLogic address into deployments.json so DeployPhase3Local can read it
+jq --arg addr "$LOAN_LOGIC_ADDR" \
+    '.deployments["31337"].networkConfig.loanLogicLib = $addr' \
+    deployments.json > deployments.json.tmp && mv deployments.json.tmp deployments.json
+log "Saved LoanLogic address to deployments.json"
+
+LIBRARY_FLAG="--libraries src/libraries/logic/LoanLogic.sol:LoanLogic:$LOAN_LOGIC_ADDR"
+
 FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow -v
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow --force -v \
+    $LIBRARY_FLAG
 
 log "Phase 3a complete. Contracts deployed, roles granted."
 
@@ -67,7 +84,8 @@ log "Phase 3b: Schedule timelocked operations"
 log "=========================================="
 
 FOUNDRY_PROFILE=local forge script script/deployment/local/SchedulePhase3Local.s.sol:SchedulePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
+    $LIBRARY_FLAG
 
 log "Phase 3b complete. Operations scheduled."
 
@@ -87,7 +105,8 @@ log "Time advanced and block mined."
 
 # Execute scheduled operations
 FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
+    $LIBRARY_FLAG
 
 log "Phase 3c complete. All operations executed."
 
@@ -98,7 +117,8 @@ log "Phase 4: Post-Deploy Validation"
 log "=========================================="
 
 FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" -v
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" -v \
+    $LIBRARY_FLAG
 
 log "Phase 4 complete. All deployment checks passed."
 

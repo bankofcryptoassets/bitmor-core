@@ -49,9 +49,6 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
     /// @dev TODO: Set a realistic cap before mainnet deployment
     uint256 constant STRATEGY_CAP = type(uint256).max;
 
-    /// @dev EIP-1967 implementation storage slot for reading proxy implementation address
-    bytes32 internal constant IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
     // ============ Mainnet External Addresses ============
 
     // TODO: Replace with actual Base mainnet swap adapter address before deployment
@@ -73,6 +70,9 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
     /// @notice BTCVault proxy deployed in Phase 1
     address public btcVault;
+
+    /// @notice BTCVault implementation address deployed in Phase 1
+    address public btcVaultImpl;
 
     // ============ Lending Pool Addresses (from deployed-contracts.json) ============
 
@@ -98,7 +98,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
     /// @notice USDCVault proxy address
     address public usdcVault;
 
-    /// @notice USDCVault implementation address (read from EIP-1967 slot)
+    /// @notice USDCVault implementation address
     address public usdcVaultImpl;
 
     /// @notice Swap adapter address
@@ -107,7 +107,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
     /// @notice Loan proxy address
     address public loan;
 
-    /// @notice Loan implementation address (read from EIP-1967 slot)
+    /// @notice Loan implementation address
     address public loanImpl;
 
     /// @notice LoanVault implementation address
@@ -125,13 +125,13 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
     /// @notice BitmorAddressesProvider proxy address
     address public bitmorAddressesProvider;
 
-    /// @notice BitmorAddressesProvider implementation address (read from EIP-1967 slot)
+    /// @notice BitmorAddressesProvider implementation address
     address public bitmorAddressesProviderImpl;
 
     /// @notice AutoRepayment proxy address
     address public autoRepayment;
 
-    /// @notice AutoRepayment implementation address (read from EIP-1967 slot)
+    /// @notice AutoRepayment implementation address
     address public autoRepaymentImpl;
 
     /// @notice AaveTokenizedStrategy address (non-proxied)
@@ -179,17 +179,17 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         vm.startBroadcast();
 
         // 1. USDCVault (UUPS proxy)
-        usdcVault = _deployUUPSProxy(
-            "src/vaults/usdc-vault/USDCVault.sol:USDCVault",
-            abi.encodeCall(USDCVault.initialize, (accessManager, usdc, bitmorPool))
-        );
-        usdcVaultImpl = address(uint160(uint256(vm.load(usdcVault, IMPL_SLOT))));
+        // Upgrades.deployUUPSProxy deploys the implementation internally — read its
+        // address from the proxy's EIP-1967 slot rather than deploying a second copy.
+        usdcVault =
+            _deployUUPSProxy("USDCVault.sol", abi.encodeCall(USDCVault.initialize, (accessManager, usdc, bitmorPool)));
+        usdcVaultImpl = _getProxyImplementation(usdcVault);
         console2.log("USDCVault proxy:", usdcVault);
         console2.log("USDCVault impl:", usdcVaultImpl);
 
         // 2. Loan (UUPS proxy)
         loan = _deployUUPSProxy(
-            "src/protocol/Loan.sol:Loan",
+            "Loan.sol",
             abi.encodeCall(
                 Loan.initialize,
                 (
@@ -206,7 +206,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
                 )
             )
         );
-        loanImpl = address(uint160(uint256(vm.load(loan, IMPL_SLOT))));
+        loanImpl = _getProxyImplementation(loan);
         console2.log("Loan proxy:", loan);
         console2.log("Loan impl:", loanImpl);
 
@@ -219,19 +219,17 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
         // 4. BitmorAddressesProvider (UUPS proxy)
         bitmorAddressesProvider = _deployUUPSProxy(
-            "src/protocol/BitmorAddressesProvider.sol:BitmorAddressesProvider",
-            abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, loan))
+            "BitmorAddressesProvider.sol", abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, loan))
         );
-        bitmorAddressesProviderImpl = address(uint160(uint256(vm.load(bitmorAddressesProvider, IMPL_SLOT))));
+        bitmorAddressesProviderImpl = _getProxyImplementation(bitmorAddressesProvider);
         console2.log("BitmorAddressesProvider proxy:", bitmorAddressesProvider);
         console2.log("BitmorAddressesProvider impl:", bitmorAddressesProviderImpl);
 
         // 5. AutoRepayment (UUPS proxy)
         autoRepayment = _deployUUPSProxy(
-            "src/protocol/AutoRepayment.sol:AutoRepayment",
-            abi.encodeCall(AutoRepayment.initialize, (accessManager, loan, usdc))
+            "AutoRepayment.sol", abi.encodeCall(AutoRepayment.initialize, (accessManager, loan, usdc))
         );
-        autoRepaymentImpl = address(uint160(uint256(vm.load(autoRepayment, IMPL_SLOT))));
+        autoRepaymentImpl = _getProxyImplementation(autoRepayment);
         console2.log("AutoRepayment proxy:", autoRepayment);
         console2.log("AutoRepayment impl:", autoRepaymentImpl);
 
@@ -280,10 +278,12 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
         cbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
         btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
+        btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
 
         require(accessManager != address(0), "DeployPhase3Mainnet: accessManager is zero");
         require(cbBTC != address(0), "DeployPhase3Mainnet: cbBTC is zero");
         require(btcVault != address(0), "DeployPhase3Mainnet: btcVault is zero");
+        require(btcVaultImpl != address(0), "DeployPhase3Mainnet: btcVaultImpl is zero");
 
         console2.log("Loaded Phase 1: AccessManager:", accessManager);
         console2.log("Loaded Phase 1: cbBTC:", cbBTC);
@@ -344,7 +344,9 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         RoleGrantees memory g = _getRoleGrantees();
 
         // 8a. Grant operational roles and set target function mappings
-        _grantOperationalRoles(manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool);
+        _grantOperationalRoles(
+            manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
+        );
 
         // 8b. Wire UPGRADER role across all UUPS proxies and BeaconController
         _wireUpgraderRole(
@@ -405,7 +407,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         keys = string.concat(
             keys,
             ',"btcVaultImpl":"',
-            vm.toString(address(uint160(uint256(vm.load(btcVault, IMPL_SLOT))))),
+            vm.toString(btcVaultImpl),
             '",',
             '"usdcVaultImpl":"',
             vm.toString(usdcVaultImpl),

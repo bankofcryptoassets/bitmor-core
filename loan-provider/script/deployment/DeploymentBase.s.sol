@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {Script, console2} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {Upgrades} from "@openzeppelin-foundry-upgrades/Upgrades.sol";
+import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {RolesData} from "@bitmor-config/RolesData.sol";
@@ -97,6 +98,37 @@ abstract contract DeploymentBase is Script {
         console2.log("Deployed UUPS proxy for", contractName, "at:", proxy);
     }
 
+    /**
+     * @notice Returns the implementation address stored in a proxy's EIP-1967 slot
+     * @dev Reads the implementation address using the OpenZeppelin Foundry Upgrades library.
+     * Call this after `_deployUUPSProxy()` to obtain the actual implementation address
+     * that the proxy delegates to (which is deployed internally by the Upgrades library).
+     * @param proxy The proxy address to read from
+     * @return impl The implementation address the proxy delegates to
+     */
+    function _getProxyImplementation(address proxy) internal view returns (address impl) {
+        impl = Upgrades.getImplementationAddress(proxy);
+    }
+
+    /**
+     * @notice Deploys a UUPS proxy with custom OpenZeppelin Upgrades options
+     * @dev Use this overload for implementations that require special validation flags,
+     * e.g. `unsafeAllow: "external-library-linking"` for contracts linked to external
+     * libraries (Loan.sol → LoanLogic). The plugin does not verify linked library upgrade
+     * safety — that must be ensured manually.
+     * @param contractName The contract name in the format expected by `Upgrades.deployUUPSProxy`
+     * @param initData ABI-encoded initializer calldata
+     * @param opts OpenZeppelin Upgrades Options (e.g., `unsafeAllow`, `referenceContract`)
+     * @return proxy The address of the deployed UUPS proxy
+     */
+    function _deployUUPSProxy(string memory contractName, bytes memory initData, Options memory opts)
+        internal
+        returns (address proxy)
+    {
+        proxy = Upgrades.deployUUPSProxy(contractName, initData, opts);
+        console2.log("Deployed UUPS proxy for", contractName, "at:", proxy);
+    }
+
     // ============ Beacon Chain Deployment ============
 
     /**
@@ -124,7 +156,7 @@ abstract contract DeploymentBase is Script {
         console2.log("LoanVault implementation deployed at:", loanVaultImpl);
 
         // 2. Deploy UpgradeableBeacon (owned by this script temporarily)
-        beacon = address(new UpgradeableBeacon(loanVaultImpl, address(this)));
+        beacon = address(new UpgradeableBeacon(loanVaultImpl, msg.sender));
         console2.log("UpgradeableBeacon deployed at:", beacon);
 
         // 3. Deploy BeaconController (AccessManaged wrapper)
@@ -244,53 +276,111 @@ abstract contract DeploymentBase is Script {
         RolesData rolesData = new RolesData();
         uint32 delay = uint32(DeploymentConstants.EXECUTION_DELAY);
 
-        // ===== Get all role IDs =====
+        // Split into sub-functions to avoid stack-too-deep
+        _grantLoanRoles(manager, rolesData, g, loan, bitmorPool, delay);
+        _grantBTCVaultRoles(manager, rolesData, g, btcVault, loan, delay);
+        _grantUSDCVaultRoles(manager, rolesData, g, usdcVault, bitmorPool, delay);
+        _grantAutoRepaymentRoles(manager, rolesData, g, autoRepayment);
+        _grantAddressesProviderRoles(manager, rolesData, addressesProvider);
+    }
+
+    function _grantLoanRoles(
+        BitmorAccessManager manager,
+        RolesData rolesData,
+        RoleGrantees memory g,
+        address loan,
+        address bitmorPool,
+        uint32 delay
+    ) private {
         (,,,, uint64 executorId,,,,,) = rolesData.EXECUTOR();
         (,,,, uint64 lpcmId,,,,,) = rolesData.LPCM();
         (,,,, uint64 lpmFastId,,,,,) = rolesData.LPM_FAST();
         (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        (,,,, uint64 areId,,,,,) = rolesData.ARE();
+
+        manager.setTargetFunctionRole(loan, rolesData.getEXECUTOR_SELECTORS(), executorId);
+        manager.setTargetFunctionRole(loan, rolesData.getLPCM_SELECTORS(), lpcmId);
+        manager.setTargetFunctionRole(loan, rolesData.getLPM_FAST_SELECTORS(), lpmFastId);
+        manager.setTargetFunctionRole(loan, rolesData.getLPM_SLOW_SELECTORS(), lpmSlowId);
+
+        manager.grantRole(executorId, g.executor, 0);
+        manager.grantRole(lpmFastId, g.lpmFast, 0);
+        manager.grantRole(lpcmId, bitmorPool, 0);
+        manager.grantRole(lpmSlowId, g.lpmSlow, delay);
+        console2.log("Configured Loan roles");
+    }
+
+    function _grantBTCVaultRoles(
+        BitmorAccessManager manager,
+        RolesData rolesData,
+        RoleGrantees memory g,
+        address btcVault,
+        address loan,
+        uint32 delay
+    ) private {
         (,,,, uint64 bvmFastId,,,,,) = rolesData.BVM_FAST();
         (,,,, uint64 bvmSlowId,,,,,) = rolesData.BVM_SLOW();
         (,,,, uint64 bvcId,,,,,) = rolesData.BVC();
         (,,,, uint64 bvaFastId,,,,,) = rolesData.BVA_FAST();
         (,,,, uint64 bvaSlowId,,,,,) = rolesData.BVA_SLOW();
         (,,,, uint64 bvdId,,,,,) = rolesData.BVD();
-        (,,,, uint64 uvmFastId,,,,,) = rolesData.UVM_FAST();
-        (,,,, uint64 uvmSlowId,,,,,) = rolesData.UVM_SLOW();
-        (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
-        (,,,, uint64 uvaId,,,,,) = rolesData.UVA();
 
-        // ===== Set target function role mappings =====
-
-        // Loan selectors
-        manager.setTargetFunctionRole(loan, rolesData.getEXECUTOR_SELECTORS(), executorId);
-        manager.setTargetFunctionRole(loan, rolesData.getLPCM_SELECTORS(), lpcmId);
-        manager.setTargetFunctionRole(loan, rolesData.getLPM_FAST_SELECTORS(), lpmFastId);
-        manager.setTargetFunctionRole(loan, rolesData.getLPM_SLOW_SELECTORS(), lpmSlowId);
-        console2.log("Set Loan selector mappings for EXECUTOR, LPCM, LPM_FAST, LPM_SLOW");
-
-        // BTCVault selectors
         manager.setTargetFunctionRole(btcVault, rolesData.getBVM_FAST_SELECTORS(), bvmFastId);
         manager.setTargetFunctionRole(btcVault, rolesData.getBVM_SLOW_SELECTORS(), bvmSlowId);
         manager.setTargetFunctionRole(btcVault, rolesData.getBVC_SELECTORS(), bvcId);
         manager.setTargetFunctionRole(btcVault, rolesData.getBVA_FAST_SELECTORS(), bvaFastId);
         manager.setTargetFunctionRole(btcVault, rolesData.getBVA_SLOW_SELECTORS(), bvaSlowId);
         manager.setTargetFunctionRole(btcVault, rolesData.getBVD_SELECTORS(), bvdId);
-        console2.log("Set BTCVault selector mappings for BVM_FAST, BVM_SLOW, BVC, BVA_FAST, BVA_SLOW, BVD");
 
-        // USDCVault selectors
+        manager.grantRole(bvmFastId, g.bvmFast, 0);
+        manager.grantRole(bvaFastId, g.bvaFast, 0);
+        manager.grantRole(bvmSlowId, g.bvmSlow, delay);
+        manager.grantRole(bvcId, g.bvc, delay);
+        manager.grantRole(bvaSlowId, g.bvaSlow, delay);
+        manager.grantRole(bvdId, loan, 0);
+        console2.log("Configured BTCVault roles");
+    }
+
+    function _grantUSDCVaultRoles(
+        BitmorAccessManager manager,
+        RolesData rolesData,
+        RoleGrantees memory g,
+        address usdcVault,
+        address bitmorPool,
+        uint32 delay
+    ) private {
+        (,,,, uint64 uvmFastId,,,,,) = rolesData.UVM_FAST();
+        (,,,, uint64 uvmSlowId,,,,,) = rolesData.UVM_SLOW();
+        (,,,, uint64 uvcId,,,,,) = rolesData.UVC();
+        (,,,, uint64 uvaId,,,,,) = rolesData.UVA();
+
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVM_FAST_SELECTORS(), uvmFastId);
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVM_SLOW_SELECTORS(), uvmSlowId);
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), uvcId);
         manager.setTargetFunctionRole(usdcVault, rolesData.getUVA_SELECTORS(), uvaId);
-        console2.log("Set USDCVault selector mappings for UVM_FAST, UVM_SLOW, UVC, UVA");
 
-        // AutoRepayment selectors
+        manager.grantRole(uvmFastId, g.uvmFast, 0);
+        manager.grantRole(uvmSlowId, g.uvmSlow, delay);
+        manager.grantRole(uvcId, g.uvc, delay);
+        manager.grantRole(uvaId, bitmorPool, 0);
+        console2.log("Configured USDCVault roles");
+    }
+
+    function _grantAutoRepaymentRoles(
+        BitmorAccessManager manager,
+        RolesData rolesData,
+        RoleGrantees memory g,
+        address autoRepayment
+    ) private {
+        (,,,, uint64 areId,,,,,) = rolesData.ARE();
         manager.setTargetFunctionRole(autoRepayment, rolesData.getARE_SELECTORS(), areId);
-        console2.log("Set AutoRepayment selector mappings for ARE");
+        manager.grantRole(areId, g.are, 0);
+        console2.log("Configured AutoRepayment roles");
+    }
 
-        // BitmorAddressesProvider: all setters controlled by LPM_SLOW
+    function _grantAddressesProviderRoles(BitmorAccessManager manager, RolesData rolesData, address addressesProvider)
+        private
+    {
+        (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
         bytes4[] memory bapSelectors = new bytes4[](5);
         bapSelectors[0] = IBitmorAddressesProvider.setVaultFactory.selector;
         bapSelectors[1] = IBitmorAddressesProvider.setSwapper.selector;
@@ -298,42 +388,7 @@ abstract contract DeploymentBase is Script {
         bapSelectors[3] = IBitmorAddressesProvider.setLiquidationFeeCollector.selector;
         bapSelectors[4] = IBitmorAddressesProvider.setAutoRepayer.selector;
         manager.setTargetFunctionRole(addressesProvider, bapSelectors, lpmSlowId);
-        console2.log("Set BitmorAddressesProvider selector mappings for LPM_SLOW");
-
-        // ===== Grant roles to external grantees =====
-
-        // Immediate roles (no execution delay)
-        manager.grantRole(executorId, g.executor, 0);
-        manager.grantRole(lpcmId, g.lpcm, 0);
-        manager.grantRole(lpmFastId, g.lpmFast, 0);
-        manager.grantRole(areId, g.are, 0);
-        manager.grantRole(bvmFastId, g.bvmFast, 0);
-        manager.grantRole(bvaFastId, g.bvaFast, 0);
-        manager.grantRole(uvmFastId, g.uvmFast, 0);
-        console2.log("Granted immediate roles: EXECUTOR, LPCM, LPM_FAST, ARE, BVM_FAST, BVA_FAST, UVM_FAST");
-
-        // Delayed roles (1-day execution delay)
-        manager.grantRole(lpmSlowId, g.lpmSlow, delay);
-        manager.grantRole(bvmSlowId, g.bvmSlow, delay);
-        manager.grantRole(bvcId, g.bvc, delay);
-        manager.grantRole(bvaSlowId, g.bvaSlow, delay);
-        manager.grantRole(uvmSlowId, g.uvmSlow, delay);
-        manager.grantRole(uvcId, g.uvc, delay);
-        console2.log("Granted delayed roles: LPM_SLOW, BVM_SLOW, BVC, BVA_SLOW, UVM_SLOW, UVC");
-
-        // ===== Contract-to-contract grants =====
-
-        // BVD: Loan contract needs deposit/mint access to BTCVault
-        manager.grantRole(bvdId, loan, 0);
-        console2.log("Granted BVD to Loan for BTCVault deposit access");
-
-        // LPCM: Bitmor lending pool calls updateLoanData on liquidation
-        manager.grantRole(lpcmId, bitmorPool, 0);
-        console2.log("Granted LPCM to bitmorPool for liquidation callbacks");
-
-        // UVA: Bitmor lending pool calls reallocateAssets on USDCVault during borrow/repay
-        manager.grantRole(uvaId, bitmorPool, 0);
-        console2.log("Granted UVA to bitmorPool for USDCVault reallocation");
+        console2.log("Configured BitmorAddressesProvider roles");
     }
 
     // ============ Guardian Setup ============

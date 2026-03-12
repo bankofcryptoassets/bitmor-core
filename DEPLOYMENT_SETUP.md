@@ -295,7 +295,7 @@ OZ foundry-upgrades requires Node.js for upgrade validation (storage layout chec
 # 1. Deploy new implementation + schedule upgrade (48h delay)
 make upgrade:uups:schedule \
   PROXY=0x<loan_proxy> \
-  CONTRACT="src/protocol/Loan.sol:LoanV2" \
+  CONTRACT="src/protocol/Loan.sol:Loan" \
   INIT_DATA=0x \
   RPC_URL=https://...
 

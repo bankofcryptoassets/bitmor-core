@@ -28,8 +28,8 @@ contract AdminSettersTest is BaseLoanTest {
     function test_setBitmorAddressesProvider() public {
         address originalProvider = loan.getBitmorAddressesProvider();
 
-        // Deploy a new BitmorAddressesProvider to use as the new value
-        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Deploy a new BitmorAddressesProvider via UUPS proxy
+        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(address(manager), address(loan));
 
         bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(newProvider));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);

@@ -1,34 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {
-    ERC4626Upgradeable
-} from "@openzeppelin-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-import {
-    ERC20Upgradeable,
-    IERC20Metadata
-} from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {
-    AccessManagedUpgradeable
-} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
-import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC4626Upgradeable} from "@openzeppelin-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {ERC20Upgradeable, IERC20Metadata} from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {AccessManagedUpgradeable} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-import { Errors } from "../../libraries/helpers/Errors.sol";
-import { BTCVault__Validation as Helpers } from "../../libraries/helpers/BTCVault__Validation.sol";
-import { DataTypes } from "../../libraries/types/DataTypes.sol";
-import { VaultStateLogic } from "../../libraries/logic/VaultStateLogic.sol";
-import { StrategyStateLogic } from "../../libraries/logic/StrategyStateLogic.sol";
-import { TokenizedStrategyLogic } from "../../libraries/logic/TokenizedStrategyLogic.sol";
-import { SimpleTokenizedStrategy } from "./TokenizedStrategy/SimpleTokenizedStrategy.sol";
+import {Errors} from "../../libraries/helpers/Errors.sol";
+import {BTCVault__Validation as Helpers} from "../../libraries/helpers/BTCVault__Validation.sol";
+import {DataTypes} from "../../libraries/types/DataTypes.sol";
+import {VaultStateLogic} from "../../libraries/logic/VaultStateLogic.sol";
+import {StrategyStateLogic} from "../../libraries/logic/StrategyStateLogic.sol";
+import {TokenizedStrategyLogic} from "../../libraries/logic/TokenizedStrategyLogic.sol";
+import {SimpleTokenizedStrategy} from "./TokenizedStrategy/SimpleTokenizedStrategy.sol";
 
-import { BTCVault__Storage } from "./BTCVault__Storage.sol";
+import {BTCVault__Storage} from "./BTCVault__Storage.sol";
 
 /**
  * @title BTCVault
@@ -75,7 +68,7 @@ contract BTCVault is
     BTCVault__Storage,
     ERC4626Upgradeable,
     AccessManagedUpgradeable,
-    ReentrancyGuard,
+    ReentrancyGuardTransient,
     PausableUpgradeable
 {
     using FixedPointMathLib for uint256;
@@ -153,9 +146,7 @@ contract BTCVault is
      * @param strategyIndex The index of the strategy in the strategies array
      * @return strategy The strategy struct containing address and allocation cap
      */
-    function getStrategyDetails(
-        uint256 strategyIndex
-    ) external view returns (DataTypes.Strategy memory strategy) {
+    function getStrategyDetails(uint256 strategyIndex) external view returns (DataTypes.Strategy memory strategy) {
         strategy = _getBTCVaultStorage().strategy.strategies[strategyIndex];
     }
 
@@ -175,11 +166,7 @@ contract BTCVault is
      */
     function getAssetInStrategy(address strategy) external view returns (uint256 assets) {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        assets = $
-            .strategy
-            .strategies[$.strategy.getStrategyIndex(strategy)]
-            .strategy
-            .getAssetBalanceInStrategy();
+        assets = $.strategy.strategies[$.strategy.getStrategyIndex(strategy)].strategy.getAssetBalanceInStrategy();
     }
 
     /**
@@ -425,12 +412,7 @@ contract BTCVault is
      * @notice Returns the symbol of the vault token
      * @return The vault token symbol
      */
-    function symbol()
-        public
-        pure
-        override(ERC20Upgradeable, IERC20Metadata)
-        returns (string memory)
-    {
+    function symbol() public pure override(ERC20Upgradeable, IERC20Metadata) returns (string memory) {
         return "bvBTC";
     }
 
@@ -511,9 +493,7 @@ contract BTCVault is
 
         uint256[] memory wq = $.strategy.withdrawQueue;
         for (uint256 i = 0; i < wq.length; i++) {
-            assets = assets.rawAdd(
-                $.strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy()
-            );
+            assets = assets.rawAdd($.strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
         }
     }
 
@@ -619,10 +599,14 @@ contract BTCVault is
      * @return Amount of shares minted
      * @custom:access Requires BVD role
      */
-    function deposit(
-        uint256 assets,
-        address to
-    ) public override nonReentrant whenNotPaused restricted returns (uint256) {
+    function deposit(uint256 assets, address to)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        restricted
+        returns (uint256)
+    {
         return super.deposit(assets, to);
     }
 
@@ -636,10 +620,7 @@ contract BTCVault is
      * @return Amount of assets deposited
      * @custom:access Requires BVD role
      */
-    function mint(
-        uint256 shares,
-        address to
-    ) public override nonReentrant whenNotPaused restricted returns (uint256) {
+    function mint(uint256 shares, address to) public override nonReentrant whenNotPaused restricted returns (uint256) {
         return super.mint(shares, to);
     }
 
@@ -661,11 +642,13 @@ contract BTCVault is
      * @param owner Address that owns the shares to burn
      * @return Amount of shares burned
      */
-    function withdraw(
-        uint256 assets,
-        address to,
-        address owner
-    ) public override nonReentrant whenNotPaused returns (uint256) {
+    function withdraw(uint256 assets, address to, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
         return super.withdraw(assets, to, owner);
     }
 
@@ -687,11 +670,13 @@ contract BTCVault is
      * @param owner Address that owns the shares to redeem
      * @return Amount of assets received
      */
-    function redeem(
-        uint256 shares,
-        address to,
-        address owner
-    ) public override nonReentrant whenNotPaused returns (uint256) {
+    function redeem(uint256 shares, address to, address owner)
+        public
+        override
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
         return super.redeem(shares, to, owner);
     }
 
@@ -762,13 +747,7 @@ contract BTCVault is
      * @param assets The amount of underlying assets to send to `to`
      * @param shares The amount of shares to burn
      */
-    function _withdraw(
-        address by,
-        address to,
-        address owner,
-        uint256 assets,
-        uint256 shares
-    ) internal override {
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 fee = getExitFee();
         uint256 feeAmount = 0;
@@ -815,9 +794,7 @@ contract BTCVault is
 
         uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
         for (uint256 i = 0; i < withdrawQueue.length; i++) {
-            liquidity = liquidity.rawAdd(
-                $.strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable()
-            );
+            liquidity = liquidity.rawAdd($.strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
         }
     }
 
@@ -962,13 +939,7 @@ contract BTCVault is
             if (toWithdraw > 0) {
                 // Withdraw excess funds from strategy — wrapped in try/catch so a single
                 // broken strategy does not block reallocation of all other strategies
-                try
-                    SimpleTokenizedStrategy(strategy.strategy).withdraw(
-                        toWithdraw,
-                        address(this),
-                        address(this)
-                    )
-                {
+                try SimpleTokenizedStrategy(strategy.strategy).withdraw(toWithdraw, address(this), address(this)) {
                     totalWithdrawn += toWithdraw;
 
                     emit BTCVault__WithdrewFromStrategy(allocation.index, toWithdraw);

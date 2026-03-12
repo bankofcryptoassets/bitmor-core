@@ -78,6 +78,7 @@ interface ILoan {
      * @notice Emitted when loan data is updated after a micro liquidation
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
+     * !TODO: add btc amount deducted
      */
     event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
 

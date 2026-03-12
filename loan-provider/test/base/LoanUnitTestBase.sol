@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {UnitTestBase} from "./UnitTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
+import {ProxyTestHelper} from "../helpers/ProxyTestHelper.sol";
 
 // Protocol contracts
 import {Loan} from "@bitmor/protocol/Loan.sol";
@@ -30,7 +31,7 @@ import {MockUSDCInterestRateStrategy} from "../mock/MockUSDCInterestRateStrategy
 /// @author Bitmor Protocol
 /// @notice Tier 2 test base providing a fully deployed Loan contract with mock lending pool infrastructure
 /// @dev Inherits UnitTestBase (Tier 1) and adds 20+ mock contracts for complete loan lifecycle testing
-abstract contract LoanUnitTestBase is UnitTestBase {
+abstract contract LoanUnitTestBase is UnitTestBase, ProxyTestHelper {
     // ============ Loan Infrastructure ============
 
     /// @notice The real Loan contract under test
@@ -41,6 +42,9 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     /// @notice LoanVault implementation address used by the factory
     address public loanVaultImplementation;
+
+    /// @notice UpgradeableBeacon address for LoanVault proxies
+    address public beacon;
 
     // ============ Test Actors ============
 
@@ -248,27 +252,29 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockUSDC.mint(address(mockAavePool), TC.LENDING_POOL_USDC_BALANCE);
     }
 
-    /// @notice Deploys Loan contract with mock dependencies
+    /// @notice Deploys Loan contract with mock dependencies via UUPS proxies
     function _deployLoanInfrastructure() internal virtual {
-        loanVaultImplementation = address(new LoanVault());
-
-        // Deploy Loan with bvBTC (vault shares) as collateral
-        loan = new Loan(
-            address(manager), // AccessManager
-            address(mockAavePool), // Mock Aave V3 for flash loans
-            address(mockAddressesProvider), // Our mock addresses provider
-            address(mockBitmorPool), // Our mock Bitmor lending pool
-            address(mockOracle), // Our mock price oracle
-            address(mockBTCVault), // collateralAsset = bvBTC (vault shares)
-            address(mockUSDC), // debtAsset
-            address(mockCbBTC), // btc token (underlying)
-            config.getPreClosureFee(), // preClosureFeeBps
-            config.getGracePeriod() // gracePeriod
+        // Deploy Loan via UUPS proxy
+        loan = _deployLoanProxy(
+            address(manager),
+            address(mockAavePool),
+            address(mockAddressesProvider),
+            address(mockBitmorPool),
+            address(mockOracle),
+            address(mockBTCVault),
+            address(mockUSDC),
+            address(mockCbBTC),
+            config.getPreClosureFee(),
+            config.getGracePeriod()
         );
 
-        loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
+        // Deploy beacon chain (simplified -- no BeaconController for unit tests)
+        address factoryAddr;
+        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconChain(address(loan));
+        loanVaultFactory = LoanVaultFactory(factoryAddr);
 
-        bitmorAddressesProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Deploy BitmorAddressesProvider via UUPS proxy
+        bitmorAddressesProvider = _deployAddressesProviderProxy(address(manager), address(loan));
         bitmorAddressesProvider.setVaultFactory(address(loanVaultFactory));
         bitmorAddressesProvider.setSwapper(address(mockSwapAdapter));
         bitmorAddressesProvider.setPremiumCollector(premiumCollector);

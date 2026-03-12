@@ -7,6 +7,7 @@ import {BTCVault, BTCVaultHarness} from "../../harness/BTCVaultHarness.sol";
 import {MockTokenizedStrategy} from "../../mock/MockTokenizedStrategy.sol";
 import {MockYieldSource} from "../../mock/MockYieldSource.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
@@ -77,6 +78,17 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @notice Max strategies configured for tests
     uint256 public constant MAX_STRATEGIES = 10;
 
+    /// @notice Deploys BTCVaultHarness behind ERC1967Proxy
+    /// @dev Local helper — harness is test-only so it does not belong in ProxyTestHelper
+    /// @param _asset The underlying asset address
+    /// @param _manager AccessManager address
+    /// @return The BTCVaultHarness instance cast from the proxy address
+    function _deployBTCVaultHarnessProxy(address _asset, address _manager) internal returns (BTCVaultHarness) {
+        BTCVaultHarness impl = new BTCVaultHarness();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(BTCVault.initialize, (_asset, _manager)));
+        return BTCVaultHarness(address(proxy));
+    }
+
     /// @notice Sets up test environment with vault, strategy, and test accounts
     /// @dev Creates fresh contracts with mock tokens for unit testing.
     function setUp() public virtual override {
@@ -94,7 +106,7 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
         networkConfig = MockNetworkConfig({usdc: address(mockUSDC), entryFee: 10, exitFee: 10});
 
         // Deploy vault with mock USDC
-        vault = new BTCVaultHarness(address(mockUSDC), address(manager));
+        vault = _deployBTCVaultHarnessProxy(address(mockUSDC), address(manager));
 
         yieldSource = new MockYieldSource();
         strategy = new MockTokenizedStrategy(address(yieldSource), address(vault));

@@ -123,33 +123,33 @@ deploy-local:
 	@./deploy/scripts/deploy-local.sh
 
 # Individual phase targets (proxy-based)
-deploy\\:phase1\\:local:
+deploy\:phase1\:local:
 	@cd loan-provider && make deploy:phase1:local
 
-deploy\\:phase3\\:local:
+deploy\:phase3\:local:
 	@cd loan-provider && make deploy:phase3:local
 
-deploy\\:check:
+deploy\:check:
 	@cd loan-provider && make deploy:check
 
 # Mainnet deployment
-deploy\\:phase1\\:mainnet:
+deploy\:phase1\:mainnet:
 	@cd loan-provider && make deploy:phase1:mainnet
 
-deploy\\:phase3\\:mainnet:
+deploy\:phase3\:mainnet:
 	@cd loan-provider && make deploy:phase3:mainnet
 
-deploy\\:schedule\\:mainnet:
+deploy\:schedule\:mainnet:
 	@cd loan-provider && make deploy:schedule:mainnet
 
-deploy\\:transfer\\:mainnet:
+deploy\:transfer\:mainnet:
 	@cd loan-provider && make deploy:transfer:mainnet
 
 # Upgrades
-upgrade\\:uups\\:schedule:
+upgrade\:uups\:schedule:
 	@cd loan-provider && make upgrade:uups:schedule PROXY=$(PROXY) CONTRACT=$(CONTRACT) INIT_DATA=$(INIT_DATA) RPC_URL=$(RPC_URL)
 
-upgrade\\:beacon\\:schedule:
+upgrade\:beacon\:schedule:
 	@cd loan-provider && make upgrade:beacon:schedule NEW_IMPL=$(NEW_IMPL) RPC_URL=$(RPC_URL)
 
 # ============ Testing (loan-provider) ============

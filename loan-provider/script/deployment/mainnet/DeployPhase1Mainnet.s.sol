@@ -28,16 +28,13 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
     // TODO: Replace with actual Base mainnet cbBTC address before deployment
     address constant CBBTC_BASE_MAINNET = address(0);
 
-    /// @dev EIP-1967 implementation storage slot for reading proxy implementation address
-    bytes32 internal constant IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
     /// @notice Deployed BitmorAccessManager address
     address public accessManager;
 
     /// @notice Deployed BTCVault proxy address
     address public btcVault;
 
-    /// @notice Deployed BTCVault implementation address (read from EIP-1967 slot)
+    /// @notice Deployed BTCVault implementation address
     address public btcVaultImpl;
 
     /**
@@ -62,11 +59,11 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
         console2.log("AccessManager:", accessManager);
 
         // 2. BTCVault (UUPS proxy) — uses real cbBTC as underlying
-        btcVault = _deployUUPSProxy(
-            "src/vaults/btc-vault/BTCVault.sol:BTCVault",
-            abi.encodeCall(BTCVault.initialize, (CBBTC_BASE_MAINNET, accessManager))
-        );
-        btcVaultImpl = address(uint160(uint256(vm.load(btcVault, IMPL_SLOT))));
+        // Upgrades.deployUUPSProxy deploys the implementation internally — read its
+        // address from the proxy's EIP-1967 slot rather than deploying a second copy.
+        btcVault =
+            _deployUUPSProxy("BTCVault.sol", abi.encodeCall(BTCVault.initialize, (CBBTC_BASE_MAINNET, accessManager)));
+        btcVaultImpl = _getProxyImplementation(btcVault);
         console2.log("BTCVault proxy:", btcVault);
         console2.log("BTCVault impl:", btcVaultImpl);
 

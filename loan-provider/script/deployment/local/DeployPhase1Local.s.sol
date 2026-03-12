@@ -20,9 +20,6 @@ import {LocalRolesConfig} from "@bitmor-config/LocalRolesConfig.sol";
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
 contract DeployPhase1Local is LocalRolesConfig {
-    /// @dev EIP-1967 implementation storage slot for reading proxy implementation address
-    bytes32 internal constant IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
     /// @notice Deployed BitmorAccessManager address
     address public accessManager;
 
@@ -41,7 +38,7 @@ contract DeployPhase1Local is LocalRolesConfig {
     /// @notice Deployed BTCVault proxy address
     address public btcVault;
 
-    /// @notice Deployed BTCVault implementation address (read from EIP-1967 slot)
+    /// @notice Deployed BTCVault implementation address
     address public btcVaultImpl;
 
     /// @notice Deployed MockAaveV3Pool address
@@ -91,11 +88,10 @@ contract DeployPhase1Local is LocalRolesConfig {
         console2.log("USDC Oracle:", usdcOracle);
 
         // 4. BTCVault (UUPS proxy)
-        btcVault = _deployUUPSProxy(
-            "src/vaults/btc-vault/BTCVault.sol:BTCVault",
-            abi.encodeCall(BTCVault.initialize, (mockCbBTC, accessManager))
-        );
-        btcVaultImpl = address(uint160(uint256(vm.load(btcVault, IMPL_SLOT))));
+        // Upgrades.deployUUPSProxy deploys the implementation internally — read its
+        // address from the proxy's EIP-1967 slot rather than deploying a second copy.
+        btcVault = _deployUUPSProxy("BTCVault.sol", abi.encodeCall(BTCVault.initialize, (mockCbBTC, accessManager)));
+        btcVaultImpl = _getProxyImplementation(btcVault);
         console2.log("BTCVault proxy:", btcVault);
         console2.log("BTCVault impl:", btcVaultImpl);
 

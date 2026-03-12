@@ -16,7 +16,7 @@ contract UpgradeUUPS is Script {
     /// @notice Step 1: Deploy new implementation and schedule upgrade via AccessManager
     /// @dev Validates storage layout compatibility via OZ foundry-upgrades
     /// @param proxy The proxy address to upgrade
-    /// @param newContractName Fully-qualified artifact name (e.g., "src/protocol/Loan.sol:LoanV2")
+    /// @param newContractName Fully-qualified artifact name (e.g., "src/protocol/Loan.sol:Loan")
     /// @param initData Reinitializer calldata, or empty bytes "" for no reinit
     function schedule(address proxy, string memory newContractName, bytes memory initData) external {
         HelperConfig config = new HelperConfig();

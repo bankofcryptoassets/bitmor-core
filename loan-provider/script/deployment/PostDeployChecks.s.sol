@@ -32,9 +32,7 @@ contract PostDeployChecks is Script {
         _checkProxy("USDCVault", config.getUSDCVault(), config.getUSDCVaultImpl());
         _checkProxy("AutoRepayment", config.getAutoRepayer(), config.getAutoRepaymentImpl());
         _checkProxy(
-            "BitmorAddressesProvider",
-            config.getBitmorAddressesProvider(),
-            config.getBitmorAddressesProviderImpl()
+            "BitmorAddressesProvider", config.getBitmorAddressesProvider(), config.getBitmorAddressesProviderImpl()
         );
 
         // 2. Beacon ownership == BeaconController
@@ -57,10 +55,7 @@ contract PostDeployChecks is Script {
         _checkCanCall(manager, "UPGRADER -> USDCVault.upgradeToAndCall", config.getUSDCVault(), uupsSelector);
         _checkCanCall(manager, "UPGRADER -> AutoRepayment.upgradeToAndCall", config.getAutoRepayer(), uupsSelector);
         _checkCanCall(
-            manager,
-            "UPGRADER -> AddressesProvider.upgradeToAndCall",
-            config.getBitmorAddressesProvider(),
-            uupsSelector
+            manager, "UPGRADER -> AddressesProvider.upgradeToAndCall", config.getBitmorAddressesProvider(), uupsSelector
         );
         _checkCanCall(
             manager,
@@ -71,15 +66,7 @@ contract PostDeployChecks is Script {
 
         // 6. Summary
         console2.log("");
-        console2.log(
-            string.concat(
-                "=== Results: ",
-                vm.toString(passed),
-                " / ",
-                vm.toString(checks),
-                " passed ==="
-            )
-        );
+        console2.log(string.concat("=== Results: ", vm.toString(passed), " / ", vm.toString(checks), " passed ==="));
         require(passed == checks, "PostDeployChecks: FAILED");
     }
 
@@ -98,12 +85,7 @@ contract PostDeployChecks is Script {
     /// @param label Human-readable label for logging
     /// @param target The target contract
     /// @param selector The function selector to check
-    function _checkCanCall(
-        BitmorAccessManager manager,
-        string memory label,
-        address target,
-        bytes4 selector
-    ) internal {
+    function _checkCanCall(BitmorAccessManager manager, string memory label, address target, bytes4 selector) internal {
         (bool immediate, uint32 delay) = manager.canCall(msg.sender, target, selector);
         _check(label, immediate || delay > 0);
     }

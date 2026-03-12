@@ -12,6 +12,7 @@ import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {MockUniswapV4SwapAdapter} from "../../../test/mock/MockUniswapV4SwapAdapter.sol";
 import {MintableERC20} from "../../../test/mock/MintableERC20.sol";
 import {MockAToken} from "../../../test/mock/MockAToken.sol";
@@ -29,7 +30,7 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * - LoanVault uses beacon chain via `_deployBeaconChain()` (impl + beacon + controller + factory)
  * - Role setup uses `_grantOperationalRoles()`, `_wireUpgraderRole()`, and `_setupGuardians()` from DeploymentBase
  * - Address persistence uses `_mergeAndSave()` instead of manual JSON building
- * - Saves implementation addresses read from EIP-1967 slots
+ * - Saves implementation addresses directly from deployed contracts
  *
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
@@ -51,9 +52,6 @@ contract DeployPhase3Local is LocalRolesConfig {
     /// @notice Maximum strategy cap for local testing (unlimited)
     uint256 constant STRATEGY_CAP = type(uint256).max;
 
-    /// @dev EIP-1967 implementation storage slot for reading proxy implementation address
-    bytes32 internal constant IMPL_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
-
     // ============ Phase 1 Addresses (from deployments.json) ============
 
     /// @notice AccessManager deployed in Phase 1
@@ -67,6 +65,9 @@ contract DeployPhase3Local is LocalRolesConfig {
 
     /// @notice BTCVault proxy deployed in Phase 1
     address public btcVault;
+
+    /// @notice BTCVault implementation address deployed in Phase 1
+    address public btcVaultImpl;
 
     /// @notice BTC/USD mock oracle deployed in Phase 1
     address public btcOracle;
@@ -96,16 +97,19 @@ contract DeployPhase3Local is LocalRolesConfig {
     /// @notice USDCVault proxy address
     address public usdcVault;
 
-    /// @notice USDCVault implementation address (read from EIP-1967 slot)
+    /// @notice USDCVault implementation address
     address public usdcVaultImpl;
 
     /// @notice MockSwapAdapter address
     address public mockSwapAdapter;
 
+    /// @notice LoanLogic linked library address (deployed externally before this script)
+    address public loanLogicLib;
+
     /// @notice Loan proxy address
     address public loan;
 
-    /// @notice Loan implementation address (read from EIP-1967 slot)
+    /// @notice Loan implementation address
     address public loanImpl;
 
     /// @notice LoanVault implementation address
@@ -123,13 +127,13 @@ contract DeployPhase3Local is LocalRolesConfig {
     /// @notice BitmorAddressesProvider proxy address
     address public bitmorAddressesProvider;
 
-    /// @notice BitmorAddressesProvider implementation address (read from EIP-1967 slot)
+    /// @notice BitmorAddressesProvider implementation address
     address public bitmorAddressesProviderImpl;
 
     /// @notice AutoRepayment proxy address
     address public autoRepayment;
 
-    /// @notice AutoRepayment implementation address (read from EIP-1967 slot)
+    /// @notice AutoRepayment implementation address
     address public autoRepaymentImpl;
 
     /// @notice AaveTokenizedStrategy address (non-proxied)
@@ -172,11 +176,12 @@ contract DeployPhase3Local is LocalRolesConfig {
         vm.startBroadcast();
 
         // 1. USDCVault (UUPS proxy)
+        // Upgrades.deployUUPSProxy deploys the implementation internally — read its
+        // address from the proxy's EIP-1967 slot rather than deploying a second copy.
         usdcVault = _deployUUPSProxy(
-            "src/vaults/usdc-vault/USDCVault.sol:USDCVault",
-            abi.encodeCall(USDCVault.initialize, (accessManager, mockUsdc, bitmorPool))
+            "USDCVault.sol", abi.encodeCall(USDCVault.initialize, (accessManager, mockUsdc, bitmorPool))
         );
-        usdcVaultImpl = address(uint160(uint256(vm.load(usdcVault, IMPL_SLOT))));
+        usdcVaultImpl = _getProxyImplementation(usdcVault);
         console2.log("USDCVault proxy:", usdcVault);
         console2.log("USDCVault impl:", usdcVaultImpl);
 
@@ -225,9 +230,15 @@ contract DeployPhase3Local is LocalRolesConfig {
         require(ok, "Failed to set oracle sources");
         console2.log("Configured AaveOracle price sources for bvBTC, cbBTC, and USDC");
 
-        // 5. Loan (UUPS proxy)
+        // 5. Loan (UUPS proxy) — linked to LoanLogic library
+        // unsafeAllow: "external-library-linking" is required because Loan.sol DELEGATECALLs
+        // into LoanLogic (a public linked library). The plugin cannot verify library upgrade
+        // safety automatically — we ensure it manually (LoanLogic is stateless, resolves
+        // storage via bytes32 storageSlot passed from Loan.sol).
+        Options memory loanOpts;
+        loanOpts.unsafeAllow = "external-library-linking";
         loan = _deployUUPSProxy(
-            "src/protocol/Loan.sol:Loan",
+            "Loan.sol",
             abi.encodeCall(
                 Loan.initialize,
                 (
@@ -242,9 +253,10 @@ contract DeployPhase3Local is LocalRolesConfig {
                     PRE_CLOSURE_FEE,
                     GRACE_PERIOD
                 )
-            )
+            ),
+            loanOpts
         );
-        loanImpl = address(uint160(uint256(vm.load(loan, IMPL_SLOT))));
+        loanImpl = _getProxyImplementation(loan);
         console2.log("Loan proxy:", loan);
         console2.log("Loan impl:", loanImpl);
 
@@ -257,19 +269,17 @@ contract DeployPhase3Local is LocalRolesConfig {
 
         // 7. BitmorAddressesProvider (UUPS proxy)
         bitmorAddressesProvider = _deployUUPSProxy(
-            "src/protocol/BitmorAddressesProvider.sol:BitmorAddressesProvider",
-            abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, loan))
+            "BitmorAddressesProvider.sol", abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, loan))
         );
-        bitmorAddressesProviderImpl = address(uint160(uint256(vm.load(bitmorAddressesProvider, IMPL_SLOT))));
+        bitmorAddressesProviderImpl = _getProxyImplementation(bitmorAddressesProvider);
         console2.log("BitmorAddressesProvider proxy:", bitmorAddressesProvider);
         console2.log("BitmorAddressesProvider impl:", bitmorAddressesProviderImpl);
 
         // 8. AutoRepayment (UUPS proxy)
         autoRepayment = _deployUUPSProxy(
-            "src/protocol/AutoRepayment.sol:AutoRepayment",
-            abi.encodeCall(AutoRepayment.initialize, (accessManager, loan, mockUsdc))
+            "AutoRepayment.sol", abi.encodeCall(AutoRepayment.initialize, (accessManager, loan, mockUsdc))
         );
-        autoRepaymentImpl = address(uint160(uint256(vm.load(autoRepayment, IMPL_SLOT))));
+        autoRepaymentImpl = _getProxyImplementation(autoRepayment);
         console2.log("AutoRepayment proxy:", autoRepayment);
         console2.log("AutoRepayment impl:", autoRepaymentImpl);
 
@@ -331,13 +341,16 @@ contract DeployPhase3Local is LocalRolesConfig {
         mockUsdc = vm.parseJsonAddress(json, string.concat(base, "debtAsset"));
         mockCbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
         btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
+        btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
         btcOracle = vm.parseJsonAddress(json, string.concat(base, "btcOracle"));
         usdcOracle = vm.parseJsonAddress(json, string.concat(base, "usdcOracle"));
         aaveV3Pool = vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool"));
         aaveAddressesProvider = vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider"));
+        loanLogicLib = vm.parseJsonAddress(json, string.concat(base, "loanLogicLib"));
 
         console2.log("Loaded Phase 1: AccessManager:", accessManager);
         console2.log("Loaded Phase 1: AaveV3Pool (mock):", aaveV3Pool);
+        console2.log("Loaded LoanLogic (linked library):", loanLogicLib);
     }
 
     /// @notice Loads lending pool addresses from deployed-contracts.json
@@ -375,10 +388,14 @@ contract DeployPhase3Local is LocalRolesConfig {
         RoleGrantees memory g = _getRoleGrantees();
 
         // 12a. Grant operational roles and set target function mappings
-        _grantOperationalRoles(manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool);
+        _grantOperationalRoles(
+            manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
+        );
 
         // 12b. Wire UPGRADER role across all UUPS proxies and BeaconController
-        _wireUpgraderRole(manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader);
+        _wireUpgraderRole(
+            manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
+        );
 
         // 12c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
@@ -394,7 +411,7 @@ contract DeployPhase3Local is LocalRolesConfig {
      * - `loanImpl`, `usdcVaultImpl`, `autoRepaymentImpl`, `bitmorAddressesProviderImpl` (implementation addresses)
      * - `beacon`, `beaconController` (beacon chain addresses)
      *
-     * Implementation addresses are read from the EIP-1967 implementation slot of each proxy.
+     * Implementation addresses are stored directly from the deployed implementation contracts.
      */
     function _saveDeployments() internal {
         // Build JSON keys in chunks to avoid stack-too-deep
@@ -451,10 +468,16 @@ contract DeployPhase3Local is LocalRolesConfig {
             '"'
         );
 
-        // Chunk 4: Implementation addresses (new for upgradeable architecture)
+        // Chunk 4: Implementation addresses and linked libraries
         keys = string.concat(
             keys,
-            ',"usdcVaultImpl":"',
+            ',"loanLogicLib":"',
+            vm.toString(loanLogicLib),
+            '",',
+            '"btcVaultImpl":"',
+            vm.toString(btcVaultImpl),
+            '",',
+            '"usdcVaultImpl":"',
             vm.toString(usdcVaultImpl),
             '",',
             '"loanImpl":"',

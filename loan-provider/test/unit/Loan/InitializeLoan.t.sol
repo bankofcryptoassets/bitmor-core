@@ -17,6 +17,7 @@ import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.
 import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 /// @title InitializeLoanTest
 /// @author Bitmor Protocol
@@ -276,7 +277,7 @@ contract InitializeLoanTest is BaseLoanTest {
 
         (,, uint256 minDepositRequired) = loan.getLoanDetails(btcAmount, duration);
 
-        address oracle = loan.i_ORACLE();
+        address oracle = address(mockOracle);
         uint256 realBtcPrice = IPriceOracleGetter(oracle).getAssetPrice(btc);
 
         // Underprice BTC by 2% to breach 0.5% slippage
@@ -299,12 +300,12 @@ contract InitializeLoanTest is BaseLoanTest {
         BitmorAccessManager manager2 = new BitmorAccessManager(admin);
 
         vm.startPrank(admin);
-        Loan loan2 = new Loan(
-            address(manager2), // Use proper AccessManager
+        Loan loan2 = _deployLoanProxy(
+            address(manager2),
             address(mockPool),
             s_addressesProvider,
             s_bitmorPool,
-            loan.i_ORACLE(),
+            address(mockOracle),
             collateralAsset,
             debtAsset,
             btc,
@@ -314,9 +315,10 @@ contract InitializeLoanTest is BaseLoanTest {
 
         // Set up BitmorAddressesProvider for loan2
         address loanVaultImpl2 = address(new LoanVault());
-        address loanVaultFactory2 = address(new LoanVaultFactory(loanVaultImpl2, address(loan2)));
+        address beacon2 = address(new UpgradeableBeacon(loanVaultImpl2, address(this)));
+        address loanVaultFactory2 = address(new LoanVaultFactory(beacon2, address(loan2)));
 
-        BitmorAddressesProvider provider2 = new BitmorAddressesProvider(address(manager2), address(loan2));
+        BitmorAddressesProvider provider2 = _deployAddressesProviderProxy(address(manager2), address(loan2));
         provider2.setVaultFactory(loanVaultFactory2);
         provider2.setSwapper(address(mockSwapAdapter));
         provider2.setPremiumCollector(premiumCollector);

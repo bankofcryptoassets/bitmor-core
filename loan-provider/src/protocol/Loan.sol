@@ -5,7 +5,7 @@ import {Initializable} from "@openzeppelin-upgradeable/proxy/utils/Initializable
 import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessManagedUpgradeable} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
 import {LSALogic} from "../libraries/logic/LSALogic.sol";
@@ -49,18 +49,18 @@ contract Loan is
     UUPSUpgradeable,
     LoanStorage,
     ILoan,
-    ReentrancyGuard,
+    ReentrancyGuardTransient,
     IFlashLoanSimpleReceiver,
     AccessManagedUpgradeable,
     PausableUpgradeable
 {
-    using LoanLogic for mapping(address => DataTypes.LoanData);
     using LSALogic for address;
     using FlashLoanLogic for DataTypes.ExecuteFLOperationContext;
     using CloseLoanLogic for DataTypes.ExecuteCloseLoanContext;
-    using LoanLogic for DataTypes.CalculateLoanDetailsContext;
 
     // ============ Constructor ============
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
@@ -103,6 +103,8 @@ contract Loan is
         if (_collateralAsset == address(0)) revert Errors.ZeroAddress();
         if (_debtAsset == address(0)) revert Errors.ZeroAddress();
         if (_btc == address(0)) revert Errors.ZeroAddress();
+        if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
+        if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
 
         $.aaveV3Pool = _aaveV3Pool;
         $.aaveAddressesProvider = _aaveAddressesProvider;
@@ -171,15 +173,13 @@ contract Loan is
             maxDuration: $.maxDuration
         });
 
-        lsa = $.loansByLSA
-            .executeInitializeLoan(
-                $.userLoanCount,
-                $.userLoanAtIndex,
-                ctx,
-                DataTypes.ExecuteInitializeLoanParams(
-                    msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
-                )
-            );
+        lsa = LoanLogic.executeInitializeLoan(
+            LOAN_STORAGE_LOCATION,
+            ctx,
+            DataTypes.ExecuteInitializeLoanParams(
+                msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
+            )
+        );
     }
 
     /**
@@ -234,7 +234,7 @@ contract Loan is
         restricted
         checkIfLoanExists(lsa)
     {
-        _getLoanStorage().loansByLSA.updateInsuranceId(lsa, insuranceID);
+        LoanLogic.updateInsuranceId(LOAN_STORAGE_LOCATION, lsa, insuranceID);
         emit Loan__InsuranceIDUpdated(lsa, insuranceID);
     }
 
@@ -242,7 +242,7 @@ contract Loan is
      * @inheritdoc ILoan
      */
     function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
-        uint256 newDuration = _getLoanStorage().loansByLSA.updateLoanDataForMicroLiquidation(_lsa);
+        uint256 newDuration = LoanLogic.updateLoanDataForMicroLiquidation(LOAN_STORAGE_LOCATION, _lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }
 
@@ -255,7 +255,7 @@ contract Loan is
         checkZeroAddress(_lsa)
         checkIfLoanExists(_lsa)
     {
-        _getLoanStorage().loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
+        LoanLogic.updateLoanForMicroLiquidationCompletion(LOAN_STORAGE_LOCATION, _lsa);
 
         emit Loan__Completed(_lsa);
     }
@@ -271,7 +271,7 @@ contract Loan is
         checkZeroAddress(_lsa)
         checkIfLoanExists(_lsa)
     {
-        _getLoanStorage().loansByLSA.updateLoanDataForFullLiquidation(_lsa);
+        LoanLogic.updateLoanDataForFullLiquidation(LOAN_STORAGE_LOCATION, _lsa);
 
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
@@ -419,7 +419,7 @@ contract Loan is
             debtAsset: $.debtAsset
         });
 
-        (loanAmount, monthlyPayment, minDepositRequired) = ctx.calculateLoanDetails(btcAmount, duration);
+        (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(ctx, btcAmount, duration);
     }
 
     /**

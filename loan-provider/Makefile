@@ -226,59 +226,59 @@ gas-report:
 
 # ============ Proxy Deployment Commands (New) ============
 
-deploy\\:phase1\\:local:
+deploy\:phase1\:local:
 	@echo "Deploying Phase 1 (local, proxy-based)..."
-	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --force -v
 
-deploy\\:phase3\\:local:
+deploy\:phase3\:local:
 	@echo "Deploying Phase 3 (local, proxy-based)..."
-	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --slow -v
+	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --slow --force -v
 
-deploy\\:schedule\\:local:
+deploy\:schedule\:local:
 	@echo "Scheduling Phase 3 operations (local)..."
 	@FOUNDRY_PROFILE=local forge script script/deployment/local/SchedulePhase3Local.s.sol:SchedulePhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
 
-deploy\\:execute\\:local:
+deploy\:execute\:local:
 	@echo "Executing Phase 3 operations (local)..."
 	@FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
 
-deploy\\:check:
+deploy\:check:
 	@echo "Running post-deploy checks..."
 	@FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) -v
 
-deploy\\:phase1\\:mainnet:
+deploy\:phase1\:mainnet:
 	@echo "Deploying Phase 1 (Base mainnet)..."
-	@forge script script/deployment/mainnet/DeployPhase1Mainnet.s.sol:DeployPhase1Mainnet --rpc-url base_mainnet --broadcast --verify --account bitmor_owner -v
+	@forge script script/deployment/mainnet/DeployPhase1Mainnet.s.sol:DeployPhase1Mainnet --rpc-url base_mainnet --broadcast --verify --account bitmor_owner --force -v
 
-deploy\\:phase3\\:mainnet:
+deploy\:phase3\:mainnet:
 	@echo "Deploying Phase 3 (Base mainnet)..."
-	@forge script script/deployment/mainnet/DeployPhase3Mainnet.s.sol:DeployPhase3Mainnet --rpc-url base_mainnet --broadcast --verify --slow --account bitmor_owner -v
+	@forge script script/deployment/mainnet/DeployPhase3Mainnet.s.sol:DeployPhase3Mainnet --rpc-url base_mainnet --broadcast --verify --slow --account bitmor_owner --force -v
 
-deploy\\:schedule\\:mainnet:
+deploy\:schedule\:mainnet:
 	@echo "Scheduling Phase 3 operations (Base mainnet)..."
 	@forge script script/deployment/mainnet/SchedulePhase3Mainnet.s.sol:SchedulePhase3Mainnet --rpc-url base_mainnet --broadcast --account bitmor_owner -v
 
-deploy\\:transfer\\:mainnet:
+deploy\:transfer\:mainnet:
 	@echo "Transferring ADMIN to multisig (Base mainnet)..."
 	@forge script script/deployment/mainnet/TransferToMultisig.s.sol:TransferToMultisig --rpc-url base_mainnet --broadcast --account bitmor_owner -v
 
 # ============ Upgrade Commands ============
 
-upgrade\\:uups\\:schedule:
+upgrade\:uups\:schedule:
 	@echo "Scheduling UUPS upgrade..."
-	@forge script script/upgrade/UpgradeUUPS.s.sol:UpgradeUUPS --sig "schedule(address,string,bytes)" $(PROXY) $(CONTRACT) $(INIT_DATA) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner -v
+	@forge script script/upgrade/UpgradeUUPS.s.sol:UpgradeUUPS --sig "schedule(address,string,bytes)" $(PROXY) $(CONTRACT) $(INIT_DATA) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner --force -v
 
-upgrade\\:uups\\:execute:
+upgrade\:uups\:execute:
 	@echo "Executing UUPS upgrade..."
-	@forge script script/upgrade/UpgradeUUPS.s.sol:UpgradeUUPS --sig "execute(address,address,bytes)" $(PROXY) $(NEW_IMPL) $(INIT_DATA) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner -v
+	@forge script script/upgrade/UpgradeUUPS.s.sol:UpgradeUUPS --sig "execute(address,address,bytes)" $(PROXY) $(NEW_IMPL) $(INIT_DATA) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner --force -v
 
-upgrade\\:beacon\\:schedule:
+upgrade\:beacon\:schedule:
 	@echo "Scheduling beacon upgrade..."
-	@forge script script/upgrade/UpgradeBeacon.s.sol:UpgradeBeacon --sig "schedule(address)" $(NEW_IMPL) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner -v
+	@forge script script/upgrade/UpgradeBeacon.s.sol:UpgradeBeacon --sig "schedule(address)" $(NEW_IMPL) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner --force -v
 
-upgrade\\:beacon\\:execute:
+upgrade\:beacon\:execute:
 	@echo "Executing beacon upgrade..."
-	@forge script script/upgrade/UpgradeBeacon.s.sol:UpgradeBeacon --sig "execute(address)" $(NEW_IMPL) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner -v
+	@forge script script/upgrade/UpgradeBeacon.s.sol:UpgradeBeacon --sig "execute(address)" $(NEW_IMPL) --rpc-url $(RPC_URL) --broadcast --account bitmor_owner --force -v
 
 # ============ Legacy Deployment Commands ============
 

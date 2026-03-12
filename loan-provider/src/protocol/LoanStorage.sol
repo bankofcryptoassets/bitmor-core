@@ -40,7 +40,8 @@ contract LoanStorage {
     /// @notice Maximum allowed grace period (45 days)
     uint256 internal constant MAX_GRACE_PERIOD = 45 days;
 
-    bytes32 private constant LOAN_STORAGE_LOCATION = 0xb8edd834a76951e77f534a97f5158809f53c7eb2b7458c00ae214c5615e88d00;
+    bytes32 internal constant LOAN_STORAGE_LOCATION =
+        0xb8edd834a76951e77f534a97f5158809f53c7eb2b7458c00ae214c5615e88d00;
 
     /// @custom:storage-location erc7201:bitmor.storage.Loan
     struct LoanStorageData {

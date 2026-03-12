@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {FuzzTestBase} from "./FuzzTestBase.sol";
 import {VaultUtilities} from "../../unit/Vault/VaultUtilities.t.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {ProxyTestHelper} from "../../helpers/ProxyTestHelper.sol";
 
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
@@ -22,7 +23,7 @@ import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
  * @dev Deploys real `USDCVault` and `USDCStrategy` backed by `MockAaveV3Pool` and `MockBitmorLendingPool`.
  *      Inherits `FuzzTestBase` for bound helpers and `VaultUtilities` for ERC-4626 operation helpers.
  */
-abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
+abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities, ProxyTestHelper {
     // ============ Core Contracts ============
 
     /// @notice Real USDCVault contract under test
@@ -99,7 +100,7 @@ abstract contract USDCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
         _deployStrategyMockInfrastructure();
 
         // Deploy real vault and strategy
-        vault = new USDCVault(address(manager), address(mockUSDC), address(mockBitmorPool));
+        vault = _deployUSDCVaultProxy(address(manager), address(mockUSDC), address(mockBitmorPool));
         strategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));
 
         // Configure roles and permissions
