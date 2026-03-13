@@ -76,8 +76,9 @@ Reads LendingPool from `../lending-pool/deployed-contracts.json` and deploys:
 
 | Contract | Type | Description |
 |----------|------|-------------|
+| LoanLogic | **Linked library** | Public library deployed separately (Loan.sol exceeds 24KB without it) |
 | USDCVault | **UUPS proxy** | USDC vault (needs LendingPool address) |
-| Loan | **UUPS proxy** | Main entry point for loans |
+| Loan | **UUPS proxy** | Main entry point for loans (linked to LoanLogic) |
 | AutoRepayment | **UUPS proxy** | Scheduled repayment automation |
 | BitmorAddressesProvider | **UUPS proxy** | Protocol address registry |
 | LoanVault | **Beacon impl** | Per-loan smart account implementation |
@@ -144,8 +145,9 @@ make deploy-local (FOUNDRY_PROFILE=local)
 │   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy) → save JSON
 ├── Phase 2: lending-pool
 │   └── npm run bitmor:localhost:dev:migration
-├── Phase 3a: DeployPhase3Local.s.sol
-│   └── USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
+├── Phase 3a: LoanLogic linked library + DeployPhase3Local.s.sol
+│   └── Deploy LoanLogic as standalone library (Loan.sol exceeds 24KB without it)
+│       → USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
 │       → Beacon chain (LoanVault impl → Beacon → Controller → Factory)
 │       → Strategies → Role setup + UPGRADER wiring → save JSON
 ├── Phase 3b: SchedulePhase3Local.s.sol
@@ -275,6 +277,7 @@ OZ foundry-upgrades requires Node.js for upgrade validation (storage layout chec
         "autoRepaymentImpl": "0x...(implementation)",
         "bitmorAddressesProvider": "0x...(proxy)",
         "bitmorAddressesProviderImpl": "0x...(implementation)",
+        "loanLogicLib": "0x...(linked library)",
         "beacon": "0x...(UpgradeableBeacon)",
         "beaconController": "0x...(BeaconController)",
         "loanVaultImpl": "0x...(LoanVault implementation)",
@@ -383,6 +386,10 @@ cd loan-provider && forge clean && forge build
 ```
 Ensure `ast = true`, `build_info = true`, `extra_output = ["storageLayout"]` are in foundry.toml for the active profile.
 
+### LoanLogic Linking Error
+
+If tests fail with unlinked library errors, ensure `dynamic_test_linking = true` is in foundry.toml. For deployment scripts, the `--libraries` flag must be passed (handled automatically by `deploy-local.sh`).
+
 ## Tech Stack
 
 | Module | Framework | Solidity Version |
@@ -390,4 +397,5 @@ Ensure `ast = true`, `build_info = true`, `extra_output = ["storageLayout"]` are
 | lending-pool | Hardhat v3 | 0.6.12 |
 | loan-provider | Foundry | 0.8.30 |
 | Proxy toolkit | OpenZeppelin Foundry Upgrades | v5 |
+| LoanLogic | Public linked library | 0.8.30 |
 | Orchestration | Bash + Make | - |

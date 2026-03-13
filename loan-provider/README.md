@@ -66,11 +66,22 @@ make coverage        # Coverage report
 make gas-report      # Gas report
 ```
 
-## Deployment (Base Sepolia)
+## Deployment
+
+All core contracts are deployed behind UUPS or Beacon proxies. See [DEPLOYMENT_SETUP.md](../DEPLOYMENT_SETUP.md) for the full guide.
 
 ```bash
-make setup           # Full deployment: all contracts + configuration
-make verifyAll       # Verify contracts on Sourcify
+# Local (from repo root)
+make deploy-local                # Full protocol: all phases + validation
+
+# Individual phases
+make deploy:phase1:local         # AccessManager + BTCVault proxy + mocks
+make deploy:phase3:local         # All remaining proxies + roles
+make deploy:check                # Post-deploy invariant checks
+
+# Upgrades
+make upgrade:uups:schedule PROXY=0x... CONTRACT="src/..." INIT_DATA=0x RPC_URL=...
+make upgrade:beacon:schedule NEW_IMPL=0x... RPC_URL=...
 ```
 
-See the root `CLAUDE.md` for full deployment and architecture documentation.
+See the root `CLAUDE.md` and `DEPLOYMENT_SETUP.md` for full deployment and architecture documentation.
