@@ -38,13 +38,20 @@ contract InitLoanTest is IntegrationTestBase {
     ///      the protocol has no staleness check and accepts arbitrarily old oracle data,
     ///      allowing collateral to be valued at a price that no longer reflects reality.
     function test_Oracle_RevertWhen_StalePriceUsed() public {
-        // Arrange - make oracle stale by 2 hours
+        // Arrange - capture loan details at normal price BEFORE making oracle stale
+        (,, uint256 minDeposit) = loanContract.getLoanDetails(TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION);
+
+        // Make oracle stale by 2 hours
         btcOracle.makeStale(STALE_THRESHOLD_SECONDS);
 
         // Act + Assert - system MUST reject stale prices
+        // Call initializeLoan directly (not _createStandardLoan helper) because
+        // the helper calls getLoanDetails first which also reverts at stale price,
+        // consuming the vm.expectRevert() before initializeLoan is reached.
         // Generic revert: cross-version BLP call (oracle staleness check origin is version-dependent)
         vm.expectRevert();
-        _createStandardLoan();
+        vm.prank(testUser);
+        loanContract.initializeLoan(minDeposit, TC.PREMIUM_AMOUNT, TC.STANDARD_COLLATERAL, TC.STANDARD_DURATION, "");
         // If vm.expectRevert() does not match (i.e., loan succeeds), the test fails.
         // FINDING: loan created with stale oracle price -- no staleness check.
     }
