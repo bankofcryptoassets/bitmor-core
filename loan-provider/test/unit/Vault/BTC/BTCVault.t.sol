@@ -15,7 +15,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
     using FixedPointMathLib for uint256;
 
     function test_constructor() public {
-        BTCVaultHarness newVault = new BTCVaultHarness(networkConfig.usdc, address(this));
+        BTCVaultHarness newVault = _deployBTCVaultHarnessProxy(networkConfig.usdc, address(this));
 
         assertEq(newVault.asset(), networkConfig.usdc);
     }
@@ -60,7 +60,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
 
     function test_setEntryFee_RevertWhen_FeeRecipientNotSet() public {
         // Arrange: fresh vault with no fee recipient
-        BTCVaultHarness freshVault = new BTCVaultHarness(address(mockUSDC), address(manager));
+        BTCVaultHarness freshVault = _deployBTCVaultHarnessProxy(address(mockUSDC), address(manager));
 
         // Act + Assert
         vm.expectRevert(abi.encodeWithSelector(Errors.Vault__FeeRecipientNotSet.selector));
@@ -69,7 +69,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
 
     function test_setExitFee_RevertWhen_FeeRecipientNotSet() public {
         // Arrange: fresh vault with no fee recipient
-        BTCVaultHarness freshVault = new BTCVaultHarness(address(mockUSDC), address(manager));
+        BTCVaultHarness freshVault = _deployBTCVaultHarnessProxy(address(mockUSDC), address(manager));
 
         // Act + Assert
         vm.expectRevert(abi.encodeWithSelector(Errors.Vault__FeeRecipientNotSet.selector));
@@ -78,7 +78,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
 
     function test_setEntryFee_AllowsZeroFee_WithoutRecipient() public {
         // Arrange: fresh vault with no fee recipient
-        BTCVaultHarness freshVault = new BTCVaultHarness(address(mockUSDC), address(manager));
+        BTCVaultHarness freshVault = _deployBTCVaultHarnessProxy(address(mockUSDC), address(manager));
 
         // Act: setting zero fee should succeed even without recipient
         freshVault.setEntryFee(0);
@@ -89,7 +89,7 @@ contract BTCVaultTest is BaseTestForBTCVault {
 
     function test_setExitFee_AllowsZeroFee_WithoutRecipient() public {
         // Arrange: fresh vault with no fee recipient
-        BTCVaultHarness freshVault = new BTCVaultHarness(address(mockUSDC), address(manager));
+        BTCVaultHarness freshVault = _deployBTCVaultHarnessProxy(address(mockUSDC), address(manager));
 
         // Act: setting zero fee should succeed even without recipient
         freshVault.setExitFee(0);
@@ -133,10 +133,10 @@ contract BTCVaultTest is BaseTestForBTCVault {
     */
 
     function test_underlyingDecimals() public view {
-        uint8 currentDecimals = vault.underlyingDecimals();
+        uint8 currentDecimals = ERC20(vault.asset()).decimals();
 
-        uint8 epxectedDecimals = ERC20(networkConfig.usdc).decimals();
+        uint8 expectedDecimals = ERC20(networkConfig.usdc).decimals();
 
-        assertEq(currentDecimals, epxectedDecimals);
+        assertEq(currentDecimals, expectedDecimals);
     }
 }

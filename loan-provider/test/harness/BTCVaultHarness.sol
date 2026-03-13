@@ -5,20 +5,10 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 
 /// @title BTCVaultHarness
 /// @notice Test harness for BTCVault contract that exposes internal functions for testing
-/// @dev Extends BTCVault to make internal functions public for unit testing purposes
+/// @dev Extends BTCVault to make internal functions public for unit testing purposes.
+///      Uses the same UUPS upgradeable pattern as BTCVault (initialize instead of constructor).
 /// @author Bitmor Protocol
 contract BTCVaultHarness is BTCVault {
-    /// @notice Initializes the harness with the same parameters as BTCVault
-    /// @param _asset The address of the underlying asset
-    /// @param _admin The address of the admin who receives DEFAULT_ADMIN_ROLE
-    constructor(address _asset, address _admin) BTCVault(_asset, _admin) {}
-
-    /// @notice Exposes the internal _underlyingDecimals function for testing
-    /// @return The number of decimals used by the underlying asset
-    function underlyingDecimals() external view returns (uint8) {
-        return _underlyingDecimals();
-    }
-
     /// @notice Exposes the internal _feeOnRaw function for testing fee calculations
     /// @param assets The base amount of assets (without fees)
     /// @param feeBasisPoints The fee rate in basis points

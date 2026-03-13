@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 
 /// @title CloseLoanTest
@@ -110,6 +110,7 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(debtAtCreation, 0, "should have debt after loan creation");
 
         vm.warp(block.timestamp + 180 days);
+        _refreshOraclePrices();
 
         uint256 debtAfterAccrual = _getDebtBalanceUSDC(lsa);
         assertGt(debtAfterAccrual, debtAtCreation, "debt should grow after 6 months of interest");

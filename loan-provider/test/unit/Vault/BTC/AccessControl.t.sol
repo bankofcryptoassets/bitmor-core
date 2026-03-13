@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {ERC20} from "@solady/tokens/ERC20.sol";
 
 import {BTCVault} from "@btcVault/BTCVault.sol";

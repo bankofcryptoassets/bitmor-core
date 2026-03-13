@@ -42,4 +42,16 @@ interface ILoanVaultFactory {
      * @return The predicted vault address
      */
     function computeAddress(address borrower, uint256 timestamp) external view returns (address);
+
+    /**
+     * @notice Returns the UpgradeableBeacon address used for LoanVault proxies
+     * @return The beacon address
+     */
+    function i_BEACON() external view returns (address);
+
+    /**
+     * @notice Returns the authorized Loan contract address
+     * @return The Loan contract address
+     */
+    function i_LOAN() external view returns (address);
 }

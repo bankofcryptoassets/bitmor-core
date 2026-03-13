@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";

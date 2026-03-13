@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title Repay_VaultInteractionsTest
 /// @notice Integration tests verifying how BTCVault/USDCVault state affects the repayment flow.
@@ -114,9 +114,9 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         // Assert: USDC must not be consumed if collateral cannot be returned
         assertEq(usdc.balanceOf(testUser), usdcBefore, "USDC must not be consumed if collateral can't be returned");
 
-        // Cleanup: unpause via admin (defaults to ADMIN role 0)
-        vm.prank(admin);
-        btcVault.unpause();
+        // Cleanup: unpause via BVM_SLOW role (requires schedule+execute due to 1-day delay)
+        _scheduleAndExecute(address(btcVault), admin, BVM_SLOW_ID(), abi.encodeCall(btcVault.unpause, ()));
+        _refreshOraclePrices();
     }
 
     // ============ Test 4: Partial Repay Does Not Touch Collateral ============

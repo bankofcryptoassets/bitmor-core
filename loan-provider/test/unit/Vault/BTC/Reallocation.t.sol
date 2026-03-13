@@ -189,7 +189,7 @@ contract ReallocationTest is BaseTestForBTCVault {
 
     /// @notice When one strategy's withdraw reverts, the strategy revert is caught (not propagated),
     ///         but with explicit deposit amounts the function still fails because the vault lacks idle balance.
-    ///         This proves the try/catch works: the revert is TransferFromFailed (from deposit), not
+    ///         This proves the try/catch works: the revert is ERC20InsufficientBalance (from deposit), not
     ///         the original "MockYieldSource: paused" error.
     function test_reallocateFunds_SkipsFailingStrategy_RevertsOnDeposit() public {
         // Arrange
@@ -211,11 +211,19 @@ contract ReallocationTest is BaseTestForBTCVault {
         allocations[0] = DataTypes.Allocation({index: 0, amount: inStrategy1 - 2000e6});
         allocations[1] = DataTypes.Allocation({index: 1, amount: 2000e6});
 
-        // The revert is TransferFromFailed (from deposit), NOT the strategy's own revert
+        // The revert is ERC20InsufficientBalance (from deposit), NOT the strategy's own revert
         bytes memory data = abi.encodeCall(BTCVault.reallocateFunds, (allocations));
-        _scheduleAndExpectRevertLocal(
-            bva_fast, BVA_FAST_ID(), data, abi.encodeWithSelector(bytes4(keccak256("TransferFromFailed()")))
-        );
+        (, uint32 delay,,) = manager.getAccess(BVA_FAST_ID(), bva_fast);
+        uint48 when = uint48(block.timestamp + delay);
+
+        vm.startPrank(bva_fast);
+        if (delay > 0) {
+            manager.schedule(address(vault), data, when);
+            vm.warp(when);
+        }
+        vm.expectRevert();
+        manager.execute(address(vault), data);
+        vm.stopPrank();
     }
 
     /// @notice Reallocation emits BTCVault__StrategyWithdrawFailed when a strategy's withdraw reverts

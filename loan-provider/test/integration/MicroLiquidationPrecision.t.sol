@@ -63,6 +63,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Advance past next payment due + grace period
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Assert: checkType returns micro (2)
         uint256 typeAfterAdvance = _checkTypeOfLiquidation(lsa);
@@ -223,6 +224,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Make final period overdue
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Capture debt before
         uint256 debtBefore = _getDebtBalanceUSDC(lsa);
@@ -263,6 +265,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Make overdue on final period
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Verify checkType returns micro (2)
         uint256 liquidationType = _checkTypeOfLiquidation(lsa);
@@ -323,6 +326,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
             // Make overdue
             vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+            _refreshOraclePrices();
 
             uint256 liquidationType = _checkTypeOfLiquidation(lsa);
 
@@ -445,6 +449,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Advance time to pass the cooldown from micro-liq
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Assert: full liquidation MUST be triggered after price drop + overdue
         uint256 typeAfterDrop = _checkTypeOfLiquidation(lsa);
@@ -564,6 +569,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
 
         // Make overdue again for second micro-liq
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Act: second micro-liq
         bool success2 = _triggerMicroLiquidation(lsa);
@@ -580,6 +586,7 @@ contract MicroLiquidationPrecisionTest is IntegrationTestBase {
         // Document: check if stale data causes incorrect liquidation type
         // Make overdue again
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
         uint256 liquidationType = _checkTypeOfLiquidation(lsa);
         // The BLP uses actual aToken balance (correct), but loanData.collateralAmount may be stale
         assertTrue(

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IPool as IAave} from "../../../interfaces/IPool.sol";
 
-import {SimpleTokenizedStrategy, ERC20} from "./SimpleTokenizedStrategy.sol";
+import {SimpleTokenizedStrategy} from "./SimpleTokenizedStrategy.sol";
 
 /**
  * @title AaveTokenizedStrategy
@@ -15,8 +17,7 @@ import {SimpleTokenizedStrategy, ERC20} from "./SimpleTokenizedStrategy.sol";
  * @author Bitmor Protocol
  */
 contract AaveTokenizedStrategy is SimpleTokenizedStrategy {
-    using FixedPointMathLib for uint256;
-    using SafeTransferLib for address;
+    using SafeERC20 for IERC20;
 
     /**
      * @notice Referral code for Aave deposits (0 = no referral)
@@ -32,19 +33,17 @@ contract AaveTokenizedStrategy is SimpleTokenizedStrategy {
 
     /**
      * @notice Returns the name of the strategy token
-     * @inheritdoc ERC20
      * @return The strategy token name
      */
-    function name() public pure override returns (string memory) {
+    function name() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "aaveTokenizedStrategy";
     }
 
     /**
      * @notice Returns the symbol of the strategy token
-     * @inheritdoc ERC20
      * @return The strategy token symbol
      */
-    function symbol() public pure override returns (string memory) {
+    function symbol() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "aaveTS";
     }
 
@@ -65,8 +64,7 @@ contract AaveTokenizedStrategy is SimpleTokenizedStrategy {
      * @param shares The amount of shares being minted (unused in this implementation)
      */
     function _afterDeposit(uint256 assets, uint256 shares) internal override {
-        // Approve and supply assets to Aave
-        asset().safeApprove(i_yieldSource, assets);
+        IERC20(asset()).forceApprove(i_yieldSource, assets);
         IAave(i_yieldSource).supply(asset(), assets, address(this), REFERRAL_CODE);
     }
 
@@ -87,6 +85,6 @@ contract AaveTokenizedStrategy is SimpleTokenizedStrategy {
      */
     function _getBalanceInAave() internal view returns (uint256 balance) {
         address aToken = IAave(i_yieldSource).getReserveAToken(asset());
-        balance = ERC20(aToken).balanceOf(address(this));
+        balance = IERC20(aToken).balanceOf(address(this));
     }
 }

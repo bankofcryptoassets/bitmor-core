@@ -3,11 +3,12 @@ pragma solidity 0.8.30;
 
 import {BaseLoanTest} from "./Loan/BaseLoan.t.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockERC20} from "../mock/MockERC20.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title AutoRepaymentTest
 /// @author Bitmor Protocol
@@ -26,8 +27,8 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepaymentExecutor = makeAddr("autoRepaymentExecutor");
 
         vm.startPrank(admin);
-        // Constructor: AutoRepayment(address _manager, address _loan, address _debtAsset)
-        autoRepay = new AutoRepayment(address(manager), address(loan), debtAsset);
+        // Deploy AutoRepayment via UUPS proxy
+        autoRepay = _deployAutoRepaymentProxy(address(manager), address(loan), debtAsset);
 
         // Register the AutoRepayment contract as the autoRepayer in BitmorAddressesProvider
         // This mirrors production wiring in DeployPhase3.s.sol where the AutoRepayment
@@ -101,7 +102,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Verify pre-condition: user is authorized
-        assertTrue(autoRepay.isAuthorized(user, lsa), "user should be authorized before cancel");
+        assertTrue(autoRepay.getIsAuthorized(user, lsa), "user should be authorized before cancel");
 
         // Act
         vm.prank(user);
@@ -110,7 +111,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         autoRepay.cancelAutoRepayment(lsa);
 
         // Assert
-        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized after cancel");
+        assertFalse(autoRepay.getIsAuthorized(user, lsa), "user should not be authorized after cancel");
     }
 
     /// @notice Tests that cancelAutoRepayment reverts when user is not authorized
@@ -120,7 +121,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         address lsa = loan.getUserLoanAtIndex(user, 0);
 
         // Verify pre-condition: user has NOT authorized auto-repayment
-        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized");
+        assertFalse(autoRepay.getIsAuthorized(user, lsa), "user should not be authorized");
 
         // Act & Assert
         vm.prank(user);
@@ -136,7 +137,7 @@ contract AutoRepaymentTest is BaseLoanTest {
         DataTypes.LoanData memory loanData = loan.getLoanByLSA(lsa);
 
         // Verify pre-condition: user has NOT authorized auto-repayment
-        assertFalse(autoRepay.isAuthorized(user, lsa), "user should not be authorized");
+        assertFalse(autoRepay.getIsAuthorized(user, lsa), "user should not be authorized");
 
         // Act & Assert
         vm.prank(autoRepaymentExecutor);

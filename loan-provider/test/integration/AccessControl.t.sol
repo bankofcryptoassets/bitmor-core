@@ -3,8 +3,8 @@ pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title AccessControlTest
 /// @notice Integration tests for role-protected operations with real AccessManager

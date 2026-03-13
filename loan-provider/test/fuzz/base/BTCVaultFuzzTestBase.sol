@@ -4,11 +4,12 @@ pragma solidity 0.8.30;
 import {FuzzTestBase} from "./FuzzTestBase.sol";
 import {VaultUtilities} from "../../unit/Vault/VaultUtilities.t.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {ProxyTestHelper} from "../../helpers/ProxyTestHelper.sol";
 
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {MockAToken} from "../../mock/MockAToken.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title BTCVaultFuzzTestBase
@@ -16,7 +17,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 /// @notice Shared base for BTCVault fuzz tests using real vault + real AaveTokenizedStrategy
 /// @dev Deploys real BTCVault and AaveTokenizedStrategy backed by MockAaveV3Pool.
 ///      Inherits FuzzTestBase for bound helpers and VaultUtilities for ERC-4626 helpers.
-abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
+abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities, ProxyTestHelper {
     // ============ Core Contracts ============
 
     /// @notice Real BTCVault under test
@@ -72,7 +73,7 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities {
         mockCbBTC.mint(address(mockAavePool), 10_000e8);
 
         // Deploy real BTCVault
-        vault = new BTCVault(address(mockCbBTC), address(manager));
+        vault = _deployBTCVaultProxy(address(mockCbBTC), address(manager), 5);
 
         // Deploy real AaveTokenizedStrategy (strategy1)
         strategy1 = new AaveTokenizedStrategy(address(mockAavePool), address(vault));

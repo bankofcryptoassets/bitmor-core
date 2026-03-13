@@ -52,13 +52,19 @@ bitmor-core/
 │   └── helpers/           # Deployment helpers
 │
 ├── loan-provider/         # BTC loan system (Foundry + Solidity 0.8.30)
-│   ├── src/               # Source contracts
+│   ├── src/               # Source contracts (UUPS + Beacon upgradeable)
 │   ├── test/              # Foundry tests
+│   └── script/            # Deployment & upgrade scripts
+│       ├── deployment/    # Phase-based deployment (local/ + mainnet/)
+│       ├── upgrade/       # UUPS and Beacon upgrade scripts
+│       └── config/        # RolesData, per-network role configs
+│
+├── swap-routers/          # Uniswap V4 swap adapter (Foundry + Solidity 0.8.30)
+│   ├── src/               # UniswapV4SwapAdapterWrapper
 │   └── script/            # Deployment scripts
 │
-└── swap-routers/          # Uniswap V4 swap adapter (Foundry + Solidity 0.8.30)
-    ├── src/               # UniswapV4SwapAdapterWrapper
-    └── script/            # Deployment scripts
+└── deploy/scripts/        # Cross-module deployment orchestration
+    └── deploy-local.sh    # Full local protocol deployment
 ```
 
 ---
@@ -259,12 +265,13 @@ In a separate terminal:
 make deploy-local
 ```
 
-This runs a multi-phase deployment:
-1. **Phase 1**: AccessManager, MockTokens, MockOracles, BTCVault
-2. **Phase 2**: lending-pool migration
-3. **Phase 3a**: USDCVault, SwapAdapter, Loan, Strategies
-4. **Phase 3b**: Schedule timelocked operations
+This runs a multi-phase proxy-based deployment:
+1. **Phase 1**: AccessManager, MockTokens, MockOracles, BTCVault (UUPS proxy)
+2. **Phase 2**: lending-pool migration (Hardhat)
+3. **Phase 3a**: LoanLogic linked library + all remaining UUPS proxies + Beacon chain + Strategies + Roles
+4. **Phase 3b**: Schedule timelocked operations (1-day delay)
 5. **Phase 3c**: Execute scheduled operations
+6. **Phase 4**: PostDeployChecks validation (proxy pointers, beacon ownership, role wiring)
 
 ### Verify Local Deployment
 
@@ -274,15 +281,49 @@ cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
 
 ---
 
-## Markets configuration
+## Proxy Architecture
 
-The configurations related with the Aave Markets are located at `markets` directory. You can follow the `IAaveConfiguration` interface to create new Markets configuration or extend the current Aave configuration.
+All core contracts are deployed behind proxies with ERC-7201 namespaced storage:
 
-Each market should have his own Market configuration file, and their own set of deployment tasks, using the Aave market config and tasks as a reference.
+| Contract | Proxy Pattern | Upgrade Control |
+|----------|--------------|-----------------|
+| Loan | UUPS | UPGRADER role (48h delay) |
+| BTCVault | UUPS | UPGRADER role (48h delay) |
+| USDCVault | UUPS | UPGRADER role (48h delay) |
+| AutoRepayment | UUPS | UPGRADER role (48h delay) |
+| BitmorAddressesProvider | UUPS | UPGRADER role (48h delay) |
+| LoanVault | BeaconProxy | BeaconController (48h delay) |
+
+See [DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md) for upgrade procedures and guardian cancellation.
 
 ## Deployments
 
-For deploying the Bitmor protocol, use the scripts in `package.json` for lending-pool and `Makefile` for loan-provider.
+All core loan-provider contracts are deployed behind UUPS or Beacon proxies. See [DEPLOYMENT_SETUP.md](./DEPLOYMENT_SETUP.md) for the full deployment guide.
+
+### Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `make deploy-local` | Deploy full protocol to local Anvil (all phases) |
+| `make deploy:phase1:local` | Phase 1 only: AccessManager + BTCVault proxy + mocks |
+| `make deploy:phase3:local` | Phase 3 only: All proxies + beacon chain + roles |
+| `make deploy:check` | Post-deploy invariant checks |
+
+### Mainnet Deployment
+
+| Command | Description |
+|---------|-------------|
+| `make deploy:phase1:mainnet` | Phase 1: AccessManager + BTCVault proxy (real cbBTC) |
+| `make deploy:phase3:mainnet` | Phase 3: All proxies + roles (real addresses) |
+| `make deploy:schedule:mainnet` | Schedule timelocked operations |
+| `make deploy:transfer:mainnet` | Transfer ADMIN to governance Safe |
+
+### Upgrade Commands
+
+| Command | Description |
+|---------|-------------|
+| `make upgrade:uups:schedule PROXY=0x... CONTRACT="src/..." INIT_DATA=0x RPC_URL=...` | Schedule UUPS upgrade (48h delay) |
+| `make upgrade:beacon:schedule NEW_IMPL=0x... RPC_URL=...` | Schedule beacon upgrade (48h delay) |
 
 ### lending-pool Deployments
 
@@ -290,126 +331,12 @@ For deploying the Bitmor protocol, use the scripts in `package.json` for lending
 | ----------------------------------------- | ---------------------------- |
 | `npm run aave:baseSepolia:full:migration` | Deploy to Base Sepolia       |
 | `npm run bitmor:localhost:dev:migration`  | Deploy to local Hardhat node |
-| `npm run aave:fork:main`                  | Deploy to mainnet fork       |
-
-#### Base Sepolia Deployment
-
-```bash
-# With Docker
-docker-compose up
-docker-compose exec contracts-env bash
-npm run aave:baseSepolia:full:migration
-
-# Without Docker
-npm run aave:baseSepolia:full:migration
-```
-
-#### Local Development Deployment
-
-```bash
-npm run bitmor:localhost:dev:migration
-```
-
-### loan-provider Deployments
-
-| Command                         | Description                                     |
-| ------------------------------- | ----------------------------------------------- |
-| `make setup`                    | Full deployment (all contracts + configuration) |
-| `make deployLoan`               | Deploy Loan contract                            |
-| `make deployLoanVault`          | Deploy LoanVault implementation                 |
-| `make deployLoanVaultFactory`   | Deploy vault factory                            |
-| `make deploySwapAdapterWrapper` | Deploy Uniswap V4 swap adapter                  |
-
-#### Full Setup (Base Sepolia)
-
-```bash
-cd loan-provider
-make setup
-```
-
-#### Individual Deployments
-
-```bash
-# Deploy core contracts
-make deployLoan
-make deployLoanVault
-make deployLoanVaultFactory
-
-# Post-deployment configuration
-make setLoanVaultFactory    # Link factory to Loan
-make setBitmorLoan          # Register Loan in AddressesProvider
-make saveAddresses          # Persist deployment addresses
-
-# Verification
-make verifyAll              # Verify on Sourcify
-```
 
 ### Deployment Addresses
 
 Deployed addresses are stored in:
 - `lending-pool/deployed-contracts.json` - lending-pool addresses
-- `loan-provider/deployments.json` - loan-provider addresses
-
----
-
-## Console Interaction
-
-### Mainnet Fork Console
-
-Deploy and interact with the protocol in a forked mainnet:
-
-```bash
-docker-compose run contracts-env npm run console:fork
-```
-
-```javascript
-// Deploy the Aave protocol in fork mode
-await run('aave:mainnet')
-
-// Initialize HRE
-run('set-DRE');
-
-// Import contract getters
-const contractGetters = require('./helpers/contracts-getters');
-
-// Get LendingPool instance
-const lendingPool = await contractGetters.getLendingPool("LendingPool address");
-
-// Impersonate an address
-await network.provider.request({
-  method: "hardhat_impersonateAccount",
-  params: ["0xb1adceddb2941033a090dd166a462fe1c2029484"]
-});
-
-const signer = await ethers.provider.getSigner("0xb1adceddb2941033a090dd166a462fe1c2029484")
-
-// Interact with tokens
-const DAI = await contractGetters.getIErc20Detailed("0x6B175474E89094C44Da98b954EedeAC495271d0F");
-await DAI.connect(signer).approve(lendingPool.address, ethers.utils.parseUnits('100'));
-await lendingPool.connect(signer).deposit(DAI.address, ethers.utils.parseUnits('100'), await signer.getAddress(), '0');
-```
-
-### Mainnet Console
-
-Interact with deployed Aave contracts on mainnet:
-
-```bash
-docker-compose run contracts-env npx hardhat --network main console
-```
-
-```javascript
-run("set-DRE")
-
-const contractGetters = require('./helpers/contracts-getters');
-const signer = await contractGetters.getFirstSigner();
-
-// Use deployed LendingPool address
-const lendingPool = await contractGetters.getLendingPool("0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9");
-
-const DAI = await contractGetters.getIErc20Detailed("0x6B175474E89094C44Da98b954EedeAC495271d0F");
-await DAI.connect(signer).approve(lendingPool.address, ethers.utils.parseUnits('100'));
-await lendingPool.connect(signer).deposit(DAI.address, ethers.utils.parseUnits('100'), await signer.getAddress(), '0');
-```
+- `loan-provider/deployments.json` - loan-provider addresses (proxy + implementation)
 
 ---
 
@@ -434,6 +361,8 @@ await lendingPool.connect(signer).deposit(DAI.address, ethers.utils.parseUnits('
 | Missing submodules              | Run `forge install` or `git submodule update --init --recursive` |
 | `Stack too deep` errors         | Use `--via-ir` flag or refactor code                             |
 | Cast wallet not found           | Run `cast wallet new <wallet_name>`                              |
+| OZ upgrade validation error     | Run `forge clean && forge build` in loan-provider/               |
+| PostDeployChecks FAILED         | Check console output for `[FAIL]` — likely proxy/role mismatch   |
 
 ### Bitmor-Specific Test Notes
 

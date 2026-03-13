@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 import {ILoan} from "../../interfaces/ILoan.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
@@ -18,6 +18,8 @@ import {LoanMath} from "../helpers/LoanMath.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 
+import {LoanStorage} from "../../protocol/LoanStorage.sol";
+
 import {LSALogic} from "./LSALogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 import {AavePoolLogic} from "./AavePoolLogic.sol";
@@ -26,7 +28,9 @@ import {AavePoolLogic} from "./AavePoolLogic.sol";
  * @title LoanLogic
  * @author Bitmor Protocol
  * @notice Library for loan initialization and calculation logic
- * @dev Handles loan creation, state updates, and delegates math to LoanMath.
+ * @dev Deployed as a linked library (public functions) to reduce Loan.sol bytecode size.
+ * Functions that previously accepted storage pointer parameters now receive a `bytes32 storageSlot`
+ * and resolve storage internally via ERC-7201 namespaced storage pattern.
  *
  * ## Responsibilities
  * - Validating loan parameters (collateral bounds, deposit requirements)
@@ -48,9 +52,17 @@ library LoanLogic {
     using BitmorLendingPoolLogic for address;
     using AavePoolLogic for address;
 
+    /// @dev Resolves the LoanStorageData struct from a given ERC-7201 storage slot
+    function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
+        assembly {
+            $.slot := slot
+        }
+    }
+
     /**
      * @notice Executes the full loan initialization flow
-     * @dev Creates LSA, stores loan data, transfers funds, and initiates flash loan
+     * @dev Creates LSA, stores loan data, transfers funds, and initiates flash loan.
+     * Called via DELEGATECALL from Loan.sol — `msg.sender`, `address(this)` reflect Loan proxy context.
      *
      * ## Execution Steps
      * 1. Validates deposit, collateral, and duration parameters
@@ -61,20 +73,16 @@ library LoanLogic {
      * 6. Transfers deposit from user and premium to collector
      * 7. Initiates flash loan from Aave V3
      *
-     * @param loansByLSA Storage mapping of loans by LSA address
-     * @param userLoanCount Storage mapping of loan counts per user
-     * @param userLoanAtIndex Storage mapping of LSA addresses by user and index
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Context containing protocol addresses and configuration
      * @param params Parameters for loan initialization
      * @return lsa The address of the created Loan Specific Address
      */
     function executeInitializeLoan(
-        mapping(address => DataTypes.LoanData) storage loansByLSA,
-        mapping(address => uint256) storage userLoanCount,
-        mapping(address => mapping(uint256 => address)) storage userLoanAtIndex,
+        bytes32 storageSlot,
         DataTypes.InitializeLoanContext memory ctx,
         DataTypes.ExecuteInitializeLoanParams memory params
-    ) internal returns (address lsa) {
+    ) public returns (address lsa) {
         if (params.depositAmount == 0 || params.btcAmount == 0) {
             revert Errors.ZeroAmount();
         }
@@ -109,7 +117,9 @@ library LoanLogic {
 
         lsa = ILoanVaultFactory(ctx.loanVaultFactory).createLoanVault(params.user, block.timestamp);
 
-        loansByLSA[lsa] = DataTypes.LoanData({
+        LoanStorage.LoanStorageData storage $ = _resolveStorage(storageSlot);
+
+        $.loansByLSA[lsa] = DataTypes.LoanData({
             borrower: params.user,
             depositAmount: params.depositAmount,
             loanAmount: loanAmount,
@@ -124,9 +134,9 @@ library LoanLogic {
         });
 
         // Update user loan indexing for multi-loan support
-        uint256 loanIndex = userLoanCount[params.user];
-        userLoanAtIndex[params.user][loanIndex] = lsa;
-        userLoanCount[params.user] = loanIndex + 1;
+        uint256 loanIndex = $.userLoanCount[params.user];
+        $.userLoanAtIndex[params.user][loanIndex] = lsa;
+        $.userLoanCount[params.user] = loanIndex + 1;
 
         _executeTransfersAndFlashLoan(ctx, params, lsa, loanAmount);
 
@@ -183,16 +193,12 @@ library LoanLogic {
      * Loan data invariants:
      * - MUST only be updatable by the Loan contract (via EXECUTOR role) (Invariant 1.4)
      * - Access control is enforced at the Loan.sol caller level via `restricted` modifier
-     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param lsa The Loan Specific Address
      * @param insuranceID The new insurance ID to set
      */
-    function updateInsuranceId(
-        mapping(address => DataTypes.LoanData) storage loansByLSA,
-        address lsa,
-        uint256 insuranceID
-    ) internal {
-        loansByLSA[lsa].insuranceID = insuranceID;
+    function updateInsuranceId(bytes32 storageSlot, address lsa, uint256 insuranceID) public {
+        _resolveStorage(storageSlot).loansByLSA[lsa].insuranceID = insuranceID;
     }
 
     /**
@@ -210,15 +216,12 @@ library LoanLogic {
      * - `status` MUST remain Active (not Liquidated)
      * - `lastPaymentTimestamp` MUST be set to `block.timestamp`
      *
-     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param lsa The Loan Specific Address being liquidated
      * @return newDuration The remaining loan duration after deduction
      */
-    function updateLoanDataForMicroLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-        returns (uint256 newDuration)
-    {
-        DataTypes.LoanData storage loan = loansByLSA[lsa];
+    function updateLoanDataForMicroLiquidation(bytes32 storageSlot, address lsa) public returns (uint256 newDuration) {
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         newDuration = loan.duration.zeroFloorSub(1);
 
@@ -235,14 +238,11 @@ library LoanLogic {
      * Loan data invariants:
      * - MUST only be updatable by the Loan contract or LendingPoolCollateralManager (Invariant 1.4)
      *
-     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param lsa The Loan Specific Address being completed
      */
-    function updateLoanForMicroLiquidationCompletion(
-        mapping(address => DataTypes.LoanData) storage loansByLSA,
-        address lsa
-    ) internal {
-        DataTypes.LoanData storage loan = loansByLSA[lsa];
+    function updateLoanForMicroLiquidationCompletion(bytes32 storageSlot, address lsa) public {
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         loan.duration = 0;
         loan.lastPaymentTimestamp = block.timestamp;
@@ -257,13 +257,11 @@ library LoanLogic {
      * Loan data invariants:
      * - MUST only be updatable by the Loan contract or LendingPoolCollateralManager (Invariant 1.4)
      *
-     * @param loansByLSA Storage mapping of loans by LSA address
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param lsa The Loan Specific Address being liquidated
      */
-    function updateLoanDataForFullLiquidation(mapping(address => DataTypes.LoanData) storage loansByLSA, address lsa)
-        internal
-    {
-        DataTypes.LoanData storage loan = loansByLSA[lsa];
+    function updateLoanDataForFullLiquidation(bytes32 storageSlot, address lsa) public {
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         loan.duration = 0;
         loan.lastPaymentTimestamp = block.timestamp;
@@ -329,7 +327,7 @@ library LoanLogic {
      * @return minDepositRequired The minimum deposit required (6 decimals)
      */
     function calculateLoanDetails(DataTypes.CalculateLoanDetailsContext memory ctx, uint256 btcAmount, uint256 duration)
-        internal
+        public
         view
         returns (uint256 exactLoanAmt, uint256 monthlyPayAmt, uint256 minDepositRequired)
     {
@@ -374,8 +372,7 @@ library LoanLogic {
 
     /**
      * @notice Validates ownership, repays dust debt from borrower if needed, and claims remaining collateral
-     * @dev Approach 3b: pulls dust USDC from the borrower (`msg.sender`) for dust repayment.
-     *      Keeps consistency with other LoanLogic functions that handle full lifecycle operations.
+     * @dev Called via DELEGATECALL — `msg.sender` reflects the original caller (borrower).
      * @param lsa The Loan Specific Address with surplus collateral
      * @param borrower Cached borrower address (caller must validate ownership before calling)
      * @param status Current loan status (caller must read from storage before calling)
@@ -393,7 +390,7 @@ library LoanLogic {
         address debtAsset,
         address collateralAsset,
         uint256 slippage_sharesToAsset
-    ) internal returns (uint256 assetsClaimed) {
+    ) public returns (uint256 assetsClaimed) {
         if (status == DataTypes.LoanStatus.Active) {
             revert Errors.Loan__InvalidLoanStatus();
         }

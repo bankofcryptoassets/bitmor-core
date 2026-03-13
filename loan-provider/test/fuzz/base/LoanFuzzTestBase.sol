@@ -5,9 +5,11 @@ import {FuzzTestBase} from "./FuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
+import {ProxyTestHelper} from "../../helpers/ProxyTestHelper.sol";
 
 // Protocol contracts
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
@@ -33,7 +35,7 @@ import {MockUSDCInterestRateStrategy} from "../../mock/MockUSDCInterestRateStrat
 ///      Inherits FuzzTestBase for bound helpers. Overrides _boundCollateral to use
 ///      Loan contract parameters. Does NOT call super.setUp() to avoid double-deploying
 ///      AccessManager and mocks (matching BTCVaultFuzzTestBase / USDCVaultFuzzTestBase pattern).
-abstract contract LoanFuzzTestBase is FuzzTestBase {
+abstract contract LoanFuzzTestBase is FuzzTestBase, ProxyTestHelper {
     // ============ Loan Infrastructure ============
 
     /// @notice The real Loan contract under test
@@ -44,6 +46,9 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
 
     /// @notice LoanVault implementation address used by the factory
     address public loanVaultImplementation;
+
+    /// @notice UpgradeableBeacon address for LoanVault proxies
+    address public beacon;
 
     /// @notice BitmorAddressesProvider registry for swapper, premiumCollector, etc.
     BitmorAddressesProvider public bitmorAddressesProvider;
@@ -273,35 +278,47 @@ abstract contract LoanFuzzTestBase is FuzzTestBase {
         mockUSDC.mint(address(mockAavePool), TC.LENDING_POOL_USDC_BALANCE);
     }
 
-    /// @notice Deploys the real Loan contract, LoanVaultFactory, and BitmorAddressesProvider
+    /// @notice Deploys the real Loan contract, LoanVaultFactory, and BitmorAddressesProvider via UUPS proxies
     function _deployLoanInfrastructure() internal {
-        loanVaultImplementation = address(new LoanVault());
-
-        loan = new Loan(
-            address(manager),
-            address(mockAavePool),
-            address(mockAddressesProvider),
-            address(mockBitmorPool),
-            address(mockOracle),
-            address(mockBTCVault),
-            address(mockUSDC),
-            address(mockCbBTC),
-            config.getPreClosureFee(),
-            config.getGracePeriod()
+        // Deploy BitmorAddressesProvider FIRST via UUPS proxy (Loan.initialize needs its address)
+        bitmorAddressesProvider = _deployAddressesProviderProxy(
+            address(manager), address(mockSwapAdapter), premiumCollector, premiumCollector
         );
 
-        loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
+        // Deploy Loan via UUPS proxy with InitParams struct
+        loan = _deployLoanProxy(
+            ILoan.InitParams({
+                manager: address(manager),
+                aaveV3Pool: address(mockAavePool),
+                aaveAddressesProvider: address(mockAddressesProvider),
+                bitmorPool: address(mockBitmorPool),
+                oracle: address(mockOracle),
+                collateralAsset: address(mockBTCVault),
+                debtAsset: address(mockUSDC),
+                btc: address(mockCbBTC),
+                bitmorAddressesProvider: address(bitmorAddressesProvider),
+                preClosureFeeBps: config.getPreClosureFee(),
+                gracePeriod: config.getGracePeriod(),
+                slippageSwap: TC.SLIPPAGE_SWAP,
+                slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
+                maxBTCAmt: TC.MAX_COLLATERAL,
+                minBTCAmt: TC.MIN_COLLATERAL,
+                minDeposit: TC.MIN_DEPOSIT,
+                maxDuration: config.getMaxDuration(),
+                liquidationFee: 0
+            })
+        );
 
-        bitmorAddressesProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Deploy beacon proxy (simplified -- no BeaconController for fuzz tests)
+        address factoryAddr;
+        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconProxy(address(loan));
+        loanVaultFactory = LoanVaultFactory(factoryAddr);
+
+        // BAP post-init setters: register factory and autoRepayer
         bitmorAddressesProvider.setVaultFactory(address(loanVaultFactory));
-        bitmorAddressesProvider.setSwapper(address(mockSwapAdapter));
-        bitmorAddressesProvider.setPremiumCollector(premiumCollector);
         bitmorAddressesProvider.setAutoRepayer(autoRepayer);
-        loan.setBitmorAddressesProvider(address(bitmorAddressesProvider));
 
-        loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
-
-        // Register loan in addresses provider
+        // Register loan in lending pool addresses provider
         mockAddressesProvider.setBitmorLoan(address(loan));
     }
 

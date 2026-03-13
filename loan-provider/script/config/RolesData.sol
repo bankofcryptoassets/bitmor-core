@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ILoan} from "../interfaces/ILoan.sol";
-import {IAutoRepayment} from "../interfaces/IAutoRepayment.sol";
-import {BTCVault} from "../vaults/btc-vault/BTCVault.sol";
-import {USDCVault} from "../vaults/usdc-vault/USDCVault.sol";
-import {ISimpleStrategy} from "../interfaces/ISimpleStrategy.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
+import {USDCVault} from "@usdcVault/USDCVault.sol";
+import {ISimpleStrategy} from "@bitmor/interfaces/ISimpleStrategy.sol";
+import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 
 /// @title RolesData
 /// @author Bitmor Protocol
@@ -60,6 +61,9 @@ contract RolesData {
     /// @notice Standard time delay of 1 day for sensitive operations
     uint32 constant ONE_DAY = 1 days;
 
+    /// @notice Standard time delay of 2 days for upgrade operations
+    uint32 constant TWO_DAYS = 2 days;
+
     /// @notice Empty selector array for roles without specific function restrictions
     bytes4[] EMPTY_SELECTORS = new bytes4[](0);
 
@@ -92,6 +96,10 @@ contract RolesData {
     /// @notice Guardian for UVC operations - can cancel delayed USDC vault curation operations
     /// @dev Protects against malicious strategy and yield source allocation changes
     RoleGuardian public GUARDIAN_UVC = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 922});
+
+    /// @notice Guardian for UPGRADER operations - can cancel pending upgrades
+    /// @dev Protects against malicious or erroneous contract upgrades
+    RoleGuardian public GUARDIAN_UPGRADER = RoleGuardian({grantee: INITIAL_ADMIN, isContract: true, id: 95});
 
     // ===== ADMINISTRATIVE ROLE DEFINITIONS =====
 
@@ -359,13 +367,31 @@ contract RolesData {
         adminRoleId: 0
     });
 
+    // ===== UPGRADE ROLE DEFINITION =====
+
+    /// @notice Upgrader role for all proxy contract upgrades
+    /// @dev Single role mapped to multiple targets in deployment scripts via setTargetFunctionRole
+    RoleData public UPGRADER = RoleData({
+        target: INITIAL_ADMIN, // Updated per-target in deployment scripts
+        isContract: true,
+        executionDelay: TWO_DAYS,
+        grantDelay: 0,
+        id: 5,
+        isGuarded: true,
+        label: "UPGRADER",
+        guardian: GUARDIAN_UPGRADER,
+        selectors: getUPGRADER_SELECTORS(),
+        grantee: INITIAL_ADMIN,
+        adminRoleId: 0
+    });
+
     // ===== ROLE ACCESSOR FUNCTIONS =====
 
     /// @notice Returns all role configurations for the Bitmor Protocol
-    /// @dev Returns all 16 operational roles (excludes guardian roles)
+    /// @dev Returns all 17 operational roles (excludes guardian roles)
     /// @return roles Array of all RoleData configurations
     function getAllRoles() external view returns (RoleData[] memory roles) {
-        roles = new RoleData[](16);
+        roles = new RoleData[](17);
         roles[0] = ADMIN;
         roles[1] = EXECUTOR;
         roles[2] = LPCM;
@@ -382,6 +408,7 @@ contract RolesData {
         roles[13] = UVM_SLOW;
         roles[14] = UVC;
         roles[15] = UVA;
+        roles[16] = UPGRADER;
     }
 
     // ===== FUNCTION SELECTOR DEFINITIONS =====
@@ -530,5 +557,14 @@ contract RolesData {
         selectors = new bytes4[](2);
         selectors[0] = bytes4(keccak256("reallocateAssets()"));
         selectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
+    }
+
+    /// @notice Returns function selectors for UPGRADER role
+    /// @dev Includes upgradeToAndCall (UUPS) and upgradeBeacon (BeaconController)
+    /// @return selectors Array of function selectors
+    function getUPGRADER_SELECTORS() public pure returns (bytes4[] memory selectors) {
+        selectors = new bytes4[](2);
+        selectors[0] = bytes4(keccak256("upgradeToAndCall(address,bytes)"));
+        selectors[1] = IBeaconController.upgradeBeacon.selector;
     }
 }

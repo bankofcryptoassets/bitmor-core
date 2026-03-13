@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {InitialSetup} from "./InitialSetup.s.sol";
 import {DeploymentHelper} from "../../helpers/DeploymentHelper.s.sol";
 import {StrategyConfig} from "../../StrategyConfig.s.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 

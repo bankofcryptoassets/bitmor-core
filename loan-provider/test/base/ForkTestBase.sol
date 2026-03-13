@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {BitmorTestBase} from "./BitmorTestBase.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title ForkTestBase
 /// @author Bitmor Protocol

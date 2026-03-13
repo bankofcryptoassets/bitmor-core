@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {FuzzTestBase} from "./FuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
+import {ProxyTestHelper} from "../../helpers/ProxyTestHelper.sol";
 
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LSALogicHarness} from "../../harness/LSALogicHarness.sol";
@@ -21,7 +22,7 @@ import {MockInterestRateStrategy} from "../../mock/MockInterestRateStrategy.sol"
 /// @dev Deploys LSALogicHarness, MockBTCVault, LoanVault (LSA), and mock lending pool
 ///      infrastructure for withdrawCollateral tests. Does NOT call super.setUp() since
 ///      LSALogic tests do not need AccessManager or the full unit test infrastructure.
-abstract contract LSAFuzzTestBase is FuzzTestBase {
+abstract contract LSAFuzzTestBase is FuzzTestBase, ProxyTestHelper {
     // ============ Constants ============
 
     /// @dev Standard slippage for clean-vault tests: 95% (9500 BPS)
@@ -68,9 +69,8 @@ abstract contract LSAFuzzTestBase is FuzzTestBase {
         // Deploy harness (will be the vault owner)
         harness = new LSALogicHarness();
 
-        // Deploy vault owned by harness
-        vault = new LoanVault();
-        vault.initialize(address(harness), makeAddr("borrower"));
+        // Deploy vault owned by harness (via proxy — LoanVault disables initializers on impl)
+        vault = _deployLoanVaultViaProxy(address(harness), makeAddr("borrower"));
 
         // Deploy lending pool infrastructure for withdrawCollateral tests
         _deployWithdrawalInfrastructure();

@@ -6,7 +6,7 @@ import {FuzzConstants as FC} from "../../fuzz/helpers/FuzzConstants.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /**
  * @title BTCVaultHandler

@@ -78,6 +78,7 @@ interface ILoan {
      * @notice Emitted when loan data is updated after a micro liquidation
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
+     * !TODO: add btc amount deducted
      */
     event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
 
@@ -169,6 +170,38 @@ interface ILoan {
     event Loan__SurplusCollateralClaimed(address indexed lsa, address indexed borrower, uint256 assetsClaimed);
 
     event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
+
+    // ============ Initialization ============
+
+    /// @notice Parameters for `initialize()` — uses struct to avoid stack-too-deep
+    /// @dev All addresses must be non-zero. BPS values must be < BASIS_POINT_SCALE.
+    ///      maxBTCAmt >= minBTCAmt. maxDuration > 0.
+    struct InitParams {
+        address manager;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address bitmorPool;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address bitmorAddressesProvider;
+        uint256 preClosureFeeBps;
+        uint256 gracePeriod;
+        uint256 slippageSwap;
+        uint256 slippageSharesToAsset;
+        uint256 maxBTCAmt;
+        uint256 minBTCAmt;
+        uint256 minDeposit;
+        uint256 maxDuration;
+        uint256 liquidationFee;
+    }
+
+    /**
+     * @notice Initializes the Loan contract with all protocol addresses and configuration
+     * @param params Struct containing all initialization parameters
+     */
+    function initialize(InitParams calldata params) external;
 
     // ============ Main Functions ============
 

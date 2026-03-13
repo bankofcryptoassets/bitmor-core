@@ -5,7 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 
@@ -28,8 +28,18 @@ contract AdminSettersTest is BaseLoanTest {
     function test_setBitmorAddressesProvider() public {
         address originalProvider = loan.getBitmorAddressesProvider();
 
-        // Deploy a new BitmorAddressesProvider to use as the new value
-        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW (removed from default wiring since it's set in initialize)
+        // Cache role ID before vm.prank to avoid consuming the prank
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), selectors, lpmSlowId);
+
+        // Deploy a new BitmorAddressesProvider via UUPS proxy
+        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(
+            address(manager), address(mockSwapAdapter), premiumCollector, premiumCollector
+        );
 
         bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(newProvider));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
@@ -65,6 +75,14 @@ contract AdminSettersTest is BaseLoanTest {
 
     /// @notice Test that setBitmorAddressesProvider reverts when given zero address
     function test_setBitmorAddressesProvider_RevertWhen_ZeroAddress() public {
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW
+        // Cache role ID before vm.prank to avoid consuming the prank
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), selectors, lpmSlowId);
+
         bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(0));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector)

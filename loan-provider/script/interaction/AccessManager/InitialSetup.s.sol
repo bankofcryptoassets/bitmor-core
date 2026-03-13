@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Script} from "forge-std/Script.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
 
 /// @title InitialSetup

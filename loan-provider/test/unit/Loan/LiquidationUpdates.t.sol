@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 
 /// @title LiquidationUpdatesTest
 /// @author Bitmor Protocol

@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {MockERC20} from "./MockERC20.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title MockAToken
 /// @author Bitmor Protocol

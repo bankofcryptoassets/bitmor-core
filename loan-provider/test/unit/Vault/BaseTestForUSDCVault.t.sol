@@ -5,7 +5,7 @@ import {BitmorTestBase} from "../../base/BitmorTestBase.sol";
 import {VaultUtilities} from "./VaultUtilities.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
 import {MockBitmorLendingPool} from "../../mock/MockBitmorLendingPool.sol";
 import {MockAddressesProvider} from "../../mock/MockAddressesProvider.sol";
@@ -14,6 +14,8 @@ import {MockAaveV3Pool} from "../../mock/MockAaveV3Pool.sol";
 import {MockAToken} from "../../mock/MockAToken.sol";
 import {MockVariableDebtToken} from "../../mock/MockVariableDebtToken.sol";
 
+import {ProxyTestHelper} from "../../helpers/ProxyTestHelper.sol";
+
 import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 
 /// @title BaseTestForUSDCVault
@@ -21,7 +23,7 @@ import {HelperConfig} from "../../../script/HelperConfig.s.sol";
 /// @notice Base test contract for USDCVault functionality
 /// @dev Tests vault operations using AccessManager pattern.
 ///      Inherits from BitmorTestBase for AccessManager configuration and VaultUtilities for ERC-4626 testing helpers.
-contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
+contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities, ProxyTestHelper {
     /// @notice USDCVault contract instance under test
     USDCVault internal vault;
 
@@ -143,7 +145,7 @@ contract BaseTestForUSDCVault is BitmorTestBase, VaultUtilities {
         });
 
         // Deploy vault with mock dependencies
-        vault = new USDCVault(address(manager), address(mockUSDC), address(mockBitmorPool));
+        vault = _deployUSDCVaultProxy(address(manager), address(mockUSDC), address(mockBitmorPool));
 
         // Deploy strategy with mock Aave pool
         strategy = new USDCStrategy(address(vault), address(mockAavePool), address(mockBitmorPool));

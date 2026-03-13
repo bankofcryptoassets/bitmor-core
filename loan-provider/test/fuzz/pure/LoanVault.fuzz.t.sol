@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
@@ -30,8 +31,11 @@ contract LoanVaultFuzzTest is Test {
     function setUp() public {
         recipient = makeAddr("recipient");
 
-        vault = new LoanVault();
-        vault.initialize(address(this), makeAddr("borrower"));
+        LoanVault impl = new LoanVault();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(impl), abi.encodeCall(LoanVault.initialize, (address(this), makeAddr("borrower")))
+        );
+        vault = LoanVault(payable(address(proxy)));
 
         token = new MockERC20("Test Token", "TKN", 18);
         target = new MockReturnTarget();

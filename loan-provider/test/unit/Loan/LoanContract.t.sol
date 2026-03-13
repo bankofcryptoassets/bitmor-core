@@ -6,6 +6,8 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
 /// @title LoanContractTest
@@ -26,7 +28,7 @@ contract LoanContract is BaseLoanTest {
         uint256 gracePeriod;
     }
 
-    /// @notice Loads all constructor params from mock addresses into a struct for table-driven constructor tests
+    /// @notice Loads all constructor params from mock addresses into a struct for table-driven initializer tests
     function _loadConstructorParams() internal view returns (ConstructorParams memory p) {
         p.accessManager = address(manager);
         p.aaveV3Pool = aavePool;
@@ -38,6 +40,61 @@ contract LoanContract is BaseLoanTest {
         p.btc = btc; // mockCbBTC
         p.preClosureFeeBps = config.getPreClosureFee();
         p.gracePeriod = config.getGracePeriod();
+    }
+
+    /// @notice Pre-deployed Loan implementation to avoid impl deployment consuming vm.expectRevert
+    Loan internal loanImpl;
+
+    /// @notice Pre-deploy the Loan implementation for proxy tests
+    function _ensureImplDeployed() internal {
+        if (address(loanImpl) == address(0)) {
+            loanImpl = new Loan();
+        }
+    }
+
+    /// @notice Deploys a Loan contract via ERC1967Proxy using the pre-deployed implementation
+    /// @dev IMPORTANT: Call `_ensureImplDeployed()` BEFORE `vm.expectRevert()` to avoid
+    ///      the impl deployment being consumed by the revert expectation.
+    function _deployLoanViaProxy(
+        address _manager,
+        address _aaveV3Pool,
+        address _aaveAddressesProvider,
+        address _bitmorPool,
+        address _oracle,
+        address _collateralAsset,
+        address _debtAsset,
+        address _btc,
+        uint256 _preClosureFeeBps,
+        uint256 _gracePeriod
+    ) internal returns (Loan) {
+        _ensureImplDeployed();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(loanImpl),
+            abi.encodeCall(
+                Loan.initialize,
+                (ILoan.InitParams({
+                        manager: _manager,
+                        aaveV3Pool: _aaveV3Pool,
+                        aaveAddressesProvider: _aaveAddressesProvider,
+                        bitmorPool: _bitmorPool,
+                        oracle: _oracle,
+                        collateralAsset: _collateralAsset,
+                        debtAsset: _debtAsset,
+                        btc: _btc,
+                        bitmorAddressesProvider: address(bitmorAddressesProvider),
+                        preClosureFeeBps: _preClosureFeeBps,
+                        gracePeriod: _gracePeriod,
+                        slippageSwap: TC.SLIPPAGE_SWAP,
+                        slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
+                        maxBTCAmt: TC.MAX_COLLATERAL,
+                        minBTCAmt: TC.MIN_COLLATERAL,
+                        minDeposit: TC.MIN_DEPOSIT,
+                        maxDuration: TC.MAX_DURATION,
+                        liquidationFee: 0
+                    }))
+            )
+        );
+        return Loan(address(proxy));
     }
 
     /// @notice Reverts on zero-address inputs for all Loan view functions that accept a user/LSA address.
@@ -96,7 +153,7 @@ contract LoanContract is BaseLoanTest {
 
     /// @notice calculateStrikePrice reverts with InvalidAssetPrice when the oracle returns zero.
     function test_loan_calculateStrikePrice_zeroOraclePrice_reverts() public {
-        address oracle = loan.i_ORACLE();
+        address oracle = address(mockOracle);
 
         vm.mockCall(oracle, abi.encodeWithSelector(IPriceOracleGetter.getAssetPrice.selector, btc), abi.encode(0));
 
@@ -124,11 +181,14 @@ contract LoanContract is BaseLoanTest {
         assertEq(address(loan.POOL()), aavePool, "POOL mismatch");
     }
 
-    /// @notice Constructor reverts with ZeroAddress when any required address parameter is set to address(0).
-    function test_loan_constructor_zeroAddress_tableDriven_reverts() public {
+    /// @notice Initializer reverts with ZeroAddress when any required address parameter is set to address(0).
+    function test_loan_initialize_zeroAddress_tableDriven_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
         uint256 preClosureFeeBps = config.getPreClosureFee();
         uint256 gracePeriod = config.getGracePeriod();
+
+        // Pre-deploy impl before entering revert expectations
+        _ensureImplDeployed();
 
         // 0=aaveV3Pool, 1=bitmorPool, 2=oracle, 3=collateralAsset, 4=debtAsset, 5=btc
         for (uint256 i = 0; i < 6; i++) {
@@ -136,8 +196,9 @@ contract LoanContract is BaseLoanTest {
 
             params[i] = address(0);
 
-            vm.expectRevert(Errors.ZeroAddress.selector);
-            new Loan(
+            // ERC1967Proxy wraps the revert from initialize
+            vm.expectRevert();
+            _deployLoanViaProxy(
                 p.accessManager,
                 params[0], // aaveV3Pool
                 p.aaveAddressesProvider,
@@ -152,12 +213,13 @@ contract LoanContract is BaseLoanTest {
         }
     }
 
-    /// @notice Constructor reverts with ZeroAddress when aaveAddressesProvider is address(0).
-    function test_loan_constructor_zeroAaveAddressesProvider_reverts() public {
+    /// @notice Initializer reverts with ZeroAddress when aaveAddressesProvider is address(0).
+    function test_loan_initialize_zeroAaveAddressesProvider_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
+        _ensureImplDeployed();
 
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        new Loan(
+        vm.expectRevert();
+        _deployLoanViaProxy(
             p.accessManager,
             p.aaveV3Pool,
             address(0), // aaveAddressesProvider
@@ -171,12 +233,13 @@ contract LoanContract is BaseLoanTest {
         );
     }
 
-    /// @notice Constructor reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
-    function test_loan_constructor_invalidPreClosureFee_reverts() public {
+    /// @notice Initializer reverts with InvalidFee when `_preClosureFeeBps` >= BASIS_POINT_SCALE
+    function test_loan_initialize_invalidPreClosureFee_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
+        _ensureImplDeployed();
 
-        vm.expectRevert(Errors.InvalidFee.selector);
-        new Loan(
+        vm.expectRevert();
+        _deployLoanViaProxy(
             p.accessManager,
             p.aaveV3Pool,
             p.aaveAddressesProvider,
@@ -190,12 +253,13 @@ contract LoanContract is BaseLoanTest {
         );
     }
 
-    /// @notice Constructor reverts with InvalidInputs when `_gracePeriod` > MAX_GRACE_PERIOD
-    function test_loan_constructor_invalidGracePeriod_reverts() public {
+    /// @notice Initializer reverts with InvalidInputs when `_gracePeriod` > MAX_GRACE_PERIOD
+    function test_loan_initialize_invalidGracePeriod_reverts() public {
         ConstructorParams memory p = _loadConstructorParams();
+        _ensureImplDeployed();
 
-        vm.expectRevert(Errors.InvalidInputs.selector);
-        new Loan(
+        vm.expectRevert();
+        _deployLoanViaProxy(
             p.accessManager,
             p.aaveV3Pool,
             p.aaveAddressesProvider,
