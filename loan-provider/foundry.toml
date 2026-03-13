@@ -82,7 +82,7 @@ dynamic_test_linking = true
 fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
-    { access = "read", path = "./forge-out" },
+    { access = "read", path = "./out" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
     { access = "read-write", path = "./deployments.json" },
     { access = "read", path = "../lending-pool" }

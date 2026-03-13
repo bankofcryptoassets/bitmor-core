@@ -33,50 +33,6 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
  * @custom:security For Base mainnet deployment (chainId 8453). Verify all addresses before broadcast.
  */
 contract DeployPhase3Mainnet is MainnetRolesConfig {
-    // ============ Constants ============
-
-    /// @notice Loan pre-closure fee in basis points (0.1%)
-    uint256 constant PRE_CLOSURE_FEE = 10;
-
-    /// @notice Grace period for monthly payments (7 days)
-    uint256 constant GRACE_PERIOD = 7 days;
-
-    /// @notice Maximum loan duration in months (5 years)
-    uint256 constant MAX_DURATION = 60;
-
-    /// @notice Swap slippage tolerance in basis points (0.5%)
-    uint256 constant SLIPPAGE_SWAP = 50;
-
-    /// @notice Shares-to-asset conversion slippage tolerance in basis points (1%)
-    uint256 constant SLIPPAGE_SHARES_TO_ASSET = 100;
-
-    /// @notice Maximum cbBTC collateral amount (10 BTC)
-    uint256 constant MAX_BTC_AMOUNT = 10e8;
-
-    /// @notice Minimum cbBTC collateral amount (0.01 BTC)
-    uint256 constant MIN_BTC_AMOUNT = 0.01e8;
-
-    /// @notice Minimum deposit percentage in basis points (30%)
-    uint256 constant MIN_DEPOSIT_BPS = 30_00;
-
-    /// @notice Liquidation fee in basis points (0% initially)
-    uint256 constant LIQUIDATION_FEE = 0;
-
-    /// @notice Liquidation buffer in basis points (0.5%)
-    uint256 constant LIQUIDATION_BUFFER = 50;
-
-    /// @notice Maximum strategy cap for mainnet
-    /// @dev TODO: Set a realistic cap before mainnet deployment
-    uint256 constant STRATEGY_CAP = type(uint256).max;
-
-    // ============ Mainnet External Addresses ============
-
-    // TODO: Replace with actual Base mainnet swap adapter address before deployment
-    address constant SWAP_ADAPTER_BASE_MAINNET = address(0);
-
-    // TODO: Replace with actual Base mainnet USDC address before deployment
-    address constant USDC_BASE_MAINNET = address(0);
-
     // ============ Phase 1 Addresses (from deployments.json) ============
 
     /// @notice AccessManager deployed in Phase 1
@@ -183,19 +139,34 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         _preflightPhase3(DeploymentConstants.BASE_MAINNET_CHAIN_ID);
         _preflightLendingPool();
 
-        require(SWAP_ADAPTER_BASE_MAINNET != address(0), "DeployPhase3Mainnet: set SWAP_ADAPTER_BASE_MAINNET");
-        require(USDC_BASE_MAINNET != address(0), "DeployPhase3Mainnet: set USDC_BASE_MAINNET");
-        require(SWAP_ADAPTER_BASE_MAINNET.code.length > 0, "DeployPhase3Mainnet: swap adapter has no bytecode");
-        require(USDC_BASE_MAINNET.code.length > 0, "DeployPhase3Mainnet: USDC has no bytecode");
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
+
+        // Mainnet address validation
+        address swapAdapterAddr = helperConfig.getSwapAdapterAddress();
+        address usdcAddr = helperConfig.getUSDC();
+        require(swapAdapterAddr != address(0), "DeployPhase3Mainnet: set SWAP_ADAPTER_BASE_MAINNET in HelperConfig");
+        require(usdcAddr != address(0), "DeployPhase3Mainnet: set USDC_BASE_MAINNET in HelperConfig");
+        require(swapAdapterAddr.code.length > 0, "DeployPhase3Mainnet: swap adapter has no bytecode");
+        require(usdcAddr.code.length > 0, "DeployPhase3Mainnet: USDC has no bytecode");
 
         console2.log("=== Phase 3: Mainnet Deployment (Upgradeable) ===");
 
-        _loadPhase1Addresses();
-        _loadLendingPoolAddresses();
-        _loadExternalProtocolAddresses();
+        Phase1Addresses memory p1 = _loadPhase1Addresses();
+        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
 
-        swapAdapter = SWAP_ADAPTER_BASE_MAINNET;
-        usdc = USDC_BASE_MAINNET;
+        // Assign to state variables
+        accessManager = p1.accessManager;
+        cbBTC = p1.cbBTC;
+        btcVault = p1.btcVault;
+        btcVaultImpl = p1.btcVaultImpl;
+        aaveV3Pool = p1.aaveV3Pool;
+        aaveAddressesProvider = p1.aaveAddressesProvider;
+        bitmorPool = lp.bitmorPool;
+        aaveOracle = lp.aaveOracle;
+        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
+        swapAdapter = swapAdapterAddr;
+        usdc = usdcAddr;
 
         vm.startBroadcast();
 
@@ -213,9 +184,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         // TODO: Replace msg.sender with actual premiumCollector and liquidationFeeCollector multisigs before deployment
         bitmorAddressesProvider = _deployUUPSProxy(
             "BitmorAddressesProvider.sol",
-            abi.encodeCall(
-                BitmorAddressesProvider.initialize, (accessManager, SWAP_ADAPTER_BASE_MAINNET, msg.sender, msg.sender)
-            )
+            abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, swapAdapter, msg.sender, msg.sender))
         );
         bitmorAddressesProviderImpl = _getProxyImplementation(bitmorAddressesProvider);
         console2.log("BitmorAddressesProvider proxy:", bitmorAddressesProvider);
@@ -238,15 +207,15 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
             debtAsset: usdc, // USDC
             btc: cbBTC, // cbBTC
             bitmorAddressesProvider: bitmorAddressesProvider,
-            preClosureFeeBps: PRE_CLOSURE_FEE,
-            gracePeriod: GRACE_PERIOD,
-            slippageSwap: SLIPPAGE_SWAP,
-            slippageSharesToAsset: SLIPPAGE_SHARES_TO_ASSET,
-            maxBTCAmt: MAX_BTC_AMOUNT,
-            minBTCAmt: MIN_BTC_AMOUNT,
-            minDeposit: MIN_DEPOSIT_BPS,
-            maxDuration: MAX_DURATION,
-            liquidationFee: LIQUIDATION_FEE
+            preClosureFeeBps: pc.preClosureFeeBps,
+            gracePeriod: pc.gracePeriod,
+            slippageSwap: pc.slippageSwap,
+            slippageSharesToAsset: pc.slippageSharesToAsset,
+            maxBTCAmt: pc.maxBTCAmt,
+            minBTCAmt: pc.minBTCAmt,
+            minDeposit: pc.minDepositBps,
+            maxDuration: pc.maxDuration,
+            liquidationFee: pc.liquidationFee
         });
         loan = _deployUUPSProxy("Loan.sol", abi.encodeCall(Loan.initialize, (loanInitParams)), loanOpts);
         loanImpl = _getProxyImplementation(loan);
@@ -307,62 +276,6 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
         console2.log("=== Phase 3 Deploy Complete ===");
         console2.log("Run SchedulePhase3Mainnet.s.sol next to schedule timelocked operations.");
-    }
-
-    // ============ Address Loading ============
-
-    /// @notice Loads Phase 1 addresses from deployments.json
-    /// @dev Reads the deployment file written by DeployPhase1Mainnet
-    function _loadPhase1Addresses() internal {
-        string memory json = vm.readFile("./deployments.json");
-        string memory base = ".deployments.8453.networkConfig.";
-
-        accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
-        cbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
-        btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
-        btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
-
-        require(accessManager != address(0), "DeployPhase3Mainnet: accessManager is zero");
-        require(cbBTC != address(0), "DeployPhase3Mainnet: cbBTC is zero");
-        require(btcVault != address(0), "DeployPhase3Mainnet: btcVault is zero");
-        require(btcVaultImpl != address(0), "DeployPhase3Mainnet: btcVaultImpl is zero");
-
-        console2.log("Loaded Phase 1: AccessManager:", accessManager);
-        console2.log("Loaded Phase 1: cbBTC:", cbBTC);
-        console2.log("Loaded Phase 1: BTCVault:", btcVault);
-    }
-
-    /// @notice Loads lending pool addresses from deployed-contracts.json
-    /// @dev Reads the deployment file written by the lending-pool Hardhat deployment.
-    /// Uses "base" network key for mainnet.
-    function _loadLendingPoolAddresses() internal {
-        string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
-
-        bitmorPool = vm.parseJsonAddress(json, ".LendingPool.base.address");
-        aaveOracle = vm.parseJsonAddress(json, ".AaveOracle.base.address");
-        lendingPoolAddressesProvider = vm.parseJsonAddress(json, ".LendingPoolAddressesProvider.base.address");
-
-        require(bitmorPool != address(0), "DeployPhase3Mainnet: LendingPool is zero");
-        require(aaveOracle != address(0), "DeployPhase3Mainnet: AaveOracle is zero");
-        require(lendingPoolAddressesProvider != address(0), "DeployPhase3Mainnet: LendingPoolAddressesProvider is zero");
-
-        console2.log("Loaded LendingPool:", bitmorPool);
-        console2.log("Loaded AaveOracle:", aaveOracle);
-        console2.log("Loaded LendingPoolAddressesProvider:", lendingPoolAddressesProvider);
-    }
-
-    /// @notice Loads external protocol addresses using HelperConfig
-    /// @dev For mainnet, HelperConfig returns hardcoded constants for Aave V3
-    function _loadExternalProtocolAddresses() internal {
-        HelperConfig config = new HelperConfig();
-        aaveV3Pool = config.getAaveV3Pool();
-        aaveAddressesProvider = config.getAaveAddressesProvider();
-
-        require(aaveV3Pool != address(0), "DeployPhase3Mainnet: AaveV3Pool is zero");
-        require(aaveAddressesProvider != address(0), "DeployPhase3Mainnet: AaveAddressesProvider is zero");
-
-        console2.log("Loaded AaveV3Pool (mainnet constant):", aaveV3Pool);
-        console2.log("Loaded AaveAddressesProvider (mainnet constant):", aaveAddressesProvider);
     }
 
     // ============ Role Setup ============

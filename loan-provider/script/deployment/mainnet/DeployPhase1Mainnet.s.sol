@@ -6,6 +6,7 @@ import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {DeploymentConstants} from "../DeploymentConstants.sol";
 import {MainnetRolesConfig} from "@bitmor-config/MainnetRolesConfig.sol";
+import {HelperConfig} from "../../HelperConfig.s.sol";
 
 /**
  * @title DeployPhase1Mainnet
@@ -23,16 +24,6 @@ import {MainnetRolesConfig} from "@bitmor-config/MainnetRolesConfig.sol";
  * @custom:security For Base mainnet deployment (chainId 8453). Verify all addresses before broadcast.
  */
 contract DeployPhase1Mainnet is MainnetRolesConfig {
-    // ============ Constants ============
-
-    /// @notice Maximum number of strategies the BTCVault supports
-    uint256 constant MAX_STRATEGIES = 5;
-
-    // ============ Mainnet External Addresses ============
-
-    // TODO: Replace with actual Base mainnet cbBTC address before deployment
-    address constant CBBTC_BASE_MAINNET = address(0);
-
     /// @notice Deployed BitmorAccessManager address
     address public accessManager;
 
@@ -50,10 +41,18 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
      *
      * External protocol addresses are NOT deployed; they are resolved at runtime by HelperConfig.
      */
+    /// @notice cbBTC address resolved from HelperConfig
+    address public cbBTCAddr;
+
     function run() external {
         _preflightPhase1(DeploymentConstants.BASE_MAINNET_CHAIN_ID);
-        require(CBBTC_BASE_MAINNET != address(0), "DeployPhase1Mainnet: set CBBTC_BASE_MAINNET");
-        require(CBBTC_BASE_MAINNET.code.length > 0, "DeployPhase1Mainnet: cbBTC has no bytecode");
+
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
+        cbBTCAddr = helperConfig.getCbBTC();
+
+        require(cbBTCAddr != address(0), "DeployPhase1Mainnet: set CBBTC_BASE_MAINNET in HelperConfig");
+        require(cbBTCAddr.code.length > 0, "DeployPhase1Mainnet: cbBTC has no bytecode");
 
         console2.log("=== Phase 1: Mainnet Deployment (Upgradeable) ===");
 
@@ -67,7 +66,7 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
         // Upgrades.deployUUPSProxy deploys the implementation internally — read its
         // address from the proxy's EIP-1967 slot rather than deploying a second copy.
         btcVault = _deployUUPSProxy(
-            "BTCVault.sol", abi.encodeCall(BTCVault.initialize, (CBBTC_BASE_MAINNET, accessManager, MAX_STRATEGIES))
+            "BTCVault.sol", abi.encodeCall(BTCVault.initialize, (cbBTCAddr, accessManager, pc.maxStrategies))
         );
         btcVaultImpl = _getProxyImplementation(btcVault);
         console2.log("BTCVault proxy:", btcVault);
@@ -102,10 +101,10 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
             vm.toString(btcVaultImpl),
             '",',
             '"cbBTC":"',
-            vm.toString(CBBTC_BASE_MAINNET),
+            vm.toString(cbBTCAddr),
             '",',
             '"btc":"',
-            vm.toString(CBBTC_BASE_MAINNET),
+            vm.toString(cbBTCAddr),
             '"'
         );
 

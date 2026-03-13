@@ -19,12 +19,40 @@ contract HelperConfig is Script {
         address btc;
         address swapper;
         address premiumCollector;
-        uint256 preClosureFeeBps;
-        uint256 gracePeriod;
-        // Vault test config
         address usdc;
         address usdc_holder;
+    }
+
+    /// @notice Protocol-wide configuration parameters for deployment scripts
+    /// @dev All protocol constants centralized here — deployers only edit this struct's values
+    struct ProtocolConfig {
+        /// @notice Loan pre-closure fee in basis points (0.1%)
+        uint256 preClosureFeeBps;
+        /// @notice Grace period for monthly payments
+        uint256 gracePeriod;
+        /// @notice Maximum loan duration in months
+        uint256 maxDuration;
+        /// @notice Swap slippage tolerance in basis points
+        uint256 slippageSwap;
+        /// @notice Shares-to-asset conversion slippage tolerance in basis points
+        uint256 slippageSharesToAsset;
+        /// @notice Maximum cbBTC collateral amount (8 decimals)
+        uint256 maxBTCAmt;
+        /// @notice Minimum cbBTC collateral amount (8 decimals)
+        uint256 minBTCAmt;
+        /// @notice Minimum deposit percentage in basis points
+        uint256 minDepositBps;
+        /// @notice Liquidation fee in basis points
+        uint256 liquidationFee;
+        /// @notice Liquidation buffer in basis points
+        uint256 liquidationBuffer;
+        /// @notice Maximum strategy cap
+        uint256 strategyCap;
+        /// @notice Maximum number of strategies per vault
+        uint256 maxStrategies;
+        /// @notice Vault entry fee in basis points
         uint256 entryFee;
+        /// @notice Vault exit fee in basis points
         uint256 exitFee;
     }
 
@@ -48,6 +76,10 @@ contract HelperConfig is Script {
     // Base Mainnet External Protocol Constants (only mainnet uses hardcoded addresses)
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
+    // TODO: Replace with actual Base mainnet addresses before deployment
+    address constant CBBTC_BASE_MAINNET = address(0);
+    address constant USDC_BASE_MAINNET = address(0);
+    address constant SWAP_ADAPTER_BASE_MAINNET = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
     address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
@@ -61,6 +93,16 @@ contract HelperConfig is Script {
     // USDC Strategy allocation config (in basis points)
     uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
     uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
+
+    // Protocol configuration constants
+    uint256 public constant SLIPPAGE_SWAP = 50; // 0.5%
+    uint256 public constant SLIPPAGE_SHARES_TO_ASSET = 100; // 1%
+    uint256 public constant MAX_BTC_AMOUNT = 10e8; // 10 BTC
+    uint256 public constant MIN_BTC_AMOUNT = 0.01e8; // 0.01 BTC
+    uint256 public constant MIN_DEPOSIT_BPS = 30_00; // 30%
+    uint256 public constant LIQUIDATION_BUFFER = 50; // 0.5%
+    uint256 public constant STRATEGY_CAP = type(uint256).max;
+    uint256 public constant MAX_STRATEGIES = 5;
 
     // Oracle price constants (8 decimals)
     uint256 public constant BTC_USD_PRICE = 100_000e8; // $100,000
@@ -87,6 +129,21 @@ contract HelperConfig is Script {
         return getNetworkName(block.chainid);
     }
 
+    /// @notice Returns the network key used in lending-pool/deployed-contracts.json
+    /// @dev Maps chain ID to the key the lending-pool Hardhat deployment uses
+    /// @return key The network key (e.g., "localhost", "sepolia", "base")
+    function getLendingPoolNetworkKey() public view returns (string memory key) {
+        if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {
+            key = "localhost";
+        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
+            key = "sepolia";
+        } else if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            key = "base";
+        } else {
+            revert("HelperConfig: unsupported chain for lending pool network key");
+        }
+    }
+
     /// @notice Lazy initialization - call this to populate s_networkConfig if needed
     /// @dev Avoids stack depth issues by not auto-initializing in constructor
     function initNetworkConfig() public {
@@ -109,12 +166,8 @@ contract HelperConfig is Script {
         s_networkConfig.btc = getCbBTC();
         s_networkConfig.swapper = getSwapper();
         s_networkConfig.premiumCollector = getPremiumCollector();
-        s_networkConfig.preClosureFeeBps = getPreClosureFee();
-        s_networkConfig.gracePeriod = getGracePeriod();
         s_networkConfig.usdc = getUSDC();
         s_networkConfig.usdc_holder = getUSDCHolder();
-        s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
-        s_networkConfig.exitFee = DEFAULT_EXIT_FEE;
     }
 
     /// @dev Internal helper to initialize local config incrementally
@@ -132,12 +185,8 @@ contract HelperConfig is Script {
         s_networkConfig.btc = mockCbBTC;
         s_networkConfig.swapper = getSwapper();
         s_networkConfig.premiumCollector = BITMOR_OWNER;
-        s_networkConfig.preClosureFeeBps = getPreClosureFee();
-        s_networkConfig.gracePeriod = getGracePeriod();
         s_networkConfig.usdc = mockUsdc;
         s_networkConfig.usdc_holder = BITMOR_OWNER;
-        s_networkConfig.entryFee = DEFAULT_ENTRY_FEE;
-        s_networkConfig.exitFee = DEFAULT_EXIT_FEE;
     }
 
     function getInitialAdmin() public pure returns (address) {
@@ -178,6 +227,28 @@ contract HelperConfig is Script {
 
     function getMinimumDeltaRequired() public pure returns (uint256) {
         return DEFAULT_MINIMUM_DELTA_REQUIRED;
+    }
+
+    /// @notice Returns the full protocol configuration for deployment scripts
+    /// @dev All chains currently share the same values. Branch on `block.chainid` if they diverge.
+    /// @return config The populated ProtocolConfig struct
+    function getProtocolConfig() public pure returns (ProtocolConfig memory config) {
+        config = ProtocolConfig({
+            preClosureFeeBps: PRE_CLOSURE_FEE,
+            gracePeriod: GRACE_PERIOD,
+            maxDuration: MAX_DURATION,
+            slippageSwap: SLIPPAGE_SWAP,
+            slippageSharesToAsset: SLIPPAGE_SHARES_TO_ASSET,
+            maxBTCAmt: MAX_BTC_AMOUNT,
+            minBTCAmt: MIN_BTC_AMOUNT,
+            minDepositBps: MIN_DEPOSIT_BPS,
+            liquidationFee: LIQUIDATION_FEE,
+            liquidationBuffer: LIQUIDATION_BUFFER,
+            strategyCap: STRATEGY_CAP,
+            maxStrategies: MAX_STRATEGIES,
+            entryFee: DEFAULT_ENTRY_FEE,
+            exitFee: DEFAULT_EXIT_FEE
+        });
     }
 
     function getBitmorPool() public view returns (address) {
@@ -326,17 +397,32 @@ contract HelperConfig is Script {
     }
 
     /// @notice Returns the cbBTC/BTC token address
-    /// @dev Reads from deployments.json for all chains
+    /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
     /// @return The cbBTC token address
     function getCbBTC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            return CBBTC_BASE_MAINNET;
+        }
         return _readDeployment("cbBTC");
     }
 
     /// @notice Returns the USDC token address
-    /// @dev Reads from deployments.json for all chains
+    /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
     /// @return The USDC token address
     function getUSDC() public view returns (address) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            return USDC_BASE_MAINNET;
+        }
         return _readDeployment("debtAsset");
+    }
+
+    /// @notice Returns the swap adapter address
+    /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
+    function getSwapAdapterAddress() public view returns (address) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            return SWAP_ADAPTER_BASE_MAINNET;
+        }
+        return _readDeployment("swapper");
     }
 
     /// @notice Returns the USDC holder address (for testing)

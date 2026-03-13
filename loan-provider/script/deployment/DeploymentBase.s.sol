@@ -15,6 +15,7 @@ import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
+import {HelperConfig} from "../HelperConfig.s.sol";
 
 /**
  * @title DeploymentBase
@@ -72,6 +73,27 @@ abstract contract DeploymentBase is Script {
         address uva;
         /// @dev UUPS and beacon upgrade executor (UPGRADER role, ID 5)
         address upgrader;
+    }
+
+    /// @notice Addresses loaded from deployments.json (Phase 1 outputs)
+    struct Phase1Addresses {
+        address accessManager;
+        address debtAsset; // USDC (mock or real)
+        address cbBTC; // cbBTC (mock or real)
+        address btcVault; // BTCVault proxy (collateralAsset)
+        address btcVaultImpl; // BTCVault implementation
+        address btcOracle; // BTC/USD oracle (local only, address(0) on mainnet)
+        address usdcOracle; // USDC/USD oracle (local only, address(0) on mainnet)
+        address aaveV3Pool; // Aave V3 Pool (mock or real)
+        address aaveAddressesProvider; // Aave V3 Addresses Provider (mock or real)
+        address loanLogicLib; // LoanLogic linked library (address(0) if not deployed)
+    }
+
+    /// @notice Addresses loaded from lending-pool/deployed-contracts.json
+    struct LendingPoolAddresses {
+        address bitmorPool;
+        address aaveOracle;
+        address lendingPoolAddressesProvider;
     }
 
     // ============ Abstract Functions ============
@@ -501,21 +523,82 @@ abstract contract DeploymentBase is Script {
      * @dev Reads `../lending-pool/deployed-contracts.json` and checks the LendingPool address.
      * Uses "localhost" key for local chain (31337) and "base" for mainnet (8453).
      */
-    function _preflightLendingPool() internal view {
+    function _preflightLendingPool() internal {
         string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
 
-        string memory networkKey;
-        if (block.chainid == DeploymentConstants.LOCAL_CHAIN_ID) {
-            networkKey = "localhost";
-        } else if (block.chainid == DeploymentConstants.BASE_MAINNET_CHAIN_ID) {
-            networkKey = "base";
-        } else {
-            networkKey = "localhost"; // fallback for testnets
-        }
+        HelperConfig helperConfig = new HelperConfig();
+        string memory networkKey = helperConfig.getLendingPoolNetworkKey();
 
         address lendingPool = vm.parseJsonAddress(json, string.concat(".LendingPool.", networkKey, ".address"));
         require(lendingPool != address(0), "DeploymentBase: LendingPool is zero");
         require(lendingPool.code.length > 0, "DeploymentBase: LendingPool has no bytecode");
+    }
+
+    // ============ Shared Address Loaders ============
+
+    /// @notice Loads Phase 1 addresses from deployments.json for the current chain
+    /// @dev Uses `block.chainid` to construct the JSON path dynamically — no hardcoded chain ID strings.
+    /// Fields that don't exist for certain chains (e.g., oracles on mainnet) return address(0).
+    /// @return addrs The populated Phase1Addresses struct
+    function _loadPhase1Addresses() internal returns (Phase1Addresses memory addrs) {
+        string memory json = vm.readFile("./deployments.json");
+        string memory base = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.");
+
+        addrs.accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
+        addrs.cbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
+        addrs.btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
+        addrs.btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
+
+        // debtAsset may not exist in Phase 1 on mainnet (USDC is a known constant)
+        try vm.parseJsonAddress(json, string.concat(base, "debtAsset")) returns (address parsed) {
+            addrs.debtAsset = parsed;
+        } catch {}
+
+        // These only exist on local/testnet (mock deployments)
+        try vm.parseJsonAddress(json, string.concat(base, "btcOracle")) returns (address parsed) {
+            addrs.btcOracle = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "usdcOracle")) returns (address parsed) {
+            addrs.usdcOracle = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool")) returns (address parsed) {
+            addrs.aaveV3Pool = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider")) returns (address parsed) {
+            addrs.aaveAddressesProvider = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "loanLogicLib")) returns (address parsed) {
+            addrs.loanLogicLib = parsed;
+        } catch {}
+
+        // On mainnet, Aave addresses come from HelperConfig constants, not deployments.json
+        if (block.chainid == DeploymentConstants.BASE_MAINNET_CHAIN_ID) {
+            HelperConfig helperConfig = new HelperConfig();
+            addrs.aaveV3Pool = helperConfig.getAaveV3Pool();
+            addrs.aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
+            addrs.debtAsset = helperConfig.getUSDC();
+        }
+
+        console2.log("Loaded Phase 1: AccessManager:", addrs.accessManager);
+        console2.log("Loaded Phase 1: BTCVault:", addrs.btcVault);
+    }
+
+    /// @notice Loads lending pool addresses from deployed-contracts.json for the current chain
+    /// @dev Uses `HelperConfig.getLendingPoolNetworkKey()` for the JSON network key.
+    /// @return addrs The populated LendingPoolAddresses struct
+    function _loadLendingPoolAddresses() internal returns (LendingPoolAddresses memory addrs) {
+        HelperConfig helperConfig = new HelperConfig();
+        string memory networkKey = helperConfig.getLendingPoolNetworkKey();
+        string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
+
+        addrs.bitmorPool = vm.parseJsonAddress(json, string.concat(".LendingPool.", networkKey, ".address"));
+        addrs.aaveOracle = vm.parseJsonAddress(json, string.concat(".AaveOracle.", networkKey, ".address"));
+        addrs.lendingPoolAddressesProvider =
+            vm.parseJsonAddress(json, string.concat(".LendingPoolAddressesProvider.", networkKey, ".address"));
+
+        console2.log("Loaded LendingPool:", addrs.bitmorPool);
+        console2.log("Loaded AaveOracle:", addrs.aaveOracle);
+        console2.log("Loaded LendingPoolAddressesProvider:", addrs.lendingPoolAddressesProvider);
     }
 
     // ============ JSON Persistence ============

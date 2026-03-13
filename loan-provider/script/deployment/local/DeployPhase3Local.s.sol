@@ -14,6 +14,7 @@ import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
+import {HelperConfig} from "../../HelperConfig.s.sol";
 import {MockUniswapV4SwapAdapter} from "../../../test/mock/MockUniswapV4SwapAdapter.sol";
 import {MintableERC20} from "../../../test/mock/MintableERC20.sol";
 import {MockAToken} from "../../../test/mock/MockAToken.sol";
@@ -36,41 +37,6 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
 contract DeployPhase3Local is LocalRolesConfig {
-    // ============ Constants ============
-
-    /// @notice Loan pre-closure fee in basis points (0.1%)
-    uint256 constant PRE_CLOSURE_FEE = 10;
-
-    /// @notice Grace period for monthly payments (7 days)
-    uint256 constant GRACE_PERIOD = 7 days;
-
-    /// @notice Maximum loan duration in months (5 years)
-    uint256 constant MAX_DURATION = 60;
-
-    /// @notice Swap slippage tolerance in basis points (0.5%)
-    uint256 constant SLIPPAGE_SWAP = 50;
-
-    /// @notice Shares-to-asset conversion slippage tolerance in basis points (1%)
-    uint256 constant SLIPPAGE_SHARES_TO_ASSET = 100;
-
-    /// @notice Maximum cbBTC collateral amount (10 BTC)
-    uint256 constant MAX_BTC_AMOUNT = 10e8;
-
-    /// @notice Minimum cbBTC collateral amount (0.01 BTC)
-    uint256 constant MIN_BTC_AMOUNT = 0.01e8;
-
-    /// @notice Minimum deposit percentage in basis points (30%)
-    uint256 constant MIN_DEPOSIT_BPS = 30_00;
-
-    /// @notice Liquidation fee in basis points (0% for local)
-    uint256 constant LIQUIDATION_FEE = 0;
-
-    /// @notice Liquidation buffer in basis points (0.5%)
-    uint256 constant LIQUIDATION_BUFFER = 50;
-
-    /// @notice Maximum strategy cap for local testing (unlimited)
-    uint256 constant STRATEGY_CAP = type(uint256).max;
-
     // ============ Phase 1 Addresses (from deployments.json) ============
 
     /// @notice AccessManager deployed in Phase 1
@@ -190,8 +156,26 @@ contract DeployPhase3Local is LocalRolesConfig {
 
         console2.log("=== Phase 3: Local Deployment (Upgradeable) ===");
 
-        _loadPhase1Addresses();
-        _loadLendingPoolAddresses();
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
+
+        Phase1Addresses memory p1 = _loadPhase1Addresses();
+        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
+
+        // Assign to state variables for _saveDeployments() and _setupAccessManagerRoles()
+        accessManager = p1.accessManager;
+        mockUsdc = p1.debtAsset;
+        mockCbBTC = p1.cbBTC;
+        btcVault = p1.btcVault;
+        btcVaultImpl = p1.btcVaultImpl;
+        btcOracle = p1.btcOracle;
+        usdcOracle = p1.usdcOracle;
+        aaveV3Pool = p1.aaveV3Pool;
+        aaveAddressesProvider = p1.aaveAddressesProvider;
+        loanLogicLib = p1.loanLogicLib;
+        bitmorPool = lp.bitmorPool;
+        aaveOracle = lp.aaveOracle;
+        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
 
         vm.startBroadcast();
 
@@ -277,15 +261,15 @@ contract DeployPhase3Local is LocalRolesConfig {
             debtAsset: mockUsdc, // USDC
             btc: mockCbBTC, // cbBTC
             bitmorAddressesProvider: bitmorAddressesProvider,
-            preClosureFeeBps: PRE_CLOSURE_FEE,
-            gracePeriod: GRACE_PERIOD,
-            slippageSwap: SLIPPAGE_SWAP,
-            slippageSharesToAsset: SLIPPAGE_SHARES_TO_ASSET,
-            maxBTCAmt: MAX_BTC_AMOUNT,
-            minBTCAmt: MIN_BTC_AMOUNT,
-            minDeposit: MIN_DEPOSIT_BPS,
-            maxDuration: MAX_DURATION,
-            liquidationFee: LIQUIDATION_FEE
+            preClosureFeeBps: pc.preClosureFeeBps,
+            gracePeriod: pc.gracePeriod,
+            slippageSwap: pc.slippageSwap,
+            slippageSharesToAsset: pc.slippageSharesToAsset,
+            maxBTCAmt: pc.maxBTCAmt,
+            minBTCAmt: pc.minBTCAmt,
+            minDeposit: pc.minDepositBps,
+            maxDuration: pc.maxDuration,
+            liquidationFee: pc.liquidationFee
         });
         loan = _deployUUPSProxy("Loan.sol", abi.encodeCall(Loan.initialize, (loanInitParams)), loanOpts);
         loanImpl = _getProxyImplementation(loan);
@@ -358,44 +342,6 @@ contract DeployPhase3Local is LocalRolesConfig {
 
         console2.log("=== Phase 3 Deploy Complete ===");
         console2.log("Run SchedulePhase3Local.s.sol next to schedule operations.");
-    }
-
-    // ============ Address Loading ============
-
-    /// @notice Loads Phase 1 addresses from deployments.json
-    /// @dev Reads the deployment file written by DeployPhase1Local
-    function _loadPhase1Addresses() internal {
-        string memory json = vm.readFile("./deployments.json");
-        string memory base = ".deployments.31337.networkConfig.";
-
-        accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
-        mockUsdc = vm.parseJsonAddress(json, string.concat(base, "debtAsset"));
-        mockCbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
-        btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
-        btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
-        btcOracle = vm.parseJsonAddress(json, string.concat(base, "btcOracle"));
-        usdcOracle = vm.parseJsonAddress(json, string.concat(base, "usdcOracle"));
-        aaveV3Pool = vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool"));
-        aaveAddressesProvider = vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider"));
-        loanLogicLib = vm.parseJsonAddress(json, string.concat(base, "loanLogicLib"));
-
-        console2.log("Loaded Phase 1: AccessManager:", accessManager);
-        console2.log("Loaded Phase 1: AaveV3Pool (mock):", aaveV3Pool);
-        console2.log("Loaded LoanLogic (linked library):", loanLogicLib);
-    }
-
-    /// @notice Loads lending pool addresses from deployed-contracts.json
-    /// @dev Reads the deployment file written by the lending-pool Hardhat deployment
-    function _loadLendingPoolAddresses() internal {
-        string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
-
-        bitmorPool = vm.parseJsonAddress(json, ".LendingPool.localhost.address");
-        aaveOracle = vm.parseJsonAddress(json, ".AaveOracle.localhost.address");
-        lendingPoolAddressesProvider = vm.parseJsonAddress(json, ".LendingPoolAddressesProvider.localhost.address");
-
-        console2.log("Loaded LendingPool:", bitmorPool);
-        console2.log("Loaded AaveOracle:", aaveOracle);
-        console2.log("Loaded LendingPoolAddressesProvider:", lendingPoolAddressesProvider);
     }
 
     // ============ Role Setup ============

@@ -8,16 +8,9 @@ repos:
             types: [solidity]
             pass_filenames: false
 
-          - id: forge-build
-            name: Forge build
-            entry: bash -c 'cd loan-provider && forge build'
-            language: system
-            types: [solidity]
-            pass_filenames: false
-
           - id: forge-test
-            name: Forge test
-            entry: bash -c 'cd loan-provider && make test'
+            name: Forge build and test
+            entry: bash -c 'cd loan-provider && forge clean && make test'
             language: system
             types: [solidity]
             pass_filenames: false

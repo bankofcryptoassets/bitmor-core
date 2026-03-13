@@ -9,6 +9,7 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
 import {DeploymentConstants} from "../DeploymentConstants.sol";
 import {LocalRolesConfig} from "@bitmor-config/LocalRolesConfig.sol";
+import {HelperConfig} from "../../HelperConfig.s.sol";
 
 /**
  * @title DeployPhase1Local
@@ -20,11 +21,6 @@ import {LocalRolesConfig} from "@bitmor-config/LocalRolesConfig.sol";
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
 contract DeployPhase1Local is LocalRolesConfig {
-    // ============ Constants ============
-
-    /// @notice Maximum number of strategies the BTCVault supports
-    uint256 constant MAX_STRATEGIES = 5;
-
     /// @notice Deployed BitmorAccessManager address
     address public accessManager;
 
@@ -95,8 +91,10 @@ contract DeployPhase1Local is LocalRolesConfig {
         // 4. BTCVault (UUPS proxy)
         // Upgrades.deployUUPSProxy deploys the implementation internally — read its
         // address from the proxy's EIP-1967 slot rather than deploying a second copy.
+        HelperConfig helperConfig = new HelperConfig();
+        HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
         btcVault = _deployUUPSProxy(
-            "BTCVault.sol", abi.encodeCall(BTCVault.initialize, (mockCbBTC, accessManager, MAX_STRATEGIES))
+            "BTCVault.sol", abi.encodeCall(BTCVault.initialize, (mockCbBTC, accessManager, pc.maxStrategies))
         );
         btcVaultImpl = _getProxyImplementation(btcVault);
         console2.log("BTCVault proxy:", btcVault);
