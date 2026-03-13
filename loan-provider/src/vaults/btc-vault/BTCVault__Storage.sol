@@ -11,7 +11,6 @@ import {Errors} from "../../libraries/helpers/Errors.sol";
  * @dev Uses ERC-7201 namespaced storage for proxy-safe state management.
  *
  * ## Storage Layout
- * - `asset`: Underlying asset address (set once in initialize)
  * - `vault`: Vault configuration (fees, recipient)
  * - `strategy`: Strategy management state (strategies array, queues)
  *
@@ -151,8 +150,6 @@ contract BTCVault__Storage {
 
     /// @custom:storage-location erc7201:bitmor.storage.BTCVault
     struct BTCVaultStorageData {
-        /// @dev Underlying asset address (cbBTC), set once in initialize
-        address asset;
         /// @dev Vault configuration state including fees and recipient
         DataTypes.VaultState vault;
         /// @dev Complete strategy management state including strategies mapping and queues

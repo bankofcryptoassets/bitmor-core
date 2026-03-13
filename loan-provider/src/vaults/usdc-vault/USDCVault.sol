@@ -63,8 +63,6 @@ contract USDCVault is
 
     /// @custom:storage-location erc7201:bitmor.storage.USDCVault
     struct USDCVaultStorageData {
-        /// @dev Underlying asset address (USDC), set once in initialize
-        address asset;
         /// @dev Bitmor Lending Pool address, set once in initialize
         address blp;
         /// @dev Strategy contract that manages yield generation
@@ -99,7 +97,6 @@ contract USDCVault is
         __Pausable_init();
 
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
-        $.asset = _asset;
         $.blp = _blp;
     }
 
@@ -129,22 +126,23 @@ contract USDCVault is
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
+        IERC20 asset_ = IERC20(asset());
 
         // Withdraw all funds from current strategy if one exists
         if (address($.strategy) != address(0)) {
             if ($.strategy.getTotalBalanceInMarkets() > 0) {
                 $.strategy.withdrawAllFunds();
             }
-            IERC20($.asset).forceApprove(address($.strategy), 0);
+            asset_.forceApprove(address($.strategy), 0);
         }
 
         // Approve new strategy to spend vault's assets
-        IERC20($.asset).forceApprove(newStrategy, type(uint256).max);
+        asset_.forceApprove(newStrategy, type(uint256).max);
 
         $.strategy = ISimpleStrategy(newStrategy);
 
         // Deploy idle assets into the new strategy to eliminate yield gap
-        uint256 idle = IERC20($.asset).balanceOf(address(this));
+        uint256 idle = asset_.balanceOf(address(this));
         if (idle > 0) $.strategy.supply(idle);
 
         emit SimpleVault__StrategyUpdated(newStrategy);
@@ -189,9 +187,10 @@ contract USDCVault is
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
         if (msg.sender != address($.strategy)) revert Errors.UnauthorizedCaller();
         if (amount == 0) return;
-        IERC20($.asset).safeTransferFrom(msg.sender, address(this), amount);
-        IERC20($.asset).forceApprove($.blp, amount);
-        ILendingPool($.blp).deposit($.asset, amount, onBehalfOf, 0);
+        address asset_ = asset();
+        IERC20(asset_).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(asset_).forceApprove($.blp, amount);
+        ILendingPool($.blp).deposit(asset_, amount, onBehalfOf, 0);
     }
 
     /**
@@ -253,14 +252,6 @@ contract USDCVault is
     }
 
     /**
-     * @notice Returns the address of the underlying asset
-     * @return The address of the underlying ERC20 token
-     */
-    function asset() public view override returns (address) {
-        return _getUSDCVaultStorage().asset;
-    }
-
-    /**
      * @notice Returns the total amount of assets under management
      * @dev Delegates to the strategy contract to calculate total assets across all positions.
      *
@@ -270,8 +261,9 @@ contract USDCVault is
      */
     function totalAssets() public view override returns (uint256 assets) {
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
-        if (address($.strategy) == address(0)) return IERC20($.asset).balanceOf(address(this));
-        assets = $.strategy.totalAssets() + IERC20($.asset).balanceOf(address(this));
+        IERC20 asset_ = IERC20(asset());
+        if (address($.strategy) == address(0)) return asset_.balanceOf(address(this));
+        assets = $.strategy.totalAssets() + asset_.balanceOf(address(this));
     }
 
     /**
@@ -346,7 +338,7 @@ contract USDCVault is
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
         if (paused() || address($.strategy) == address(0)) return 0;
         uint256 ownerAssets = convertToAssets(balanceOf(owner));
-        uint256 available = $.strategy.withdrawableAssets() + IERC20($.asset).balanceOf(address(this));
+        uint256 available = $.strategy.withdrawableAssets() + IERC20(asset()).balanceOf(address(this));
         maxAssets = ownerAssets < available ? ownerAssets : available;
     }
 
@@ -360,7 +352,7 @@ contract USDCVault is
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
         if (paused() || address($.strategy) == address(0)) return 0;
         uint256 ownerShares = balanceOf(owner);
-        uint256 available = $.strategy.withdrawableAssets() + IERC20($.asset).balanceOf(address(this));
+        uint256 available = $.strategy.withdrawableAssets() + IERC20(asset()).balanceOf(address(this));
         uint256 maxRedeemableShares = convertToShares(available);
         maxShares = ownerShares < maxRedeemableShares ? ownerShares : maxRedeemableShares;
     }

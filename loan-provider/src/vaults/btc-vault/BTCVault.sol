@@ -99,7 +99,6 @@ contract BTCVault is
         __Pausable_init();
 
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        $.asset = _asset;
         $.vault.maxStrategies = _maxStrategies;
     }
 
@@ -274,11 +273,12 @@ contract BTCVault is
      */
     function addStrategy(address strategy, uint256 cap) external restricted {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        $.strategy.validateStrategyAddition(strategy, $.asset, $.vault.maxStrategies);
+        address asset_ = asset();
+        $.strategy.validateStrategyAddition(strategy, asset_, $.vault.maxStrategies);
 
         $.strategy.addStrategy(strategy, cap);
 
-        IERC20($.asset).forceApprove(strategy, type(uint256).max);
+        IERC20(asset_).forceApprove(strategy, type(uint256).max);
 
         emit BTCVault__TokenizedStrategyAdded(strategy, cap);
     }
@@ -370,7 +370,7 @@ contract BTCVault is
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         $.strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        bool supplyQueueCleaned = $.strategy.updateWithdrawQueue(newWithdrawQueue, $.asset);
+        bool supplyQueueCleaned = $.strategy.updateWithdrawQueue(newWithdrawQueue, asset());
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
 
@@ -417,14 +417,6 @@ contract BTCVault is
      */
     function symbol() public pure override(ERC20Upgradeable, IERC20Metadata) returns (string memory) {
         return "bvBTC";
-    }
-
-    /**
-     * @notice Returns the address of the underlying asset
-     * @return The address of the underlying ERC20 token
-     */
-    function asset() public view override returns (address) {
-        return _getBTCVaultStorage().asset;
     }
 
     /**
@@ -492,7 +484,7 @@ contract BTCVault is
      */
     function totalAssets() public view override returns (uint256 assets) {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        assets = IERC20($.asset).balanceOf(address(this));
+        assets = IERC20(asset()).balanceOf(address(this));
 
         uint256[] memory wq = $.strategy.withdrawQueue;
         for (uint256 i = 0; i < wq.length; i++) {
@@ -721,20 +713,21 @@ contract BTCVault is
         super._deposit(by, to, assets, shares);
 
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        IERC20 asset_ = IERC20(asset());
 
         if (fee != 0) {
             uint256 feeAmount = _feeOnTotal(assets, fee);
 
             // Transfer entry fee to fee recipient (if fee exists and recipient is not this contract)
             if (feeAmount > 0 && $.vault.feeRecipient != address(this)) {
-                IERC20($.asset).safeTransfer($.vault.feeRecipient, feeAmount);
+                asset_.safeTransfer($.vault.feeRecipient, feeAmount);
             }
         }
 
         // Deposit all idle vault balance (current + accumulated dust) to strategies
         // if it meets the minimum threshold. Otherwise, assets stay idle in the vault
         // and are still counted by totalAssets() via balanceOf(address(this)).
-        uint256 toDeposit = IERC20($.asset).balanceOf(address(this));
+        uint256 toDeposit = asset_.balanceOf(address(this));
         if (toDeposit >= MIN_STRATEGY_DEPOSIT) {
             _depositFunds(toDeposit);
         }
@@ -752,6 +745,7 @@ contract BTCVault is
      */
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        IERC20 asset_ = IERC20(asset());
         uint256 fee = getExitFee();
         uint256 feeAmount = 0;
         uint256 totalToWithdraw = assets;
@@ -762,14 +756,14 @@ contract BTCVault is
         }
 
         // Use idle vault balance first, then pull remainder from strategies
-        uint256 vaultBalance = IERC20($.asset).balanceOf(address(this));
+        uint256 vaultBalance = asset_.balanceOf(address(this));
         if (totalToWithdraw > vaultBalance) {
             _withdrawFunds(totalToWithdraw - vaultBalance);
         }
 
         // Send fee to recipient
         if (feeAmount > 0 && $.vault.feeRecipient != address(this)) {
-            IERC20($.asset).safeTransfer($.vault.feeRecipient, feeAmount);
+            asset_.safeTransfer($.vault.feeRecipient, feeAmount);
         }
 
         // Send exact 'assets' amount to user as per ERC4626 spec
@@ -793,7 +787,7 @@ contract BTCVault is
      */
     function _getAvailableLiquidity() internal view returns (uint256 liquidity) {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        liquidity = IERC20($.asset).balanceOf(address(this));
+        liquidity = IERC20(asset()).balanceOf(address(this));
 
         uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
         for (uint256 i = 0; i < withdrawQueue.length; i++) {
