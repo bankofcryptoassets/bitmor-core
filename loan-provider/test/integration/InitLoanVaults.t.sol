@@ -813,6 +813,7 @@ contract InitLoanVaultsTest is IntegrationTestBase {
         _scheduleAndExecute(
             address(btcVault), admin, BVC_ID(), abi.encodeCall(btcVault.changeStrategyCap, (strategy, 0))
         );
+        _refreshOraclePrices();
 
         uint64 bvmFastId = BVM_FAST_ID();
         vm.prank(admin);
@@ -825,6 +826,7 @@ contract InitLoanVaultsTest is IntegrationTestBase {
         _scheduleAndExecute(
             address(btcVault), admin, BVA_SLOW_ID(), abi.encodeCall(btcVault.updateWithdrawQueue, (emptyQueue))
         );
+        _refreshOraclePrices();
 
         // Act: create another loan (triggers deposit into BTCVault via stale supply queue)
         address userC = _setupAdditionalUser("userC");

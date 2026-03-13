@@ -114,9 +114,9 @@ contract Repay_VaultInteractionsTest is IntegrationTestBase {
         // Assert: USDC must not be consumed if collateral cannot be returned
         assertEq(usdc.balanceOf(testUser), usdcBefore, "USDC must not be consumed if collateral can't be returned");
 
-        // Cleanup: unpause via admin (defaults to ADMIN role 0)
-        vm.prank(admin);
-        btcVault.unpause();
+        // Cleanup: unpause via BVM_SLOW role (requires schedule+execute due to 1-day delay)
+        _scheduleAndExecute(address(btcVault), admin, BVM_SLOW_ID(), abi.encodeCall(btcVault.unpause, ()));
+        _refreshOraclePrices();
     }
 
     // ============ Test 4: Partial Repay Does Not Touch Collateral ============

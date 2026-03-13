@@ -340,6 +340,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Advance to exactly 30 days (end of repayment interval, but before grace)
         vm.warp(initTs + TC.REPAYMENT_INTERVAL);
+        _refreshOraclePrices();
 
         // Act - attempt micro-liq before grace period expires
         bool earlySuccess = _triggerMicroLiquidation(lsa);
@@ -354,6 +355,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Advance past grace period
         vm.warp(initTs + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Act - micro-liq after grace period
         bool lateSuccess = _triggerMicroLiquidation(lsa);
@@ -370,6 +372,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Advance 6 months
         vm.warp(block.timestamp + TC.SIX_MONTHS);
+        _refreshOraclePrices();
 
         // Act - trigger first micro-liq
         bool success1 = _triggerMicroLiquidation(lsa);
@@ -384,6 +387,7 @@ contract RepayTest is IntegrationTestBase {
 
         // Advance past next grace period
         vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
 
         // Act - trigger second micro-liq
         bool success3 = _triggerMicroLiquidation(lsa);

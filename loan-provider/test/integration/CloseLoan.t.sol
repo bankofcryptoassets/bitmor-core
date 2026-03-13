@@ -110,6 +110,7 @@ contract CloseLoanTest is IntegrationTestBase {
         assertGt(debtAtCreation, 0, "should have debt after loan creation");
 
         vm.warp(block.timestamp + 180 days);
+        _refreshOraclePrices();
 
         uint256 debtAfterAccrual = _getDebtBalanceUSDC(lsa);
         assertGt(debtAfterAccrual, debtAtCreation, "debt should grow after 6 months of interest");
