@@ -73,6 +73,7 @@ contract AutoRepayment is Initializable, UUPSUpgradeable, IAutoRepayment, Access
      * @param _debtAsset The debt asset address (USDC)
      */
     function initialize(address _manager, address _loan, address _debtAsset) public initializer {
+        if (_loan == address(0) || _debtAsset == address(0)) revert Errors.ZeroAddress();
         __AccessManaged_init(_manager);
 
         AutoRepaymentStorageData storage $ = _getAutoRepaymentStorage();
