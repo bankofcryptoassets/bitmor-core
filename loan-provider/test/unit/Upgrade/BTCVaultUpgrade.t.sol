@@ -106,7 +106,7 @@ contract BTCVaultUpgradeTest is BaseTestForBTCVault {
 
         // Assert + Act: re-initialization should revert
         vm.expectRevert();
-        BTCVaultV2(address(vault)).initialize(address(mockUSDC), address(manager));
+        BTCVaultV2(address(vault)).initialize(address(mockUSDC), address(manager), 5);
     }
 
     /// @notice Verifies unauthorized upgrade reverts

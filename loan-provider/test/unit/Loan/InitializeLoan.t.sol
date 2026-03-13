@@ -11,6 +11,7 @@ import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
@@ -300,36 +301,43 @@ contract InitializeLoanTest is BaseLoanTest {
         BitmorAccessManager manager2 = new BitmorAccessManager(admin);
 
         vm.startPrank(admin);
-        Loan loan2 = _deployLoanProxy(
-            address(manager2),
-            address(mockPool),
-            s_addressesProvider,
-            s_bitmorPool,
-            address(mockOracle),
-            collateralAsset,
-            debtAsset,
-            btc,
-            loan.getPreClosureFee(),
-            loan.getGracePeriod()
+
+        // Deploy BitmorAddressesProvider FIRST via UUPS proxy (Loan.initialize needs its address)
+        BitmorAddressesProvider provider2 = _deployAddressesProviderProxy(
+            address(manager2), address(mockSwapAdapter), premiumCollector, premiumCollector
         );
 
-        // Set up BitmorAddressesProvider for loan2
+        Loan loan2 = _deployLoanProxy(
+            ILoan.InitParams({
+                manager: address(manager2),
+                aaveV3Pool: address(mockPool),
+                aaveAddressesProvider: s_addressesProvider,
+                bitmorPool: s_bitmorPool,
+                oracle: address(mockOracle),
+                collateralAsset: collateralAsset,
+                debtAsset: debtAsset,
+                btc: btc,
+                bitmorAddressesProvider: address(provider2),
+                preClosureFeeBps: loan.getPreClosureFee(),
+                gracePeriod: loan.getGracePeriod(),
+                slippageSwap: TC.SLIPPAGE_SWAP,
+                slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
+                maxBTCAmt: TC.MAX_COLLATERAL,
+                minBTCAmt: TC.MIN_COLLATERAL,
+                minDeposit: TC.MIN_DEPOSIT,
+                maxDuration: TC.MAX_DURATION,
+                liquidationFee: 0
+            })
+        );
+
+        // Set up LoanVaultFactory for loan2
         address loanVaultImpl2 = address(new LoanVault());
         address beacon2 = address(new UpgradeableBeacon(loanVaultImpl2, address(this)));
         address loanVaultFactory2 = address(new LoanVaultFactory(beacon2, address(loan2)));
 
-        BitmorAddressesProvider provider2 = _deployAddressesProviderProxy(address(manager2), address(loan2));
+        // BAP post-init setters
         provider2.setVaultFactory(loanVaultFactory2);
-        provider2.setSwapper(address(mockSwapAdapter));
-        provider2.setPremiumCollector(premiumCollector);
         provider2.setAutoRepayer(autoRepayer);
-        loan2.setBitmorAddressesProvider(address(provider2));
-
-        loan2.setMaxBTCAmount(TC.MAX_COLLATERAL);
-        loan2.setMinBTCAmount(TC.MIN_COLLATERAL);
-        loan2.setSlippageForSwap(TC.SLIPPAGE_SWAP);
-        loan2.setMinDepositBps(TC.MIN_DEPOSIT);
-        loan2.setMaxDuration(TC.MAX_DURATION);
 
         // Now set up roles and target selectors
         manager2.grantRole(EXECUTOR_ID(), user, NO_DELAY);

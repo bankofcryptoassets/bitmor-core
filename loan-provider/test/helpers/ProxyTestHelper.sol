@@ -12,6 +12,7 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 
 /// @title ProxyTestHelper
 /// @notice Shared proxy deployment functions for test infrastructure
@@ -24,58 +25,26 @@ abstract contract ProxyTestHelper is Test {
     // ===== UUPS Proxy Helpers =====
 
     /// @notice Deploys Loan behind ERC1967Proxy
-    /// @param _manager AccessManager address
-    /// @param _aaveV3Pool Aave V3 pool address
-    /// @param _aaveAddressesProvider Aave addresses provider
-    /// @param _bitmorPool Bitmor lending pool address
-    /// @param _oracle Price oracle address
-    /// @param _collateralAsset Collateral asset (bvBTC) address
-    /// @param _debtAsset Debt asset (USDC) address
-    /// @param _btc BTC token address
-    /// @param _preClosureFeeBps Pre-closure fee in basis points
-    /// @param _gracePeriod Grace period in seconds
+    /// @param params InitParams struct with all initialization parameters
     /// @return The Loan contract instance (cast from proxy address)
-    function _deployLoanProxy(
-        address _manager,
-        address _aaveV3Pool,
-        address _aaveAddressesProvider,
-        address _bitmorPool,
-        address _oracle,
-        address _collateralAsset,
-        address _debtAsset,
-        address _btc,
-        uint256 _preClosureFeeBps,
-        uint256 _gracePeriod
-    ) internal returns (Loan) {
+    function _deployLoanProxy(ILoan.InitParams memory params) internal returns (Loan) {
         Loan impl = new Loan();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(
-                Loan.initialize,
-                (
-                    _manager,
-                    _aaveV3Pool,
-                    _aaveAddressesProvider,
-                    _bitmorPool,
-                    _oracle,
-                    _collateralAsset,
-                    _debtAsset,
-                    _btc,
-                    _preClosureFeeBps,
-                    _gracePeriod
-                )
-            )
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(Loan.initialize, (params)));
         return Loan(address(proxy));
     }
 
     /// @notice Deploys BTCVault behind ERC1967Proxy
     /// @param _asset The underlying asset (cbBTC) address
     /// @param _manager AccessManager address
+    /// @param _maxStrategies Maximum number of strategies
     /// @return The BTCVault contract instance
-    function _deployBTCVaultProxy(address _asset, address _manager) internal returns (BTCVault) {
+    function _deployBTCVaultProxy(address _asset, address _manager, uint256 _maxStrategies)
+        internal
+        returns (BTCVault)
+    {
         BTCVault impl = new BTCVault();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(BTCVault.initialize, (_asset, _manager)));
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(BTCVault.initialize, (_asset, _manager, _maxStrategies)));
         return BTCVault(address(proxy));
     }
 
@@ -108,15 +77,22 @@ abstract contract ProxyTestHelper is Test {
 
     /// @notice Deploys BitmorAddressesProvider behind ERC1967Proxy
     /// @param _manager AccessManager address
-    /// @param _loanProvider Loan contract address
+    /// @param _swapper Swap adapter address
+    /// @param _premiumCollector Premium collector address
+    /// @param _liquidationFeeCollector Liquidation fee collector address
     /// @return The BitmorAddressesProvider contract instance
-    function _deployAddressesProviderProxy(address _manager, address _loanProvider)
-        internal
-        returns (BitmorAddressesProvider)
-    {
+    function _deployAddressesProviderProxy(
+        address _manager,
+        address _swapper,
+        address _premiumCollector,
+        address _liquidationFeeCollector
+    ) internal returns (BitmorAddressesProvider) {
         BitmorAddressesProvider impl = new BitmorAddressesProvider();
         ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl), abi.encodeCall(BitmorAddressesProvider.initialize, (_manager, _loanProvider))
+            address(impl),
+            abi.encodeCall(
+                BitmorAddressesProvider.initialize, (_manager, _swapper, _premiumCollector, _liquidationFeeCollector)
+            )
         );
         return BitmorAddressesProvider(address(proxy));
     }

@@ -11,7 +11,9 @@ import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
 
 /**
@@ -41,6 +43,24 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
     /// @notice Maximum loan duration in months (5 years)
     uint256 constant MAX_DURATION = 60;
+
+    /// @notice Swap slippage tolerance in basis points (0.5%)
+    uint256 constant SLIPPAGE_SWAP = 50;
+
+    /// @notice Shares-to-asset conversion slippage tolerance in basis points (1%)
+    uint256 constant SLIPPAGE_SHARES_TO_ASSET = 100;
+
+    /// @notice Maximum cbBTC collateral amount (10 BTC)
+    uint256 constant MAX_BTC_AMOUNT = 10e8;
+
+    /// @notice Minimum cbBTC collateral amount (0.01 BTC)
+    uint256 constant MIN_BTC_AMOUNT = 0.01e8;
+
+    /// @notice Minimum deposit percentage in basis points (30%)
+    uint256 constant MIN_DEPOSIT_BPS = 30_00;
+
+    /// @notice Liquidation fee in basis points (0% initially)
+    uint256 constant LIQUIDATION_FEE = 0;
 
     /// @notice Liquidation buffer in basis points (0.5%)
     uint256 constant LIQUIDATION_BUFFER = 50;
@@ -149,14 +169,15 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      *
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
-     * 2. Loan (UUPS proxy)
-     * 3. LoanVault beacon proxy (impl + beacon + controller + factory)
-     * 4. BitmorAddressesProvider (UUPS proxy)
+     * 2. BitmorAddressesProvider (UUPS proxy) — deployed before Loan so address is available for InitParams
+     * 3. Loan (UUPS proxy) — uses ILoan.InitParams with all config in initializer
+     * 4. LoanVault beacon proxy (impl + beacon + controller + factory)
      * 5. AutoRepayment (UUPS proxy)
-     * 6. LendingPoolAddressesProvider registration
-     * 7. Strategies (non-proxied)
-     * 8. AccessManager role wiring
-     * 9. Address persistence
+     * 6. BAP post-init setters (setVaultFactory, setAutoRepayer) — before role wiring maps them to LPM_SLOW
+     * 7. LendingPoolAddressesProvider registration
+     * 8. Strategies (non-proxied)
+     * 9. AccessManager role wiring
+     * 10. Address persistence
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.BASE_MAINNET_CHAIN_ID);
@@ -187,43 +208,57 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         console2.log("USDCVault proxy:", usdcVault);
         console2.log("USDCVault impl:", usdcVaultImpl);
 
-        // 2. Loan (UUPS proxy)
-        loan = _deployUUPSProxy(
-            "Loan.sol",
+        // 2. BitmorAddressesProvider (UUPS proxy) — deployed before Loan so its address
+        // is available for Loan's InitParams.bitmorAddressesProvider field.
+        // TODO: Replace msg.sender with actual premiumCollector and liquidationFeeCollector multisigs before deployment
+        bitmorAddressesProvider = _deployUUPSProxy(
+            "BitmorAddressesProvider.sol",
             abi.encodeCall(
-                Loan.initialize,
-                (
-                    accessManager,
-                    aaveV3Pool,
-                    aaveAddressesProvider,
-                    bitmorPool,
-                    aaveOracle,
-                    btcVault, // collateralAsset (bvBTC)
-                    usdc, // debtAsset
-                    cbBTC, // btc
-                    PRE_CLOSURE_FEE,
-                    GRACE_PERIOD
-                )
+                BitmorAddressesProvider.initialize, (accessManager, SWAP_ADAPTER_BASE_MAINNET, msg.sender, msg.sender)
             )
         );
+        bitmorAddressesProviderImpl = _getProxyImplementation(bitmorAddressesProvider);
+        console2.log("BitmorAddressesProvider proxy:", bitmorAddressesProvider);
+        console2.log("BitmorAddressesProvider impl:", bitmorAddressesProviderImpl);
+
+        // 3. Loan (UUPS proxy) — linked to LoanLogic library
+        // unsafeAllow: "external-library-linking" is required because Loan.sol DELEGATECALLs
+        // into LoanLogic (a public linked library). The plugin cannot verify library upgrade
+        // safety automatically — we ensure it manually (LoanLogic is stateless, resolves
+        // storage via bytes32 storageSlot passed from Loan.sol).
+        Options memory loanOpts;
+        loanOpts.unsafeAllow = "external-library-linking";
+        ILoan.InitParams memory loanInitParams = ILoan.InitParams({
+            manager: accessManager,
+            aaveV3Pool: aaveV3Pool,
+            aaveAddressesProvider: aaveAddressesProvider,
+            bitmorPool: bitmorPool,
+            oracle: aaveOracle,
+            collateralAsset: btcVault, // bvBTC
+            debtAsset: usdc, // USDC
+            btc: cbBTC, // cbBTC
+            bitmorAddressesProvider: bitmorAddressesProvider,
+            preClosureFeeBps: PRE_CLOSURE_FEE,
+            gracePeriod: GRACE_PERIOD,
+            slippageSwap: SLIPPAGE_SWAP,
+            slippageSharesToAsset: SLIPPAGE_SHARES_TO_ASSET,
+            maxBTCAmt: MAX_BTC_AMOUNT,
+            minBTCAmt: MIN_BTC_AMOUNT,
+            minDeposit: MIN_DEPOSIT_BPS,
+            maxDuration: MAX_DURATION,
+            liquidationFee: LIQUIDATION_FEE
+        });
+        loan = _deployUUPSProxy("Loan.sol", abi.encodeCall(Loan.initialize, (loanInitParams)), loanOpts);
         loanImpl = _getProxyImplementation(loan);
         console2.log("Loan proxy:", loan);
         console2.log("Loan impl:", loanImpl);
 
-        // 3. LoanVault beacon proxy (impl + beacon + controller + factory)
+        // 4. LoanVault beacon proxy (impl + beacon + controller + factory)
         (loanVaultImpl, beacon, beaconController, loanVaultFactory) = _deployBeaconProxy(accessManager, loan);
         console2.log("LoanVault impl:", loanVaultImpl);
         console2.log("Beacon:", beacon);
         console2.log("BeaconController:", beaconController);
         console2.log("LoanVaultFactory:", loanVaultFactory);
-
-        // 4. BitmorAddressesProvider (UUPS proxy)
-        bitmorAddressesProvider = _deployUUPSProxy(
-            "BitmorAddressesProvider.sol", abi.encodeCall(BitmorAddressesProvider.initialize, (accessManager, loan))
-        );
-        bitmorAddressesProviderImpl = _getProxyImplementation(bitmorAddressesProvider);
-        console2.log("BitmorAddressesProvider proxy:", bitmorAddressesProvider);
-        console2.log("BitmorAddressesProvider impl:", bitmorAddressesProviderImpl);
 
         // 5. AutoRepayment (UUPS proxy)
         autoRepayment = _deployUUPSProxy(
@@ -233,34 +268,41 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         console2.log("AutoRepayment proxy:", autoRepayment);
         console2.log("AutoRepayment impl:", autoRepaymentImpl);
 
-        // 6a. Register Loan contract with LendingPoolAddressesProvider
+        // 6. BAP post-init setters — called before _setupAccessManagerRoles() maps
+        // these functions to LPM_SLOW. Until role wiring, restricted functions default
+        // to ADMIN_ROLE (0) which the deployer holds with 0 delay.
+        BitmorAddressesProvider(bitmorAddressesProvider).setVaultFactory(loanVaultFactory);
+        BitmorAddressesProvider(bitmorAddressesProvider).setAutoRepayer(autoRepayment);
+        console2.log("BAP: setVaultFactory and setAutoRepayer configured");
+
+        // 7a. Register Loan contract with LendingPoolAddressesProvider
         // Required for LendingPoolCollateralManager to query loan data during liquidation
         (bool okSetLoan,) = lendingPoolAddressesProvider.call(abi.encodeWithSignature("setBitmorLoan(address)", loan));
         require(okSetLoan, "Failed to setBitmorLoan");
         console2.log("Registered Loan with LendingPoolAddressesProvider");
 
-        // 6b. Register USDCVault with LendingPoolAddressesProvider
+        // 7b. Register USDCVault with LendingPoolAddressesProvider
         // Required for USDCReserveInterestRateStrategy.calculateInterestRates()
         (bool okSetUSDCVault,) =
             lendingPoolAddressesProvider.call(abi.encodeWithSignature("setUSDCVault(address)", usdcVault));
         require(okSetUSDCVault, "Failed to setUSDCVault");
         console2.log("Registered USDCVault with LendingPoolAddressesProvider");
 
-        // 7. Strategies (non-proxied, deployed directly)
+        // 8. Strategies (non-proxied, deployed directly)
         aaveStrategy = address(new AaveTokenizedStrategy(aaveV3Pool, btcVault));
         usdcStrategy = address(new USDCStrategy(usdcVault, aaveV3Pool, bitmorPool));
         console2.log("AaveStrategy:", aaveStrategy);
         console2.log("USDCStrategy:", usdcStrategy);
 
-        // 8. AccessManager role wiring
+        // 9. AccessManager role wiring
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 9. Save addresses
+        // 10. Save addresses
         _saveDeployments();
 
-        // 10. Write deployment manifest
+        // 11. Write deployment manifest
         _writeManifest("Phase3");
 
         console2.log("=== Phase 3 Deploy Complete ===");
@@ -343,17 +385,17 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         BitmorAccessManager manager = BitmorAccessManager(accessManager);
         RoleGrantees memory g = _getRoleGrantees();
 
-        // 8a. Grant operational roles and set target function mappings
+        // 9a. Grant operational roles and set target function mappings
         _grantOperationalRoles(
             manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
         );
 
-        // 8b. Wire UPGRADER role across all UUPS proxies and BeaconController
+        // 9b. Wire UPGRADER role across all UUPS proxies and BeaconController
         _wireUpgraderRole(
             manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
         );
 
-        // 8c. Set up guardian roles for delayed operations
+        // 9c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
 
         console2.log("AccessManager roles configured via DeploymentBase helpers");

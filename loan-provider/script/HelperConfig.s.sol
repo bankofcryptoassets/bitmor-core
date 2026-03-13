@@ -55,6 +55,9 @@ contract HelperConfig is Script {
     // Default vault fees in basis points
     uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
     uint256 public constant DEFAULT_EXIT_FEE = 10; // 0.1%
+    // Liquidation fee configuration
+    uint256 public constant LIQUIDATION_FEE = 0; // 0 basis points initially
+    address public constant LIQUIDATION_FEE_COLLECTOR = BITMOR_OWNER;
     // USDC Strategy allocation config (in basis points)
     uint256 public constant DEFAULT_AAVE_ALLOCATION = 8000; // 80% to Aave
     uint256 public constant DEFAULT_MINIMUM_DELTA_REQUIRED = 100; // 1% minimum delta for reallocation
@@ -159,6 +162,14 @@ contract HelperConfig is Script {
 
     function getPreClosureFee() public pure returns (uint256) {
         return PRE_CLOSURE_FEE;
+    }
+
+    function getLiquidationFee() public pure returns (uint256) {
+        return LIQUIDATION_FEE;
+    }
+
+    function getLiquidationFeeCollector() public pure returns (address) {
+        return LIQUIDATION_FEE_COLLECTOR;
     }
 
     function getAaveAllocation() public pure returns (uint256) {

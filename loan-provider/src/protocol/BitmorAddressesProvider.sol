@@ -16,8 +16,6 @@ contract BitmorAddressesProvider is Initializable, UUPSUpgradeable, IBitmorAddre
 
     /// @custom:storage-location erc7201:bitmor.storage.BitmorAddressesProvider
     struct AddressesProviderStorageData {
-        /// @dev The Loan contract address
-        address loanProvider;
         /// @dev Registry mapping bytes32 keys to contract addresses
         mapping(bytes32 => address) addresses;
     }
@@ -53,19 +51,26 @@ contract BitmorAddressesProvider is Initializable, UUPSUpgradeable, IBitmorAddre
     // ============ Initialization ============
 
     /**
-     * @notice Initializes the addresses provider
+     * @notice Initializes the addresses provider with known addresses
      * @param _manager Access Manager address for role-based access control
-     * @param _loanProvider The Loan contract address
+     * @param _swapper Swap adapter address
+     * @param _premiumCollector Premium fee collector address
+     * @param _liquidationFeeCollector Liquidation fee collector address
      */
-    function initialize(address _manager, address _loanProvider)
+    function initialize(address _manager, address _swapper, address _premiumCollector, address _liquidationFeeCollector)
         public
         initializer
         checkZeroAddress(_manager)
-        checkZeroAddress(_loanProvider)
+        checkZeroAddress(_swapper)
+        checkZeroAddress(_premiumCollector)
+        checkZeroAddress(_liquidationFeeCollector)
     {
         __AccessManaged_init(_manager);
 
-        _getAddressesProviderStorage().loanProvider = _loanProvider;
+        AddressesProviderStorageData storage $ = _getAddressesProviderStorage();
+        $.addresses[SWAPPER] = _swapper;
+        $.addresses[PREMIUM_COLLECTOR] = _premiumCollector;
+        $.addresses[LIQUIDATION_FEE_COLLECTOR] = _liquidationFeeCollector;
     }
 
     // ============ UUPS ============
@@ -123,11 +128,6 @@ contract BitmorAddressesProvider is Initializable, UUPSUpgradeable, IBitmorAddre
 
     function getAutoRepayer() external view returns (address autoRepayer) {
         autoRepayer = _getAddressesProviderStorage().addresses[AUTO_REPAYER];
-    }
-
-    /// @inheritdoc IBitmorAddressesProvider
-    function i_LOAN_PROVIDER() external view returns (address) {
-        return _getAddressesProviderStorage().loanProvider;
     }
 
     // ============ Internal ============

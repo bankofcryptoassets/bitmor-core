@@ -381,12 +381,9 @@ abstract contract DeploymentBase is Script {
         private
     {
         (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        bytes4[] memory bapSelectors = new bytes4[](5);
+        bytes4[] memory bapSelectors = new bytes4[](2);
         bapSelectors[0] = IBitmorAddressesProvider.setVaultFactory.selector;
-        bapSelectors[1] = IBitmorAddressesProvider.setSwapper.selector;
-        bapSelectors[2] = IBitmorAddressesProvider.setPremiumCollector.selector;
-        bapSelectors[3] = IBitmorAddressesProvider.setLiquidationFeeCollector.selector;
-        bapSelectors[4] = IBitmorAddressesProvider.setAutoRepayer.selector;
+        bapSelectors[1] = IBitmorAddressesProvider.setAutoRepayer.selector;
         manager.setTargetFunctionRole(addressesProvider, bapSelectors, lpmSlowId);
         console2.log("Configured BitmorAddressesProvider roles");
     }

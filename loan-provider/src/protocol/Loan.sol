@@ -66,55 +66,58 @@ contract Loan is
     }
 
     /**
-     * @notice Initializes the Loan contract with protocol addresses and configuration
-     * @param _manager AccessManager contract address for role-based access control
-     * @param _aaveV3Pool Aave V3 pool address for flash loans
-     * @param _aaveAddressesProvider Addresses Provider for flash loan operations
-     * @param _bitmorPool Bitmor Lending Pool
-     * @param _oracle Price Oracle
-     * @param _collateralAsset `bvBTC` address
-     * @param _debtAsset USDC address
-     * @param _btc Wrapped BTC address
-     * @param _preClosureFeeBps Loan pre-closure fee (in bps)
-     * @param _gracePeriod Grace period for monthly payment in seconds
+     * @notice Initializes the Loan contract with all protocol addresses and configuration
+     * @param params Struct containing all initialization parameters
+     * @dev Uses InitParams struct to avoid stack-too-deep with 18 parameters.
+     *      All addresses validated via `_checkZeroAddress()`. Numeric params validated
+     *      against BASIS_POINT_SCALE, MAX_GRACE_PERIOD, MAX_LIQUIDATION_FEE, etc.
      */
-    function initialize(
-        address _manager,
-        address _aaveV3Pool,
-        address _aaveAddressesProvider,
-        address _bitmorPool,
-        address _oracle,
-        address _collateralAsset,
-        address _debtAsset,
-        address _btc,
-        uint256 _preClosureFeeBps,
-        uint256 _gracePeriod
-    ) public initializer {
-        __AccessManaged_init(_manager);
-
+    function initialize(InitParams calldata params) public initializer {
+        __AccessManaged_init(params.manager);
         __Pausable_init();
 
         LoanStorageData storage $ = _getLoanStorage();
-        // Validate addresses (same checks as old constructor)
-        if (_aaveV3Pool == address(0)) revert Errors.ZeroAddress();
-        if (_aaveAddressesProvider == address(0)) revert Errors.ZeroAddress();
-        if (_bitmorPool == address(0)) revert Errors.ZeroAddress();
-        if (_oracle == address(0)) revert Errors.ZeroAddress();
-        if (_collateralAsset == address(0)) revert Errors.ZeroAddress();
-        if (_debtAsset == address(0)) revert Errors.ZeroAddress();
-        if (_btc == address(0)) revert Errors.ZeroAddress();
-        if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
-        if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
 
-        $.aaveV3Pool = _aaveV3Pool;
-        $.aaveAddressesProvider = _aaveAddressesProvider;
-        $.bitmorPool = _bitmorPool;
-        $.oracle = _oracle;
-        $.collateralAsset = _collateralAsset;
-        $.debtAsset = _debtAsset;
-        $.btc = _btc;
-        $.preClosureFeeBps = _preClosureFeeBps;
-        $.gracePeriod = _gracePeriod;
+        // Validate addresses
+        _checkZeroAddress(params.aaveV3Pool);
+        _checkZeroAddress(params.aaveAddressesProvider);
+        _checkZeroAddress(params.bitmorPool);
+        _checkZeroAddress(params.oracle);
+        _checkZeroAddress(params.collateralAsset);
+        _checkZeroAddress(params.debtAsset);
+        _checkZeroAddress(params.btc);
+        _checkZeroAddress(params.bitmorAddressesProvider);
+
+        // Validate numeric parameters
+        _checkValidFee(params.preClosureFeeBps);
+        if (params.gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
+        _checkValidSlippage(params.slippageSwap);
+        _checkValidSlippage(params.slippageSharesToAsset);
+        if (params.maxBTCAmt < params.minBTCAmt) revert Errors.InvalidInputs();
+        _checkZeroAmount(params.maxBTCAmt);
+        if (params.minDeposit >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
+        _checkZeroAmount(params.minDeposit);
+        if (params.maxDuration == 0) revert Errors.InvalidInputs();
+        if (params.liquidationFee > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
+
+        // Set all storage
+        $.aaveV3Pool = params.aaveV3Pool;
+        $.aaveAddressesProvider = params.aaveAddressesProvider;
+        $.bitmorPool = params.bitmorPool;
+        $.oracle = params.oracle;
+        $.collateralAsset = params.collateralAsset;
+        $.debtAsset = params.debtAsset;
+        $.btc = params.btc;
+        $.bitmorAddressesProvider = params.bitmorAddressesProvider;
+        $.preClosureFeeBps = params.preClosureFeeBps;
+        $.gracePeriod = params.gracePeriod;
+        $.slippageSwap = params.slippageSwap;
+        $.slippageSharesToAsset = params.slippageSharesToAsset;
+        $.maxBTCAmt = params.maxBTCAmt;
+        $.minBTCAmt = params.minBTCAmt;
+        $.minDeposit = params.minDeposit;
+        $.maxDuration = params.maxDuration;
+        $.liquidationFee = params.liquidationFee;
     }
 
     /**
@@ -141,6 +144,24 @@ contract Loan is
      */
     modifier checkIfLoanExists(address _lsa) {
         _checkIfLoanExists(_lsa);
+        _;
+    }
+
+    /**
+     * @notice Reverts if `value` >= BASIS_POINT_SCALE
+     * @param value The slippage value in basis points
+     */
+    modifier checkValidSlippage(uint256 value) {
+        _checkValidSlippage(value);
+        _;
+    }
+
+    /**
+     * @notice Reverts if `value` >= BASIS_POINT_SCALE
+     * @param value The fee value in basis points
+     */
+    modifier checkValidFee(uint256 value) {
+        _checkValidFee(value);
         _;
     }
 
@@ -544,22 +565,24 @@ contract Loan is
     /**
      * @inheritdoc ILoan
      */
-    function setPreClosureFee(uint256 newFee) external whenNotPaused restricted {
-        if (newFee >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
+    function setPreClosureFee(uint256 newFee) external whenNotPaused restricted checkValidFee(newFee) {
         _getLoanStorage().preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
+    function setSlippageForSharesToAsset(uint256 newSlippage)
+        external
+        whenNotPaused
+        restricted
+        checkValidSlippage(newSlippage)
+    {
         _getLoanStorage().slippageSharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
+    function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted checkValidSlippage(newSlippage) {
         _getLoanStorage().slippageSwap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
@@ -663,6 +686,24 @@ contract Loan is
         if (_add == address(0)) {
             revert Errors.ZeroAddress();
         }
+    }
+
+    /**
+     * @notice Internal validation for slippage values
+     * @dev Reverts with `Errors.InvalidSlippage()` if `value` >= BASIS_POINT_SCALE
+     * @param value The slippage value in basis points
+     */
+    function _checkValidSlippage(uint256 value) internal pure {
+        if (value >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
+    }
+
+    /**
+     * @notice Internal validation for fee values
+     * @dev Reverts with `Errors.InvalidFee()` if `value` >= BASIS_POINT_SCALE
+     * @param value The fee value in basis points
+     */
+    function _checkValidFee(uint256 value) internal pure {
+        if (value >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
     }
 
     /**

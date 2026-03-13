@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {LoanUnitTestBase} from "../../base/LoanUnitTestBase.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
@@ -110,16 +111,26 @@ contract LoanUpgradeTest is LoanUnitTestBase {
         vm.expectRevert();
         LoanV2(address(loan))
             .initialize(
-                address(manager),
-                address(mockAavePool),
-                address(mockAddressesProvider),
-                address(mockBitmorPool),
-                address(mockOracle),
-                address(mockBTCVault),
-                address(mockUSDC),
-                address(mockCbBTC),
-                0,
-                0
+                ILoan.InitParams({
+                    manager: address(manager),
+                    aaveV3Pool: address(mockAavePool),
+                    aaveAddressesProvider: address(mockAddressesProvider),
+                    bitmorPool: address(mockBitmorPool),
+                    oracle: address(mockOracle),
+                    collateralAsset: address(mockBTCVault),
+                    debtAsset: address(mockUSDC),
+                    btc: address(mockCbBTC),
+                    bitmorAddressesProvider: address(bitmorAddressesProvider),
+                    preClosureFeeBps: 0,
+                    gracePeriod: 0,
+                    slippageSwap: 50,
+                    slippageSharesToAsset: 100,
+                    maxBTCAmt: 10e8,
+                    minBTCAmt: 0.01e8,
+                    minDeposit: 30_00,
+                    maxDuration: 60,
+                    liquidationFee: 0
+                })
             );
     }
 

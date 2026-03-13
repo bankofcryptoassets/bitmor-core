@@ -48,12 +48,19 @@ contract AccessControlsTest is BaseLoanTest {
 
     /// @notice LPM_SLOW role can call admin setters and updates are persisted
     function test_lpmSlow_adminSetters_updateState() public {
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW (removed from default wiring since it's set in initialize)
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory bapSelectors = new bytes4[](1);
+        bapSelectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), bapSelectors, lpmSlowId);
+
         // Deploy a new BitmorAddressesProvider to use as replacement
         vm.startPrank(admin);
-        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(address(manager), address(loan));
+        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(
+            address(manager), NEW_SWAP_ADAPTER, NEW_PREMIUM_COLLECTOR, makeAddr("liquidationFeeCollector")
+        );
         newProvider.setVaultFactory(NEW_FACTORY);
-        newProvider.setSwapper(NEW_SWAP_ADAPTER);
-        newProvider.setPremiumCollector(NEW_PREMIUM_COLLECTOR);
         vm.stopPrank();
 
         // Use _scheduleAndExecute with lpm_slow role
@@ -80,6 +87,13 @@ contract AccessControlsTest is BaseLoanTest {
 
     /// @notice LPM_SLOW address setters revert on the zero address
     function test_lpmSlow_addressSetters_revertOnZeroAddress() public {
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory bapSelectors = new bytes4[](1);
+        bapSelectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), bapSelectors, lpmSlowId);
+
         _scheduleAndExpectRevert(
             address(loan),
             lpm_slow,

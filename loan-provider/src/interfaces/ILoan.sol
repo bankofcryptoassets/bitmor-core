@@ -173,31 +173,35 @@ interface ILoan {
 
     // ============ Initialization ============
 
+    /// @notice Parameters for `initialize()` — uses struct to avoid stack-too-deep
+    /// @dev All addresses must be non-zero. BPS values must be < BASIS_POINT_SCALE.
+    ///      maxBTCAmt >= minBTCAmt. maxDuration > 0.
+    struct InitParams {
+        address manager;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address bitmorPool;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address bitmorAddressesProvider;
+        uint256 preClosureFeeBps;
+        uint256 gracePeriod;
+        uint256 slippageSwap;
+        uint256 slippageSharesToAsset;
+        uint256 maxBTCAmt;
+        uint256 minBTCAmt;
+        uint256 minDeposit;
+        uint256 maxDuration;
+        uint256 liquidationFee;
+    }
+
     /**
-     * @notice Initializes the Loan contract (called once via proxy)
-     * @param _manager Access Manager address
-     * @param _aaveV3Pool Aave V3 pool address for flash loans
-     * @param _aaveAddressesProvider Aave addresses provider
-     * @param _bitmorPool Bitmor lending pool address
-     * @param _oracle Price oracle address
-     * @param _collateralAsset Collateral asset address (bvBTC)
-     * @param _debtAsset Debt asset address (USDC)
-     * @param _btc BTC asset address (cbBTC)
-     * @param _preClosureFeeBps Pre-closure fee in basis points
-     * @param _gracePeriod Grace period for repayments in seconds
+     * @notice Initializes the Loan contract with all protocol addresses and configuration
+     * @param params Struct containing all initialization parameters
      */
-    function initialize(
-        address _manager,
-        address _aaveV3Pool,
-        address _aaveAddressesProvider,
-        address _bitmorPool,
-        address _oracle,
-        address _collateralAsset,
-        address _debtAsset,
-        address _btc,
-        uint256 _preClosureFeeBps,
-        uint256 _gracePeriod
-    ) external;
+    function initialize(InitParams calldata params) external;
 
     // ============ Main Functions ============
 

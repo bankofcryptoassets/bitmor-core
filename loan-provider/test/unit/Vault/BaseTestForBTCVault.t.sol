@@ -85,7 +85,8 @@ contract BaseTestForBTCVault is BitmorTestBase, VaultUtilities {
     /// @return The BTCVaultHarness instance cast from the proxy address
     function _deployBTCVaultHarnessProxy(address _asset, address _manager) internal returns (BTCVaultHarness) {
         BTCVaultHarness impl = new BTCVaultHarness();
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(BTCVault.initialize, (_asset, _manager)));
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(BTCVault.initialize, (_asset, _manager, MAX_STRATEGIES)));
         return BTCVaultHarness(address(proxy));
     }
 

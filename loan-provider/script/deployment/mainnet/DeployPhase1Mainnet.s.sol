@@ -23,6 +23,11 @@ import {MainnetRolesConfig} from "@bitmor-config/MainnetRolesConfig.sol";
  * @custom:security For Base mainnet deployment (chainId 8453). Verify all addresses before broadcast.
  */
 contract DeployPhase1Mainnet is MainnetRolesConfig {
+    // ============ Constants ============
+
+    /// @notice Maximum number of strategies the BTCVault supports
+    uint256 constant MAX_STRATEGIES = 5;
+
     // ============ Mainnet External Addresses ============
 
     // TODO: Replace with actual Base mainnet cbBTC address before deployment
@@ -61,8 +66,9 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
         // 2. BTCVault (UUPS proxy) — uses real cbBTC as underlying
         // Upgrades.deployUUPSProxy deploys the implementation internally — read its
         // address from the proxy's EIP-1967 slot rather than deploying a second copy.
-        btcVault =
-            _deployUUPSProxy("BTCVault.sol", abi.encodeCall(BTCVault.initialize, (CBBTC_BASE_MAINNET, accessManager)));
+        btcVault = _deployUUPSProxy(
+            "BTCVault.sol", abi.encodeCall(BTCVault.initialize, (CBBTC_BASE_MAINNET, accessManager, MAX_STRATEGIES))
+        );
         btcVaultImpl = _getProxyImplementation(btcVault);
         console2.log("BTCVault proxy:", btcVault);
         console2.log("BTCVault impl:", btcVaultImpl);

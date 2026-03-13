@@ -73,7 +73,7 @@ abstract contract BTCVaultFuzzTestBase is FuzzTestBase, VaultUtilities, ProxyTes
         mockCbBTC.mint(address(mockAavePool), 10_000e8);
 
         // Deploy real BTCVault
-        vault = _deployBTCVaultProxy(address(mockCbBTC), address(manager));
+        vault = _deployBTCVaultProxy(address(mockCbBTC), address(manager), 5);
 
         // Deploy real AaveTokenizedStrategy (strategy1)
         strategy1 = new AaveTokenizedStrategy(address(mockAavePool), address(vault));

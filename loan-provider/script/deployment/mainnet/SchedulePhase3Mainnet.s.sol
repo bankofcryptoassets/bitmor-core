@@ -5,8 +5,6 @@ import {Script, console2} from "forge-std/Script.sol";
 import {DeploymentHelper} from "../../helpers/DeploymentHelper.s.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {ILoan} from "@bitmor/interfaces/ILoan.sol";
-import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {DeploymentConstants} from "../DeploymentConstants.sol";
 
 /**
@@ -14,6 +12,8 @@ import {DeploymentConstants} from "../DeploymentConstants.sol";
  * @author Bitmor Protocol
  * @notice Schedules timelocked operations after roles are granted on-chain for mainnet
  * @dev Must run AFTER DeployPhase3Mainnet.s.sol has been broadcast and confirmed on-chain.
+ *      Most config is now handled in initializers or admin direct calls in the deploy script.
+ *      Only strategy wiring (addStrategy, setStrategy) still requires schedule/execute.
  *
  * Key differences from SchedulePhase3Local:
  * - Chain check: BASE_MAINNET_CHAIN_ID (8453)
@@ -34,15 +34,10 @@ contract SchedulePhase3Mainnet is Script, DeploymentHelper {
 
     // ===== Addresses (loaded from deployments.json) =====
     address public accessManager;
-    address public loan;
     address public btcVault;
     address public usdcVault;
-    address public loanVaultFactory;
     address public aaveStrategy;
     address public usdcStrategy;
-    address public bitmorAddressesProvider;
-    address public swapper;
-    address public autoRepayment;
 
     /// @notice Main entry point - schedules all timelocked operations for mainnet
     function run() external {
@@ -71,59 +66,25 @@ contract SchedulePhase3Mainnet is Script, DeploymentHelper {
     /// @notice Loads deployed addresses using HelperConfig getters
     function _loadDeployedAddresses() internal {
         accessManager = helperConfig.getAccessManager();
-        loan = helperConfig.getLoan();
         btcVault = helperConfig.getBTCVault();
         usdcVault = helperConfig.getUSDCVault();
-        loanVaultFactory = helperConfig.getLoanVaultFactory();
         aaveStrategy = helperConfig.getAaveTokenizedStrategy();
         usdcStrategy = helperConfig.getUSDCStrategy();
-        bitmorAddressesProvider = helperConfig.getBitmorAddressesProvider();
-        swapper = helperConfig.getSwapper();
-        autoRepayment = helperConfig.getAutoRepayer();
 
         console2.log("Loaded addresses from HelperConfig");
         console2.log("  AccessManager:", accessManager);
-        console2.log("  Loan:", loan);
         console2.log("  BTCVault:", btcVault);
         console2.log("  USDCVault:", usdcVault);
     }
 
-    /// @notice Schedules all timelocked operations for execution after delay
-    /// @dev Adds SCHEDULE_BUFFER to account for block.timestamp drift between simulation and broadcast
+    /// @notice Schedules timelocked strategy-wiring operations for execution after delay
+    /// @dev Adds SCHEDULE_BUFFER to account for block.timestamp drift between simulation and broadcast.
+    ///      Only strategy operations remain — all other config is now set in initializers or direct admin calls.
     function _scheduleOperations() internal {
         uint48 when =
             uint48(block.timestamp + DeploymentConstants.EXECUTION_DELAY + DeploymentConstants.SCHEDULE_BUFFER);
 
-        // LPM_SLOW Operations (Loan config) - use HelperConfig getters
-        manager.schedule(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())), when);
-
-        // BitmorAddressesProvider Operations
-        manager.schedule(
-            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory)), when
-        );
-        manager.schedule(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)), when);
-        manager.schedule(
-            bitmorAddressesProvider,
-            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (helperConfig.getPremiumCollector())),
-            when
-        );
-        manager.schedule(
-            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment)), when
-        );
-
-        // Loan parameter configuration (required for loan creation to work)
-        // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)
-        manager.schedule(loan, abi.encodeCall(ILoan.setMaxBTCAmount, (10e8)), when); // 10 BTC max
-        manager.schedule(loan, abi.encodeCall(ILoan.setMinBTCAmount, (0.01e8)), when); // 0.01 BTC min
-        manager.schedule(loan, abi.encodeCall(ILoan.setSlippageForSwap, (50)), when); // 0.5%
-        manager.schedule(loan, abi.encodeCall(ILoan.setSlippageForSharesToAsset, (100)), when); // 1%
-        manager.schedule(loan, abi.encodeCall(ILoan.setMinDepositBps, (30_00)), when); // 30%
-
         // BVC Operations (BTCVault strategy)
-        manager.schedule(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5), when);
         manager.schedule(
             btcVault, abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP), when
         );

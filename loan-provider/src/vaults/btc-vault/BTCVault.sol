@@ -84,12 +84,14 @@ contract BTCVault is
     }
 
     /**
-     * @notice Initializes the vault with the specified underlying asset
+     * @notice Initializes the vault with the specified underlying asset and strategy configuration
      * @param _asset The address of the ERC20 token to be used as the underlying asset
      * @param _manager Access Manager address
+     * @param _maxStrategies Maximum number of strategies that can be added to the vault
      */
-    function initialize(address _asset, address _manager) public initializer {
+    function initialize(address _asset, address _manager, uint256 _maxStrategies) public initializer {
         if (_asset == address(0)) revert Errors.ZeroAddress();
+        if (_maxStrategies == 0) revert Errors.InvalidInputs();
 
         __ERC20_init("BitmorBTCVault", "bvBTC");
         __ERC4626_init(IERC20(_asset));
@@ -98,6 +100,7 @@ contract BTCVault is
 
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         $.asset = _asset;
+        $.vault.maxStrategies = _maxStrategies;
     }
 
     /**

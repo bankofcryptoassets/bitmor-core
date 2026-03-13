@@ -6,6 +6,7 @@ import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 
@@ -71,18 +72,26 @@ contract LoanContract is BaseLoanTest {
             address(loanImpl),
             abi.encodeCall(
                 Loan.initialize,
-                (
-                    _manager,
-                    _aaveV3Pool,
-                    _aaveAddressesProvider,
-                    _bitmorPool,
-                    _oracle,
-                    _collateralAsset,
-                    _debtAsset,
-                    _btc,
-                    _preClosureFeeBps,
-                    _gracePeriod
-                )
+                (ILoan.InitParams({
+                        manager: _manager,
+                        aaveV3Pool: _aaveV3Pool,
+                        aaveAddressesProvider: _aaveAddressesProvider,
+                        bitmorPool: _bitmorPool,
+                        oracle: _oracle,
+                        collateralAsset: _collateralAsset,
+                        debtAsset: _debtAsset,
+                        btc: _btc,
+                        bitmorAddressesProvider: address(bitmorAddressesProvider),
+                        preClosureFeeBps: _preClosureFeeBps,
+                        gracePeriod: _gracePeriod,
+                        slippageSwap: TC.SLIPPAGE_SWAP,
+                        slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
+                        maxBTCAmt: TC.MAX_COLLATERAL,
+                        minBTCAmt: TC.MIN_COLLATERAL,
+                        minDeposit: TC.MIN_DEPOSIT,
+                        maxDuration: TC.MAX_DURATION,
+                        liquidationFee: 0
+                    }))
             )
         );
         return Loan(address(proxy));

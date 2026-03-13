@@ -87,9 +87,6 @@ interface IBitmorAddressesProvider {
                           USER-FACING READ-ONLY
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the immutable Loan Provider address set at construction
-    function i_LOAN_PROVIDER() external view returns (address);
-
     /**
      * @notice Returns the vault factory address
      * @return loanVaultFactory The current vault factory address

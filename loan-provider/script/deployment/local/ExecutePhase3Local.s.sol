@@ -5,13 +5,13 @@ import {Script, console2} from "forge-std/Script.sol";
 import {DeploymentHelper} from "../../helpers/DeploymentHelper.s.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {ILoan} from "@bitmor/interfaces/ILoan.sol";
-import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 
 /// @title ExecutePhase3Local
 /// @author Bitmor Protocol
 /// @notice Executes scheduled AccessManager operations after time has advanced
-/// @dev Run this after SchedulePhase3Local and after advancing Anvil time by 1 day
+/// @dev Run this after SchedulePhase3Local and after advancing Anvil time by 1 day.
+///      Most config is now handled in initializers or admin direct calls in the deploy script.
+///      Only strategy wiring (addStrategy, setStrategy) and oracle reconfiguration remain.
 /// @custom:security Only for local Anvil deployments (chainId 31337)
 contract ExecutePhase3Local is Script, DeploymentHelper {
     // ===== Constants =====
@@ -22,17 +22,12 @@ contract ExecutePhase3Local is Script, DeploymentHelper {
     BitmorAccessManager public manager;
 
     // ===== Addresses (loaded from deployments.json) =====
-    address public loan;
     address public btcVault;
     address public usdcVault;
-    address public loanVaultFactory;
     address public aaveStrategy;
     address public usdcStrategy;
     address public aaveOracle;
     address public mockCbBTC;
-    address public bitmorAddressesProvider;
-    address public swapper;
-    address public autoRepayment;
 
     /// @notice Main entry point - executes all scheduled operations
     function run() public {
@@ -45,40 +40,8 @@ contract ExecutePhase3Local is Script, DeploymentHelper {
 
         vm.startBroadcast();
 
-        // Execute LPM_SLOW operations (Loan config)
-        console2.log("Executing Loan configuration...");
-        manager.execute(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)));
-        manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (helperConfig.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (helperConfig.getPreClosureFee())));
-        manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (helperConfig.getMaxDuration())));
-
-        // Execute BitmorAddressesProvider operations
-        console2.log("Executing BitmorAddressesProvider configuration...");
-        manager.execute(
-            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setVaultFactory, (loanVaultFactory))
-        );
-        manager.execute(bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setSwapper, (swapper)));
-        manager.execute(
-            bitmorAddressesProvider,
-            abi.encodeCall(IBitmorAddressesProvider.setPremiumCollector, (helperConfig.getPremiumCollector()))
-        );
-        manager.execute(
-            bitmorAddressesProvider, abi.encodeCall(IBitmorAddressesProvider.setAutoRepayer, (autoRepayment))
-        );
-        console2.log("BitmorAddressesProvider configuration complete.");
-
-        // Loan parameter configuration (required for loan creation to work)
-        // setMaxBTCAmount must come first: setMinBTCAmount reverts if min > max (default 0)
-        manager.execute(loan, abi.encodeCall(ILoan.setMaxBTCAmount, (10e8)));
-        manager.execute(loan, abi.encodeCall(ILoan.setMinBTCAmount, (0.01e8)));
-        manager.execute(loan, abi.encodeCall(ILoan.setSlippageForSwap, (50)));
-        manager.execute(loan, abi.encodeCall(ILoan.setSlippageForSharesToAsset, (100)));
-        manager.execute(loan, abi.encodeCall(ILoan.setMinDepositBps, (30_00)));
-        console2.log("Loan configuration complete.");
-
         // Execute BVC operations (BTCVault strategy)
         console2.log("Executing BTCVault strategy setup...");
-        manager.execute(btcVault, abi.encodeWithSignature("setMaxStrategies(uint256)", 5));
         manager.execute(btcVault, abi.encodeWithSignature("addStrategy(address,uint256)", aaveStrategy, STRATEGY_CAP));
         console2.log("BTCVault strategy setup complete.");
 
@@ -102,21 +65,15 @@ contract ExecutePhase3Local is Script, DeploymentHelper {
         address accessManager = helperConfig.getAccessManager();
         manager = BitmorAccessManager(accessManager);
 
-        loan = helperConfig.getLoan();
         btcVault = helperConfig.getBTCVault();
         usdcVault = helperConfig.getUSDCVault();
-        loanVaultFactory = helperConfig.getLoanVaultFactory();
         aaveStrategy = helperConfig.getAaveTokenizedStrategy();
         usdcStrategy = helperConfig.getUSDCStrategy();
         aaveOracle = helperConfig.getOracle();
         mockCbBTC = helperConfig.getCbBTC();
-        bitmorAddressesProvider = helperConfig.getBitmorAddressesProvider();
-        swapper = helperConfig.getSwapper();
-        autoRepayment = helperConfig.getAutoRepayer();
 
         console2.log("Loaded addresses from HelperConfig:");
         console2.log("  AccessManager:", accessManager);
-        console2.log("  Loan:", loan);
         console2.log("  BTCVault:", btcVault);
         console2.log("  USDCVault:", usdcVault);
         console2.log("  AaveOracle:", aaveOracle);
