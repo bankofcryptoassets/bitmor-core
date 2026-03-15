@@ -149,6 +149,32 @@ library DataTypes {
       |______\____/_/    \_\_| \_| |____/  /_/   |_____|    |_____/   |_|  |____/|_|  \_\\_____|  |_|  |_____/
     */
 
+    /// @notice Parameters for `initialize()` — uses struct to avoid stack-too-deep
+    /// @dev All addresses must be non-zero. BPS values must be < BASIS_POINT_SCALE.
+    ///      maxBTCAmt >= minBTCAmt. maxDuration > 0.
+    struct InitParams {
+        // Addresses
+        address manager;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address bitmorPool;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address bitmorAddressesProvider;
+        // Packed config (mirrors LoanStorageData packing)
+        uint64 maxBTCAmt;
+        uint64 minBTCAmt;
+        uint32 gracePeriod;
+        uint16 preClosureFeeBps;
+        uint16 liquidationFee;
+        uint16 slippageSharesToAsset;
+        uint16 slippageSwap;
+        uint16 minDeposit;
+        uint16 maxDuration;
+    }
+
     /**
      * @notice Parameters for initializing a new loan
      * @dev Passed to `LoanLogic.executeInitializeLoan`

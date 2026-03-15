@@ -308,7 +308,7 @@ contract InitializeLoanTest is BaseLoanTest {
         );
 
         Loan loan2 = _deployLoanProxy(
-            ILoan.InitParams({
+            DataTypes.InitParams({
                 manager: address(manager2),
                 aaveV3Pool: address(mockPool),
                 aaveAddressesProvider: s_addressesProvider,
@@ -318,15 +318,15 @@ contract InitializeLoanTest is BaseLoanTest {
                 debtAsset: debtAsset,
                 btc: btc,
                 bitmorAddressesProvider: address(provider2),
-                preClosureFeeBps: loan.getPreClosureFee(),
-                gracePeriod: loan.getGracePeriod(),
-                slippageSwap: TC.SLIPPAGE_SWAP,
-                slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
-                maxBTCAmt: TC.MAX_COLLATERAL,
-                minBTCAmt: TC.MIN_COLLATERAL,
-                minDeposit: TC.MIN_DEPOSIT,
-                maxDuration: TC.MAX_DURATION,
-                liquidationFee: 0
+                maxBTCAmt: uint64(TC.MAX_COLLATERAL),
+                minBTCAmt: uint64(TC.MIN_COLLATERAL),
+                gracePeriod: uint32(loan.getGracePeriod()),
+                preClosureFeeBps: uint16(loan.getPreClosureFee()),
+                liquidationFee: 0,
+                slippageSharesToAsset: uint16(TC.SLIPPAGE_SHARES_TO_ASSET),
+                slippageSwap: uint16(TC.SLIPPAGE_SWAP),
+                minDeposit: uint16(TC.MIN_DEPOSIT),
+                maxDuration: uint16(TC.MAX_DURATION)
             })
         );
 

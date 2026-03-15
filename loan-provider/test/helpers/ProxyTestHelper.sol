@@ -13,6 +13,7 @@ import {USDCVault} from "@usdcVault/USDCVault.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 
 /// @title ProxyTestHelper
 /// @notice Shared proxy deployment functions for test infrastructure
@@ -27,7 +28,7 @@ abstract contract ProxyTestHelper is Test {
     /// @notice Deploys Loan behind ERC1967Proxy
     /// @param params InitParams struct with all initialization parameters
     /// @return The Loan contract instance (cast from proxy address)
-    function _deployLoanProxy(ILoan.InitParams memory params) internal returns (Loan) {
+    function _deployLoanProxy(DataTypes.InitParams memory params) internal returns (Loan) {
         Loan impl = new Loan();
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(Loan.initialize, (params)));
         return Loan(address(proxy));

@@ -12,6 +12,8 @@ import {Errors} from "../helpers/Errors.sol";
 import {Constants} from "../helpers/Constants.sol";
 import {LoanMath} from "../helpers/LoanMath.sol";
 
+import {LoanStorage} from "../../protocol/LoanStorage.sol";
+
 import {LSALogic} from "./LSALogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
 
@@ -19,7 +21,8 @@ import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
  * @title RepayLogic
  * @author Bitmor Protocol
  * @notice Library for loan repayment execution logic
- * @dev Handles the full repayment flow including validation, execution, and state updates.
+ * @dev Deployed as a public linked library. Resolves ERC-7201 storage internally
+ * via `_resolveStorage(bytes32)`.
  *
  * ## Repayment Flow
  * 1. Validates LSA and amount parameters
@@ -35,6 +38,12 @@ library RepayLogic {
     using FixedPointMathLib for uint256;
     using BitmorLendingPoolLogic for address;
     using LSALogic for address;
+
+    function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
+        assembly {
+            $.slot := slot
+        }
+    }
 
     /**
      * @notice Executes a loan repayment for a specific LSA
@@ -58,27 +67,28 @@ library RepayLogic {
      * - On final payment: debt remaining MUST be exactly 0 (or below dust threshold),
      *   MUST NOT be negative (Invariant 3.7)
      *
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param bitmorPool Bitmor Lending Pool address
      * @param debtAsset Debt asset address (USDC)
      * @param collateralAsset Collateral asset address (bvBTC)
+     * @param autoRepayer Address of the AutoRepayment contract
      * @param params Repayment parameters containing LSA and amount
-     * @param loansByLSA Storage mapping of all loans by LSA
      * @return finalAmountRepaid The actual amount repaid to the pool
      */
     function executeRepay(
+        bytes32 storageSlot,
         address bitmorPool,
         address debtAsset,
         address collateralAsset,
         address autoRepayer,
-        DataTypes.ExecuteRepayParams memory params,
-        mapping(address => DataTypes.LoanData) storage loansByLSA
-    ) internal returns (uint256 finalAmountRepaid) {
+        DataTypes.ExecuteRepayParams memory params
+    ) public returns (uint256 finalAmountRepaid) {
         if (params.lsa == address(0)) {
             revert Errors.ZeroAddress();
         }
         if (params.amount == 0) revert Errors.ZeroAmount();
 
-        DataTypes.LoanData storage loan = loansByLSA[params.lsa];
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[params.lsa];
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.borrower != msg.sender && msg.sender != autoRepayer) {

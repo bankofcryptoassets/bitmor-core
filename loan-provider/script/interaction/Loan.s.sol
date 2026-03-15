@@ -71,7 +71,7 @@ contract Loan_SetGracePeriod is Script {
         ILoan loan = ILoan(loanAddress);
 
         vm.broadcast();
-        loan.setGracePeriod(gracePeriod);
+        loan.setGracePeriod(uint32(gracePeriod));
     }
 
     function _setGracePeriod() internal {

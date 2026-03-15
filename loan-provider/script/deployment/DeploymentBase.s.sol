@@ -87,6 +87,9 @@ abstract contract DeploymentBase is Script {
         address aaveV3Pool; // Aave V3 Pool (mock or real)
         address aaveAddressesProvider; // Aave V3 Addresses Provider (mock or real)
         address loanLogicLib; // LoanLogic linked library (address(0) if not deployed)
+        address repayLogicLib; // RepayLogic linked library (address(0) if not deployed)
+        address closeLoanLogicLib; // CloseLoanLogic linked library (address(0) if not deployed)
+        address flashLoanLogicLib; // FlashLoanLogic linked library (address(0) if not deployed)
     }
 
     /// @notice Addresses loaded from lending-pool/deployed-contracts.json
@@ -569,6 +572,15 @@ abstract contract DeploymentBase is Script {
         } catch {}
         try vm.parseJsonAddress(json, string.concat(base, "loanLogicLib")) returns (address parsed) {
             addrs.loanLogicLib = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "repayLogicLib")) returns (address parsed) {
+            addrs.repayLogicLib = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "closeLoanLogicLib")) returns (address parsed) {
+            addrs.closeLoanLogicLib = parsed;
+        } catch {}
+        try vm.parseJsonAddress(json, string.concat(base, "flashLoanLogicLib")) returns (address parsed) {
+            addrs.flashLoanLogicLib = parsed;
         } catch {}
 
         // On mainnet, Aave addresses come from HelperConfig constants, not deployments.json

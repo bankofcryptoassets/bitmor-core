@@ -12,6 +12,8 @@ import {ILoan} from "../../interfaces/ILoan.sol";
 import {Errors} from "../helpers/Errors.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
+import {LoanStorage} from "../../protocol/LoanStorage.sol";
+
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
 import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
@@ -20,7 +22,8 @@ import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
  * @title CloseLoanLogic
  * @author Bitmor Protocol
  * @notice Library for loan closure logic and calculations
- * @dev Handles the complex flow of closing a loan including fee calculations and flash loan initiation.
+ * @dev Deployed as a public linked library. Resolves ERC-7201 storage internally
+ * via `_resolveStorage(bytes32)`.
  *
  * ## Close Loan Flow
  * 1. Validates loan ownership and existence
@@ -90,6 +93,12 @@ library CloseLoanLogic {
         uint256 remainingDebtAssetBal;
     }
 
+    function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
+        assembly {
+            $.slot := slot
+        }
+    }
+
     /**
      * @notice Executes the loan closure process
      * @dev Validates ownership, calculates fees, and initiates flash loan for debt repayment.
@@ -105,20 +114,20 @@ library CloseLoanLogic {
      * - All remaining cbBTC and USDC on the Loan contract (above pre-snapshot balances) MUST be
      *   forwarded to the borrower
      *
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Context containing protocol addresses and configuration
      * @param params Parameters including LSA and withdrawal preference
-     * @param loansByLSA Storage mapping of all loans by LSA
      */
     function executeCloseLoan(
+        bytes32 storageSlot,
         DataTypes.ExecuteCloseLoanContext memory ctx,
-        DataTypes.ExecuteCloseLoanParams memory params,
-        mapping(address => DataTypes.LoanData) storage loansByLSA
-    ) internal {
+        DataTypes.ExecuteCloseLoanParams memory params
+    ) public {
         LocalVarsCloseLoan memory vars;
 
         if (params.lsa == address(0)) revert Errors.ZeroAddress();
 
-        DataTypes.LoanData memory loan = loansByLSA[params.lsa];
+        DataTypes.LoanData memory loan = _resolveStorage(storageSlot).loansByLSA[params.lsa];
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.borrower != msg.sender) revert Errors.UnauthorizedCaller();

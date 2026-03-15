@@ -699,7 +699,10 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @dev Refreshes oracle prices after schedule-and-execute warps (LPM_SLOW has 1-day delay)
     function _setLiquidationFee(uint256 feeBps, address collector) internal {
         _scheduleAndExecute(
-            address(loanContract), admin, LPM_SLOW_ID(), abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
+            address(loanContract),
+            admin,
+            LPM_SLOW_ID(),
+            abi.encodeCall(loanContract.setLiquidationFeeBps, (uint16(feeBps)))
         );
         _scheduleAndExecute(
             address(bitmorAddressesProvider),

@@ -111,7 +111,7 @@ contract LoanUpgradeTest is LoanUnitTestBase {
         vm.expectRevert();
         LoanV2(address(loan))
             .initialize(
-                ILoan.InitParams({
+                DataTypes.InitParams({
                     manager: address(manager),
                     aaveV3Pool: address(mockAavePool),
                     aaveAddressesProvider: address(mockAddressesProvider),
@@ -121,15 +121,15 @@ contract LoanUpgradeTest is LoanUnitTestBase {
                     debtAsset: address(mockUSDC),
                     btc: address(mockCbBTC),
                     bitmorAddressesProvider: address(bitmorAddressesProvider),
-                    preClosureFeeBps: 0,
+                    maxBTCAmt: uint64(10e8),
+                    minBTCAmt: uint64(0.01e8),
                     gracePeriod: 0,
-                    slippageSwap: 50,
+                    preClosureFeeBps: 0,
+                    liquidationFee: 0,
                     slippageSharesToAsset: 100,
-                    maxBTCAmt: 10e8,
-                    minBTCAmt: 0.01e8,
+                    slippageSwap: 50,
                     minDeposit: 30_00,
-                    maxDuration: 60,
-                    liquidationFee: 0
+                    maxDuration: 60
                 })
             );
     }
