@@ -72,7 +72,8 @@ contract DeployLibraries is Script {
             '"'
         );
 
-        string memory networkName = block.chainid == 31337 ? "localhost" : "base";
+        string memory networkName =
+            block.chainid == 31337 ? "localhost" : block.chainid == 84532 ? "base-sepolia" : "base";
 
         vm.writeFile(
             "deployments.json",
