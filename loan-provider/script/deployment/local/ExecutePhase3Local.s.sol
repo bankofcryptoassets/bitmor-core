@@ -15,7 +15,7 @@ import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol
 /// @custom:security Only for local Anvil deployments (chainId 31337)
 contract ExecutePhase3Local is Script, DeploymentHelper {
     // ===== Constants =====
-    uint256 constant STRATEGY_CAP = type(uint256).max;
+    uint256 constant STRATEGY_CAP = type(uint96).max;
 
     // ===== Config =====
     HelperConfig public helperConfig;

@@ -101,7 +101,7 @@ contract HelperConfig is Script {
     uint256 public constant MIN_BTC_AMOUNT = 0.01e8; // 0.01 BTC
     uint256 public constant MIN_DEPOSIT_BPS = 30_00; // 30%
     uint256 public constant LIQUIDATION_BUFFER = 50; // 0.5%
-    uint256 public constant STRATEGY_CAP = type(uint256).max;
+    uint256 public constant STRATEGY_CAP = type(uint96).max;
     uint256 public constant MAX_STRATEGIES = 5;
 
     // Oracle price constants (8 decimals)
