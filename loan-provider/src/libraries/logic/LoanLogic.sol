@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
 
 import {ILoan} from "../../interfaces/ILoan.sol";
@@ -121,16 +122,16 @@ library LoanLogic {
 
         $.loansByLSA[lsa] = DataTypes.LoanData({
             borrower: params.user,
-            depositAmount: params.depositAmount,
-            loanAmount: loanAmount,
-            btcAmount: params.btcAmount,
-            estimatedMonthlyPayment: monthlyPayment,
-            duration: params.duration,
-            createdAt: block.timestamp,
-            insuranceID: params.insuranceID,
-            lastPaymentTimestamp: block.timestamp,
+            duration: SafeCast.toUint16(params.duration),
+            status: DataTypes.LoanStatus.Active,
+            createdAt: SafeCast.toUint32(block.timestamp),
+            lastPaymentTimestamp: SafeCast.toUint32(block.timestamp),
+            depositAmount: SafeCast.toUint96(params.depositAmount),
+            loanAmount: SafeCast.toUint96(loanAmount),
+            btcAmount: SafeCast.toUint64(params.btcAmount),
+            estimatedMonthlyPayment: SafeCast.toUint96(monthlyPayment),
             amountRepaidInCurrentPeriod: 0,
-            status: DataTypes.LoanStatus.Active
+            insuranceID: params.insuranceID
         });
 
         // Update user loan indexing for multi-loan support
@@ -223,10 +224,10 @@ library LoanLogic {
     function updateLoanDataForMicroLiquidation(bytes32 storageSlot, address lsa) public returns (uint256 newDuration) {
         DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
-        newDuration = loan.duration.zeroFloorSub(1);
+        newDuration = uint256(loan.duration).zeroFloorSub(1);
 
-        loan.duration = newDuration;
-        loan.lastPaymentTimestamp = block.timestamp;
+        loan.duration = SafeCast.toUint16(newDuration);
+        loan.lastPaymentTimestamp = SafeCast.toUint32(block.timestamp);
     }
 
     /**
@@ -245,7 +246,7 @@ library LoanLogic {
         DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         loan.duration = 0;
-        loan.lastPaymentTimestamp = block.timestamp;
+        loan.lastPaymentTimestamp = SafeCast.toUint32(block.timestamp);
         loan.status = DataTypes.LoanStatus.Completed;
     }
 
@@ -264,7 +265,7 @@ library LoanLogic {
         DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         loan.duration = 0;
-        loan.lastPaymentTimestamp = block.timestamp;
+        loan.lastPaymentTimestamp = SafeCast.toUint32(block.timestamp);
         loan.status = DataTypes.LoanStatus.Liquidated;
     }
 

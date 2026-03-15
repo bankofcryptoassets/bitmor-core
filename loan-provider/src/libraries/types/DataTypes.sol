@@ -544,17 +544,22 @@ library DataTypes {
      * @param status Current lifecycle status of the loan
      */
     struct LoanData {
-        address borrower;
-        uint256 depositAmount;
-        uint256 loanAmount;
-        uint256 btcAmount;
-        uint256 estimatedMonthlyPayment;
-        uint256 duration;
-        uint256 createdAt;
+        // ── Slot 0 (31B, 1B spare): identity + lifecycle metadata
+        address borrower; // 20B
+        uint16 duration; // 2B  | months, matches LoanStorageData.maxDuration
+        LoanStatus status; // 1B  | Active / Completed / Liquidated
+        uint32 createdAt; // 4B  | unix timestamp (good until 2106)
+        uint32 lastPaymentTimestamp; // 4B  | unix timestamp
+        // ── Slot 1 (32B): amounts set at creation
+        uint96 depositAmount; // 12B | USDC 6 dec, max ~$79T
+        uint96 loanAmount; // 12B | USDC 6 dec
+        uint64 btcAmount; // 8B  | cbBTC 8 dec, max ~184B BTC
+        // ── Slot 2 (32B): payment tracking
+        uint96 estimatedMonthlyPayment; // 12B | USDC 6 dec
+        uint96 amountRepaidInCurrentPeriod; // 12B | USDC 6 dec
+        // 8B spare
+        // ── Slot 3 (32B): insurance ID (kept as uint256 for extensibility)
         uint256 insuranceID;
-        uint256 lastPaymentTimestamp;
-        uint256 amountRepaidInCurrentPeriod;
-        LoanStatus status;
     }
 
     // ============ Loan Status ============

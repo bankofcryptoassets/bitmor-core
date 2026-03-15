@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 import {ILoan} from "../../interfaces/ILoan.sol";
@@ -131,16 +132,17 @@ library RepayLogic {
 
             emit ILoan.Loan__Completed(params.lsa);
         } else {
-            loan.amountRepaidInCurrentPeriod += finalAmountRepaid;
-            uint256 periods = loan.amountRepaidInCurrentPeriod / loan.estimatedMonthlyPayment;
+            uint256 accumulated = uint256(loan.amountRepaidInCurrentPeriod) + finalAmountRepaid;
+            uint256 periods = accumulated / loan.estimatedMonthlyPayment;
             if (periods > 0) {
-                uint256 newDuration = loan.duration.zeroFloorSub(periods);
+                uint256 newDuration = uint256(loan.duration).zeroFloorSub(periods);
 
                 /// @dev Duration stays `1` till the complete debt is repaid.
-                loan.duration = newDuration == 0 ? 1 : newDuration;
-                loan.amountRepaidInCurrentPeriod -= periods * loan.estimatedMonthlyPayment;
-                loan.lastPaymentTimestamp = block.timestamp;
+                loan.duration = SafeCast.toUint16(newDuration == 0 ? 1 : newDuration);
+                accumulated -= periods * loan.estimatedMonthlyPayment;
+                loan.lastPaymentTimestamp = SafeCast.toUint32(block.timestamp);
             }
+            loan.amountRepaidInCurrentPeriod = SafeCast.toUint96(accumulated);
         }
 
         // Refund any unspent amount to the payer
