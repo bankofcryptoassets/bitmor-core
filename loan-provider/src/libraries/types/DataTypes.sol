@@ -610,14 +610,16 @@ library DataTypes {
      * @dev Contains strategy address and allocation cap for risk management
      */
     struct Strategy {
+        // ── Single slot (32B): strategy address + allocation cap
         /**
          * @notice Address of the tokenized strategy vault contract
          */
-        address strategy;
+        address strategy; // 20B
         /**
          * @notice Maximum number of assets that can be deposited in this strategy
+         * @dev Max ~79T in asset decimals. SafeCast enforced at write boundary.
          */
-        uint256 cap;
+        uint96 cap; // 12B
     }
 
     /**

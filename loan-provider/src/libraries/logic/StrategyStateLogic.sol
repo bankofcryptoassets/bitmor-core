@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {TokenizedStrategyLogic} from "./TokenizedStrategyLogic.sol";
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {DataTypes} from "../types/DataTypes.sol";
 import {Errors} from "../helpers/Errors.sol";
@@ -57,7 +58,7 @@ library StrategyStateLogic {
      * @param cap The maximum allocation cap for the strategy
      */
     function addStrategy(DataTypes.StrategyState storage s, address newStrategy, uint256 cap) internal {
-        s.strategies[s.nextStrategyIndex] = DataTypes.Strategy({strategy: newStrategy, cap: cap});
+        s.strategies[s.nextStrategyIndex] = DataTypes.Strategy({strategy: newStrategy, cap: SafeCast.toUint96(cap)});
 
         s.supplyQueue.push(s.nextStrategyIndex);
         s.withdrawQueue.push(s.nextStrategyIndex);
@@ -74,7 +75,7 @@ library StrategyStateLogic {
      * @param newCap The new allocation cap for the strategy
      */
     function changeCap(DataTypes.StrategyState storage s, address strategy, uint256 newCap) internal {
-        s.strategies[getStrategyIndex(s, strategy)].cap = newCap;
+        s.strategies[getStrategyIndex(s, strategy)].cap = SafeCast.toUint96(newCap);
     }
 
     /**
@@ -111,7 +112,7 @@ library StrategyStateLogic {
         uint256[] memory newWithdrawQueue = new uint256[](newLength);
 
         // Build new queue and mark included strategies
-        for (uint256 i; i < newLength; ++i) {
+        for (uint256 i; i < newLength;) {
             uint256 prevIndex = newQueue[i];
 
             // Get strategy ID from current queue at the specified index
@@ -120,10 +121,13 @@ library StrategyStateLogic {
             seen[prevIndex] = true;
 
             newWithdrawQueue[i] = id;
+            unchecked {
+                ++i;
+            }
         }
 
         // Remove strategies not included in the new queue
-        for (uint256 i; i < currLength; ++i) {
+        for (uint256 i; i < currLength;) {
             if (!seen[i]) {
                 uint256 id = currentWithdrawQueue[i];
                 DataTypes.Strategy memory strategy = s.strategies[id];
@@ -139,6 +143,9 @@ library StrategyStateLogic {
                 delete s.strategyToIndex[strategy.strategy];
                 delete s.strategies[id];
             }
+            unchecked {
+                ++i;
+            }
         }
 
         s.withdrawQueue = newWithdrawQueue;
@@ -150,9 +157,12 @@ library StrategyStateLogic {
 
             // Count survivors
             uint256 survivors;
-            for (uint256 j; j < supplyLen; ++j) {
+            for (uint256 j; j < supplyLen;) {
                 if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
                     ++survivors;
+                }
+                unchecked {
+                    ++j;
                 }
             }
 
@@ -160,9 +170,12 @@ library StrategyStateLogic {
             if (survivors < supplyLen) {
                 uint256[] memory cleanedSupplyQueue = new uint256[](survivors);
                 uint256 writeIdx;
-                for (uint256 j; j < supplyLen; ++j) {
+                for (uint256 j; j < supplyLen;) {
                     if (s.strategies[currentSupplyQueue[j]].strategy != address(0)) {
                         cleanedSupplyQueue[writeIdx++] = currentSupplyQueue[j];
+                    }
+                    unchecked {
+                        ++j;
                     }
                 }
                 s.supplyQueue = cleanedSupplyQueue;

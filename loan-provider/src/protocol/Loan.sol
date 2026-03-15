@@ -376,9 +376,12 @@ contract Loan is
         uint256 count = $.userLoanCount[user];
         DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
-        for (uint256 i = 0; i < count; i++) {
+        for (uint256 i = 0; i < count;) {
             address lsa = $.userLoanAtIndex[user][i];
             loans[i] = $.loansByLSA[lsa];
+            unchecked {
+                ++i;
+            }
         }
 
         return loans;
