@@ -72,7 +72,7 @@ contract LoanContract is BaseLoanTest {
             address(loanImpl),
             abi.encodeCall(
                 Loan.initialize,
-                (ILoan.InitParams({
+                (DataTypes.InitParams({
                         manager: _manager,
                         aaveV3Pool: _aaveV3Pool,
                         aaveAddressesProvider: _aaveAddressesProvider,
@@ -82,15 +82,15 @@ contract LoanContract is BaseLoanTest {
                         debtAsset: _debtAsset,
                         btc: _btc,
                         bitmorAddressesProvider: address(bitmorAddressesProvider),
-                        preClosureFeeBps: _preClosureFeeBps,
-                        gracePeriod: _gracePeriod,
-                        slippageSwap: TC.SLIPPAGE_SWAP,
-                        slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
-                        maxBTCAmt: TC.MAX_COLLATERAL,
-                        minBTCAmt: TC.MIN_COLLATERAL,
-                        minDeposit: TC.MIN_DEPOSIT,
-                        maxDuration: TC.MAX_DURATION,
-                        liquidationFee: 0
+                        maxBTCAmt: uint64(TC.MAX_COLLATERAL),
+                        minBTCAmt: uint64(TC.MIN_COLLATERAL),
+                        gracePeriod: uint32(_gracePeriod),
+                        preClosureFeeBps: uint16(_preClosureFeeBps),
+                        liquidationFee: 0,
+                        slippageSharesToAsset: uint16(TC.SLIPPAGE_SHARES_TO_ASSET),
+                        slippageSwap: uint16(TC.SLIPPAGE_SWAP),
+                        minDeposit: uint16(TC.MIN_DEPOSIT),
+                        maxDuration: uint16(TC.MAX_DURATION)
                     }))
             )
         );

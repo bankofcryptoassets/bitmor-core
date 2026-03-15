@@ -22,8 +22,8 @@ contract AccessControlsTest is BaseLoanTest {
     address internal constant NEW_SWAP_ADAPTER = address(0x5A4);
     address internal constant NEW_PREMIUM_COLLECTOR = address(0xC011EC7);
     uint256 internal constant NEW_LIQUIDATION_BUFFER = 500;
-    uint256 internal constant NEW_GRACE_PERIOD = 7 days;
-    uint256 internal constant NEW_PRE_CLOSURE_FEE = 200;
+    uint32 internal constant NEW_GRACE_PERIOD = 7 days;
+    uint16 internal constant NEW_PRE_CLOSURE_FEE = 200;
 
     function setUp() public override {
         super.setUp();

@@ -36,9 +36,12 @@ library BTCVault__Validation {
     {
         uint256 len = allocations.length;
 
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i = 0; i < len;) {
             if (s.strategies[allocations[i].index].strategy == address(0)) {
                 revert Errors.WrongAllocationArray();
+            }
+            unchecked {
+                ++i;
             }
         }
     }
@@ -86,7 +89,7 @@ library BTCVault__Validation {
      */
     function validateNewSupplyQueue(
         DataTypes.StrategyState storage s,
-        uint256[] memory newSupplyQueue,
+        uint256[] calldata newSupplyQueue,
         uint256 maxStrategies
     ) internal view {
         uint256 newLength = newSupplyQueue.length;
@@ -94,8 +97,11 @@ library BTCVault__Validation {
         if (newLength > maxStrategies) revert Errors.MaxStrategiesReached();
 
         uint256 i = 0;
-        for (i; i < newLength; i++) {
+        for (i; i < newLength;) {
             if (s.strategies[newSupplyQueue[i]].cap == 0) revert Errors.ZeroCap();
+            unchecked {
+                ++i;
+            }
         }
     }
 

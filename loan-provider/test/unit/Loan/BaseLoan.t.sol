@@ -209,25 +209,25 @@ abstract contract BaseLoanTest is LoanUnitTestBase {
 
     /// @notice Sets minimum BTC amount via LPM_SLOW role
     function _setMinBTCAmount(uint256 newMin) internal {
-        bytes memory data = abi.encodeCall(loan.setMinBTCAmount, (newMin));
+        bytes memory data = abi.encodeCall(loan.setMinBTCAmount, (uint64(newMin)));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
     }
 
     /// @notice Sets maximum BTC amount via LPM_SLOW role
     function _setMaxBTCAmount(uint256 newMax) internal {
-        bytes memory data = abi.encodeCall(loan.setMaxBTCAmount, (newMax));
+        bytes memory data = abi.encodeCall(loan.setMaxBTCAmount, (uint64(newMax)));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
     }
 
     /// @notice Sets minimum deposit basis points via LPM_SLOW role
     function _setMinDepositBps(uint256 newBps) internal {
-        bytes memory data = abi.encodeCall(loan.setMinDepositBps, (newBps));
+        bytes memory data = abi.encodeCall(loan.setMinDepositBps, (uint16(newBps)));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
     }
 
     /// @notice Sets maximum loan duration via LPM_SLOW role
     function _setMaxDuration(uint256 newMax) internal {
-        bytes memory data = abi.encodeCall(loan.setMaxDuration, (newMax));
+        bytes memory data = abi.encodeCall(loan.setMaxDuration, (uint16(newMax)));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
     }
 

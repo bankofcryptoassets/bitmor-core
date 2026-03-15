@@ -11,6 +11,7 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
@@ -99,7 +100,7 @@ contract BTCVault is
         __Pausable_init();
 
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        $.vault.maxStrategies = _maxStrategies;
+        $.vault.maxStrategies = SafeCast.toUint16(_maxStrategies);
     }
 
     /**
@@ -256,7 +257,7 @@ contract BTCVault is
      * @custom:access Requires BVC role (1-day delay)
      */
     function setMaxStrategies(uint256 newMaxStrategies) external restricted {
-        _getBTCVaultStorage().vault.maxStrategies = newMaxStrategies;
+        _getBTCVaultStorage().vault.maxStrategies = SafeCast.toUint16(newMaxStrategies);
 
         emit BTCVault__MaxStrategiesUpdated(newMaxStrategies);
     }
@@ -330,13 +331,16 @@ contract BTCVault is
         uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
         uint256 totalRecovered;
 
-        for (uint256 i; i < withdrawQueue.length; i++) {
+        for (uint256 i; i < withdrawQueue.length;) {
             address strategyAddress = $.strategy.strategies[withdrawQueue[i]].strategy;
 
             try SimpleTokenizedStrategy(strategyAddress).withdrawAll() returns (uint256 recovered) {
                 totalRecovered += recovered;
             } catch (bytes memory reason) {
                 emit BTCVault__EmergencyWithdrawFailed(withdrawQueue[i], reason);
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -349,7 +353,7 @@ contract BTCVault is
      * @param newSupplyQueue Array of strategy indices in desired supply order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
-    function updateSupplyQueue(uint256[] memory newSupplyQueue) external restricted {
+    function updateSupplyQueue(uint256[] calldata newSupplyQueue) external restricted {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         $.strategy.validateNewSupplyQueue(newSupplyQueue, $.vault.maxStrategies);
 
@@ -487,8 +491,11 @@ contract BTCVault is
         assets = IERC20(asset()).balanceOf(address(this));
 
         uint256[] memory wq = $.strategy.withdrawQueue;
-        for (uint256 i = 0; i < wq.length; i++) {
+        for (uint256 i = 0; i < wq.length;) {
             assets = assets.rawAdd($.strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -503,16 +510,24 @@ contract BTCVault is
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 i = 0;
         uint256[] memory supplyQueue = $.strategy.supplyQueue;
-        for (i; i < supplyQueue.length; i++) {
+        for (i; i < supplyQueue.length;) {
             DataTypes.Strategy memory strategy = $.strategy.strategies[supplyQueue[i]];
 
             uint256 cap = strategy.cap;
 
-            if (cap == 0) continue;
+            if (cap == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
             uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
 
             maxAssets = maxAssets.rawAdd(cap.zeroFloorSub(currentBalance));
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -790,8 +805,11 @@ contract BTCVault is
         liquidity = IERC20(asset()).balanceOf(address(this));
 
         uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
-        for (uint256 i = 0; i < withdrawQueue.length; i++) {
+        for (uint256 i = 0; i < withdrawQueue.length;) {
             liquidity = liquidity.rawAdd($.strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -837,7 +855,7 @@ contract BTCVault is
             uint256 currentAssets = strategy.strategy.getAssetBalanceInStrategy();
 
             // Calculate available capacity: min(remaining assets, available cap)
-            uint256 amountToSupply = assets.min(strategy.cap.zeroFloorSub(currentAssets));
+            uint256 amountToSupply = assets.min(uint256(strategy.cap).zeroFloorSub(currentAssets));
 
             // Deposit available assets to the strategy
             if (amountToSupply > 0) {
@@ -867,13 +885,18 @@ contract BTCVault is
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 i = 0;
         uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
-        for (i; i < withdrawQueue.length; i++) {
+        for (i; i < withdrawQueue.length;) {
             DataTypes.Strategy memory strategy = $.strategy.strategies[withdrawQueue[i]];
 
             // Get maximum withdrawable amount from this strategy
             uint256 maxWithdrawable = strategy.strategy.getMaxWithdrawable();
 
-            if (maxWithdrawable == 0) continue;
+            if (maxWithdrawable == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
             if (assets >= maxWithdrawable) {
                 // Full position drain — use withdrawAll to prevent orphaned yield
@@ -900,6 +923,9 @@ contract BTCVault is
 
             // Exit if all required assets have been withdrawn
             if (assets == 0) return;
+            unchecked {
+                ++i;
+            }
         }
 
         // Revert if insufficient liquidity across all strategies
@@ -923,7 +949,7 @@ contract BTCVault is
         uint256 totalWithdrawn;
 
         uint256 i = 0;
-        for (i; i < allocations.length; i++) {
+        for (i; i < allocations.length;) {
             DataTypes.Allocation memory allocation = allocations[i];
             DataTypes.Strategy memory strategy = $.strategy.strategies[allocation.index];
 
@@ -950,7 +976,12 @@ contract BTCVault is
                     ? totalWithdrawn.zeroFloorSub(totalSupplied)
                     : newAllocation.zeroFloorSub(currentBalance);
 
-                if (assetToSupply == 0) continue;
+                if (assetToSupply == 0) {
+                    unchecked {
+                        ++i;
+                    }
+                    continue;
+                }
 
                 // Validate strategy cap constraints
                 uint256 currentSupplyCap = strategy.cap;
@@ -965,6 +996,9 @@ contract BTCVault is
                 emit BTCVault__DepositedInStrategy(allocation.index, assetToSupply);
 
                 totalSupplied += assetToSupply;
+            }
+            unchecked {
+                ++i;
             }
         }
 

@@ -149,6 +149,32 @@ library DataTypes {
       |______\____/_/    \_\_| \_| |____/  /_/   |_____|    |_____/   |_|  |____/|_|  \_\\_____|  |_|  |_____/
     */
 
+    /// @notice Parameters for `initialize()` — uses struct to avoid stack-too-deep
+    /// @dev All addresses must be non-zero. BPS values must be < BASIS_POINT_SCALE.
+    ///      maxBTCAmt >= minBTCAmt. maxDuration > 0.
+    struct InitParams {
+        // Addresses
+        address manager;
+        address aaveV3Pool;
+        address aaveAddressesProvider;
+        address bitmorPool;
+        address oracle;
+        address collateralAsset;
+        address debtAsset;
+        address btc;
+        address bitmorAddressesProvider;
+        // Packed config (mirrors LoanStorageData packing)
+        uint64 maxBTCAmt;
+        uint64 minBTCAmt;
+        uint32 gracePeriod;
+        uint16 preClosureFeeBps;
+        uint16 liquidationFee;
+        uint16 slippageSharesToAsset;
+        uint16 slippageSwap;
+        uint16 minDeposit;
+        uint16 maxDuration;
+    }
+
     /**
      * @notice Parameters for initializing a new loan
      * @dev Passed to `LoanLogic.executeInitializeLoan`
@@ -518,17 +544,22 @@ library DataTypes {
      * @param status Current lifecycle status of the loan
      */
     struct LoanData {
-        address borrower;
-        uint256 depositAmount;
-        uint256 loanAmount;
-        uint256 btcAmount;
-        uint256 estimatedMonthlyPayment;
-        uint256 duration;
-        uint256 createdAt;
+        // ── Slot 0 (31B, 1B spare): identity + lifecycle metadata
+        address borrower; // 20B
+        uint16 duration; // 2B  | months, matches LoanStorageData.maxDuration
+        LoanStatus status; // 1B  | Active / Completed / Liquidated
+        uint32 createdAt; // 4B  | unix timestamp (good until 2106)
+        uint32 lastPaymentTimestamp; // 4B  | unix timestamp
+        // ── Slot 1 (32B): amounts set at creation
+        uint96 depositAmount; // 12B | USDC 6 dec, max ~$79T
+        uint96 loanAmount; // 12B | USDC 6 dec
+        uint64 btcAmount; // 8B  | cbBTC 8 dec, max ~184B BTC
+        // ── Slot 2 (32B): payment tracking
+        uint96 estimatedMonthlyPayment; // 12B | USDC 6 dec
+        uint96 amountRepaidInCurrentPeriod; // 12B | USDC 6 dec
+        // 8B spare
+        // ── Slot 3 (32B): insurance ID (kept as uint256 for extensibility)
         uint256 insuranceID;
-        uint256 lastPaymentTimestamp;
-        uint256 amountRepaidInCurrentPeriod;
-        LoanStatus status;
     }
 
     // ============ Loan Status ============
@@ -579,14 +610,16 @@ library DataTypes {
      * @dev Contains strategy address and allocation cap for risk management
      */
     struct Strategy {
+        // ── Single slot (32B): strategy address + allocation cap
         /**
          * @notice Address of the tokenized strategy vault contract
          */
-        address strategy;
+        address strategy; // 20B
         /**
          * @notice Maximum number of assets that can be deposited in this strategy
+         * @dev Max ~79T in asset decimals. SafeCast enforced at write boundary.
          */
-        uint256 cap;
+        uint96 cap; // 12B
     }
 
     /**
@@ -624,21 +657,24 @@ library DataTypes {
      * @dev Contains fee rates and recipient address for vault operations
      */
     struct VaultState {
-        /**
-         * @notice Entry fee charged on deposits, expressed in basis points (e.g., 50 = 0.5%)
-         */
-        uint256 entryFee;
-        /**
-         * @notice Exit fee charged on withdrawals, expressed in basis points (e.g., 100 = 1%)
-         */
-        uint256 exitFee;
+        // ── Single slot (26B used, 6B spare) ───────────────────
         /**
          * @notice Address that receives collected entry and exit fees
          */
-        address feeRecipient;
+        address feeRecipient; // 20B
+        /**
+         * @notice Entry fee charged on deposits, expressed in basis points (e.g., 50 = 0.5%)
+         * @dev Max 1,000 bps (10%) enforced by MAX_FEE_BPS
+         */
+        uint16 entryFee; // 2B
+        /**
+         * @notice Exit fee charged on withdrawals, expressed in basis points (e.g., 100 = 1%)
+         * @dev Max 1,000 bps (10%) enforced by MAX_FEE_BPS
+         */
+        uint16 exitFee; // 2B
         /**
          * @notice Maximum number of strategies that can be added to the vault
          */
-        uint256 maxStrategies;
+        uint16 maxStrategies; // 2B
     }
 }

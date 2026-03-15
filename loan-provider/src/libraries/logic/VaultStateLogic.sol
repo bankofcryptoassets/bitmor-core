@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 import {DataTypes} from "../types/DataTypes.sol";
 
 /**
  * @title VaultStateLogic
  * @author Bitmor Protocol
  * @notice Library for managing vault configuration state including fees and recipient settings
- * @dev Simple state update functions for vault configuration management
+ * @dev Simple state update functions for vault configuration management.
+ * Uses SafeCast for downcasting uint256 params to packed storage types.
  */
 library VaultStateLogic {
     /**
@@ -16,7 +19,7 @@ library VaultStateLogic {
      * @param newEntryFee The new entry fee in basis points (e.g., 50 = 0.5%)
      */
     function updateEntryFee(DataTypes.VaultState storage s, uint256 newEntryFee) internal {
-        s.entryFee = newEntryFee;
+        s.entryFee = SafeCast.toUint16(newEntryFee);
     }
 
     /**
@@ -25,7 +28,7 @@ library VaultStateLogic {
      * @param newExitFee The new exit fee in basis points (e.g., 100 = 1%)
      */
     function updateExitFee(DataTypes.VaultState storage s, uint256 newExitFee) internal {
-        s.exitFee = newExitFee;
+        s.exitFee = SafeCast.toUint16(newExitFee);
     }
 
     /**

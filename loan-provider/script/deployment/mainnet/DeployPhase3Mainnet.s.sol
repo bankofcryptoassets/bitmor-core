@@ -13,6 +13,7 @@ import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedSt
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
 
@@ -126,7 +127,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
      * 2. BitmorAddressesProvider (UUPS proxy) — deployed before Loan so address is available for InitParams
-     * 3. Loan (UUPS proxy) — uses ILoan.InitParams with all config in initializer
+     * 3. Loan (UUPS proxy) — uses DataTypes.InitParams with all config in initializer
      * 4. LoanVault beacon proxy (impl + beacon + controller + factory)
      * 5. AutoRepayment (UUPS proxy)
      * 6. BAP post-init setters (setVaultFactory, setAutoRepayer) — before role wiring maps them to LPM_SLOW
@@ -197,7 +198,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         // storage via bytes32 storageSlot passed from Loan.sol).
         Options memory loanOpts;
         loanOpts.unsafeAllow = "external-library-linking";
-        ILoan.InitParams memory loanInitParams = ILoan.InitParams({
+        DataTypes.InitParams memory loanInitParams = DataTypes.InitParams({
             manager: accessManager,
             aaveV3Pool: aaveV3Pool,
             aaveAddressesProvider: aaveAddressesProvider,
@@ -207,15 +208,15 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
             debtAsset: usdc, // USDC
             btc: cbBTC, // cbBTC
             bitmorAddressesProvider: bitmorAddressesProvider,
-            preClosureFeeBps: pc.preClosureFeeBps,
-            gracePeriod: pc.gracePeriod,
-            slippageSwap: pc.slippageSwap,
-            slippageSharesToAsset: pc.slippageSharesToAsset,
-            maxBTCAmt: pc.maxBTCAmt,
-            minBTCAmt: pc.minBTCAmt,
-            minDeposit: pc.minDepositBps,
-            maxDuration: pc.maxDuration,
-            liquidationFee: pc.liquidationFee
+            maxBTCAmt: uint64(pc.maxBTCAmt),
+            minBTCAmt: uint64(pc.minBTCAmt),
+            gracePeriod: uint32(pc.gracePeriod),
+            preClosureFeeBps: uint16(pc.preClosureFeeBps),
+            liquidationFee: uint16(pc.liquidationFee),
+            slippageSharesToAsset: uint16(pc.slippageSharesToAsset),
+            slippageSwap: uint16(pc.slippageSwap),
+            minDeposit: uint16(pc.minDepositBps),
+            maxDuration: uint16(pc.maxDuration)
         });
         loan = _deployUUPSProxy("Loan.sol", abi.encodeCall(Loan.initialize, (loanInitParams)), loanOpts);
         loanImpl = _getProxyImplementation(loan);
@@ -406,6 +407,21 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
             '",',
             '"usdcStrategy":"',
             vm.toString(usdcStrategy),
+            '"'
+        );
+
+        // Chunk 6: Linked library addresses (carried forward from DeployLibraries)
+        Phase1Addresses memory p1 = _loadPhase1Addresses();
+        keys = string.concat(
+            keys,
+            ',"loanLogicLib":"',
+            vm.toString(p1.loanLogicLib),
+            '","repayLogicLib":"',
+            vm.toString(p1.repayLogicLib),
+            '","closeLoanLogicLib":"',
+            vm.toString(p1.closeLoanLogicLib),
+            '","flashLoanLogicLib":"',
+            vm.toString(p1.flashLoanLogicLib),
             '"'
         );
 

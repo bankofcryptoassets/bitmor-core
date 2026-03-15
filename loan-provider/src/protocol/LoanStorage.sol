@@ -45,25 +45,28 @@ contract LoanStorage {
 
     /// @custom:storage-location erc7201:bitmor.storage.Loan
     struct LoanStorageData {
-        // Former immutables (set once in initialize, never changed)
-        address aaveV3Pool;
-        address aaveAddressesProvider;
-        address bitmorPool;
+        // ── Slot 0 (32B): Aave V3 pool + BTC upper bound + grace period
+        address aaveV3Pool; // 20B
+        uint64 maxBTCAmt; // 8B  | max 21M BTC × 1e8 = 2.1e15
+        uint32 gracePeriod; // 4B  | max 45 days = 3,888,000s
+        // ── Slot 1 (32B): Aave addresses provider + BTC lower bound + fee config
+        address aaveAddressesProvider; // 20B
+        uint64 minBTCAmt; // 8B  | same range as maxBTCAmt
+        uint16 preClosureFeeBps; // 2B  | max < 10,000
+        uint16 liquidationFee; // 2B  | max 2,000
+        // ── Slot 2 (28B used, 4B spare): Bitmor pool + slippage + loan config
+        address bitmorPool; // 20B
+        uint16 slippageSharesToAsset; // 2B  | max < 10,000
+        uint16 slippageSwap; // 2B  | max < 10,000
+        uint16 minDeposit; // 2B  | max < 10,000
+        uint16 maxDuration; // 2B  | months
+        // ── Slots 3–7: Remaining addresses (12B spare each, no params to pack)
         address oracle;
         address collateralAsset;
         address debtAsset;
         address btc;
-        // Former mutable state
         address bitmorAddressesProvider;
-        uint256 gracePeriod;
-        uint256 preClosureFeeBps;
-        uint256 liquidationFee;
-        uint256 slippageSharesToAsset;
-        uint256 slippageSwap;
-        uint256 maxBTCAmt;
-        uint256 minBTCAmt;
-        uint256 minDeposit;
-        uint256 maxDuration;
+        // ── Mappings (each starts at its own keccak slot)
         mapping(address => DataTypes.LoanData) loansByLSA;
         mapping(address => uint256) userLoanCount;
         mapping(address => mapping(uint256 => address)) userLoanAtIndex;

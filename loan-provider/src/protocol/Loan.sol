@@ -55,8 +55,6 @@ contract Loan is
     PausableUpgradeable
 {
     using LSALogic for address;
-    using FlashLoanLogic for DataTypes.ExecuteFLOperationContext;
-    using CloseLoanLogic for DataTypes.ExecuteCloseLoanContext;
 
     // ============ Constructor ============
 
@@ -72,7 +70,7 @@ contract Loan is
      *      All addresses validated via `_checkZeroAddress()`. Numeric params validated
      *      against BASIS_POINT_SCALE, MAX_GRACE_PERIOD, MAX_LIQUIDATION_FEE, etc.
      */
-    function initialize(InitParams calldata params) public initializer {
+    function initialize(DataTypes.InitParams calldata params) public initializer {
         __AccessManaged_init(params.manager);
         __Pausable_init();
 
@@ -178,6 +176,7 @@ contract Loan is
         bytes calldata data
     ) external whenNotPaused restricted nonReentrant returns (address lsa) {
         LoanStorageData storage $ = _getLoanStorage();
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
 
         DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
             bitmorPool: $.bitmorPool,
@@ -185,8 +184,8 @@ contract Loan is
             btc: $.btc,
             debtAsset: $.debtAsset,
             aavePool: $.aaveV3Pool,
-            loanVaultFactory: getLoanVaultFactory(),
-            premiumCollector: getPremiumCollector(),
+            loanVaultFactory: bap.getLoanVaultFactory(),
+            premiumCollector: bap.getPremiumCollector(),
             minBTCAmt: $.minBTCAmt,
             maxBTCAmt: $.maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
@@ -214,12 +213,12 @@ contract Loan is
     {
         LoanStorageData storage $ = _getLoanStorage();
         finalAmountRepaid = RepayLogic.executeRepay(
+            LOAN_STORAGE_LOCATION,
             $.bitmorPool,
             $.debtAsset,
             $.collateralAsset,
             getAutoRepayer(),
-            DataTypes.ExecuteRepayParams(lsa, amount, $.slippageSharesToAsset),
-            $.loansByLSA
+            DataTypes.ExecuteRepayParams(lsa, amount, $.slippageSharesToAsset)
         );
     }
 
@@ -241,7 +240,7 @@ contract Loan is
             $.slippageSwap
         );
         DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
-        ctx.executeCloseLoan(params, $.loansByLSA);
+        CloseLoanLogic.executeCloseLoan(LOAN_STORAGE_LOCATION, ctx, params);
     }
 
     // ============ State Update Function  ============
@@ -262,7 +261,13 @@ contract Loan is
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForMicroLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
         uint256 newDuration = LoanLogic.updateLoanDataForMicroLiquidation(LOAN_STORAGE_LOCATION, _lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }
@@ -309,14 +314,15 @@ contract Loan is
         (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
         LoanStorageData storage $ = _getLoanStorage();
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext({
             aavePool: $.aaveV3Pool,
             bitmorPool: $.bitmorPool,
-            swapper: getSwapper(),
+            swapper: bap.getSwapper(),
             debtAsset: $.debtAsset,
             collateralAsset: $.collateralAsset,
             btc: $.btc,
-            feeCollector: getPremiumCollector(),
+            feeCollector: bap.getPremiumCollector(),
             oracle: $.oracle,
             maxSlippage: $.slippageSwap
         });
@@ -331,9 +337,9 @@ contract Loan is
         });
 
         if (initializingLoan) {
-            ctx.executeFLOperationInitiailizingLoan(flOpParams, $.loansByLSA);
+            FlashLoanLogic.executeFLOperationInitiailizingLoan(LOAN_STORAGE_LOCATION, ctx, flOpParams);
         } else {
-            ctx.executeFLOperationCloseLoan(flOpParams, $.loansByLSA);
+            FlashLoanLogic.executeFLOperationCloseLoan(LOAN_STORAGE_LOCATION, ctx, flOpParams);
         }
 
         return true;
@@ -378,9 +384,12 @@ contract Loan is
         uint256 count = $.userLoanCount[user];
         DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
-        for (uint256 i = 0; i < count; i++) {
+        for (uint256 i = 0; i < count;) {
             address lsa = $.userLoanAtIndex[user][i];
             loans[i] = $.loansByLSA[lsa];
+            unchecked {
+                ++i;
+            }
         }
 
         return loans;
@@ -556,7 +565,7 @@ contract Loan is
     /**
      * @inheritdoc ILoan
      */
-    function setGracePeriod(uint256 gracePeriod) external whenNotPaused restricted {
+    function setGracePeriod(uint32 gracePeriod) external whenNotPaused restricted {
         if (gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
         _getLoanStorage().gracePeriod = gracePeriod;
         emit Loan__GracePeriodUpdated(gracePeriod);
@@ -565,13 +574,13 @@ contract Loan is
     /**
      * @inheritdoc ILoan
      */
-    function setPreClosureFee(uint256 newFee) external whenNotPaused restricted checkValidFee(newFee) {
+    function setPreClosureFee(uint16 newFee) external whenNotPaused restricted checkValidFee(newFee) {
         _getLoanStorage().preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSharesToAsset(uint256 newSlippage)
+    function setSlippageForSharesToAsset(uint16 newSlippage)
         external
         whenNotPaused
         restricted
@@ -582,13 +591,13 @@ contract Loan is
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted checkValidSlippage(newSlippage) {
+    function setSlippageForSwap(uint16 newSlippage) external whenNotPaused restricted checkValidSlippage(newSlippage) {
         _getLoanStorage().slippageSwap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
-    function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
+    function setMaxBTCAmount(uint64 newMaxBTCAmt) external whenNotPaused restricted {
         LoanStorageData storage $ = _getLoanStorage();
         if (newMaxBTCAmt < $.minBTCAmt) revert Errors.InvalidInputs();
         $.maxBTCAmt = newMaxBTCAmt;
@@ -596,7 +605,7 @@ contract Loan is
     }
 
     /// @inheritdoc ILoan
-    function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
+    function setMinBTCAmount(uint64 newMinBTCAmt) external whenNotPaused restricted {
         LoanStorageData storage $ = _getLoanStorage();
         if (newMinBTCAmt > $.maxBTCAmt) revert Errors.InvalidInputs();
         $.minBTCAmt = newMinBTCAmt;
@@ -604,20 +613,20 @@ contract Loan is
     }
 
     /// @inheritdoc ILoan
-    function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
+    function setMinDepositBps(uint16 newMinDepositBps) external whenNotPaused restricted {
         if (newMinDepositBps >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
         _getLoanStorage().minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
     }
 
     /// @inheritdoc ILoan
-    function setMaxDuration(uint256 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
+    function setMaxDuration(uint16 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
         _getLoanStorage().maxDuration = newMaxDuration;
         emit Loan__MaxDurationUpdated(newMaxDuration);
     }
 
     /// @inheritdoc ILoan
-    function setLiquidationFeeBps(uint256 newLiquidationFeeBps) external whenNotPaused restricted {
+    function setLiquidationFeeBps(uint16 newLiquidationFeeBps) external whenNotPaused restricted {
         if (newLiquidationFeeBps > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
         _getLoanStorage().liquidationFee = newLiquidationFeeBps;
         emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);

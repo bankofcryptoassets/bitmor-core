@@ -26,7 +26,7 @@ import {DeploymentConstants} from "../DeploymentConstants.sol";
  */
 contract SchedulePhase3Mainnet is Script, DeploymentHelper {
     // ===== Constants =====
-    uint256 constant STRATEGY_CAP = type(uint256).max;
+    uint256 constant STRATEGY_CAP = type(uint96).max;
 
     // ===== Config =====
     HelperConfig public helperConfig;

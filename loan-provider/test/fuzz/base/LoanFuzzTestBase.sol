@@ -287,7 +287,7 @@ abstract contract LoanFuzzTestBase is FuzzTestBase, ProxyTestHelper {
 
         // Deploy Loan via UUPS proxy with InitParams struct
         loan = _deployLoanProxy(
-            ILoan.InitParams({
+            DataTypes.InitParams({
                 manager: address(manager),
                 aaveV3Pool: address(mockAavePool),
                 aaveAddressesProvider: address(mockAddressesProvider),
@@ -297,15 +297,15 @@ abstract contract LoanFuzzTestBase is FuzzTestBase, ProxyTestHelper {
                 debtAsset: address(mockUSDC),
                 btc: address(mockCbBTC),
                 bitmorAddressesProvider: address(bitmorAddressesProvider),
-                preClosureFeeBps: config.getPreClosureFee(),
-                gracePeriod: config.getGracePeriod(),
-                slippageSwap: TC.SLIPPAGE_SWAP,
-                slippageSharesToAsset: TC.SLIPPAGE_SHARES_TO_ASSET,
-                maxBTCAmt: TC.MAX_COLLATERAL,
-                minBTCAmt: TC.MIN_COLLATERAL,
-                minDeposit: TC.MIN_DEPOSIT,
-                maxDuration: config.getMaxDuration(),
-                liquidationFee: 0
+                maxBTCAmt: uint64(TC.MAX_COLLATERAL),
+                minBTCAmt: uint64(TC.MIN_COLLATERAL),
+                gracePeriod: uint32(config.getGracePeriod()),
+                preClosureFeeBps: uint16(config.getPreClosureFee()),
+                liquidationFee: 0,
+                slippageSharesToAsset: uint16(TC.SLIPPAGE_SHARES_TO_ASSET),
+                slippageSwap: uint16(TC.SLIPPAGE_SWAP),
+                minDeposit: uint16(TC.MIN_DEPOSIT),
+                maxDuration: uint16(config.getMaxDuration())
             })
         );
 

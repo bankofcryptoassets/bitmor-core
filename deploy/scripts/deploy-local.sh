@@ -55,21 +55,32 @@ log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-# Deploy LoanLogic as a linked library (must exist on-chain before Loan.sol)
-log "Deploying LoanLogic linked library..."
-LOAN_LOGIC_JSON=$(FOUNDRY_PROFILE=local forge create src/libraries/logic/LoanLogic.sol:LoanLogic \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --json)
-LOAN_LOGIC_ADDR=$(echo "$LOAN_LOGIC_JSON" | jq -r '.deployedTo')
-[ -n "$LOAN_LOGIC_ADDR" ] && [ "$LOAN_LOGIC_ADDR" != "null" ] || error "Failed to deploy LoanLogic"
-log "LoanLogic deployed at: $LOAN_LOGIC_ADDR"
+# Deploy all linked libraries (must exist on-chain before Loan.sol)
+log "Deploying linked libraries (LoanLogic, RepayLogic, CloseLoanLogic, FlashLoanLogic)..."
+FOUNDRY_PROFILE=local forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
+    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --force -v
 
-# Write LoanLogic address into deployments.json so DeployPhase3Local can read it
-jq --arg addr "$LOAN_LOGIC_ADDR" \
-    '.deployments["31337"].networkConfig.loanLogicLib = $addr' \
-    deployments.json > deployments.json.tmp && mv deployments.json.tmp deployments.json
-log "Saved LoanLogic address to deployments.json"
+# Read deployed addresses from deployments.json
+LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.loanLogicLib' deployments.json)
+REPAY_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.repayLogicLib' deployments.json)
+CLOSE_LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.closeLoanLogicLib' deployments.json)
+FLASH_LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.flashLoanLogicLib' deployments.json)
+
+[ -n "$LOAN_LOGIC_ADDR" ] && [ "$LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read LoanLogic address"
+[ -n "$REPAY_LOGIC_ADDR" ] && [ "$REPAY_LOGIC_ADDR" != "null" ] || error "Failed to read RepayLogic address"
+[ -n "$CLOSE_LOAN_LOGIC_ADDR" ] && [ "$CLOSE_LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read CloseLoanLogic address"
+[ -n "$FLASH_LOAN_LOGIC_ADDR" ] && [ "$FLASH_LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read FlashLoanLogic address"
+
+log "Libraries deployed:"
+log "  LoanLogic: $LOAN_LOGIC_ADDR"
+log "  RepayLogic: $REPAY_LOGIC_ADDR"
+log "  CloseLoanLogic: $CLOSE_LOAN_LOGIC_ADDR"
+log "  FlashLoanLogic: $FLASH_LOAN_LOGIC_ADDR"
 
 LIBRARY_FLAG="--libraries src/libraries/logic/LoanLogic.sol:LoanLogic:$LOAN_LOGIC_ADDR"
+LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/RepayLogic.sol:RepayLogic:$REPAY_LOGIC_ADDR"
+LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/CloseLoanLogic.sol:CloseLoanLogic:$CLOSE_LOAN_LOGIC_ADDR"
+LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/FlashLoanLogic.sol:FlashLoanLogic:$FLASH_LOAN_LOGIC_ADDR"
 
 FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local \
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow --force -v \
