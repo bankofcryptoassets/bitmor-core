@@ -97,7 +97,10 @@ library RepayLogic {
         }
         if (loan.status != DataTypes.LoanStatus.Active) revert Errors.LoanIsNotActive();
 
-        uint256 totalDebt = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
+        // Cache VDT address to avoid redundant getReserveData cross-contract calls
+        address vdt = bitmorPool.getVDTAddress(debtAsset);
+
+        uint256 totalDebt = IERC20(vdt).balanceOf(params.lsa);
         uint256 maxRepayableAmt = LoanMath.min(params.amount, totalDebt);
 
         // Pull only what might be needed from the borrower
@@ -108,7 +111,7 @@ library RepayLogic {
 
         finalAmountRepaid = bitmorPool.executeLoanRepayment(debtAsset, params.lsa, maxRepayableAmt);
 
-        uint256 totalDebtRemaining = bitmorPool.getVDTTokenAmount(debtAsset, params.lsa);
+        uint256 totalDebtRemaining = IERC20(vdt).balanceOf(params.lsa);
 
         // Advance schedule only if loan remains active
         if (totalDebtRemaining <= Constants.DEBT_DUST_THRESHOLD) {

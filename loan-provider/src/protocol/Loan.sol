@@ -176,6 +176,7 @@ contract Loan is
         bytes calldata data
     ) external whenNotPaused restricted nonReentrant returns (address lsa) {
         LoanStorageData storage $ = _getLoanStorage();
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
 
         DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
             bitmorPool: $.bitmorPool,
@@ -183,8 +184,8 @@ contract Loan is
             btc: $.btc,
             debtAsset: $.debtAsset,
             aavePool: $.aaveV3Pool,
-            loanVaultFactory: getLoanVaultFactory(),
-            premiumCollector: getPremiumCollector(),
+            loanVaultFactory: bap.getLoanVaultFactory(),
+            premiumCollector: bap.getPremiumCollector(),
             minBTCAmt: $.minBTCAmt,
             maxBTCAmt: $.maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
@@ -307,14 +308,15 @@ contract Loan is
         (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
         LoanStorageData storage $ = _getLoanStorage();
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext({
             aavePool: $.aaveV3Pool,
             bitmorPool: $.bitmorPool,
-            swapper: getSwapper(),
+            swapper: bap.getSwapper(),
             debtAsset: $.debtAsset,
             collateralAsset: $.collateralAsset,
             btc: $.btc,
-            feeCollector: getPremiumCollector(),
+            feeCollector: bap.getPremiumCollector(),
             oracle: $.oracle,
             maxSlippage: $.slippageSwap
         });

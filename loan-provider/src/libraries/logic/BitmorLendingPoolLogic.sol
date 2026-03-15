@@ -52,9 +52,17 @@ library BitmorLendingPoolLogic {
         view
         returns (uint256 vdtTokenAmount)
     {
-        DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(debtAsset);
+        vdtTokenAmount = IERC20(getVDTAddress(bitmorPool, debtAsset)).balanceOf(lsa);
+    }
 
-        vdtTokenAmount = IERC20(data.variableDebtTokenAddress).balanceOf(lsa);
+    /**
+     * @notice Returns the variable debt token address for a given reserve
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset Debt asset token address (USDC)
+     * @return vdt The variable debt token contract address
+     */
+    function getVDTAddress(address bitmorPool, address debtAsset) internal view returns (address vdt) {
+        vdt = ILendingPool(bitmorPool).getReserveData(debtAsset).variableDebtTokenAddress;
     }
 
     /**
