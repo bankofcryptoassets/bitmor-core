@@ -11,6 +11,7 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
@@ -99,7 +100,7 @@ contract BTCVault is
         __Pausable_init();
 
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
-        $.vault.maxStrategies = _maxStrategies;
+        $.vault.maxStrategies = SafeCast.toUint16(_maxStrategies);
     }
 
     /**
@@ -256,7 +257,7 @@ contract BTCVault is
      * @custom:access Requires BVC role (1-day delay)
      */
     function setMaxStrategies(uint256 newMaxStrategies) external restricted {
-        _getBTCVaultStorage().vault.maxStrategies = newMaxStrategies;
+        _getBTCVaultStorage().vault.maxStrategies = SafeCast.toUint16(newMaxStrategies);
 
         emit BTCVault__MaxStrategiesUpdated(newMaxStrategies);
     }

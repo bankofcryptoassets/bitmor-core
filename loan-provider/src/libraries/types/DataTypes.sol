@@ -655,21 +655,24 @@ library DataTypes {
      * @dev Contains fee rates and recipient address for vault operations
      */
     struct VaultState {
-        /**
-         * @notice Entry fee charged on deposits, expressed in basis points (e.g., 50 = 0.5%)
-         */
-        uint256 entryFee;
-        /**
-         * @notice Exit fee charged on withdrawals, expressed in basis points (e.g., 100 = 1%)
-         */
-        uint256 exitFee;
+        // ── Single slot (26B used, 6B spare) ───────────────────
         /**
          * @notice Address that receives collected entry and exit fees
          */
-        address feeRecipient;
+        address feeRecipient; // 20B
+        /**
+         * @notice Entry fee charged on deposits, expressed in basis points (e.g., 50 = 0.5%)
+         * @dev Max 1,000 bps (10%) enforced by MAX_FEE_BPS
+         */
+        uint16 entryFee; // 2B
+        /**
+         * @notice Exit fee charged on withdrawals, expressed in basis points (e.g., 100 = 1%)
+         * @dev Max 1,000 bps (10%) enforced by MAX_FEE_BPS
+         */
+        uint16 exitFee; // 2B
         /**
          * @notice Maximum number of strategies that can be added to the vault
          */
-        uint256 maxStrategies;
+        uint16 maxStrategies; // 2B
     }
 }
