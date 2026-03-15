@@ -43,29 +43,29 @@ contract MockLoanForLiquidation {
 
     function setLoanData(
         address borrower,
+        uint256 duration,
+        DataTypes.LoanStatus status,
+        uint256 createdAt,
+        uint256 lastPaymentTimestamp,
         uint256 depositAmount,
         uint256 loanAmount,
         uint256 btcAmount,
         uint256 estimatedMonthlyPayment,
-        uint256 duration,
-        uint256 createdAt,
-        uint256 insuranceID,
-        uint256 lastPaymentTimestamp,
         uint256 amountRepaidInCurrentPeriod,
-        DataTypes.LoanStatus status
+        uint256 insuranceID
     ) external {
         _loanData = DataTypes.LoanData({
             borrower: borrower,
-            depositAmount: depositAmount,
-            loanAmount: loanAmount,
-            btcAmount: btcAmount,
-            estimatedMonthlyPayment: estimatedMonthlyPayment,
-            duration: duration,
-            createdAt: createdAt,
-            insuranceID: insuranceID,
-            lastPaymentTimestamp: lastPaymentTimestamp,
-            amountRepaidInCurrentPeriod: amountRepaidInCurrentPeriod,
-            status: status
+            duration: uint16(duration),
+            status: status,
+            createdAt: uint32(createdAt),
+            lastPaymentTimestamp: uint32(lastPaymentTimestamp),
+            depositAmount: uint96(depositAmount),
+            loanAmount: uint96(loanAmount),
+            btcAmount: uint64(btcAmount),
+            estimatedMonthlyPayment: uint96(estimatedMonthlyPayment),
+            amountRepaidInCurrentPeriod: uint96(amountRepaidInCurrentPeriod),
+            insuranceID: insuranceID
         });
     }
 

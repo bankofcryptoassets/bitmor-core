@@ -261,7 +261,13 @@ contract Loan is
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
+    function updateLoanDataForMicroLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
         uint256 newDuration = LoanLogic.updateLoanDataForMicroLiquidation(LOAN_STORAGE_LOCATION, _lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }

@@ -14,16 +14,16 @@ interface IMockOracleForLiquidation {
 interface IMockLoanForLiquidation {
     function setLoanData(
         address borrower,
+        uint256 duration,
+        uint8 status,
+        uint256 createdAt,
+        uint256 lastPaymentTimestamp,
         uint256 depositAmount,
         uint256 loanAmount,
         uint256 btcAmount,
         uint256 estimatedMonthlyPayment,
-        uint256 duration,
-        uint256 createdAt,
-        uint256 insuranceID,
-        uint256 lastPaymentTimestamp,
         uint256 amountRepaidInCurrentPeriod,
-        uint8 status
+        uint256 insuranceID
     ) external;
     function setCollateralAsset(address asset) external;
     function setDebtAsset(address asset) external;
@@ -146,16 +146,16 @@ contract LoanLiquidationLogicFuzzTest is Test {
     ) internal {
         mockLoan.setLoanData(
             USER,
+            duration,
+            STATUS_ACTIVE,
+            block.timestamp - 60 days, // createdAt
+            lastPaymentTimestamp,
             1000e6, // depositAmount
             10000e6, // loanAmount
             btcAmount,
             estimatedMonthlyPayment,
-            duration,
-            block.timestamp - 60 days, // createdAt
-            insuranceID,
-            lastPaymentTimestamp,
             0, // amountRepaidInCurrentPeriod
-            STATUS_ACTIVE
+            insuranceID
         );
 
         // Mirror collateral in the aToken so Helpers.getUserCurrentCollateral reads the correct value
@@ -170,7 +170,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         hf = bound(hf, 0, type(uint128).max);
 
         mockLoan.setLoanData(
-            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, 0, STATUS_COMPLETED
+            USER, 12, STATUS_COMPLETED, block.timestamp, 0, 0, 0, 1e8, 500e6, 0, 0
         );
 
         uint256 result = h.checkTypeOfLiquidation(
@@ -186,7 +186,7 @@ contract LoanLiquidationLogicFuzzTest is Test {
         hf = bound(hf, 0, type(uint128).max);
 
         mockLoan.setLoanData(
-            USER, 0, 0, 1e8, 500e6, 12, block.timestamp, 0, 0, 0, STATUS_LIQUIDATED
+            USER, 12, STATUS_LIQUIDATED, block.timestamp, 0, 0, 0, 1e8, 500e6, 0, 0
         );
 
         uint256 result = h.checkTypeOfLiquidation(

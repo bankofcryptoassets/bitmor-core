@@ -594,7 +594,7 @@ contract LendingPoolCollateralManager is
             emit ReserveUsedAsCollateralDisabled(collateralAsset, user);
         }
 
-        if (loanData.duration.sub(1) == 0) {
+        if (loanData.duration == 1) {
             _updateLoanForMicroLiquidationCompletion(user);
         } else {
             _updateLoanForMicroLiquidation(user);
