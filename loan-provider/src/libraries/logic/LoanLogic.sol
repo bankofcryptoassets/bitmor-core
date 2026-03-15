@@ -137,7 +137,9 @@ library LoanLogic {
         // Update user loan indexing for multi-loan support
         uint256 loanIndex = $.userLoanCount[params.user];
         $.userLoanAtIndex[params.user][loanIndex] = lsa;
-        $.userLoanCount[params.user] = loanIndex + 1;
+        unchecked {
+            $.userLoanCount[params.user] = loanIndex + 1;
+        }
 
         _executeTransfersAndFlashLoan(ctx, params, lsa, loanAmount);
 

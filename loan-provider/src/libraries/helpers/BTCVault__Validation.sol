@@ -89,7 +89,7 @@ library BTCVault__Validation {
      */
     function validateNewSupplyQueue(
         DataTypes.StrategyState storage s,
-        uint256[] memory newSupplyQueue,
+        uint256[] calldata newSupplyQueue,
         uint256 maxStrategies
     ) internal view {
         uint256 newLength = newSupplyQueue.length;

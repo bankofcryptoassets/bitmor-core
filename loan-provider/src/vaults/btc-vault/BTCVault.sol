@@ -353,7 +353,7 @@ contract BTCVault is
      * @param newSupplyQueue Array of strategy indices in desired supply order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
-    function updateSupplyQueue(uint256[] memory newSupplyQueue) external restricted {
+    function updateSupplyQueue(uint256[] calldata newSupplyQueue) external restricted {
         BTCVaultStorageData storage $ = _getBTCVaultStorage();
         $.strategy.validateNewSupplyQueue(newSupplyQueue, $.vault.maxStrategies);
 

@@ -84,7 +84,7 @@ library StrategyStateLogic {
      * @param s The strategy state storage reference
      * @param newQueue Array of strategy indices in desired supply order
      */
-    function updateSupplyQueue(DataTypes.StrategyState storage s, uint256[] memory newQueue) internal {
+    function updateSupplyQueue(DataTypes.StrategyState storage s, uint256[] calldata newQueue) internal {
         s.supplyQueue = newQueue;
     }
 
