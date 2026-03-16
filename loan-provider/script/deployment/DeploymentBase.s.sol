@@ -502,11 +502,12 @@ abstract contract DeploymentBase is Script {
      *
      * @param expectedChainId The expected chain ID
      */
-    function _preflightPhase3(uint256 expectedChainId) internal view {
+    function _preflightPhase3(uint256 expectedChainId) internal {
         _preflightPhase1(expectedChainId);
 
         string memory json = vm.readFile("./deployments.json");
-        string memory base = string.concat(".deployments.", vm.toString(expectedChainId), ".networkConfig.");
+        HelperConfig _hc = new HelperConfig();
+        string memory base = string.concat(".deployments.", _hc.getChainKey(), ".networkConfig.");
 
         address accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
         require(accessManager != address(0), "DeploymentBase: accessManager is zero");
@@ -545,7 +546,8 @@ abstract contract DeploymentBase is Script {
     /// @return addrs The populated Phase1Addresses struct
     function _loadPhase1Addresses() internal returns (Phase1Addresses memory addrs) {
         string memory json = vm.readFile("./deployments.json");
-        string memory base = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.");
+        HelperConfig _hc = new HelperConfig();
+        string memory base = string.concat(".deployments.", _hc.getChainKey(), ".networkConfig.");
 
         addrs.accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
         addrs.cbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
@@ -624,22 +626,16 @@ abstract contract DeploymentBase is Script {
      * This function overwrites the existing file to avoid partial-merge complexity.
      *
      * @param keys Serialized JSON string of key-value pairs for `networkConfig` (e.g., `"accessManager":"0x..."`)
-     * @param chainId The chain ID to store under
+     * @param chainKey The chain key to store under (e.g., "31337", "8453", "31337-fork")
      * @param networkName Human-readable network name (e.g., "localhost", "base-mainnet")
      */
-    function _mergeAndSave(string memory keys, uint256 chainId, string memory networkName) internal {
+    function _mergeAndSave(string memory keys, string memory chainKey, string memory networkName) internal {
         string memory fullJson = string.concat(
-            '{"deployments":{"',
-            vm.toString(chainId),
-            '":{"network":"',
-            networkName,
-            '","networkConfig":{',
-            keys,
-            "}}}}"
+            '{"deployments":{"', chainKey, '":{"network":"', networkName, '","networkConfig":{', keys, "}}}}"
         );
 
         vm.writeFile("./deployments.json", fullJson);
-        console2.log("Saved deployments to deployments.json for chain:", chainId);
+        console2.log("Saved deployments to deployments.json for chain key:", chainKey);
     }
 
     /**

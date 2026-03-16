@@ -2,6 +2,7 @@
 pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
+import {HelperConfig} from "../HelperConfig.s.sol";
 
 /**
  * @title DeployLibraries
@@ -51,8 +52,9 @@ contract DeployLibraries is Script {
         internal
     {
         string memory json = vm.readFile("deployments.json");
-        string memory chainId = vm.toString(block.chainid);
-        string memory base = string.concat(".deployments.", chainId, ".networkConfig");
+        HelperConfig _hc = new HelperConfig();
+        string memory chainKey = _hc.getChainKey();
+        string memory base = string.concat(".deployments.", chainKey, ".networkConfig");
 
         // Chunk 1: Core Phase 1 addresses
         string memory keys = _readChunk1(json, base);
@@ -72,13 +74,22 @@ contract DeployLibraries is Script {
             '"'
         );
 
-        string memory networkName =
-            block.chainid == 31337 ? "localhost" : block.chainid == 84532 ? "base-sepolia" : "base";
+        string memory fork = vm.envOr("FORK", string(""));
+        string memory networkName;
+        if (bytes(fork).length > 0) {
+            networkName = "base-fork";
+        } else if (block.chainid == 31337) {
+            networkName = "localhost";
+        } else if (block.chainid == 84532) {
+            networkName = "base-sepolia";
+        } else {
+            networkName = "base";
+        }
 
         vm.writeFile(
             "deployments.json",
             string.concat(
-                '{"deployments":{"', chainId, '":{"network":"', networkName, '","networkConfig":{', keys, "}}}}"
+                '{"deployments":{"', chainKey, '":{"network":"', networkName, '","networkConfig":{', keys, "}}}}"
             )
         );
     }

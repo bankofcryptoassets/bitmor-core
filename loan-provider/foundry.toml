@@ -184,6 +184,20 @@ fs_permissions = [
     { access = "read", path = "../lending-pool" }
 ]
 
+# Fork deployment (Anvil forking Base mainnet, no mocks)
+[profile.fork-deploy]
+src = "src"
+optimizer = true
+optimizer_runs = 200
+ffi = true
+fs_permissions = [
+    { access = "read", path = "./out/" },
+    { access = "read", path = "./broadcast/" },
+    { access = "read", path = "../lending-pool/deployed-contracts.json" },
+    { access = "read-write", path = "./deployments.json" },
+    { access = "read-write", path = "./deployments/" },
+]
+
 # Formatter configuration (used by forge fmt and IDE via NomicFoundation.hardhat-solidity)
 [fmt]
 line_length = 120

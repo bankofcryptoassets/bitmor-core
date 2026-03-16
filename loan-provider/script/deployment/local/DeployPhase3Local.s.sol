@@ -518,6 +518,6 @@ contract DeployPhase3Local is LocalRolesConfig {
             '"'
         );
 
-        _mergeAndSave(keys, DeploymentConstants.LOCAL_CHAIN_ID, "localhost");
+        _mergeAndSave(keys, vm.toString(DeploymentConstants.LOCAL_CHAIN_ID), "localhost");
     }
 }

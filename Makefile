@@ -122,6 +122,24 @@ anvil-stop:
 deploy-local:
 	@./deploy/scripts/deploy-local.sh
 
+# Fork deployment (Base mainnet fork on Anvil)
+anvil-fork:
+	@echo "Starting Anvil forking Base mainnet..."
+	@. ./loan-provider/.env 2>/dev/null; \
+	anvil --fork-url $${BASE_MAINNET_RPC_URL} \
+		--chain-id $(LOCAL_CHAIN_ID) \
+		$${FORK_BLOCK_NUMBER:+--fork-block-number $${FORK_BLOCK_NUMBER}} \
+		--port $(ANVIL_PORT) --accounts 10 --balance 10000
+
+deploy-fork:
+	@./deploy/scripts/deploy-fork.sh
+
+deploy\:phase1\:fork:
+	@cd loan-provider && make deploy:phase1:fork
+
+deploy\:phase3\:fork:
+	@cd loan-provider && make deploy:phase3:fork
+
 # Individual phase targets (proxy-based)
 deploy\:phase1\:local:
 	@cd loan-provider && make deploy:phase1:local

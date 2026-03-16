@@ -27,8 +27,12 @@ export default async function bitmorDevAction(
 
   console.log("Migration started\n");
 
-  console.log("1. Deploy mock tokens");
-  await hre.tasks.getTask('dev:deploy-bitmor-mock-tokens').run({ verify });
+  if (process.env.FORK) {
+    console.log("1. Skipping mock tokens (fork mode - using real assets from fork)");
+  } else {
+    console.log("1. Deploy mock tokens");
+    await hre.tasks.getTask('dev:deploy-bitmor-mock-tokens').run({ verify });
+  }
 
   console.log("2. Deploy address provider registry");
   await hre.tasks.getTask('full:deploy-address-provider-registry').run({ pool: POOL_NAME, verify });

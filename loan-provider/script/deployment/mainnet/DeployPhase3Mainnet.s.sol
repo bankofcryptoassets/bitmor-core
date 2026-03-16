@@ -425,6 +425,6 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
             '"'
         );
 
-        _mergeAndSave(keys, DeploymentConstants.BASE_MAINNET_CHAIN_ID, "base");
+        _mergeAndSave(keys, vm.toString(DeploymentConstants.BASE_MAINNET_CHAIN_ID), "base");
     }
 }

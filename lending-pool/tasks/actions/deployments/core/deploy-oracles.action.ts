@@ -42,7 +42,7 @@ export default async function deployOraclesAction(
 
     const conn = await hre.network.connect();
     // Map localhost to hardhat for config lookups
-    const network = (conn.networkName === 'localhost' ? 'hardhat' : conn.networkName) as eNetwork;
+    const network = (process.env.FORK || (conn.networkName === 'localhost' ? 'hardhat' : conn.networkName)) as eNetwork;
     const poolConfig = loadPoolConfig(pool as ConfigNames);
     const {
       ProtocolGlobalParams: { UsdAddress },
@@ -59,7 +59,7 @@ export default async function deployOraclesAction(
     let reserveAssets = await getParamPerNetwork(ReserveAssets, network);
 
     // For localhost/hardhat, dynamically load token addresses from deployed-contracts.json
-    if (network === 'hardhat' && Object.keys(reserveAssets).length === 0) {
+    if (network === 'hardhat' && !process.env.FORK && Object.keys(reserveAssets).length === 0) {
       const { getDb } = await import('../../../../helpers/misc-utils.js');
       const db = getDb();
       const actualNetwork = conn.networkName; // Use actual network name for DB lookup

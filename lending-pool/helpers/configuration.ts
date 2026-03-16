@@ -215,8 +215,8 @@ export const getBcbBTCAddress = async (
     }
   }
 
-  // For hardhat: fetch from database
-  if (network === 'hardhat') {
+  // For hardhat (non-fork): fetch from database
+  if (network === 'hardhat' && !process.env.FORK) {
     const db = getDb();
     const actualNetwork = DRE.network.networkName;
     const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
@@ -227,6 +227,11 @@ export const getBcbBTCAddress = async (
       `bcbBTC address not found in database for local network ${actualNetwork}. ` +
       `Please ensure bcbBTC mock is deployed.`
     );
+  }
+
+  // For fork: return real cbBTC address (same as mainnet)
+  if (process.env.FORK === 'base') {
+    return '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
   }
 
   throw new Error(`cbBTC address not configured for network ${network}.`);
@@ -308,6 +313,11 @@ export const getBUSDCAddress = async (
 };
 
 const getChainIdFromNetwork = async (network: eNetwork): Promise<string> => {
+  if (process.env.FORK) {
+    // Anvil fork runs with --chain-id 31337; append "-fork" to distinguish from local
+    return '31337-fork';
+  }
+
   const chainIds: { [key: string]: string } = {
     'sepolia': '84532',
     'base': '8453',

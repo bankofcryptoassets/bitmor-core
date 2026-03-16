@@ -46,7 +46,7 @@ export default async function devInitializeLendingPoolAction(
   }
 
   const conn = await hre.network.connect();
-  const network = conn.networkName as eNetwork;
+  const network = (process.env.FORK || conn.networkName) as eNetwork;
   const poolConfig = loadPoolConfig(pool as ConfigNames);
   const {
     ATokenNamePrefix,

@@ -18,7 +18,7 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
     ProtocolGlobalParams: {
         TokenDistributorPercentageBase: "10000",
         MockUsdPriceInWei: "5848466240000000",
-        UsdAddress: ZERO_ADDRESS,
+        UsdAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         NilAddress: ZERO_ADDRESS,
         OneAddress: "0x0000000000000000000000000000000000000001",
         AaveReferral: "0",
@@ -102,7 +102,9 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
         [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
     },
     ChainlinkAggregator: {
-        [eBaseNetwork.base]: {},
+        [eBaseNetwork.base]: {
+            USDC: "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B", // USDC/USD Chainlink on Base mainnet (key must match ReserveAssets['base'].USDC)
+        },
         [eBaseNetwork.sepolia]: {
             bUSDC: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
             bvBTC: "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298",

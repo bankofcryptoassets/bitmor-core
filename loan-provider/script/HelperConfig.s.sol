@@ -23,6 +23,15 @@ contract HelperConfig is Script {
         address usdc_holder;
     }
 
+    /// @notice Uniswap V4 swap configuration for deployment
+    struct SwapConfig {
+        address universalRouter;
+        address quoter;
+        uint24 fee;
+        int24 tickSpacing;
+        address hooks;
+    }
+
     /// @notice Protocol-wide configuration parameters for deployment scripts
     /// @dev All protocol constants centralized here — deployers only edit this struct's values
     struct ProtocolConfig {
@@ -77,9 +86,19 @@ contract HelperConfig is Script {
     address constant AAVE_V3_POOL_BASE_MAINNET = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5;
     address constant AAVE_ADDRESSES_PROVIDER_BASE_MAINNET = 0xe20fCBdBfFC4Dd138cE8b2E6FBb6CB49777ad64D;
     // TODO: Replace with actual Base mainnet addresses before deployment
-    address constant CBBTC_BASE_MAINNET = address(0);
-    address constant USDC_BASE_MAINNET = address(0);
+    address constant CBBTC_BASE_MAINNET = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf;
+    address constant USDC_BASE_MAINNET = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant SWAP_ADAPTER_BASE_MAINNET = address(0);
+    // BTC/USD Chainlink aggregator on Base mainnet
+    // TODO: Replace with actual address before fork/mainnet deployment
+    address constant BTC_USD_CHAINLINK_BASE_MAINNET = 0x07DA0E54543a844a80ABE69c8A12F22B3aA59f9D;
+    // Uniswap V4 Base Mainnet Constants
+    // TODO: Replace with actual Base mainnet addresses before fork deployment
+    address constant UNIVERSAL_ROUTER_BASE_MAINNET = 0x6fF5693b99212Da76ad316178A184AB56D299b43;
+    address constant V4_QUOTER_BASE_MAINNET = 0x0d5e0F971ED27FBfF6c2837bf31316121532048D;
+    uint24 constant SWAP_FEE_BASE_MAINNET = 3000;
+    int24 constant SWAP_TICK_SPACING_BASE_MAINNET = 60;
+    address constant SWAP_HOOKS_BASE_MAINNET = address(0);
     address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
     address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
@@ -133,6 +152,10 @@ contract HelperConfig is Script {
     /// @dev Maps chain ID to the key the lending-pool Hardhat deployment uses
     /// @return key The network key (e.g., "localhost", "sepolia", "base")
     function getLendingPoolNetworkKey() public view returns (string memory key) {
+        string memory fork = vm.envOr("FORK", string(""));
+        if (bytes(fork).length > 0) {
+            return "localhost";
+        }
         if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {
             key = "localhost";
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
@@ -257,7 +280,7 @@ contract HelperConfig is Script {
     }
 
     function getAaveV3Pool() public view returns (address aavePool) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) {
             aavePool = AAVE_V3_POOL_BASE_MAINNET;
         } else {
             // Local & testnet: read from deployments.json (mocks)
@@ -266,7 +289,7 @@ contract HelperConfig is Script {
     }
 
     function getAaveAddressesProvider() public view returns (address addressesProvider) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) {
             addressesProvider = AAVE_ADDRESSES_PROVIDER_BASE_MAINNET;
         } else {
             // Local & testnet: read from deployments.json (mocks)
@@ -400,7 +423,7 @@ contract HelperConfig is Script {
     /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
     /// @return The cbBTC token address
     function getCbBTC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) {
             return CBBTC_BASE_MAINNET;
         }
         return _readDeployment("cbBTC");
@@ -410,7 +433,7 @@ contract HelperConfig is Script {
     /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
     /// @return The USDC token address
     function getUSDC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) {
             return USDC_BASE_MAINNET;
         }
         return _readDeployment("debtAsset");
@@ -419,10 +442,26 @@ contract HelperConfig is Script {
     /// @notice Returns the swap adapter address
     /// @dev Mainnet uses a hardcoded constant; local/testnet reads from deployments.json
     function getSwapAdapterAddress() public view returns (address) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) {
             return SWAP_ADAPTER_BASE_MAINNET;
         }
         return _readDeployment("swapper");
+    }
+
+    /// @notice Returns the Uniswap V4 swap configuration for Base mainnet
+    function getSwapConfig() public pure returns (SwapConfig memory config) {
+        config = SwapConfig({
+            universalRouter: UNIVERSAL_ROUTER_BASE_MAINNET,
+            quoter: V4_QUOTER_BASE_MAINNET,
+            fee: SWAP_FEE_BASE_MAINNET,
+            tickSpacing: SWAP_TICK_SPACING_BASE_MAINNET,
+            hooks: SWAP_HOOKS_BASE_MAINNET
+        });
+    }
+
+    /// @notice Returns the BTC/USD Chainlink aggregator address on Base mainnet
+    function getBtcUsdChainlink() public pure returns (address) {
+        return BTC_USD_CHAINLINK_BASE_MAINNET;
     }
 
     /// @notice Returns the USDC holder address (for testing)
@@ -474,6 +513,33 @@ contract HelperConfig is Script {
         return string.concat(vm.projectRoot(), "/../lending-pool/deployed-contracts.json");
     }
 
+    /// @notice Returns the chain key used in deployments.json
+    /// @dev When FORK env var is set, appends "-fork" to avoid collisions (e.g., "31337-fork")
+    /// @return key The chain key string
+    function _getChainKey() internal view returns (string memory) {
+        string memory fork = vm.envOr("FORK", string(""));
+        if (bytes(fork).length > 0) {
+            return string.concat(vm.toString(block.chainid), "-fork");
+        }
+        return vm.toString(block.chainid);
+    }
+
+    /// @notice Public wrapper for _getChainKey()
+    function getChainKey() public view returns (string memory) {
+        return _getChainKey();
+    }
+
+    /// @notice Returns true if running in fork mode
+    function _isFork() internal view returns (bool) {
+        string memory fork = vm.envOr("FORK", string(""));
+        return bytes(fork).length > 0;
+    }
+
+    /// @notice Public wrapper for _isFork()
+    function isForkMode() public view returns (bool) {
+        return _isFork();
+    }
+
     /// @notice Returns the broadcast directory for a given script
     /// @param scriptName The script file name (e.g., "DeployLoan.s.sol")
     /// @return The absolute path to the broadcast directory
@@ -499,26 +565,21 @@ contract HelperConfig is Script {
     }
 
     function _readAddress(string memory contractName) internal view returns (address addr) {
-        // Map current chain to the key used in deployed-contracts.json
         string memory network;
-        if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
-            // Your JSON uses "sepolia" for Base Sepolia deployments
+        string memory fork = vm.envOr("FORK", string(""));
+        if (bytes(fork).length > 0) {
+            network = "localhost";
+        } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             network = "sepolia";
         } else if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {
-            // lending-pool deployment saves under "localhost" key
             network = "localhost";
         } else {
             revert("HelperConfig: unsupported chainid for deployed-contracts.json");
         }
 
-        // Read the JSON file from repo root
         string memory path = string.concat(vm.projectRoot(), "/../lending-pool/deployed-contracts.json");
         string memory json = vm.readFile(path);
-
-        // Build jsonpath like: .LendingPool.sepolia.address
         string memory key = string.concat(".", contractName, ".", network, ".address");
-
-        // Parse and return
         addr = json.readAddress(key);
         require(addr != address(0), "HelperConfig: empty address in deployed-contracts.json");
     }
@@ -531,7 +592,7 @@ contract HelperConfig is Script {
 
         try vm.readFile(path) returns (string memory json) {
             // Build jsonpath: .deployments.<chainId>.networkConfig.<key>
-            string memory jsonKey = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.", key);
+            string memory jsonKey = string.concat(".deployments.", _getChainKey(), ".networkConfig.", key);
 
             try vm.parseJsonAddress(json, jsonKey) returns (address parsed) {
                 addr = parsed;

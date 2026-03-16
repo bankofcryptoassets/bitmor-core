@@ -242,6 +242,29 @@ deploy\:execute\:local:
 	@echo "Executing Phase 3 operations (local)..."
 	@FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
 
+# Fork deployment (Base mainnet fork on Anvil)
+RPC_FORK := http://127.0.0.1:8545
+PK_FORK := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+deploy\:phase1\:fork:
+	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/DeployPhase1Fork.s.sol:DeployPhase1Fork \
+		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast --force -v
+
+deploy\:phase3\:fork:
+	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/DeployPhase3Fork.s.sol:DeployPhase3Fork \
+		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast --slow --force -v \
+		$(LIBRARY_FLAG)
+
+deploy\:schedule\:fork:
+	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/SchedulePhase3Fork.s.sol:SchedulePhase3Fork \
+		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast -v \
+		$(LIBRARY_FLAG)
+
+deploy\:execute\:fork:
+	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/ExecutePhase3Fork.s.sol:ExecutePhase3Fork \
+		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast -v \
+		$(LIBRARY_FLAG)
+
 deploy\:check:
 	@echo "Running post-deploy checks..."
 	@FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) -v
