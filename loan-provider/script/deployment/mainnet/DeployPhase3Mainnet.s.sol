@@ -10,6 +10,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
@@ -34,6 +35,8 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
  * @custom:security For Base mainnet deployment (chainId 8453). Verify all addresses before broadcast.
  */
 contract DeployPhase3Mainnet is MainnetRolesConfig {
+    uint256 constant STRATEGY_CAP = type(uint96).max;
+
     // ============ Phase 1 Addresses (from deployments.json) ============
 
     /// @notice AccessManager deployed in Phase 1
@@ -133,8 +136,9 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      * 6. BAP post-init setters (setVaultFactory, setAutoRepayer) — before role wiring maps them to LPM_SLOW
      * 7. LendingPoolAddressesProvider registration
      * 8. Strategies (non-proxied)
-     * 9. AccessManager role wiring
-     * 10. Address persistence
+     * 9. Wire strategies (pre-role-wiring, deployer holds ADMIN with 0 delay)
+     * 10. AccessManager role wiring
+     * 11. Address persistence
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.BASE_MAINNET_CHAIN_ID);
@@ -264,19 +268,26 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         console2.log("AaveStrategy:", aaveStrategy);
         console2.log("USDCStrategy:", usdcStrategy);
 
-        // 9. AccessManager role wiring
+        // 9. Wire strategies — called before _setupAccessManagerRoles() maps
+        // these functions to BVC/UVC roles. Until role wiring, restricted functions
+        // default to ADMIN_ROLE (0) which the deployer holds with 0 delay.
+        BTCVault(btcVault).addStrategy(aaveStrategy, STRATEGY_CAP);
+        console2.log("BTCVault strategy added (as ADMIN, pre-role-wiring)");
+        USDCVault(usdcVault).setStrategy(usdcStrategy);
+        console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
+
+        // 10. AccessManager role wiring
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 10. Save addresses
+        // 11. Save addresses
         _saveDeployments();
 
-        // 11. Write deployment manifest
+        // 12. Write deployment manifest
         _writeManifest("Phase3");
 
         console2.log("=== Phase 3 Deploy Complete ===");
-        console2.log("Run SchedulePhase3Mainnet.s.sol next to schedule timelocked operations.");
     }
 
     // ============ Role Setup ============
@@ -291,25 +302,25 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      * Role grantees come from MainnetRolesConfig._getRoleGrantees() which assigns
      * roles to different multisigs based on security level.
      *
-     * @custom:security Scheduling of timelocked operations is deferred to SchedulePhase3Mainnet
-     * because Foundry simulates the entire script before broadcasting, so `schedule()` calls
-     * would not see the role grants from this script.
+     * @custom:security Strategy operations (addStrategy, setStrategy) are executed before role wiring
+     * as the deployer holds ADMIN_ROLE with 0 delay. After role wiring, these functions are restricted
+     * to BVC/UVC roles with production execution delays.
      */
     function _setupAccessManagerRoles() internal {
         BitmorAccessManager manager = BitmorAccessManager(accessManager);
         RoleGrantees memory g = _getRoleGrantees();
 
-        // 9a. Grant operational roles and set target function mappings
+        // 10a. Grant operational roles and set target function mappings
         _grantOperationalRoles(
             manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
         );
 
-        // 9b. Wire UPGRADER role across all UUPS proxies and BeaconController
+        // 10b. Wire UPGRADER role across all UUPS proxies and BeaconController
         _wireUpgraderRole(
             manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
         );
 
-        // 9c. Set up guardian roles for delayed operations
+        // 10c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
 
         console2.log("AccessManager roles configured via DeploymentBase helpers");

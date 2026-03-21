@@ -10,7 +10,7 @@ import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 
 /// @title PostDeployChecks
 /// @notice Validates deployment invariants after all phases complete
-/// @dev Run after Phase 3c (local) or after TransferToMultisig (mainnet)
+/// @dev Run after Phase 3 deployment completes or after TransferToMultisig (mainnet)
 /// @custom:security This script is read-only — it does not modify state
 contract PostDeployChecks is Script {
     /// @dev EIP-1967 implementation storage slot
@@ -64,7 +64,21 @@ contract PostDeployChecks is Script {
             IBeaconController.upgradeBeacon.selector
         );
 
-        // 6. Summary
+        // 6. Strategy functions mapped to delayed roles (not ADMIN default)
+        // Verify addStrategy is restricted to BVC (not ADMIN_ROLE 0)
+        {
+            bytes4 addStrategySelector = bytes4(keccak256("addStrategy(address,uint256)"));
+            uint64 bvcRoleId = manager.getTargetFunctionRole(config.getBTCVault(), addStrategySelector);
+            _check("BTCVault.addStrategy mapped to BVC (not ADMIN)", bvcRoleId != 0);
+        }
+        // Verify setStrategy is restricted to UVC (not ADMIN_ROLE 0)
+        {
+            bytes4 setStrategySelector = bytes4(keccak256("setStrategy(address)"));
+            uint64 uvcRoleId = manager.getTargetFunctionRole(config.getUSDCVault(), setStrategySelector);
+            _check("USDCVault.setStrategy mapped to UVC (not ADMIN)", uvcRoleId != 0);
+        }
+
+        // 7. Summary
         console2.log("");
         console2.log(string.concat("=== Results: ", vm.toString(passed), " / ", vm.toString(checks), " passed ==="));
         require(passed == checks, "PostDeployChecks: FAILED");

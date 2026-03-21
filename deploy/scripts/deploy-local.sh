@@ -48,10 +48,10 @@ npm run bitmor:localhost:dev:migration
 
 log "Phase 2 complete."
 
-# ============ Phase 3a: loan-provider (deploy + roles) ============
+# ============ Phase 3: loan-provider (deploy + strategies + roles) ============
 log ""
 log "=========================================="
-log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
+log "Phase 3: loan-provider (Deploy contracts + Strategies + Roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
@@ -86,40 +86,7 @@ FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.s
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow --force -v \
     $LIBRARY_FLAG
 
-log "Phase 3a complete. Contracts deployed, roles granted."
-
-# ============ Phase 3b: Schedule operations ============
-log ""
-log "=========================================="
-log "Phase 3b: Schedule timelocked operations"
-log "=========================================="
-
-FOUNDRY_PROFILE=local forge script script/deployment/local/SchedulePhase3Local.s.sol:SchedulePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3b complete. Operations scheduled."
-
-# ============ Phase 3c: Advance time and execute ============
-log ""
-log "=========================================="
-log "Phase 3c: Advance Anvil time and execute scheduled operations"
-log "=========================================="
-
-# Advance Anvil's time by 1 day + 10 minutes + 1 second (87001 seconds)
-# Matches DeploymentConstants.TIME_ADVANCE_SECONDS
-TIME_ADVANCE=87001
-log "Advancing Anvil time by $TIME_ADVANCE seconds (1 day + 10 min + 1 second)..."
-cast rpc evm_increaseTime $TIME_ADVANCE --rpc-url "$RPC" > /dev/null
-cast rpc evm_mine --rpc-url "$RPC" > /dev/null
-log "Time advanced and block mined."
-
-# Execute scheduled operations
-FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3c complete. All operations executed."
+log "Phase 3 complete. Contracts deployed, strategies wired, roles granted."
 
 # ============ Phase 4: Post-Deploy Validation ============
 log ""

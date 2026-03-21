@@ -119,20 +119,14 @@ make deploy-local (FOUNDRY_PROFILE=local)
 │   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy) → save JSON
 ├── Phase 2: lending-pool
 │   └── npm run bitmor:localhost:dev:migration
-├── Phase 3a: LoanLogic linked library deploy + DeployPhase3Local.s.sol
+├── Phase 3: LoanLogic linked library deploy + DeployPhase3Local.s.sol
 │   └── USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
 │       → Beacon chain (LoanVault impl → Beacon → Controller → Factory)
-│       → Strategies → Role setup + UPGRADER wiring → save JSON
-├── Phase 3b: SchedulePhase3Local.s.sol
-│   └── Schedule timelocked operations (1-day delay + 10min buffer)
-├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
-├── Phase 3c: ExecutePhase3Local.s.sol
-│   └── Execute scheduled operations via AccessManager
+│       → Strategies → Wire strategies (as ADMIN) → Oracle reconfig
+│       → Role setup + UPGRADER wiring → save JSON
 └── Phase 4: PostDeployChecks.s.sol
     └── Validate proxy pointers, beacon ownership, role wiring
 ```
-
-The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays. `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
 
 ## Architecture
 
@@ -208,13 +202,10 @@ loan-provider/script/
 │   ├── PostDeployChecks.s.sol           # Post-deploy invariant validation
 │   ├── local/                           # Local Anvil scripts
 │   │   ├── DeployPhase1Local.s.sol
-│   │   ├── DeployPhase3Local.s.sol
-│   │   ├── SchedulePhase3Local.s.sol
-│   │   └── ExecutePhase3Local.s.sol
+│   │   └── DeployPhase3Local.s.sol
 │   └── mainnet/                         # Base mainnet scripts
 │       ├── DeployPhase1Mainnet.s.sol
 │       ├── DeployPhase3Mainnet.s.sol
-│       ├── SchedulePhase3Mainnet.s.sol
 │       └── TransferToMultisig.s.sol
 ├── upgrade/                             # Upgrade scripts
 │   ├── UpgradeUUPS.s.sol
@@ -380,8 +371,6 @@ Security documentation: `vulnerability-reports/`, `Vulnerability-testing-list.md
 | Mainnet roles | `loan-provider/script/config/MainnetRolesConfig.sol` |
 | Phase 1 deploy (local) | `loan-provider/script/deployment/local/DeployPhase1Local.s.sol` |
 | Phase 3 deploy (local) | `loan-provider/script/deployment/local/DeployPhase3Local.s.sol` |
-| Schedule ops (local) | `loan-provider/script/deployment/local/SchedulePhase3Local.s.sol` |
-| Execute ops (local) | `loan-provider/script/deployment/local/ExecutePhase3Local.s.sol` |
 | Post-deploy checks | `loan-provider/script/deployment/PostDeployChecks.s.sol` |
 | UUPS upgrade | `loan-provider/script/upgrade/UpgradeUUPS.s.sol` |
 | Beacon upgrade | `loan-provider/script/upgrade/UpgradeBeacon.s.sol` |

@@ -75,10 +75,10 @@ FORK=base npm run bitmor:localhost:dev:migration
 
 log "Phase 2 complete."
 
-# ============ Phase 3a: libraries + contracts + roles ============
+# ============ Phase 3: libraries + contracts + strategies + roles ============
 log ""
 log "=========================================="
-log "Phase 3a: loan-provider (Libraries + Contracts + Roles)"
+log "Phase 3: loan-provider (Libraries + Contracts + Strategies + Roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
@@ -113,37 +113,7 @@ FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/Deploy
     --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow --force -v \
     $LIBRARY_FLAG
 
-log "Phase 3a complete."
-
-# ============ Phase 3b: Schedule ============
-log ""
-log "=========================================="
-log "Phase 3b: Schedule timelocked operations"
-log "=========================================="
-
-FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/SchedulePhase3Fork.s.sol:SchedulePhase3Fork \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3b complete."
-
-# ============ Phase 3c: Time advance + Execute ============
-log ""
-log "=========================================="
-log "Phase 3c: Advance time and execute"
-log "=========================================="
-
-TIME_ADVANCE=87001
-log "Advancing Anvil time by $TIME_ADVANCE seconds..."
-cast rpc evm_increaseTime $TIME_ADVANCE --rpc-url "$RPC" > /dev/null
-cast rpc evm_mine --rpc-url "$RPC" > /dev/null
-log "Time advanced."
-
-FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/ExecutePhase3Fork.s.sol:ExecutePhase3Fork \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3c complete."
+log "Phase 3 complete."
 
 # ============ Phase 4: Validation ============
 log ""

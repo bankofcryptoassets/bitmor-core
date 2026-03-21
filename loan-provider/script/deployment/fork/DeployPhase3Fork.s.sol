@@ -11,6 +11,7 @@ import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
@@ -19,8 +20,10 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 /// @notice Phase 3 fork deployment: all UUPS proxies, beacon, strategies, and roles
 /// @dev Uses real external contracts from fork state. Swap adapter must be pre-deployed
 /// from swap-routers/ and its address set in HelperConfig (SWAP_ADAPTER_BASE_MAINNET).
-/// @custom:security For local fork deployments only. Requires FORK=base env var.
+/// @custom:security For local fork deployments only.
 contract DeployPhase3Fork is ForkRolesConfig {
+    uint256 constant STRATEGY_CAP = type(uint96).max;
+
     // ============ Phase 1 Addresses ============
     address public accessManager;
     address public usdc;
@@ -199,12 +202,20 @@ contract DeployPhase3Fork is ForkRolesConfig {
         usdcStrategy = address(new USDCStrategy(usdcVault, aaveV3Pool, bitmorPool));
         console2.log("Strategies deployed");
 
-        // 10. AccessManager role wiring
+        // 10. Wire strategies — called before _setupAccessManagerRoles() maps
+        // these functions to BVC/UVC roles. Until role wiring, restricted functions
+        // default to ADMIN_ROLE (0) which the deployer holds with 0 delay.
+        BTCVault(btcVault).addStrategy(aaveStrategy, STRATEGY_CAP);
+        console2.log("BTCVault strategy added (as ADMIN, pre-role-wiring)");
+        USDCVault(usdcVault).setStrategy(usdcStrategy);
+        console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
+
+        // 11. AccessManager role wiring
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 11. Save addresses
+        // 12. Save addresses
         _saveDeployments(helperConfig);
         _writeManifest("Phase3");
 

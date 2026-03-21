@@ -10,6 +10,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
@@ -38,6 +39,8 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
 contract DeployPhase3Local is LocalRolesConfig {
+    uint256 constant STRATEGY_CAP = type(uint96).max;
+
     // ============ Phase 1 Addresses (from deployments.json) ============
 
     /// @notice AccessManager deployed in Phase 1
@@ -157,8 +160,10 @@ contract DeployPhase3Local is LocalRolesConfig {
      * 10. LendingPoolAddressesProvider registration
      * 11. Strategies (non-proxied)
      * 12. MockAaveV3Pool reserves
-     * 13. AccessManager role wiring
-     * 14. Address persistence
+     * 13. Wire strategies (addStrategy/setStrategy) — before role wiring, deployer holds ADMIN_ROLE
+     * 14. Reconfigure AaveOracle for real bvBTC pricing path
+     * 15. AccessManager role wiring
+     * 16. Address persistence
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.LOCAL_CHAIN_ID);
@@ -342,19 +347,68 @@ contract DeployPhase3Local is LocalRolesConfig {
         // Note: USDC already minted to aaveV3Pool above (10M for flash loans)
         console2.log("Initialized MockAaveV3Pool reserves: cbBTC aToken:", aTokenCbBTC, "USDC aToken:", aTokenUsdc);
 
-        // 13. AccessManager role wiring
+        // 13. Wire strategies — called before _setupAccessManagerRoles() maps
+        // these functions to BVC/UVC roles. Until role wiring, restricted functions
+        // default to ADMIN_ROLE (0) which the deployer holds with 0 delay.
+        BTCVault(btcVault).addStrategy(aaveStrategy, STRATEGY_CAP);
+        console2.log("BTCVault strategy added (as ADMIN, pre-role-wiring)");
+        USDCVault(usdcVault).setStrategy(usdcStrategy);
+        console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
+
+        // 14. Reconfigure AaveOracle for real bvBTC pricing path
+        // Now that BTCVault has a strategy wired, convertToAssets() works correctly.
+        // Enable the special bvBTC pricing: price = btcPrice * BTCVault.convertToAssets(1e8) / 1e8
+        _reconfigureOracleForBvBTC();
+
+        // 15. AccessManager role wiring
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 14. Save addresses
+        // 16. Save addresses
         _saveDeployments();
 
-        // 15. Write deployment manifest
+        // 17. Write deployment manifest
         _writeManifest("Phase3");
 
         console2.log("=== Phase 3 Deploy Complete ===");
-        console2.log("Run SchedulePhase3Local.s.sol next to schedule operations.");
+    }
+
+    // ============ Oracle Reconfiguration ============
+
+    /// @notice Reconfigures AaveOracle to use the real bvBTC pricing path
+    /// @dev Called after addStrategy so BTCVault.convertToAssets() works correctly.
+    ///      In step 4, the bvBTC path was disabled (setbvBTC(address(0))) because
+    ///      the strategy wasn't wired yet. Now we enable it:
+    ///      1. Set s_bvBTC = btcVault so getAssetPrice detects the bvBTC path
+    ///      2. Set s_btc = mockCbBTC so btcPrice lookup works
+    ///      3. Remove btcVault from direct assetsSources (no longer needs direct oracle)
+    function _reconfigureOracleForBvBTC() internal {
+        console2.log("Reconfiguring AaveOracle for real bvBTC pricing path...");
+
+        // Enable the special bvBTC pricing path
+        (bool okBvBtc,) = aaveOracle.call(abi.encodeWithSignature("setbvBTC(address)", btcVault));
+        require(okBvBtc, "Failed to setbvBTC");
+        console2.log("  setbvBTC:", btcVault);
+
+        // Ensure s_btc is set
+        (bool okBtc2,) = aaveOracle.call(abi.encodeWithSignature("setBTC(address)", mockCbBTC));
+        require(okBtc2, "Failed to setBTC");
+        console2.log("  setBTC:", mockCbBTC);
+
+        // Update assetsSources: remove btcVault from direct pricing (it now uses convertToAssets path).
+        // Keep mockCbBTC and mockUsdc with their direct oracle sources.
+        address[] memory assets2 = new address[](2);
+        address[] memory sources2 = new address[](2);
+        assets2[0] = mockCbBTC;
+        assets2[1] = mockUsdc;
+        sources2[0] = btcOracle;
+        sources2[1] = usdcOracle;
+        (bool ok2,) =
+            aaveOracle.call(abi.encodeWithSignature("setAssetSources(address[],address[])", assets2, sources2));
+        require(ok2, "Failed to update oracle sources");
+        console2.log("  Updated assetsSources (cbBTC, USDC direct; bvBTC via convertToAssets)");
+        console2.log("AaveOracle bvBTC pricing path active.");
     }
 
     // ============ Role Setup ============
@@ -369,25 +423,25 @@ contract DeployPhase3Local is LocalRolesConfig {
      * Role grantees come from LocalRolesConfig._getRoleGrantees() which assigns
      * all roles to `msg.sender` for local testing convenience.
      *
-     * @custom:security Scheduling of timelocked operations is deferred to SchedulePhase3Local
-     * because Foundry simulates the entire script before broadcasting, so `schedule()` calls
-     * would not see the role grants from this script.
+     * Strategy wiring (addStrategy/setStrategy) is done BEFORE this function is called,
+     * while the deployer still holds ADMIN_ROLE (0) with 0 delay. Once role wiring maps
+     * those functions to BVC/UVC roles, they require the proper role + delay.
      */
     function _setupAccessManagerRoles() internal {
         BitmorAccessManager manager = BitmorAccessManager(accessManager);
         RoleGrantees memory g = _getRoleGrantees();
 
-        // 13a. Grant operational roles and set target function mappings
+        // 15a. Grant operational roles and set target function mappings
         _grantOperationalRoles(
             manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
         );
 
-        // 13b. Wire UPGRADER role across all UUPS proxies and BeaconController
+        // 15b. Wire UPGRADER role across all UUPS proxies and BeaconController
         _wireUpgraderRole(
             manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
         );
 
-        // 13c. Set up guardian roles for delayed operations
+        // 15c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
 
         console2.log("AccessManager roles configured via DeploymentBase helpers");
