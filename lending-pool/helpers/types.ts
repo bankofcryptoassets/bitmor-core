@@ -122,6 +122,7 @@ export enum eContractid {
     ParaSwapLiquiditySwapAdapter = "ParaSwapLiquiditySwapAdapter",
     UiIncentiveDataProviderV2V3 = "UiIncentiveDataProviderV2V3",
     UiIncentiveDataProviderV2 = "UiIncentiveDataProviderV2",
+    PythPriceOracleGetter = "PythPriceOracleGetter",
 }
 
 /*
@@ -565,6 +566,8 @@ export interface IBaseConfiguration {
     ReserveAssets: iParamsPerNetwork<SymbolMap<tEthereumAddress>>;
     OracleQuoteCurrency: string;
     OracleQuoteUnit: string;
+    PythAddress?: iParamsPerNetwork<tEthereumAddress>;
+    PythPriceFeedIds?: iParamsPerNetwork<Record<string, string>>;
 }
 
 export interface ICommonConfiguration extends IBaseConfiguration {

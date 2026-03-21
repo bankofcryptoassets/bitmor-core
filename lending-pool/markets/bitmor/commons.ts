@@ -101,6 +101,19 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
         [eBaseNetwork.sepolia]: ZERO_ADDRESS,
         [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
     },
+    PythAddress: {
+        [eBaseNetwork.base]: "0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a",
+        [eBaseNetwork.sepolia]: ZERO_ADDRESS,
+        [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
+    },
+    PythPriceFeedIds: {
+        [eBaseNetwork.base]: {
+            USDC: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+            cbBTC: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+        },
+        [eBaseNetwork.sepolia]: {},
+        [eEthereumNetwork.hardhat]: {},
+    },
     ChainlinkAggregator: {
         [eBaseNetwork.base]: {
             USDC: "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B", // USDC/USD Chainlink on Base mainnet (key must match ReserveAssets['base'].USDC)

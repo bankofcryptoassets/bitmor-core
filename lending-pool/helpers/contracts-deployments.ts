@@ -47,6 +47,7 @@ import {
   WETH9Mocked__factory,
   MockBTCVault__factory,
   MockLoan__factory,
+  PythPriceOracleGetter__factory,
 } from '../types/ethers-contracts/index.js';
 import { MockUSDCVault__factory } from '../types/ethers-contracts/factories/mocks/vault/MockUSDCVault__factory.js';
 import {
@@ -285,6 +286,25 @@ export const deployAaveOracle = async (
     verify
   );
 
+export const deployPythPriceOracleGetter = async (
+  args: [
+    tEthereumAddress,    // pyth contract address
+    tEthereumAddress[],  // asset addresses
+    string[],            // bytes32 pyth price feed IDs
+    tEthereumAddress,    // btc (cbBTC) address
+    tEthereumAddress,    // bvBTC address
+    tEthereumAddress,    // baseCurrency
+    string               // baseCurrencyUnit
+  ],
+  verify?: boolean
+) =>
+  withSaveAndVerify(
+    await new PythPriceOracleGetter__factory(await getFirstSigner()).deploy(...args),
+    eContractid.PythPriceOracleGetter,
+    args,
+    verify
+  );
+
 export const deployLendingPoolCollateralManager = async (verify?: boolean) => {
   const collateralManagerImpl = await new LendingPoolCollateralManager__factory(
     await getFirstSigner()
@@ -320,7 +340,7 @@ export const deployMockFlashLoanReceiver = async (
     verify
   );
 
-// WALLET BALANCE PROVIDER removed - not used in Bitmor protocol 
+// WALLET BALANCE PROVIDER removed - not used in Bitmor protocol
 // export const deployWalletBalancerProvider = async (verify?: boolean) =>
 //   withSaveAndVerify(
 //     await new WalletBalanceProvider__factory(await getFirstSigner()).deploy(),
