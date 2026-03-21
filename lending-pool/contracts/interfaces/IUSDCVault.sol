@@ -35,7 +35,7 @@ interface IUSDCVault is IERC4626 {
      * @notice Updates the strategy contract used for yield generation
      * @dev Withdraws funds from current strategy before switching to new one
      * @param newStrategy The address of the new strategy contract (cannot be zero address)
-     * @custom:access Requires UVC role (1-day delay)
+     * @dev Access: Requires UVC role (1-day delay)
      */
     function setStrategy(address newStrategy) external;
 
@@ -47,41 +47,41 @@ interface IUSDCVault is IERC4626 {
      *   unlike BTC Vault which uses manual per-strategy configuration
      * - bvUSDC.totalAssets() before reallocateAssets() MUST equal
      *   bvUSDC.totalAssets() after reallocateAssets()
-     * @custom:access Requires UVA role
+     * Access: Requires UVA role
      */
     function reallocateAssets() external;
 
     /**
      * @notice Reallocates assets by withdrawing `amountToWithdraw` from Aave to BLP
-     * @dev Only callable by the Bitmor Lending Pool to maintain liquidity reserves
+     * @dev Only callable by the Bitmor Lending Pool to maintain liquidity reserves.
+     * Access: Requires UVA role and caller must be `blp`
      * @param amountToWithdraw The amount of assets to move from Aave into BLP
-     * @custom:access Requires UVA role and caller must be `blp`
      */
     function reallocateAssets(uint256 amountToWithdraw) external;
 
     /**
      * @notice Updates the minimum delta threshold for triggering asset reallocation
+     * @dev Access: Requires UVC role
      * @param newMinimumDeltaRequired The new minimum delta in basis points
-     * @custom:access Requires UVC role
      */
     function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external;
 
     /**
      * @notice Updates the external allocation ratio for external protocol.
+     * @dev Access: Requires UVC role
      * @param newExternalAllocation The new external allocation in basis points.
-     * @custom:access Requires UVC role
      */
     function updateExternalAllocation(uint256 newExternalAllocation) external;
 
     /**
      * @notice Pauses all vault operations in case of emergency
-     * @custom:access Requires UVM_FAST role
+     * @dev Access: Requires UVM_FAST role
      */
     function pause() external;
 
     /**
      * @notice Resumes vault operations after an emergency pause
-     * @custom:access Requires UVM_SLOW role (1-day delay)
+     * @dev Access: Requires UVM_SLOW role (1-day delay)
      */
     function unpause() external;
 }
