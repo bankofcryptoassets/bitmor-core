@@ -174,7 +174,7 @@ contract Loan is
         uint256 btcAmount,
         uint256 duration,
         bytes calldata data
-    ) external whenNotPaused restricted nonReentrant returns (address lsa) {
+    ) external whenNotPaused nonReentrant returns (address lsa) {
         LoanStorageData storage $ = _getLoanStorage();
         IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
 

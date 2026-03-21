@@ -186,7 +186,6 @@ interface ILoan {
      * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow.
      *
      * Initialization invariants:
-     * - MUST be called by an account with the `EXECUTOR` role only
      * - MUST NOT allow re-initialization of an existing LSA; each LoanVault is one-loan-only
      * - MUST deploy a new LoanVault via the factory, and that vault MUST NOT have been previously initialized
      * - MUST set `loanData.status` to `Active` for the newly created LSA
@@ -200,7 +199,6 @@ interface ILoan {
      * @param duration Loan duration in months
      * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
-     * @custom:access Restricted to `EXECUTOR` role
      */
     function initializeLoan(
         uint256 depositAmount,
