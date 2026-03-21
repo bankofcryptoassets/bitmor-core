@@ -72,7 +72,7 @@ contract HelperConfig is Script {
     uint256 public constant CHAIN_ID_BASE_MAINNET = 8453;
     uint256 public constant DECIMAL_USDC = 1e6;
     uint256 public constant DECIMAL_CBBTC = 1e8;
-    uint256 constant DEPOSIT_AMT = 1e4 * DECIMAL_USDC; // 10000 USDC
+    uint256 constant DEPOSIT_AMT = 3e4 * DECIMAL_USDC; // 30000 USDC
     uint256 constant PREMIUM_AMT = 5_000 * DECIMAL_USDC;
     uint256 constant CBBTC_AMT = 1 * DECIMAL_CBBTC; // 1 CBBTC
     uint256 constant DURATION_IN_MONTHS = 12;
@@ -560,6 +560,8 @@ contract HelperConfig is Script {
         string memory fork = vm.envOr("FORK", string(""));
         if (bytes(fork).length > 0) {
             network = "localhost";
+        } else if (block.chainid == CHAIN_ID_BASE_MAINNET) {
+            network = "base";
         } else if (block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             network = "sepolia";
         } else if (block.chainid == CHAIN_ID_LOCAL || block.chainid == 1337) {

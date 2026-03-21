@@ -53,6 +53,15 @@ help:
 	@echo "  make clean               Clean build artifacts"
 	@echo "  make format              Format code"
 	@echo ""
+	@echo "Interactions:"
+	@echo "  make interact:local:initloan      Initialize loan (local Anvil)"
+	@echo "  make interact:fork:initloan       Initialize loan (fork Anvil)"
+	@echo "  make interact:live:initloan       Initialize loan (live Base)"
+	@echo "  make interact:local:fund:usdc     Fund user with USDC (local)"
+	@echo "  make interact:fork:fund:usdc      Fund user with USDC (fork)"
+	@echo "  make interact:local:seed          Seed lending pool (local)"
+	@echo "  make interact:fork:seed           Seed lending pool (fork)"
+	@echo ""
 
 # ============ Build ============
 
@@ -237,6 +246,11 @@ deploy\:phase3\:local:
 # Fork deployment (Base mainnet fork on Anvil)
 RPC_FORK := http://127.0.0.1:8545
 PK_FORK := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+# Anvil account 0 address (derived from DEFAULT_ANVIL_KEY)
+ANVIL_SENDER := 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+# Whale addresses for fork impersonation
+USDC_WHALE := 0x20FE51A9229EEf2cF8Ad9E89d91CAb9312cF3b7A
+CBBTC_WHALE := 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb
 
 deploy\:phase1\:fork:
 	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/DeployPhase1Fork.s.sol:DeployPhase1Fork \
@@ -289,12 +303,6 @@ deployMockTokens:
 deploySwapAdapterWrapper:
 	@forge script script/deployment/DeploySwapAdapterWrapper.s.sol:DeploySwapAdapterWrapper --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
-mintTokens:
-	@forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_owner && forge script script/interaction/MockToken.s.sol:MockToken_MintTokens --rpc-url base_sepolia --broadcast --account bitmor_user
-
-depositDebtTokenToBitmorLendingPool:
-	@forge script script/interaction/MockToken.s.sol:MockToken_AddToLendingPool --rpc-url base_sepolia --broadcast --account bitmor_owner
-
 deployAccessManager:
 	@forge script script/deployment/DeployAccessManager.s.sol:DeployAccessManager --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
@@ -310,26 +318,81 @@ deployLoanVaultFactory:
 saveAddresses:
 	@forge script script/deployment/SaveDeployedAddresses.s.sol:SaveDeployedAddresses --rpc-url base_sepolia
 
-setLoanVaultFactory:
-	@forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory --rpc-url base_sepolia --broadcast --account bitmor_owner
-
-setGracePeriod:
-	@forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod --rpc-url base_sepolia --broadcast --account bitmor_owner
-
-setBitmorLoan:
-	@forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan --rpc-url base_sepolia --broadcast --account bitmor_owner
-
 verifyAll:
 	@echo "Verifying all deployed contracts..."
 	@forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
 
-setup:
-	@make deployAccessManager && make deploySwapAdapterWrapper && make mintTokens && make depositDebtTokenToBitmorLendingPool && make deployLoanVault && make deployLoan && make deployLoanVaultFactory && make setLoanVaultFactory && make setBitmorLoan && make saveAddresses && make verifyAll
-
 # ============ Interaction Commands ============
+# Usage: make interact:<env>:<action>
+# Environments: local (Anvil), fork (Base mainnet fork on Anvil), live (Base mainnet)
 
-initializeLoan:
-	@forge script script/interaction/Loan.s.sol:Loan_InitializeLoan --rpc-url base_sepolia --broadcast --account bitmor_user
+# --- Initialize Loan ---
+interact\:local\:initloan:
+	@echo "Initializing loan (local)..."
+	@FOUNDRY_PROFILE=local forge script script/interaction/Loan.s.sol:Loan_InitializeLoan \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
 
-initializeLoanOnFork:
-	@forge script script/interaction/Interaction.s.sol:LoanInteraction $(FORK_NETWORK_ARGS) --account bitmor_user -vvvvv
+interact\:fork\:initloan:
+	@echo "Initializing loan (fork)..."
+	@cast rpc anvil_impersonateAccount $(USDC_WHALE) --rpc-url $(RPC_FORK) > /dev/null
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/interaction/Loan.s.sol:Loan_InitializeLoan \
+		--rpc-url $(RPC_FORK) --sender $(ANVIL_SENDER) --unlocked --broadcast -v
+
+interact\:live\:initloan:
+	@echo "Initializing loan (live Base mainnet)..."
+	@forge script script/interaction/Loan.s.sol:Loan_InitializeLoan \
+		--rpc-url base_mainnet --account bitmor_user --broadcast -v
+
+# --- Fund User ---
+interact\:local\:fund\:usdc:
+	@FOUNDRY_PROFILE=local forge script script/interaction/FundUser.s.sol:FundUser_USDC \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:fork\:fund\:usdc:
+	@cast rpc anvil_impersonateAccount $(USDC_WHALE) --rpc-url $(RPC_FORK) > /dev/null
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/interaction/FundUser.s.sol:FundUser_USDC \
+		--rpc-url $(RPC_FORK) --sender $(ANVIL_SENDER) --unlocked --broadcast -v
+
+interact\:local\:fund\:cbbtc:
+	@FOUNDRY_PROFILE=local forge script script/interaction/FundUser.s.sol:FundUser_CbBTC \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:fork\:fund\:cbbtc:
+	@cast rpc anvil_impersonateAccount $(CBBTC_WHALE) --rpc-url $(RPC_FORK) > /dev/null
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/interaction/FundUser.s.sol:FundUser_CbBTC \
+		--rpc-url $(RPC_FORK) --sender $(ANVIL_SENDER) --unlocked --broadcast -v
+
+# --- Seed Lending Pool ---
+interact\:local\:seed:
+	@FOUNDRY_PROFILE=local forge script script/interaction/FundUser.s.sol:SeedLendingPool \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:fork\:seed:
+	@cast rpc anvil_impersonateAccount $(USDC_WHALE) --rpc-url $(RPC_FORK) > /dev/null
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/interaction/FundUser.s.sol:SeedLendingPool \
+		--rpc-url $(RPC_FORK) --sender $(ANVIL_SENDER) --unlocked --broadcast -v
+
+# --- Admin Setters ---
+interact\:local\:set\:vaultfactory:
+	@FOUNDRY_PROFILE=local forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:local\:set\:graceperiod:
+	@FOUNDRY_PROFILE=local forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:local\:set\:bitmor-loan:
+	@FOUNDRY_PROFILE=local forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan \
+		--rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast -v
+
+interact\:live\:set\:vaultfactory:
+	@forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory \
+		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
+
+interact\:live\:set\:graceperiod:
+	@forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod \
+		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
+
+interact\:live\:set\:bitmor-loan:
+	@forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan \
+		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
