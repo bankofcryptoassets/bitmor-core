@@ -2,19 +2,20 @@
 pragma solidity 0.8.30;
 
 import {console2} from "forge-std/console2.sol";
-import {StdCheats} from "forge-std/StdCheats.sol";
+
 import {DeploymentHelper} from "../helpers/DeploymentHelper.s.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 import {DeploymentConstants} from "../deployment/DeploymentConstants.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {MintableERC20} from "../../test/mock/MintableERC20.sol";
 
 /// @title InteractionBase
 /// @author Bitmor Protocol
 /// @notice Base contract for all interaction scripts with environment-aware token funding
 /// @dev Three environments with different funding strategies:
-///      - Local Anvil (chainId 31337, no FORK): deal() for mock tokens,
-///        pool seeding via deal + prank + USDCVault.deposit (real pool gates deposits)
+///      - Local Anvil (chainId 31337, no FORK): broadcast mint() on mock tokens,
+///        pool seeding via broadcast mint + approve + USDCVault.deposit
 ///      - Fork Anvil (chainId 31337, FORK=base): vm.broadcast(whale) for real token transfers,
 ///        pool seeding via whale broadcast + USDCVault.deposit
 ///      - Live Base mainnet (chainId 8453): skip funding, user must hold tokens
@@ -27,7 +28,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 ///      IMPORTANT: All addresses are cached in _preflight() because Foundry forbids
 ///      staticcalls (e.g., config.getUSDC()) after any broadcast block ends when
 ///      running with --unlocked. Cache everything before any broadcast.
-abstract contract InteractionBase is DeploymentHelper, StdCheats {
+abstract contract InteractionBase is DeploymentHelper {
     /// @dev HelperConfig instance — initialized by _preflight()
     HelperConfig public config;
 
@@ -57,7 +58,7 @@ abstract contract InteractionBase is DeploymentHelper, StdCheats {
     // ============ Token Funding ============
 
     /// @notice Funds `to` with `amount` of USDC
-    /// @dev Local: deal() writes mock token storage. Fork: broadcast transfer from whale. Live: skip.
+    /// @dev Local: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
     /// @param to Address to fund
     /// @param amount USDC amount (6 decimals)
     function _fundWithUSDC(address to, uint256 amount) internal {
@@ -67,13 +68,14 @@ abstract contract InteractionBase is DeploymentHelper, StdCheats {
             vm.broadcast(USDC_WHALE);
             IERC20(_usdc).transfer(to, amount);
         } else {
-            deal(_usdc, to, amount);
+            vm.broadcast();
+            MintableERC20(_usdc).mint(to, amount);
         }
         console2.log("Funded USDC:", amount, "to:", to);
     }
 
     /// @notice Funds `to` with `amount` of cbBTC
-    /// @dev Local: deal() writes mock token storage. Fork: broadcast transfer from whale. Live: skip.
+    /// @dev Local: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
     /// @param to Address to fund
     /// @param amount cbBTC amount (8 decimals)
     function _fundWithCbBTC(address to, uint256 amount) internal {
@@ -83,7 +85,8 @@ abstract contract InteractionBase is DeploymentHelper, StdCheats {
             vm.broadcast(CBBTC_WHALE);
             IERC20(_cbBTC).transfer(to, amount);
         } else {
-            deal(_cbBTC, to, amount);
+            vm.broadcast();
+            MintableERC20(_cbBTC).mint(to, amount);
         }
         console2.log("Funded cbBTC:", amount, "to:", to);
     }
@@ -95,7 +98,7 @@ abstract contract InteractionBase is DeploymentHelper, StdCheats {
     ///      gates deposit() to vault/loan callers only (Error 85: LP_CALLER_NOT_VAULT).
     ///      USDCVault's strategy splits deposits ~80% Aave / ~20% BLP (configurable).
     ///      To get X USDC of BLP liquidity, seed ~5X through USDCVault.
-    ///      Local: deal + prank seeder + USDCVault.deposit (simulation-only).
+    ///      Local: broadcast mint + approve + USDCVault.deposit.
     ///      Fork: broadcast as whale + USDCVault.deposit (persists on Anvil).
     ///      Live: skip (pool already has liquidity).
     /// @param amount USDC amount to deposit into USDCVault (6 decimals)
@@ -114,12 +117,11 @@ abstract contract InteractionBase is DeploymentHelper, StdCheats {
             IERC4626(_usdcVault).deposit(amount, USDC_WHALE);
             vm.stopBroadcast();
         } else {
-            address seeder = makeAddr("poolSeeder");
-            deal(_usdc, seeder, amount);
-            vm.startPrank(seeder);
+            vm.startBroadcast();
+            MintableERC20(_usdc).mint(msg.sender, amount);
             IERC20(_usdc).approve(_usdcVault, amount);
-            IERC4626(_usdcVault).deposit(amount, seeder);
-            vm.stopPrank();
+            IERC4626(_usdcVault).deposit(amount, msg.sender);
+            vm.stopBroadcast();
         }
 
         console2.log("Seeded lending pool via USDCVault with USDC:", amount);

@@ -23,10 +23,10 @@ contract Loan_InitializeLoan is InteractionBase {
             config.getLoanConfig();
         uint256 totalUSDC = deposit + premium;
 
-        // 1. Seed pool with flash loan liquidity (whale→USDCVault on fork, deal→USDCVault on local)
+        // 1. Seed pool with flash loan liquidity (whale→USDCVault on fork, mint→USDCVault on local)
         _seedLendingPoolUSDC(100_000e6);
 
-        // 2. Fund user with USDC for deposit + premium (whale transfer on fork, deal on local)
+        // 2. Fund user with USDC for deposit + premium (whale transfer on fork, mint on local)
         _fundWithUSDC(msg.sender, totalUSDC);
 
         // 3. Broadcast as user: approve + initializeLoan (uses cached _usdc, _loan from _preflight)

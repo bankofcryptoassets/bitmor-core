@@ -36,7 +36,7 @@ contract FundUser_CbBTC is InteractionBase {
 
 /// @title SeedLendingPool
 /// @notice Seeds the Bitmor lending pool with USDC for flash loan liquidity
-/// @dev Uses whale broadcast + USDCVault.deposit on fork, deal + prank + USDCVault.deposit on local.
+/// @dev Uses whale broadcast + USDCVault.deposit on fork, broadcast mint + approve + USDCVault.deposit on local.
 ///      Default: 500K USDC (whale has ~$779K). USDCVault splits ~80% Aave / ~20% BLP.
 contract SeedLendingPool is InteractionBase {
     function run() public {
