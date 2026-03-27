@@ -176,6 +176,13 @@ contract Loan is
         bytes calldata data
     ) external whenNotPaused nonReentrant returns (address lsa) {
         LoanStorageData storage $ = _getLoanStorage();
+        uint256 loanAmount;
+        uint256 monthlyPayment;
+
+        DataTypes.ExecuteInitializeLoanParams memory params = DataTypes.ExecuteInitializeLoanParams(
+            msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
+        );
+
         IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
 
         DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
@@ -193,13 +200,9 @@ contract Loan is
             maxDuration: $.maxDuration
         });
 
-        lsa = LoanLogic.executeInitializeLoan(
-            LOAN_STORAGE_LOCATION,
-            ctx,
-            DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
-            )
-        );
+        (lsa, loanAmount, monthlyPayment) = LoanLogic.executeInitializeLoan(LOAN_STORAGE_LOCATION, ctx, params);
+
+        emit ILoan.Loan__LoanCreated(msg.sender, lsa, monthlyPayment, loanAmount, btcAmount, data);
     }
 
     /**
@@ -220,6 +223,8 @@ contract Loan is
             getAutoRepayer(),
             DataTypes.ExecuteRepayParams(lsa, amount, $.slippageSharesToAsset)
         );
+
+        emit ILoan.Loan__LoanRepaid(lsa, finalAmountRepaid);
     }
 
     // ============ Close Loan Function  ============
@@ -241,6 +246,8 @@ contract Loan is
         );
         DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
         CloseLoanLogic.executeCloseLoan(LOAN_STORAGE_LOCATION, ctx, params);
+
+        emit ILoan.Loan__ClosedLoan(lsa);
     }
 
     // ============ State Update Function  ============
