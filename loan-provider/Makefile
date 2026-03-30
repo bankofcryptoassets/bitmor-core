@@ -1,8 +1,16 @@
 -include .env
 
-.PHONY: all test clean deploy fund help install snapshot format anvil coverage coverage-lcov coverage-html
+.PHONY: all test clean deploy fund help install snapshot format anvil coverage coverage-lcov coverage-html \
+	deploy\:phase1\:local deploy\:libraries\:local deploy\:phase3\:local deploy\:check\:local \
+	deploy\:phase1\:fork deploy\:libraries\:fork deploy\:phase3\:fork deploy\:check\:fork \
+	deploy\:phase1\:testnet deploy\:libraries\:testnet deploy\:phase3\:testnet deploy\:check\:testnet \
+	deploy\:check
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+# Overridable signer keys (default to Anvil account 0)
+LOCAL_PRIVATE_KEY ?= $(DEFAULT_ANVIL_KEY)
+FORK_PRIVATE_KEY ?= $(PK_FORK)
 
 # ============ Help ============
 
@@ -14,7 +22,7 @@ help:
 	@echo "Testing:"
 	@echo "  make test                Run unit tests (default, no RPC needed)"
 	@echo "  make test:unit           Run unit tests with mocks"
-	@echo "  make test:fork           Run fork tests (requires BASE_SEPOLIA_RPC_URL)"
+	@echo "  make test:fork           Run fork tests (requires make anvil-fork + make deploy-fork)"
 	@echo "  make test:loan:unit      Run Loan contract unit tests"
 	@echo "  make test:vault:unit     Run Vault unit tests"
 	@echo "  make test:strategy:unit  Run Strategy unit tests"
@@ -39,6 +47,8 @@ help:
 	@echo "  make test:integration:initloan:timing    InitLoan Timing tests"
 	@echo "  make test:integration:single TEST=name  Single integration test"
 	@echo "  make test:integration:contract CONTRACT=Name  Integration tests by contract"
+	@echo "  make test:fork:single TEST=name     Single fork test"
+	@echo "  make test:fork:contract CONTRACT=Name  Fork tests by contract"
 	@echo ""
 	@echo "Single Test:"
 	@echo "  make test:single TEST=test_name    Run single test by name"
@@ -102,13 +112,18 @@ test\:unit:
 	@echo "Running unit tests..."
 	@FOUNDRY_PROFILE=unit forge test --match-path "test/unit/**/*.sol" -vvv
 
-# Fork tests (requires BASE_SEPOLIA_RPC_URL)
-DEPLOYMENT_BLOCK := $(shell if [ -f "deployments.json" ]; then node -e "try { const d=JSON.parse(require('fs').readFileSync('deployments.json')); const chainData = d.deployments['84532']; console.log(chainData && chainData.blockNumber ? chainData.blockNumber : process.env.BLOCK_NUMBER || 'latest'); } catch(e) { console.log(process.env.BLOCK_NUMBER || 'latest'); }"; else echo $${BLOCK_NUMBER:-latest}; fi)
-FORK_NETWORK_ARGS := --fork-url base_sepolia --fork-block-number $(DEPLOYMENT_BLOCK)
-
+# Fork tests (requires make anvil-fork + make deploy-fork)
 test\:fork:
-	@echo "Running fork tests (Base Sepolia)..."
-	@FOUNDRY_PROFILE=fork forge test --match-path "test/fork/**/*.sol" $(FORK_NETWORK_ARGS) -vvv
+	@echo "Running fork tests (Base mainnet fork on Anvil)..."
+	@FORK=base FOUNDRY_PROFILE=fork forge test --fork-url http://127.0.0.1:8545 -vvv
+
+test\:fork\:single:
+	@echo "Running single fork test: $(TEST)..."
+	@FORK=base FOUNDRY_PROFILE=fork forge test --fork-url http://127.0.0.1:8545 --match-test $(TEST) -vvvv
+
+test\:fork\:contract:
+	@echo "Running fork tests for contract: $(CONTRACT)..."
+	@FORK=base FOUNDRY_PROFILE=fork forge test --fork-url http://127.0.0.1:8545 --match-contract $(CONTRACT) -vvvv
 
 # ============ Domain-Specific Unit Tests ============
 
@@ -237,11 +252,29 @@ gas-report:
 
 deploy\:phase1\:local:
 	@echo "Deploying Phase 1 (local, proxy-based)..."
-	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --force -v
+	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local --rpc-url http://127.0.0.1:8545 --private-key $(LOCAL_PRIVATE_KEY) --broadcast --force -v
+
+# Library deployment (all envs)
+deploy\:libraries\:local:
+	@echo "Deploying linked libraries (local)..."
+	@FOUNDRY_PROFILE=local forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
+		--rpc-url http://127.0.0.1:8545 --private-key $(LOCAL_PRIVATE_KEY) --broadcast --force -v
+
+deploy\:libraries\:fork:
+	@echo "Deploying linked libraries (fork)..."
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
+		--rpc-url $(RPC_FORK) --private-key $(FORK_PRIVATE_KEY) --broadcast --force -v
+
+deploy\:libraries\:testnet:
+	@echo "Deploying linked libraries (testnet)..."
+	@FOUNDRY_PROFILE=testnet forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
 
 deploy\:phase3\:local:
 	@echo "Deploying Phase 3 (local, proxy-based)..."
-	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --slow --force -v
+	@FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local \
+		--rpc-url http://127.0.0.1:8545 --private-key $(LOCAL_PRIVATE_KEY) --broadcast --slow --force -v \
+		$(LIBRARY_FLAG)
 
 # Fork deployment (Base mainnet fork on Anvil)
 RPC_FORK := http://127.0.0.1:8545
@@ -254,16 +287,48 @@ CBBTC_WHALE := 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb
 
 deploy\:phase1\:fork:
 	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/DeployPhase1Fork.s.sol:DeployPhase1Fork \
-		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast --force -v
+		--rpc-url $(RPC_FORK) --private-key $(FORK_PRIVATE_KEY) --broadcast --force -v
 
 deploy\:phase3\:fork:
 	FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/fork/DeployPhase3Fork.s.sol:DeployPhase3Fork \
-		--rpc-url $(RPC_FORK) --private-key $(PK_FORK) --broadcast --slow --force -v \
+		--rpc-url $(RPC_FORK) --private-key $(FORK_PRIVATE_KEY) --broadcast --slow --force -v \
 		$(LIBRARY_FLAG)
 
-deploy\:check:
-	@echo "Running post-deploy checks..."
-	@FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks --rpc-url http://127.0.0.1:8545 --private-key $(DEFAULT_ANVIL_KEY) -v
+# Testnet deployment (RPC_URL is REQUIRED, passed by caller)
+ACCOUNT ?= bitmor_owner
+SENDER ?= 0xc617C587122256e940e10FA46d30f610139A818E
+
+deploy\:phase1\:testnet:
+	@echo "Deploying Phase 1 (testnet)..."
+	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase1Testnet.s.sol:DeployPhase1Testnet \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
+
+deploy\:phase3\:testnet:
+	@echo "Deploying Phase 3 (testnet)..."
+	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase3Testnet.s.sol:DeployPhase3Testnet \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v \
+		$(LIBRARY_FLAG)
+
+deploy\:check\:local:
+	@echo "Running post-deploy checks (local)..."
+	@FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
+		--rpc-url http://127.0.0.1:8545 --private-key $(LOCAL_PRIVATE_KEY) -v \
+		$(LIBRARY_FLAG)
+
+deploy\:check\:fork:
+	@echo "Running post-deploy checks (fork)..."
+	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
+		--rpc-url $(RPC_FORK) --private-key $(FORK_PRIVATE_KEY) -v \
+		$(LIBRARY_FLAG)
+
+deploy\:check\:testnet:
+	@echo "Running post-deploy checks (testnet)..."
+	@FOUNDRY_PROFILE=testnet forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) -v \
+		$(LIBRARY_FLAG)
+
+# Backward compat alias
+deploy\:check: deploy\:check\:local
 
 deploy\:phase1\:mainnet:
 	@echo "Deploying Phase 1 (Base mainnet)..."

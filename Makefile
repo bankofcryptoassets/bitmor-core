@@ -7,7 +7,11 @@
 	test\:integration\:liquidation test\:integration\:lifecycle \
 	test\:integration\:vault test\:integration\:initloan \
 	test\:lp test\:lp\:aave test\:lp\:scenarios test\:all \
-	coverage coverage-lcov coverage-html
+	coverage coverage-lcov coverage-html \
+	deploy\:libraries\:local deploy\:libraries\:fork deploy\:libraries\:testnet \
+	deploy\:check\:local deploy\:check\:fork deploy\:check\:testnet \
+	deploy\:phase1\:testnet deploy\:phase3\:testnet \
+	deploy\:swap-router\:fork
 
 # Chain configuration
 LOCAL_CHAIN_ID := 31337
@@ -152,7 +156,7 @@ deploy\:phase3\:local:
 	@cd loan-provider && make deploy:phase3:local
 
 deploy\:check:
-	@cd loan-provider && make deploy:check
+	@cd loan-provider && $(MAKE) deploy:check:local
 
 # Mainnet deployment
 deploy\:phase1\:mainnet:
@@ -166,6 +170,37 @@ deploy\:schedule\:mainnet:
 
 deploy\:transfer\:mainnet:
 	@cd loan-provider && make deploy:transfer:mainnet
+
+# Library deployment
+deploy\:libraries\:local:
+	@cd loan-provider && $(MAKE) deploy:libraries:local $(if $(LOCAL_PRIVATE_KEY),LOCAL_PRIVATE_KEY="$(LOCAL_PRIVATE_KEY)")
+
+deploy\:libraries\:fork:
+	@cd loan-provider && $(MAKE) deploy:libraries:fork $(if $(FORK_PRIVATE_KEY),FORK_PRIVATE_KEY="$(FORK_PRIVATE_KEY)")
+
+deploy\:libraries\:testnet:
+	@cd loan-provider && $(MAKE) deploy:libraries:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)")
+
+# Post-deploy checks
+deploy\:check\:local:
+	@cd loan-provider && $(MAKE) deploy:check:local $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)") $(if $(LOCAL_PRIVATE_KEY),LOCAL_PRIVATE_KEY="$(LOCAL_PRIVATE_KEY)")
+
+deploy\:check\:fork:
+	@cd loan-provider && $(MAKE) deploy:check:fork $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)") $(if $(FORK_PRIVATE_KEY),FORK_PRIVATE_KEY="$(FORK_PRIVATE_KEY)")
+
+deploy\:check\:testnet:
+	@cd loan-provider && $(MAKE) deploy:check:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)") $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)")
+
+# Testnet deployment
+deploy\:phase1\:testnet:
+	@cd loan-provider && $(MAKE) deploy:phase1:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)")
+
+deploy\:phase3\:testnet:
+	@cd loan-provider && $(MAKE) deploy:phase3:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)") $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)")
+
+# Swap router deployment
+deploy\:swap-router\:fork:
+	@cd swap-routers && $(MAKE) deploy-fork
 
 # Upgrades
 upgrade\:uups\:schedule:
