@@ -1,6 +1,6 @@
 # Bitmor Protocol - Root Makefile
 
-.PHONY: help install build clean anvil anvil-stop deploy-local test coverage \
+.PHONY: help install build clean anvil anvil-stop deploy-local deploy-testnet test coverage \
 	test\:unit test\:fork test\:loan\:unit test\:vault\:unit test\:strategy\:unit \
 	test\:liquidation\:unit test\:fuzz test\:invariant \
 	test\:integration test\:integration\:setup test\:integration\:access \
@@ -33,6 +33,7 @@ help:
 	@echo "  make anvil               Start Anvil (localhost:$(ANVIL_PORT), chainId $(LOCAL_CHAIN_ID))"
 	@echo "  make anvil-stop          Stop Anvil"
 	@echo "  make deploy-local        Deploy full protocol to Anvil"
+	@echo "  make deploy-testnet      Deploy full protocol to Base Sepolia with mocks"
 	@echo ""
 	@echo "Testing (loan-provider unit):"
 	@echo "  make test                    Run unit tests (default, no RPC needed)"
@@ -133,6 +134,9 @@ anvil-fork:
 
 deploy-fork:
 	@./deploy/scripts/deploy-fork.sh
+
+deploy-testnet:  ## Deploy full protocol to Base Sepolia with mocks
+	bash deploy/scripts/deploy-testnet.sh
 
 deploy\:phase1\:fork:
 	@cd loan-provider && make deploy:phase1:fork

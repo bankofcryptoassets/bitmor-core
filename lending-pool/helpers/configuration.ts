@@ -199,7 +199,7 @@ export const getBcbBTCAddress = async (
         const deployments = JSON.parse(deploymentsContent);
 
         const chainId = await getChainIdFromNetwork(network);
-        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
+        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.cbBTC;
 
         if (cbBTCMock) {
           return cbBTCMock;
