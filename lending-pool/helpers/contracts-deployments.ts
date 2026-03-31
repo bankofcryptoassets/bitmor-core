@@ -582,9 +582,9 @@ export const deployBitmorMockTokens = async (verify?: boolean) => {
   tokens['WETH'] = await deployMintableERC20(['Wrapped Ether', 'WETH', '18'], verify);
   await registerContractInJsonDb('WETH', tokens['WETH']);
 
-  // Deploy bUSDC (6 decimals like real USDC)
-  tokens['bUSDC'] = await deployMintableERC20(['Bitmor USDC', 'bUSDC', '6'], verify);
-  await registerContractInJsonDb('bUSDC', tokens['bUSDC']);
+  // Deploy USDC mock (6 decimals)
+  tokens['USDC'] = await deployMintableERC20(['USD Coin', 'USDC', '6'], verify);
+  await registerContractInJsonDb('USDC', tokens['USDC']);
 
   // Deploy bcbBTC (8 decimals like real BTC)
   tokens['bcbBTC'] = await deployMintableERC20(['Bitmor cbBTC', 'bcbBTC', '8'], verify);

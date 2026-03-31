@@ -324,7 +324,7 @@ contract HelperConfig is Script {
     }
 
     function getDebtAsset() public view returns (address) {
-        return _readAddress("bUSDC");
+        return _readAddress("USDC");
     }
 
     function getSwapper() public view returns (address) {

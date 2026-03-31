@@ -90,7 +90,7 @@ struct LoanData {
 ### Market Configuration (`markets/`)
 
 - `bitmor/index.ts` - Bitmor market config (MarketId, ProviderId, ReserveAssets)
-- `bitmor/reservesConfigs.ts` - Reserve strategies for bUSDC and bcbBTC
+- `bitmor/reservesConfigs.ts` - Reserve strategies for USDC and bcbBTC
 - `bitmor/commons.ts` - Common Bitmor parameters
 
 ### Deployment Tasks (`tasks/`)
@@ -121,7 +121,7 @@ Stored in `deployed-contracts.json`, keyed by network. Key contracts:
 - `LendingPool` - Main protocol entry point
 - `LendingPoolCollateralManager` - Liquidation logic
 - `AaveOracle` - Price oracle
-- `bUSDC`, `bcbBTC` - Reserve asset addresses
+- `USDC`, `bcbBTC` - Reserve asset addresses
 
 ## Testing
 
