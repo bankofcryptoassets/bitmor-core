@@ -66,7 +66,8 @@ help:
 	@echo "Interactions:"
 	@echo "  make interact:local:initloan      Initialize loan (local Anvil)"
 	@echo "  make interact:fork:initloan       Initialize loan (fork Anvil)"
-	@echo "  make interact:live:initloan       Initialize loan (live Base)"
+	@echo "  make interact:live:initloan       Initialize loan (live, default base_mainnet)"
+	@echo "  make interact:live:initloan NETWORK=base_sepolia  (live, Base Sepolia)"
 	@echo "  make interact:local:fund:usdc     Fund user with USDC (local)"
 	@echo "  make interact:fork:fund:usdc      Fund user with USDC (fork)"
 	@echo "  make interact:local:seed          Seed lending pool (local)"
@@ -268,7 +269,7 @@ deploy\:libraries\:fork:
 deploy\:libraries\:testnet:
 	@echo "Deploying linked libraries (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v
 
 deploy\:phase3\:local:
 	@echo "Deploying Phase 3 (local, proxy-based)..."
@@ -296,17 +297,16 @@ deploy\:phase3\:fork:
 
 # Testnet deployment (RPC_URL is REQUIRED, passed by caller)
 ACCOUNT ?= bitmor_owner
-SENDER ?= 0xc617C587122256e940e10FA46d30f610139A818E
 
 deploy\:phase1\:testnet:
 	@echo "Deploying Phase 1 (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase1Testnet.s.sol:DeployPhase1Testnet \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v
 
 deploy\:phase3\:testnet:
 	@echo "Deploying Phase 3 (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase3Testnet.s.sol:DeployPhase3Testnet \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v \
 		$(LIBRARY_FLAG)
 
 deploy\:check\:local:
@@ -324,7 +324,7 @@ deploy\:check\:fork:
 deploy\:check\:testnet:
 	@echo "Running post-deploy checks (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) -v \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) -v \
 		$(LIBRARY_FLAG)
 
 # Backward compat alias
@@ -389,7 +389,12 @@ verifyAll:
 
 # ============ Interaction Commands ============
 # Usage: make interact:<env>:<action>
-# Environments: local (Anvil), fork (Base mainnet fork on Anvil), live (Base mainnet)
+# Environments: local (Anvil), fork (Base mainnet fork on Anvil), live (any network)
+# For live targets, pass NETWORK= to select RPC endpoint (must match foundry.toml [rpc_endpoints])
+# Examples:
+#   make interact:live:initloan                          # defaults to base_mainnet
+#   make interact:live:initloan NETWORK=base_sepolia     # Base Sepolia
+NETWORK ?= base_mainnet
 
 # --- Initialize Loan ---
 interact\:local\:initloan:
@@ -404,9 +409,9 @@ interact\:fork\:initloan:
 		--rpc-url $(RPC_FORK) --sender $(ANVIL_SENDER) --unlocked --broadcast -v
 
 interact\:live\:initloan:
-	@echo "Initializing loan (live Base mainnet)..."
+	@echo "Initializing loan (live $(NETWORK))..."
 	@forge script script/interaction/Loan.s.sol:Loan_InitializeLoan \
-		--rpc-url base_mainnet --account bitmor_user --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_user --broadcast -v
 
 # --- Fund User ---
 interact\:local\:fund\:usdc:
@@ -452,12 +457,12 @@ interact\:local\:set\:bitmor-loan:
 
 interact\:live\:set\:vaultfactory:
 	@forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory \
-		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
 
 interact\:live\:set\:graceperiod:
 	@forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod \
-		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
 
 interact\:live\:set\:bitmor-loan:
 	@forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan \
-		--rpc-url base_mainnet --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
