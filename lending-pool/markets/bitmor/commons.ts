@@ -119,7 +119,7 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
             USDC: "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B", // USDC/USD Chainlink on Base mainnet (key must match ReserveAssets['base'].USDC)
         },
         [eBaseNetwork.sepolia]: {
-            bUSDC: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+            USDC: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
             bvBTC: "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298",
         },
         [eEthereumNetwork.hardhat]: {},

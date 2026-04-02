@@ -18,13 +18,16 @@ contract PostDeployChecks is Script {
 
     uint256 public checks;
     uint256 public passed;
+    address internal _operator;
 
     /// @notice Main entry point — runs all validation checks
     function run() external {
         HelperConfig config = new HelperConfig();
         BitmorAccessManager manager = BitmorAccessManager(config.getAccessManager());
+        _operator = _resolveOperator();
 
         console2.log("=== Post-Deploy Invariant Checks ===");
+        console2.log("Operator:", _operator);
 
         // 1. Proxy → implementation pointers
         _checkProxy("Loan", config.getLoan(), config.getLoanImpl());
@@ -100,8 +103,21 @@ contract PostDeployChecks is Script {
     /// @param target The target contract
     /// @param selector The function selector to check
     function _checkCanCall(BitmorAccessManager manager, string memory label, address target, bytes4 selector) internal {
-        (bool immediate, uint32 delay) = manager.canCall(msg.sender, target, selector);
+        (bool immediate, uint32 delay) = manager.canCall(_operator, target, selector);
         _check(label, immediate || delay > 0);
+    }
+
+    /// @dev Resolves the effective operator for read-only checks.
+    ///      Explicit `SENDER` still wins, otherwise prefer a single configured Foundry signer
+    ///      (private key or keystore/account) before falling back to the current caller context.
+    function _resolveOperator() internal view returns (address) {
+        address explicitSender = vm.envOr("SENDER", address(0));
+        if (explicitSender != address(0)) return explicitSender;
+
+        address[] memory wallets = vm.getWallets();
+        if (wallets.length == 1) return wallets[0];
+
+        return msg.sender;
     }
 
     /// @notice Records and logs a check result

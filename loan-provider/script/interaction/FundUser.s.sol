@@ -6,14 +6,14 @@ import {InteractionBase} from "./InteractionBase.s.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @title FundUser_USDC
-/// @notice Funds the broadcaster with USDC (deal on Anvil, skip on live)
+/// @notice Funds the broadcaster or explicit target with USDC (mint/transfer on non-live, skip on live)
 /// @dev Override amount with AMOUNT env var, target with TARGET env var
 contract FundUser_USDC is InteractionBase {
     function run() public {
         _preflight();
 
         uint256 amount = vm.envOr("AMOUNT", uint256(100_000e6));
-        address target = vm.envOr("TARGET", msg.sender);
+        address target = _resolveFundingTarget();
 
         _fundWithUSDC(target, amount);
         console2.log("USDC balance:", IERC20(_usdc).balanceOf(target));
@@ -21,13 +21,13 @@ contract FundUser_USDC is InteractionBase {
 }
 
 /// @title FundUser_CbBTC
-/// @notice Funds the broadcaster with cbBTC (deal on Anvil, skip on live)
+/// @notice Funds the broadcaster or explicit target with cbBTC (mint/transfer on non-live, skip on live)
 contract FundUser_CbBTC is InteractionBase {
     function run() public {
         _preflight();
 
         uint256 amount = vm.envOr("AMOUNT", uint256(10e8));
-        address target = vm.envOr("TARGET", msg.sender);
+        address target = _resolveFundingTarget();
 
         _fundWithCbBTC(target, amount);
         console2.log("cbBTC balance:", IERC20(_cbBTC).balanceOf(target));

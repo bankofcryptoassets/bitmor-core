@@ -71,9 +71,8 @@ contract SaveDeployedAddresses is Script {
     ) internal view returns (string memory) {
         // Build JSON for current network deployment
         string memory json = _buildNetworkInfo();
-        json = string.concat(json, _buildDeployedContracts(swapper, loanVault, loan, loanVaultFactory));
         json = string.concat(json, _buildMockTokens(mockUSDC, mockCbBTC));
-        json = string.concat(json, _buildNetworkConfig());
+        json = string.concat(json, _buildNetworkConfigWithContracts(swapper, loanVault, loan, loanVaultFactory));
         json = string.concat(json, _buildConstants());
         json = string.concat(json, ',"timestamp":"', vm.toString(block.timestamp), '"');
         json = string.concat(json, ',"blockNumber":"', vm.toString(block.number), '"}');
@@ -83,29 +82,6 @@ contract SaveDeployedAddresses is Script {
 
     function _buildNetworkInfo() internal view returns (string memory) {
         return string.concat('{"network":"', _getNetworkName(block.chainid), '"');
-    }
-
-    function _buildDeployedContracts(address swapper, address loanVault, address loan, address loanVaultFactory)
-        internal
-        pure
-        returns (string memory)
-    {
-        return string.concat(
-            ',"deployedContracts":{',
-            '"swapper":"',
-            vm.toString(swapper),
-            '",',
-            '"loanVault":"',
-            vm.toString(loanVault),
-            '",',
-            '"loan":"',
-            vm.toString(loan),
-            '",',
-            '"loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '"',
-            "}"
-        );
     }
 
     function _buildMockTokens(address mockUSDC, address mockCbBTC) internal pure returns (string memory) {
@@ -129,10 +105,31 @@ contract SaveDeployedAddresses is Script {
         return string.concat(json, "}");
     }
 
-    function _buildNetworkConfig() internal view returns (string memory) {
-        // Use individual getters to avoid stack depth issues
+    function _buildNetworkConfigWithContracts(
+        address swapper,
+        address loanVault,
+        address loan,
+        address loanVaultFactory
+    ) internal view returns (string memory) {
+        // Merge deployed contract addresses and external config into a single networkConfig object
         string memory json = string.concat(
             ',"networkConfig":{',
+            '"swapper":"',
+            vm.toString(swapper),
+            '",',
+            '"loanVaultImpl":"',
+            vm.toString(loanVault),
+            '",',
+            '"loan":"',
+            vm.toString(loan),
+            '",',
+            '"loanVaultFactory":"',
+            vm.toString(loanVaultFactory),
+            '",'
+        );
+
+        json = string.concat(
+            json,
             '"accessManager":"',
             vm.toString(helperConfig.getAccessManager()),
             '",',
@@ -160,9 +157,6 @@ contract SaveDeployedAddresses is Script {
             '",',
             '"btc":"',
             vm.toString(helperConfig.getCbBTC()),
-            '",',
-            '"swapper":"',
-            vm.toString(helperConfig.getSwapper()),
             '",'
         );
 

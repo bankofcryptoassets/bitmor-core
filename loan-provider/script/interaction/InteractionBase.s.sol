@@ -44,6 +44,7 @@ abstract contract InteractionBase is DeploymentHelper {
     address internal _usdcVault;
     bool internal _forkMode;
     bool internal _liveMode;
+    address internal _broadcaster;
 
     // ============ Whale Addresses (Base Mainnet) ============
     // Used on fork to impersonate token transfers. Anvil unlocks all accounts by default.
@@ -58,7 +59,7 @@ abstract contract InteractionBase is DeploymentHelper {
     // ============ Token Funding ============
 
     /// @notice Funds `to` with `amount` of USDC
-    /// @dev Local: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
+    /// @dev Local/Testnet: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
     /// @param to Address to fund
     /// @param amount USDC amount (6 decimals)
     function _fundWithUSDC(address to, uint256 amount) internal {
@@ -75,7 +76,7 @@ abstract contract InteractionBase is DeploymentHelper {
     }
 
     /// @notice Funds `to` with `amount` of cbBTC
-    /// @dev Local: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
+    /// @dev Local/Testnet: broadcast mint() on mock token. Fork: broadcast transfer from whale. Live: skip.
     /// @param to Address to fund
     /// @param amount cbBTC amount (8 decimals)
     function _fundWithCbBTC(address to, uint256 amount) internal {
@@ -98,7 +99,7 @@ abstract contract InteractionBase is DeploymentHelper {
     ///      gates deposit() to vault/loan callers only (Error 85: LP_CALLER_NOT_VAULT).
     ///      USDCVault's strategy splits deposits ~80% Aave / ~20% BLP (configurable).
     ///      To get X USDC of BLP liquidity, seed ~5X through USDCVault.
-    ///      Local: broadcast mint + approve + USDCVault.deposit.
+    ///      Local/Testnet: broadcast mint + approve + USDCVault.deposit.
     ///      Fork: broadcast as whale + USDCVault.deposit (persists on Anvil).
     ///      Live: skip (pool already has liquidity).
     /// @param amount USDC amount to deposit into USDCVault (6 decimals)
@@ -117,14 +118,33 @@ abstract contract InteractionBase is DeploymentHelper {
             IERC4626(_usdcVault).deposit(amount, USDC_WHALE);
             vm.stopBroadcast();
         } else {
+            // Mint and deposit for the configured broadcaster even before the main broadcast block.
             vm.startBroadcast();
-            MintableERC20(_usdc).mint(msg.sender, amount);
+            MintableERC20(_usdc).mint(_broadcaster, amount);
             IERC20(_usdc).approve(_usdcVault, amount);
-            IERC4626(_usdcVault).deposit(amount, msg.sender);
+            IERC4626(_usdcVault).deposit(amount, _broadcaster);
             vm.stopBroadcast();
         }
 
         console2.log("Seeded lending pool via USDCVault with USDC:", amount);
+    }
+
+    /// @dev Resolves the broadcaster address used for pre-broadcast routing.
+    ///      Explicit `SENDER` still wins, otherwise prefer a single configured Foundry signer
+    ///      (private key or keystore/account) before falling back to the current caller context.
+    function _resolveBroadcaster() internal view returns (address) {
+        address explicitSender = vm.envOr("SENDER", address(0));
+        if (explicitSender != address(0)) return explicitSender;
+
+        address[] memory wallets = vm.getWallets();
+        if (wallets.length == 1) return wallets[0];
+
+        return msg.sender;
+    }
+
+    /// @dev Resolves an optional funding target, defaulting to the cached broadcaster.
+    function _resolveFundingTarget() internal view returns (address) {
+        return vm.envOr("TARGET", _broadcaster);
     }
 
     // ============ Preflight ============
@@ -145,6 +165,7 @@ abstract contract InteractionBase is DeploymentHelper {
         _usdcVault = config.getUSDCVault();
         _forkMode = config.isForkMode();
         _liveMode = block.chainid == DeploymentConstants.BASE_MAINNET_CHAIN_ID;
+        _broadcaster = _resolveBroadcaster();
 
         // Validate
         requireNonZero(_loan, "Loan");
@@ -153,5 +174,6 @@ abstract contract InteractionBase is DeploymentHelper {
         requireNonZero(_btcVault, "BTCVault");
 
         console2.log("Preflight passed. Environment:", _liveMode ? "LIVE" : (_forkMode ? "FORK" : "LOCAL"));
+        console2.log("Broadcaster:", _broadcaster);
     }
 }

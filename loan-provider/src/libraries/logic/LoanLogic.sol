@@ -83,7 +83,7 @@ library LoanLogic {
         bytes32 storageSlot,
         DataTypes.InitializeLoanContext memory ctx,
         DataTypes.ExecuteInitializeLoanParams memory params
-    ) public returns (address lsa) {
+    ) public returns (address lsa, uint256 loanAmount, uint256 monthlyPayment) {
         if (params.depositAmount == 0 || params.btcAmount == 0) {
             revert Errors.ZeroAmount();
         }
@@ -100,7 +100,7 @@ library LoanLogic {
             revert Errors.GreaterThanMaxBTCAllowed();
         }
 
-        (uint256 loanAmount, uint256 monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
+        (loanAmount, monthlyPayment,) = _calculateLoanAmountAndMonthlyPayment(
             DataTypes.CalculateLoanAmountAndMonthlyPayment({
                 bitmorPool: ctx.bitmorPool,
                 oracle: ctx.oracle,
@@ -142,8 +142,6 @@ library LoanLogic {
         }
 
         _executeTransfersAndFlashLoan(ctx, params, lsa, loanAmount);
-
-        return lsa;
     }
 
     /**
@@ -185,9 +183,6 @@ library LoanLogic {
         /// leaving a surplus that belongs to the depositing user.
         uint256 surplus = IERC20(ctx.debtAsset).balanceOf(address(this)) - balBefore;
         if (surplus > 0) IERC20(ctx.debtAsset).safeTransfer(params.user, surplus);
-
-        // Emit loan creation event
-        emit ILoan.Loan__LoanCreated(params.user, lsa, loanAmount, params.btcAmount, params.data);
     }
 
     /**

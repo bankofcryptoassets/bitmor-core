@@ -280,7 +280,6 @@ export interface iAssetBase<T> {
     xSUSHI: T;
     WAVAX: T;
     bvBTC: T;
-    bUSDC: T;
     cbBTC: T;
 }
 
@@ -354,7 +353,7 @@ export type iAvalanchePoolAssets<T> = Pick<
     "WETH" | "DAI" | "USDT" | "AAVE" | "WBTC" | "WAVAX" | "USDC"
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "bUSDC" | "bvBTC">;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "USDC" | "bvBTC">;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 
@@ -405,7 +404,6 @@ export enum TokenContractId {
     xSUSHI = "xSUSHI",
     WAVAX = "WAVAX",
     bvBTC = "bvBTC",
-    bUSDC = "bUSDC",
     /** cbBTC token - underlying asset for MockBTCVault (cbBTC → bvBTC shares). */
     cbBTC = "cbBTC",
 }

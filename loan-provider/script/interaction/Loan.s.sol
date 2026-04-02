@@ -27,7 +27,7 @@ contract Loan_InitializeLoan is InteractionBase {
         _seedLendingPoolUSDC(100_000e6);
 
         // 2. Fund user with USDC for deposit + premium (whale transfer on fork, mint on local)
-        _fundWithUSDC(msg.sender, totalUSDC);
+        _fundWithUSDC(_broadcaster, totalUSDC);
 
         // 3. Broadcast as user: approve + initializeLoan (uses cached _usdc, _loan from _preflight)
         vm.startBroadcast();

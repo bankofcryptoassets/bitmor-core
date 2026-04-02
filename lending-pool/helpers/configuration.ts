@@ -199,7 +199,7 @@ export const getBcbBTCAddress = async (
         const deployments = JSON.parse(deploymentsContent);
 
         const chainId = await getChainIdFromNetwork(network);
-        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
+        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.cbBTC;
 
         if (cbBTCMock) {
           return cbBTCMock;
@@ -275,11 +275,11 @@ export const getBvBTCAddress = async (
   return bvBTCAddress;
 };
 
-export const getBUSDCAddress = async (
+export const getUSDCAddress = async (
   config: PoolConfiguration,
   network: eNetwork
 ): Promise<tEthereumAddress> => {
-  let bUSDCAddress: string | undefined;
+  let usdcAddress: string | undefined;
 
   try {
     const fs = await import('fs');
@@ -294,22 +294,22 @@ export const getBUSDCAddress = async (
       const chainId = await getChainIdFromNetwork(network);
       const debtAsset = deployments.deployments?.[chainId]?.networkConfig?.debtAsset;
 
-      if (debtAsset) bUSDCAddress = debtAsset;
+      if (debtAsset) usdcAddress = debtAsset;
     } else {
       console.warn(`loan-provider deployments.json not found at: ${loanProviderPath}`);
     }
   } catch (error) {
-    console.warn('Could not load bUSDC from loan-provider deployments:', error);
+    console.warn('Could not load USDC from loan-provider deployments:', error);
   }
 
-  if (!bUSDCAddress || bUSDCAddress === '') {
+  if (!usdcAddress || usdcAddress === '') {
     throw new Error(
-      `bUSDC address not found for network ${network}. ` +
+      `USDC address not found for network ${network}. ` +
         `Please ensure loan-provider is deployed first and deployments.json exists at ../loan-provider/deployments.json`
     );
   }
 
-  return bUSDCAddress;
+  return usdcAddress;
 };
 
 const getChainIdFromNetwork = async (network: eNetwork): Promise<string> => {

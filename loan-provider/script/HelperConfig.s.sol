@@ -99,9 +99,9 @@ contract HelperConfig is Script {
     uint24 constant SWAP_FEE_BASE_MAINNET = 3000;
     int24 constant SWAP_TICK_SPACING_BASE_MAINNET = 60;
     address constant SWAP_HOOKS_BASE_MAINNET = address(0);
-    address public constant BITMOR_OWNER = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
+    address public constant BITMOR_OWNER = 0xc617C587122256e940e10FA46d30f610139A818E; // bitmor_owner
     address public constant BITMOR_USER = 0xAe773320F12d18c93acAA4C2054340620b748E3a; // bitmor_user
-    address public constant PREMIUM_COLLECTOR = 0x30fF6c272f2F427CcC81cb7fB14F5AFB94fF9Ad6; // bitmor_owner
+    address public constant PREMIUM_COLLECTOR = 0xc617C587122256e940e10FA46d30f610139A818E; // bitmor_owner
     bytes public constant DATA = "0xLOAN";
     // Default vault fees in basis points
     uint256 public constant DEFAULT_ENTRY_FEE = 10; // 0.1%
@@ -185,19 +185,23 @@ contract HelperConfig is Script {
     }
 
     /// @dev Internal helper to initialize Base Sepolia config incrementally
+    /// @dev For full-mock testnet deployment, reads from deployments.json like local
     function _initBaseSepoliaConfig() internal {
-        s_networkConfig.accessManager = getAccessManager();
+        address mockUsdc = _readDeployment("debtAsset");
+        address mockCbBTC = _readDeployment("cbBTC");
+
+        s_networkConfig.accessManager = _readDeployment("accessManager");
         s_networkConfig.bitmorPool = getBitmorPool();
-        s_networkConfig.aaveV3Pool = getAaveV3Pool();
-        s_networkConfig.aaveAddressesProvider = getAaveAddressesProvider();
+        s_networkConfig.aaveV3Pool = _readDeployment("aaveV3Pool");
+        s_networkConfig.aaveAddressesProvider = _readDeployment("aaveAddressesProvider");
         s_networkConfig.oracle = getOracle();
-        s_networkConfig.collateralAsset = getCollateralAsset();
-        s_networkConfig.debtAsset = getDebtAsset();
-        s_networkConfig.btc = getCbBTC();
+        s_networkConfig.collateralAsset = _readDeployment("collateralAsset");
+        s_networkConfig.debtAsset = mockUsdc;
+        s_networkConfig.btc = mockCbBTC;
         s_networkConfig.swapper = getSwapper();
-        s_networkConfig.premiumCollector = getPremiumCollector();
-        s_networkConfig.usdc = getUSDC();
-        s_networkConfig.usdc_holder = getUSDCHolder();
+        s_networkConfig.premiumCollector = BITMOR_OWNER;
+        s_networkConfig.usdc = mockUsdc;
+        s_networkConfig.usdc_holder = BITMOR_OWNER;
     }
 
     /// @dev Internal helper to initialize local config incrementally
@@ -327,7 +331,7 @@ contract HelperConfig is Script {
     }
 
     function getDebtAsset() public view returns (address) {
-        return _readAddress("bUSDC");
+        return _readAddress("USDC");
     }
 
     function getSwapper() public view returns (address) {
@@ -472,7 +476,7 @@ contract HelperConfig is Script {
     /// @notice Returns the deployed mock cbBTC contract address (local only)
     /// @return The MockCbBTC address from most recent deployment, or address(0) if not local
     function getMockCbBTC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
+        if (block.chainid == CHAIN_ID_LOCAL || block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             return _readDeployment("cbBTC");
         }
         return address(0);
@@ -481,7 +485,7 @@ contract HelperConfig is Script {
     /// @notice Returns the deployed mock USDC contract address (local only)
     /// @return The MockUSDC address from most recent deployment, or address(0) if not local
     function getMockUSDC() public view returns (address) {
-        if (block.chainid == CHAIN_ID_LOCAL) {
+        if (block.chainid == CHAIN_ID_LOCAL || block.chainid == CHAIN_ID_BASE_SEPOLIA) {
             return _readDeployment("debtAsset");
         }
         return address(0);

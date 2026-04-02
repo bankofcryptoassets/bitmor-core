@@ -12,6 +12,7 @@ import {
   getQuoteCurrency,
   getBcbBTCAddress,
   getBvBTCAddress,
+  getUSDCAddress,
 } from '../../../../helpers/configuration.js';
 import {
   getAaveOracle,
@@ -63,10 +64,21 @@ export default async function deployOraclesAction(
       const { getDb } = await import('../../../../helpers/misc-utils.js');
       const db = getDb();
       const actualNetwork = conn.networkName; // Use actual network name for DB lookup
-      const bUSDC = db.get(`bUSDC.${actualNetwork}`).value()?.address;
+      const USDC = db.get(`USDC.${actualNetwork}`).value()?.address;
       const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
-      if (bUSDC && bcbBTC) {
-        reserveAssets = { bUSDC, bcbBTC };
+      if (USDC && bcbBTC) {
+        reserveAssets = { USDC, bcbBTC };
+      }
+    }
+
+    // Dynamically populate USDC address from loan-provider deployment
+    if (reserveAssets['USDC'] === '') {
+      try {
+        const usdcAddress = await getUSDCAddress(poolConfig, network);
+        reserveAssets = { ...reserveAssets, USDC: usdcAddress };
+        console.log(`USDC address loaded from loan-provider: ${usdcAddress}`);
+      } catch (error) {
+        console.warn(`Could not load USDC address: ${error}`);
       }
     }
 
@@ -118,7 +130,6 @@ export default async function deployOraclesAction(
       const { USD, ...reserveAssetsOnly } = tokensToWatch;
       for (const [symbol, address] of Object.entries(reserveAssetsOnly)) {
         const feedId = pythFeedIds[symbol]
-          || (symbol === 'bUSDC' ? pythFeedIds['USDC'] : undefined)
           || (symbol === 'bcbBTC' ? pythFeedIds['cbBTC'] : undefined);
 
         if (feedId && address) {

@@ -20,7 +20,7 @@ contract VerifyAllContracts is Script {
         deploymentJson = vm.readFile(string.concat(vm.projectRoot(), "/deployments.json"));
 
         uint256 chainId = block.chainid;
-        deploymentsPath = string.concat(".deployments.", vm.toString(chainId), ".deployedContracts");
+        deploymentsPath = string.concat(".deployments.", vm.toString(chainId), ".networkConfig");
 
         console.log("Verifying contracts for chain ID:", chainId);
 
@@ -38,14 +38,15 @@ contract VerifyAllContracts is Script {
         contracts = new ContractInfo[](3);
 
         // Get addresses from deployments.json
-        address loanVault = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVault")));
+        address loanVaultImpl =
+            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVaultImpl")));
         address loan = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loan")));
         address loanVaultFactory =
             vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVaultFactory")));
 
         // Build contract list - Sourcify auto-detects constructor args
         contracts[0] = ContractInfo({
-            name: "LoanVault", contractPath: "src/protocol/LoanVault.sol:LoanVault", deployedAddress: loanVault
+            name: "LoanVault", contractPath: "src/protocol/LoanVault.sol:LoanVault", deployedAddress: loanVaultImpl
         });
 
         contracts[1] = ContractInfo({name: "Loan", contractPath: "src/protocol/Loan.sol:Loan", deployedAddress: loan});
