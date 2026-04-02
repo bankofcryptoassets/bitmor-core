@@ -127,6 +127,13 @@ contract HelperConfig is Script {
     uint256 public constant BTC_USD_PRICE = 100_000e8; // $100,000
     uint256 public constant USDC_USD_PRICE = 1e8; // $1
 
+    // INSURANCE DATA CONSTANTS
+    string public constant INSTRUMENT_NAME = "INSTRUMENT_NAME";
+    string public constant CONTRACTS_AMOUNT = "0.01";
+    string public constant PRICE_PER_CONTRACT = "50000";
+    uint256 public constant SIGNED_BTC_PRICE = 6_000_000; // $60k
+    uint256 public constant DERIBIT_BTC_PRICE = 6_000_000; // $60k
+
     /// @notice Returns human-readable network name for a given `chainId`
     /// @param chainId The chain ID to look up
     /// @return name The network name (e.g., "base-sepolia", "local")
@@ -541,6 +548,16 @@ contract HelperConfig is Script {
             );
     }
 
+    function encodeInsuranceData(
+        string memory instrumentName,
+        string memory contractsAmount,
+        string memory pricePerContract,
+        uint256 signedBtcPrice,
+        uint256 deribitBtcPrice
+    ) public pure returns (bytes memory) {
+        return abi.encode(instrumentName, contractsAmount, pricePerContract, signedBtcPrice, deribitBtcPrice);
+    }
+
     function getLoanConfig()
         public
         pure
@@ -552,7 +569,10 @@ contract HelperConfig is Script {
             bytes memory data
         )
     {
-        return (DEPOSIT_AMT, PREMIUM_AMT, CBBTC_AMT, DURATION_IN_MONTHS, DATA);
+        bytes memory data = encodeInsuranceData(
+            INSTRUMENT_NAME, CONTRACTS_AMOUNT, PRICE_PER_CONTRACT, SIGNED_BTC_PRICE, DERIBIT_BTC_PRICE
+        );
+        return (DEPOSIT_AMT, PREMIUM_AMT, CBBTC_AMT, DURATION_IN_MONTHS, data);
     }
 
     function _readAddress(string memory contractName) internal view returns (address addr) {
