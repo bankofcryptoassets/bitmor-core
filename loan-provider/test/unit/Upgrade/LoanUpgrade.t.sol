@@ -112,25 +112,25 @@ contract LoanUpgradeTest is LoanUnitTestBase {
         LoanV2(address(loan))
             .initialize(
                 DataTypes.InitParams({
-                    manager: address(manager),
-                    aaveV3Pool: address(mockAavePool),
-                    aaveAddressesProvider: address(mockAddressesProvider),
-                    bitmorPool: address(mockBitmorPool),
-                    oracle: address(mockOracle),
-                    collateralAsset: address(mockBTCVault),
-                    debtAsset: address(mockUSDC),
-                    btc: address(mockCbBTC),
-                    bitmorAddressesProvider: address(bitmorAddressesProvider),
-                    maxBTCAmt: uint64(10e8),
-                    minBTCAmt: uint64(0.01e8),
-                    gracePeriod: 0,
-                    preClosureFeeBps: 0,
-                    liquidationFee: 0,
-                    slippageSharesToAsset: 100,
-                    slippageSwap: 50,
-                    minDeposit: 30_00,
-                    maxDuration: 60
-                })
+                manager: address(manager),
+                aaveV3Pool: address(mockAavePool),
+                aaveAddressesProvider: address(mockAddressesProvider),
+                bitmorPool: address(mockBitmorPool),
+                oracle: address(mockOracle),
+                collateralAsset: address(mockBTCVault),
+                debtAsset: address(mockUSDC),
+                btc: address(mockCbBTC),
+                bitmorAddressesProvider: address(bitmorAddressesProvider),
+                maxBTCAmt: uint64(10e8),
+                minBTCAmt: uint64(0.01e8),
+                gracePeriod: 0,
+                preClosureFeeBps: 0,
+                liquidationFee: 0,
+                slippageSharesToAsset: 100,
+                slippageSwap: 50,
+                minDeposit: 30_00,
+                maxDuration: 60
+            })
             );
     }
 
