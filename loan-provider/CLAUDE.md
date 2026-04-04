@@ -383,9 +383,9 @@ mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
 - Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 - Aave Addresses Provider: `0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a`
 
-**Deployment state**: `deployments.json` - Contains deployed contract addresses and block numbers
+**Deployment state**: `../deployments/<chainId>/latest.json` - Unified registry containing all deployed contract addresses (loan-provider, lending-pool, tokens, external)
 
-**Integration**: Reads Bitmor Lending Pool addresses from `../lending-pool/deployed-contracts.json`
+**Integration**: All addresses (including lending pool) are read from the unified registry via HelperConfig
 
 ## Import Aliases
 

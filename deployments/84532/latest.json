@@ -1,0 +1,49 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "timestamp": 1775345079578,
+  "commit": "40de50f",
+  "deployer": "0xc617c587122256e940e10fa46d30f610139a818e",
+  "loanProvider": {
+    "accessManager": "0xd73c6e2c7bd9f3a13017d5ffb8714b1d5af55fb5",
+    "btcVaultImpl": "0xa1c3194a208016e27cc580ce924728aee1454556",
+    "btcVault": "0x1ce30e3cb86f1027775e54ea8e07b96d47129088",
+    "libraries": {
+      "loanLogic": "0x12b8825b7b10554de3f6ac4cbc1ad6879db36542",
+      "repayLogic": "0xb8b6fd383a0e9cdada38a5c081dabe47cfca768b",
+      "closeLoanLogic": "0x943f74fc7453a71797e844da329cb96c4cddcbf1",
+      "flashLoanLogic": "0xa499e9bd5a3cc0afc2dd25c18f4ce9755ce689b7"
+    },
+    "usdcVaultImpl": "0xaf48c18ac6a3e334eca8a4a8c04c402d67b4848a",
+    "usdcVault": "0x4b99af6b3afd452a5a6d92f12f7f64e3b817c410",
+    "swapper": "0xbca9843dacbd31fafbdfd88e63e83e6bad1174a4",
+    "addressesProviderImpl": "0xf872693a452157ac2d0f808b659659ec107bdab0",
+    "addressesProvider": "0x058e2b7cbea5537ca701e99ccc32f94a4a63f5b0",
+    "loanImpl": "0x6d5b3b0fe7448eff1bd072d60dd98bd5263c8d9e",
+    "loan": "0x25cd89cb47aa52b14c650ffffa9b0dacda4019bb",
+    "loanVaultImpl": "0xd5830dba3b74a7e52f3300af7729dcc407b21c36",
+    "beacon": "0x42651944e52f8b8c8e542d1f1e56aed1f57fa730",
+    "beaconController": "0x76238a866cf539774e384df706c1ac71ffdd2937",
+    "loanVaultFactory": "0xd59e6ed799260d2e623546ec5fefb274a655cd7a",
+    "autoRepaymentImpl": "0x06a5f2ebe83fa66659aee0a37e4914c60da2f1af",
+    "autoRepayment": "0xe1c95b79c009fbdb0a114c4e31463c7182cadc4e",
+    "aaveStrategy": "0xdf12b8a4403a671ffcba4fcbb7f64b6032782580",
+    "usdcStrategy": "0xdc8244ff7ce9bb104ac786e1adac8f8428d4550b"
+  },
+  "lendingPool": {
+    "pool": "0x8F73B5778c7c1C260F8da903Ea70c1D456BA3be7",
+    "addressesProvider": "0xeFE13d321d4dedB2cdd5A652fA9c918F1417fC30",
+    "oracle": "0x287f17544eD3E8Efff8c0552b0522bbFdA183420",
+    "configurator": "0x8c1A7a3bfeaB4efEF2eE84AFFb416F20696e2F4E"
+  },
+  "tokens": {
+    "usdc": "0x470a7d3bd1f596df7f26cbbb4405f117d54ce52e",
+    "cbBTC": "0x4fe9b5c05f42bec3a14108fe44026e276a17f439"
+  },
+  "external": {
+    "btcOracle": "0x44a9edd1db26d7099487c928abd3159c5546cd3c",
+    "usdcOracle": "0x0f3921623e119d52f43ccee2ce2859f9817b2d12",
+    "aaveV3Pool": "0xc002240789827f1260a0ae2266ceba5d34d8d535",
+    "aaveAddressesProvider": "0xc002240789827f1260a0ae2266ceba5d34d8d535"
+  }
+}

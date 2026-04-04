@@ -19,7 +19,7 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
  * - No MockUSDC, MockCbBTC, MockOracles, or MockAaveV3Pool
  * - Uses real cbBTC address as BTCVault underlying
  * - Inherits MainnetRolesConfig (multisig-based grantees)
- * - Saves to deployments.json under chain "8453" with network name "base"
+ * - Addresses saved to deployments/8453/latest.json by bitmor-deploy CLI after broadcast
  *
  * @custom:security For Base mainnet deployment (chainId 8453). Verify all addresses before broadcast.
  */
@@ -74,40 +74,6 @@ contract DeployPhase1Mainnet is MainnetRolesConfig {
 
         vm.stopBroadcast();
 
-        // 3. Save to deployments.json
-        _savePhase1();
-
-        // 4. Write deployment manifest
-        _writeManifest("Phase1");
-
         console2.log("=== Phase 1 Complete ===");
-    }
-
-    /**
-     * @notice Persists all Phase 1 addresses to deployments.json
-     * @dev Saves AccessManager, BTCVault proxy/impl, and cbBTC address under chain 8453.
-     * Aave V3 Pool and Addresses Provider are hardcoded in HelperConfig for mainnet,
-     * so they are not stored here.
-     */
-    function _savePhase1() internal {
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '",',
-            '"cbBTC":"',
-            vm.toString(cbBTCAddr),
-            '",',
-            '"btc":"',
-            vm.toString(cbBTCAddr),
-            '"'
-        );
-
-        _mergeAndSave(keys, vm.toString(DeploymentConstants.BASE_MAINNET_CHAIN_ID), "base");
     }
 }

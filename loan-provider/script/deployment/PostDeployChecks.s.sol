@@ -68,17 +68,23 @@ contract PostDeployChecks is Script {
         );
 
         // 6. Strategy functions mapped to delayed roles (not ADMIN default)
-        // Verify addStrategy is restricted to BVC (not ADMIN_ROLE 0)
-        {
-            bytes4 addStrategySelector = bytes4(keccak256("addStrategy(address,uint256)"));
-            uint64 bvcRoleId = manager.getTargetFunctionRole(config.getBTCVault(), addStrategySelector);
-            _check("BTCVault.addStrategy mapped to BVC (not ADMIN)", bvcRoleId != 0);
-        }
-        // Verify setStrategy is restricted to UVC (not ADMIN_ROLE 0)
-        {
-            bytes4 setStrategySelector = bytes4(keccak256("setStrategy(address)"));
-            uint64 uvcRoleId = manager.getTargetFunctionRole(config.getUSDCVault(), setStrategySelector);
-            _check("USDCVault.setStrategy mapped to UVC (not ADMIN)", uvcRoleId != 0);
+        // On testnet (Base Sepolia), all delayed selectors are remapped to ADMIN for convenience,
+        // so these checks only apply to mainnet and local deployments.
+        if (block.chainid != 84532) {
+            // Verify addStrategy is restricted to BVC (not ADMIN_ROLE 0)
+            {
+                bytes4 addStrategySelector = bytes4(keccak256("addStrategy(address,uint256)"));
+                uint64 bvcRoleId = manager.getTargetFunctionRole(config.getBTCVault(), addStrategySelector);
+                _check("BTCVault.addStrategy mapped to BVC (not ADMIN)", bvcRoleId != 0);
+            }
+            // Verify setStrategy is restricted to UVC (not ADMIN_ROLE 0)
+            {
+                bytes4 setStrategySelector = bytes4(keccak256("setStrategy(address)"));
+                uint64 uvcRoleId = manager.getTargetFunctionRole(config.getUSDCVault(), setStrategySelector);
+                _check("USDCVault.setStrategy mapped to UVC (not ADMIN)", uvcRoleId != 0);
+            }
+        } else {
+            console2.log("  [SKIP] Strategy role checks (testnet admin override active)");
         }
 
         // 7. Summary

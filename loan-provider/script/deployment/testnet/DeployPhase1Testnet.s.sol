@@ -47,7 +47,7 @@ contract DeployPhase1Testnet is TestnetRolesConfig {
     address public mockAaveV3Pool;
 
     /// @notice Main entry point for Phase 1 Base Sepolia testnet deployment
-    /// @dev Deploys all Phase 1 contracts and persists addresses to deployments.json.
+    /// @dev Deploys all Phase 1 contracts. Address persistence is handled externally.
     /// Deployment order:
     /// 1. BitmorAccessManager (direct deploy, owned by `msg.sender`)
     /// 2. MockUSDC + MockCbBTC (direct deploy)
@@ -107,53 +107,6 @@ contract DeployPhase1Testnet is TestnetRolesConfig {
 
         vm.stopBroadcast();
 
-        // 6. Save to deployments.json
-        _savePhase1();
-
-        // 7. Write deployment manifest
-        _writeManifest("Phase1");
-
         console2.log("=== Phase 1 Complete ===");
-    }
-
-    /// @notice Persists all Phase 1 addresses to deployments.json
-    /// @dev Builds a JSON key-value string and delegates to `_mergeAndSave()`.
-    /// Includes both `collateralAsset` (BTCVault proxy) and `btcVaultImpl` (implementation)
-    /// for HelperConfig compatibility.
-    function _savePhase1() internal {
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '",',
-            '"debtAsset":"',
-            vm.toString(mockUsdc),
-            '",',
-            '"cbBTC":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btc":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btcOracle":"',
-            vm.toString(btcOracle),
-            '",',
-            '"usdcOracle":"',
-            vm.toString(usdcOracle),
-            '",',
-            '"aaveV3Pool":"',
-            vm.toString(mockAaveV3Pool),
-            '",',
-            '"aaveAddressesProvider":"',
-            vm.toString(mockAaveV3Pool),
-            '"'
-        );
-
-        _mergeAndSave(keys, vm.toString(DeploymentConstants.BASE_SEPOLIA_CHAIN_ID), "base-sepolia");
     }
 }

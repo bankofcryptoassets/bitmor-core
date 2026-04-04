@@ -44,10 +44,6 @@ contract DeployPhase3Fork is ForkRolesConfig {
     address public usdcVault;
     address public usdcVaultImpl;
     address public swapper;
-    address public loanLogicLib;
-    address public repayLogicLib;
-    address public closeLoanLogicLib;
-    address public flashLoanLogicLib;
     address public loan;
     address public loanImpl;
     address public loanVaultImpl;
@@ -84,23 +80,16 @@ contract DeployPhase3Fork is ForkRolesConfig {
 
         console2.log("=== Phase 3: Fork Deployment ===");
 
-        Phase1Addresses memory p1 = _loadPhase1Addresses();
-        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
-
-        // Assign state
-        accessManager = p1.accessManager;
-        cbBTC = p1.cbBTC;
-        btcVault = p1.btcVault;
-        btcVaultImpl = p1.btcVaultImpl;
-        aaveV3Pool = p1.aaveV3Pool;
-        aaveAddressesProvider = p1.aaveAddressesProvider;
-        loanLogicLib = p1.loanLogicLib;
-        repayLogicLib = p1.repayLogicLib;
-        closeLoanLogicLib = p1.closeLoanLogicLib;
-        flashLoanLogicLib = p1.flashLoanLogicLib;
-        bitmorPool = lp.bitmorPool;
-        aaveOracle = lp.aaveOracle;
-        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
+        // Load Phase 1 + lending pool addresses from unified registry via HelperConfig
+        accessManager = helperConfig.getAccessManager();
+        cbBTC = helperConfig.getCbBTC();
+        btcVault = helperConfig.getBTCVault();
+        btcVaultImpl = helperConfig.getBTCVaultImpl();
+        aaveV3Pool = helperConfig.getAaveV3Pool();
+        aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
+        bitmorPool = helperConfig.getBitmorPool();
+        aaveOracle = helperConfig.getOracle();
+        lendingPoolAddressesProvider = helperConfig.getAddressesProvider();
         usdc = usdcAddr;
         swapper = swapAdapterAddr;
 
@@ -215,10 +204,6 @@ contract DeployPhase3Fork is ForkRolesConfig {
 
         vm.stopBroadcast();
 
-        // 12. Save addresses
-        _saveDeployments(helperConfig);
-        _writeManifest("Phase3");
-
         console2.log("=== Phase 3 Complete ===");
     }
 
@@ -232,100 +217,5 @@ contract DeployPhase3Fork is ForkRolesConfig {
             manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
         );
         _setupGuardians(manager, g.admin);
-    }
-
-    function _saveDeployments(HelperConfig helperConfig) internal {
-        string memory chainKey = helperConfig.getChainKey();
-
-        // Chunk 1: Phase 1 carried forward
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '","collateralAsset":"',
-            vm.toString(btcVault),
-            '","debtAsset":"',
-            vm.toString(usdc),
-            '","cbBTC":"',
-            vm.toString(cbBTC),
-            '","btc":"',
-            vm.toString(cbBTC),
-            '"'
-        );
-
-        // Chunk 2: External protocols (persist for HelperConfig resolution)
-        keys = string.concat(
-            keys,
-            ',"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
-            '","aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
-            '"'
-        );
-
-        // Chunk 3: Phase 3 proxies
-        keys = string.concat(
-            keys,
-            ',"usdcVault":"',
-            vm.toString(usdcVault),
-            '","loan":"',
-            vm.toString(loan),
-            '","bitmorAddressesProvider":"',
-            vm.toString(bitmorAddressesProvider),
-            '","autoRepayment":"',
-            vm.toString(autoRepayment),
-            '"'
-        );
-
-        // Chunk 4: Implementations + libraries
-        keys = string.concat(
-            keys,
-            ',"loanLogicLib":"',
-            vm.toString(loanLogicLib),
-            '","repayLogicLib":"',
-            vm.toString(repayLogicLib),
-            '","closeLoanLogicLib":"',
-            vm.toString(closeLoanLogicLib),
-            '","flashLoanLogicLib":"',
-            vm.toString(flashLoanLogicLib),
-            '","btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '","usdcVaultImpl":"',
-            vm.toString(usdcVaultImpl),
-            '","loanImpl":"',
-            vm.toString(loanImpl),
-            '","bitmorAddressesProviderImpl":"',
-            vm.toString(bitmorAddressesProviderImpl),
-            '","autoRepaymentImpl":"',
-            vm.toString(autoRepaymentImpl),
-            '"'
-        );
-
-        // Chunk 5: Beacon
-        keys = string.concat(
-            keys,
-            ',"loanVaultImpl":"',
-            vm.toString(loanVaultImpl),
-            '","beacon":"',
-            vm.toString(beacon),
-            '","beaconController":"',
-            vm.toString(beaconController),
-            '","loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '"'
-        );
-
-        // Chunk 6: Strategies + swapper
-        keys = string.concat(
-            keys,
-            ',"swapper":"',
-            vm.toString(swapper),
-            '","aaveStrategy":"',
-            vm.toString(aaveStrategy),
-            '","usdcStrategy":"',
-            vm.toString(usdcStrategy),
-            '"'
-        );
-
-        _mergeAndSave(keys, chainKey, "base-fork");
     }
 }

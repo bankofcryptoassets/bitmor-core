@@ -269,7 +269,7 @@ deploy\:libraries\:fork:
 deploy\:libraries\:testnet:
 	@echo "Deploying linked libraries (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
 
 deploy\:phase3\:local:
 	@echo "Deploying Phase 3 (local, proxy-based)..."
@@ -297,16 +297,17 @@ deploy\:phase3\:fork:
 
 # Testnet deployment (RPC_URL is REQUIRED, passed by caller)
 ACCOUNT ?= bitmor_owner
+SENDER ?= $(shell cast wallet address --account $(ACCOUNT) 2>/dev/null)
 
 deploy\:phase1\:testnet:
 	@echo "Deploying Phase 1 (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase1Testnet.s.sol:DeployPhase1Testnet \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v
 
 deploy\:phase3\:testnet:
 	@echo "Deploying Phase 3 (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployPhase3Testnet.s.sol:DeployPhase3Testnet \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) --broadcast --slow --force -v \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow --force -v \
 		$(LIBRARY_FLAG)
 
 deploy\:check\:local:
@@ -324,7 +325,7 @@ deploy\:check\:fork:
 deploy\:check\:testnet:
 	@echo "Running post-deploy checks (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
-		--rpc-url $(RPC_URL) --account $(ACCOUNT) -v \
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) -v \
 		$(LIBRARY_FLAG)
 
 # Backward compat alias
@@ -380,9 +381,6 @@ deployLoan:
 deployLoanVaultFactory:
 	@forge script script/deployment/DeployLoanVaultFactory.s.sol:DeployLoanVaultFactory --rpc-url base_sepolia --broadcast --verify --verifier sourcify --account bitmor_owner
 
-saveAddresses:
-	@forge script script/deployment/SaveDeployedAddresses.s.sol:SaveDeployedAddresses --rpc-url base_sepolia
-
 verifyAll:
 	@echo "Verifying all deployed contracts..."
 	@forge script script/verification/VerifyAllContracts.s.sol:VerifyAllContracts --rpc-url base_sepolia --ffi
@@ -411,7 +409,7 @@ interact\:fork\:initloan:
 interact\:live\:initloan:
 	@echo "Initializing loan (live $(NETWORK))..."
 	@forge script script/interaction/Loan.s.sol:Loan_InitializeLoan \
-		--rpc-url $(NETWORK) --account bitmor_user --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_user --sender $(shell cast wallet address --account bitmor_user 2>/dev/null) --broadcast -v
 
 # --- Fund User ---
 interact\:local\:fund\:usdc:
@@ -457,12 +455,12 @@ interact\:local\:set\:bitmor-loan:
 
 interact\:live\:set\:vaultfactory:
 	@forge script script/interaction/Loan.s.sol:Loan_SetLoanVaultFactory \
-		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --sender $(SENDER) --broadcast -v
 
 interact\:live\:set\:graceperiod:
 	@forge script script/interaction/Loan.s.sol:Loan_SetGracePeriod \
-		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --sender $(SENDER) --broadcast -v
 
 interact\:live\:set\:bitmor-loan:
 	@forge script script/interaction/AddressesProvider.s.sol:AddressesProvider_SetBitmorLoan \
-		--rpc-url $(NETWORK) --account bitmor_owner --broadcast -v
+		--rpc-url $(NETWORK) --account bitmor_owner --sender $(SENDER) --broadcast -v

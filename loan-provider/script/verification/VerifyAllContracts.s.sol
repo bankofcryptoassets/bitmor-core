@@ -2,30 +2,23 @@
 pragma solidity 0.8.30;
 
 import "forge-std/Script.sol";
-import "forge-std/StdJson.sol";
+import {HelperConfig} from "../HelperConfig.s.sol";
 
 contract VerifyAllContracts is Script {
-    using stdJson for string;
-
     struct ContractInfo {
         string name;
         string contractPath;
         address deployedAddress;
     }
 
-    string private deploymentJson;
-    string private deploymentsPath;
-
     function run() external {
-        deploymentJson = vm.readFile(string.concat(vm.projectRoot(), "/deployments.json"));
+        HelperConfig helperConfig = new HelperConfig();
 
         uint256 chainId = block.chainid;
-        deploymentsPath = string.concat(".deployments.", vm.toString(chainId), ".networkConfig");
-
         console.log("Verifying contracts for chain ID:", chainId);
 
-        // Build contract list
-        ContractInfo[] memory contracts = _buildContractList();
+        // Build contract list from HelperConfig (reads from unified registry)
+        ContractInfo[] memory contracts = _buildContractList(helperConfig);
 
         // Verify each contract
         _verifyContracts(contracts, chainId);
@@ -34,15 +27,13 @@ contract VerifyAllContracts is Script {
         _logExplorerUrl(chainId);
     }
 
-    function _buildContractList() internal view returns (ContractInfo[] memory contracts) {
+    function _buildContractList(HelperConfig helperConfig) internal view returns (ContractInfo[] memory contracts) {
         contracts = new ContractInfo[](3);
 
-        // Get addresses from deployments.json
-        address loanVaultImpl =
-            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVaultImpl")));
-        address loan = vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loan")));
-        address loanVaultFactory =
-            vm.parseAddress(deploymentJson.readString(string.concat(deploymentsPath, ".loanVaultFactory")));
+        // Get addresses from unified registry via HelperConfig
+        address loanVaultImpl = helperConfig.getLoanVaultImplementation();
+        address loan = helperConfig.getLoan();
+        address loanVaultFactory = helperConfig.getLoanVaultFactory();
 
         // Build contract list - Sourcify auto-detects constructor args
         contracts[0] = ContractInfo({

@@ -27,7 +27,7 @@ import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedSt
 /// @title IntegrationTestBase
 /// @author Bitmor Protocol
 /// @notice Base contract for integration tests using pre-deployed contracts
-/// @dev Reads all addresses from deployments.json - requires `make deploy-local` first.
+/// @dev Reads all addresses from deployments/<chainId>/latest.json via HelperConfig - requires `make deploy-local` first.
 ///      Tests must run with `--fork-url http://127.0.0.1:8545` to connect to live Anvil.
 abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Configuration & State ============
@@ -67,7 +67,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Setup ============
 
     function setUp() public virtual override {
-        // 1. Load configuration (reads from deployments.json on disk)
+        // 1. Load configuration (reads from deployments/<chainId>/latest.json via HelperConfig)
         config = new HelperConfig();
 
         // 2. Load pre-deployed AccessManager (don't deploy new one)
@@ -138,7 +138,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     /// @dev deploy-local advances Anvil time by 87001s for AccessManager scheduling,
     ///      but AaveOracle.MAX_STALENESS is only 3600s. Without this refresh, every
     ///      `getAssetPrice()` call falls through to the fallback oracle (address(0)) and reverts.
-    function _refreshOraclePrices() internal {
+    function _refreshOraclePrices() internal virtual {
         (, int256 btcPrice,,,) = btcOracle.latestRoundData();
         btcOracle.updateAnswer(btcPrice);
 
@@ -200,12 +200,12 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Funding & Liquidity ============
 
     /// @notice Mints mock USDC to `to` (MintableERC20.mint is public)
-    function _fundUSDC(address to, uint256 amount) internal {
+    function _fundUSDC(address to, uint256 amount) internal virtual {
         MintableERC20(address(usdc)).mint(to, amount);
     }
 
     /// @notice Mints mock cbBTC to `to` (MintableERC20.mint is public)
-    function _fundCbBTC(address to, uint256 amount) internal {
+    function _fundCbBTC(address to, uint256 amount) internal virtual {
         MintableERC20(address(cbBTC)).mint(to, amount);
     }
 
@@ -294,7 +294,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     ///      is a mock of an EXTERNAL dependency (Chainlink). The mocking boundary permits mocking
     ///      external infrastructure that our protocol does not control. This is distinct from mocking
     ///      our own protocol contracts (e.g., LendingPool, Loan), which should use real deployments.
-    function _dropOraclePrice(uint256 dropPercent) internal {
+    function _dropOraclePrice(uint256 dropPercent) internal virtual {
         (, int256 currentPrice,,,) = btcOracle.latestRoundData();
         int256 newPrice = currentPrice * int256(100 - dropPercent) / 100;
         btcOracle.updateAnswer(newPrice);
@@ -302,7 +302,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     /// @notice Sets BTC price directly via MockChainlinkOracle
     /// @dev Acceptable external dependency mock. See `_dropOraclePrice` for rationale.
-    function _setBtcPrice(int256 price) internal {
+    function _setBtcPrice(int256 price) internal virtual {
         btcOracle.updateAnswer(price);
     }
 

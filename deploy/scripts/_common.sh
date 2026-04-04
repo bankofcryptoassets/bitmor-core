@@ -26,25 +26,7 @@ check_rpc() {
     [ "$CHAIN_ID" = "$expected_chain" ] || error "Expected chainId $expected_chain, got $CHAIN_ID"
 }
 
-read_library_addresses() {
-    local chain_key="$1" json_file="deployments.json"
-    local loan_logic repay_logic close_loan_logic flash_loan_logic
-    loan_logic=$(jq -r ".deployments[\"$chain_key\"].networkConfig.loanLogicLib" "$json_file")
-    repay_logic=$(jq -r ".deployments[\"$chain_key\"].networkConfig.repayLogicLib" "$json_file")
-    close_loan_logic=$(jq -r ".deployments[\"$chain_key\"].networkConfig.closeLoanLogicLib" "$json_file")
-    flash_loan_logic=$(jq -r ".deployments[\"$chain_key\"].networkConfig.flashLoanLogicLib" "$json_file")
-    [ -n "$loan_logic" ] && [ "$loan_logic" != "null" ] || error "Failed to read LoanLogic address"
-    [ -n "$repay_logic" ] && [ "$repay_logic" != "null" ] || error "Failed to read RepayLogic address"
-    [ -n "$close_loan_logic" ] && [ "$close_loan_logic" != "null" ] || error "Failed to read CloseLoanLogic address"
-    [ -n "$flash_loan_logic" ] && [ "$flash_loan_logic" != "null" ] || error "Failed to read FlashLoanLogic address"
-    log "Libraries:"
-    log "  LoanLogic:      $loan_logic"
-    log "  RepayLogic:     $repay_logic"
-    log "  CloseLoanLogic: $close_loan_logic"
-    log "  FlashLoanLogic: $flash_loan_logic"
-    LIBRARY_FLAG="--libraries src/libraries/logic/LoanLogic.sol:LoanLogic:$loan_logic"
-    LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/RepayLogic.sol:RepayLogic:$repay_logic"
-    LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/CloseLoanLogic.sol:CloseLoanLogic:$close_loan_logic"
-    LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/FlashLoanLogic.sol:FlashLoanLogic:$flash_loan_logic"
-    export LIBRARY_FLAG
+# Run bitmor-deploy CLI (TS tool for registry JSON operations)
+bitmor_deploy() {
+    npx --prefix "$ROOT/deploy/tools" tsx "$ROOT/deploy/tools/src/cli.ts" "$@"
 }

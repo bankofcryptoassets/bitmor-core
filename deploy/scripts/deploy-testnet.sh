@@ -21,7 +21,7 @@ check_rpc "$RPC" "84532" "Check BASE_SEPOLIA_RPC_URL in loan-provider/.env"
 # Verify bitmor_owner wallet exists
 cast wallet list 2>/dev/null | grep -q "bitmor_owner" || error "Cast wallet 'bitmor_owner' not found. Create with: cast wallet import bitmor_owner --interactive"
 
-mkdir -p "$ROOT/loan-provider/deployments"
+mkdir -p "$ROOT/deployments/84532"
 
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
@@ -31,6 +31,7 @@ log "=========================================="
 cd "$ROOT/loan-provider"
 
 make -C "$ROOT/loan-provider" deploy:phase1:testnet RPC_URL="$RPC"
+bitmor_deploy save --chain 84532 --phase phase1 --script DeployPhase1Testnet --env testnet
 
 log "Phase 1 complete."
 
@@ -45,6 +46,7 @@ cd "$ROOT/lending-pool"
 # The synchronous Blockscout/Sourcify verification between deploy and setLendingPoolImpl
 # causes ethers to send the next tx with a stale nonce. Verify contracts separately after.
 cd "$ROOT/lending-pool" && npm run compile && npx hardhat --network sepolia bitmor:sepolia --skip-registry
+bitmor_deploy save-lp --chain 84532
 
 log "Phase 2 complete."
 
@@ -57,11 +59,12 @@ cd "$ROOT/loan-provider"
 
 log "Deploying linked libraries..."
 make -C "$ROOT/loan-provider" deploy:libraries:testnet RPC_URL="$RPC"
+bitmor_deploy save --chain 84532 --phase libraries --script DeployLibraries --env testnet
 
-cd "$ROOT/loan-provider"
-read_library_addresses "84532"
+LIBRARY_FLAG=$(bitmor_deploy libraries --chain 84532)
 
 make -C "$ROOT/loan-provider" deploy:phase3:testnet RPC_URL="$RPC" LIBRARY_FLAG="$LIBRARY_FLAG"
+bitmor_deploy save --chain 84532 --phase phase3 --script DeployPhase3Testnet --env testnet
 
 log "Phase 3 complete. Contracts deployed, strategies wired, roles granted."
 
@@ -81,9 +84,7 @@ log "=========================================="
 log "Testnet Deployment Complete! (Base Sepolia)"
 log "=========================================="
 log ""
-log "Addresses saved to:"
-log "  - loan-provider/deployments.json (under key '84532')"
-log "  - lending-pool/deployed-contracts.json (under key 'sepolia')"
+log "Addresses saved to: deployments/84532/latest.json"
 log ""
 log "Verify with:"
-log "  cat loan-provider/deployments.json | jq '.deployments[\"84532\"]'"
+log "  cat deployments/84532/latest.json | jq ."

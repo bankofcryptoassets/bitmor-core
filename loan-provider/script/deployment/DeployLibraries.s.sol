@@ -2,13 +2,13 @@
 pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {HelperConfig} from "../HelperConfig.s.sol";
 
 /**
  * @title DeployLibraries
  * @author Bitmor Protocol
  * @notice Deploys all public linked libraries required by Loan.sol
- * @dev Run before DeployPhase3 scripts. Writes addresses to deployments.json.
+ * @dev Run before DeployPhase3 scripts. Address persistence is handled externally
+ *      by the bitmor-deploy CLI tool, which reads Forge broadcast files.
  *      Uses raw CREATE opcode since Solidity does not support `new` for libraries.
  *
  * Usage (local):
@@ -34,10 +34,6 @@ contract DeployLibraries is Script {
         console2.log("RepayLogic:", repayLogic);
         console2.log("CloseLoanLogic:", closeLoanLogic);
         console2.log("FlashLoanLogic:", flashLoanLogic);
-
-        _saveToDeployments(loanLogic, repayLogic, closeLoanLogic, flashLoanLogic);
-
-        console2.log("Library addresses saved to deployments.json");
     }
 
     function _deployLibrary(string memory name) internal returns (address deployed) {
@@ -46,89 +42,5 @@ contract DeployLibraries is Script {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
         }
         require(deployed != address(0), string.concat("Failed to deploy ", name));
-    }
-
-    function _saveToDeployments(address loanLogic, address repayLogic, address closeLoanLogic, address flashLoanLogic)
-        internal
-    {
-        string memory json = vm.readFile("deployments.json");
-        HelperConfig _hc = new HelperConfig();
-        string memory chainKey = _hc.getChainKey();
-        string memory base = string.concat(".deployments.", chainKey, ".networkConfig");
-
-        // Chunk 1: Core Phase 1 addresses
-        string memory keys = _readChunk1(json, base);
-        // Chunk 2: Protocol addresses + oracles
-        keys = string.concat(keys, _readChunk2(json, base));
-        // Chunk 3: Library addresses
-        keys = string.concat(
-            keys,
-            ',"loanLogicLib":"',
-            vm.toString(loanLogic),
-            '","repayLogicLib":"',
-            vm.toString(repayLogic),
-            '","closeLoanLogicLib":"',
-            vm.toString(closeLoanLogic),
-            '","flashLoanLogicLib":"',
-            vm.toString(flashLoanLogic),
-            '"'
-        );
-
-        string memory fork = vm.envOr("FORK", string(""));
-        string memory networkName;
-        if (bytes(fork).length > 0) {
-            networkName = "base-fork";
-        } else if (block.chainid == 31337) {
-            networkName = "localhost";
-        } else if (block.chainid == 84532) {
-            networkName = "base-sepolia";
-        } else {
-            networkName = "base";
-        }
-
-        vm.writeFile(
-            "deployments.json",
-            string.concat(
-                '{"deployments":{"', chainKey, '":{"network":"', networkName, '","networkConfig":{', keys, "}}}}"
-            )
-        );
-    }
-
-    function _readChunk1(string memory json, string memory base) internal returns (string memory) {
-        return string.concat(
-            '"accessManager":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".accessManager"))),
-            '","collateralAsset":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".collateralAsset"))),
-            '","btcVaultImpl":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".btcVaultImpl"))),
-            '","debtAsset":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".debtAsset"))),
-            '"'
-        );
-    }
-
-    function _readChunk2(string memory json, string memory base) internal returns (string memory) {
-        string memory keys = string.concat(
-            ',"cbBTC":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".cbBTC"))),
-            '","btc":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".btc"))),
-            '","aaveV3Pool":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".aaveV3Pool"))),
-            '","aaveAddressesProvider":"',
-            vm.toString(vm.parseJsonAddress(json, string.concat(base, ".aaveAddressesProvider"))),
-            '"'
-        );
-
-        // Optional oracle fields (local only)
-        try vm.parseJsonAddress(json, string.concat(base, ".btcOracle")) returns (address parsed) {
-            keys = string.concat(keys, ',"btcOracle":"', vm.toString(parsed), '"');
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, ".usdcOracle")) returns (address parsed) {
-            keys = string.concat(keys, ',"usdcOracle":"', vm.toString(parsed), '"');
-        } catch {}
-
-        return keys;
     }
 }

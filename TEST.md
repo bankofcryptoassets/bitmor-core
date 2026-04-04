@@ -252,7 +252,7 @@ make test:fork
 
 ### Test hanging or timing out
 
-For fork tests, the deployment block is read from `deployments.json`. If the file is missing or outdated:
+For fork tests, deployment addresses are read from `deployments/<chainId>/latest.json` via HelperConfig. If the registry is missing or outdated:
 ```bash
 cd loan-provider
 BLOCK_NUMBER=latest make test:fork

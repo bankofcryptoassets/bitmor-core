@@ -19,7 +19,7 @@ PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 log "=== Preflight Checks ==="
 check_rpc "$RPC" "31337" "Start with: make anvil-fork"
 
-mkdir -p "$ROOT/loan-provider/deployments"
+mkdir -p "$ROOT/deployments/31337-fork"
 
 # ============ Phase 0: swap-routers (UniswapV4Swapper) ============
 log ""
@@ -30,9 +30,10 @@ cd "$ROOT/swap-routers"
 
 make -C "$ROOT/swap-routers" deploy-fork FORK_PRIVATE_KEY="$PRIVATE_KEY"
 
-# Read deployed swapper address from swap-routers/deployments.json
-SWAPPER_ADDR=$(jq -r '.deployments["31337"].contracts.uniswapV4Swapper' deployments.json 2>/dev/null)
-[ -n "$SWAPPER_ADDR" ] && [ "$SWAPPER_ADDR" != "null" ] || error "Failed to read UniswapV4Swapper address from swap-routers/deployments.json"
+# Read swapper from swap-routers and write to unified registry
+bitmor_deploy save-swap --chain 31337-fork --swap-routers-dir "$ROOT/swap-routers"
+SWAPPER_ADDR=$(bitmor_deploy get --chain 31337-fork --key loanProvider.swapper)
+[ -n "$SWAPPER_ADDR" ] || error "Failed to read UniswapV4Swapper from registry"
 log "UniswapV4Swapper deployed at: $SWAPPER_ADDR"
 
 # Export for Phase 3 to pick up
@@ -48,6 +49,7 @@ log "=========================================="
 cd "$ROOT/loan-provider"
 
 make -C "$ROOT/loan-provider" deploy:phase1:fork FORK_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337-fork --phase phase1 --script DeployPhase1Fork --env fork
 
 log "Phase 1 complete."
 
@@ -59,6 +61,7 @@ log "=========================================="
 cd "$ROOT/lending-pool"
 
 FORK=base npm run bitmor:localhost:dev:migration
+bitmor_deploy save-lp --chain 31337-fork
 
 log "Phase 2 complete."
 
@@ -71,11 +74,12 @@ cd "$ROOT/loan-provider"
 
 log "Deploying linked libraries..."
 make -C "$ROOT/loan-provider" deploy:libraries:fork FORK_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337-fork --phase libraries --script DeployLibraries --env fork
 
-cd "$ROOT/loan-provider"
-read_library_addresses "31337-fork"
+LIBRARY_FLAG=$(bitmor_deploy libraries --chain 31337-fork)
 
 make -C "$ROOT/loan-provider" deploy:phase3:fork FORK_PRIVATE_KEY="$PRIVATE_KEY" LIBRARY_FLAG="$LIBRARY_FLAG"
+bitmor_deploy save --chain 31337-fork --phase phase3 --script DeployPhase3Fork --env fork
 
 log "Phase 3 complete."
 
@@ -96,9 +100,7 @@ log "Fork Deployment Complete!"
 log "=========================================="
 log ""
 log "Chain: Base mainnet fork (chain ID 31337, forked state from Base 8453)"
-log "Addresses saved to:"
-log "  - loan-provider/deployments.json (key: 31337-fork)"
-log "  - lending-pool/deployed-contracts.json (key: localhost)"
+log "Addresses saved to: deployments/31337-fork/latest.json"
 log ""
 log "Verify with:"
-log "  cat loan-provider/deployments.json | jq '.deployments[\"31337-fork\"]'"
+log "  cat deployments/31337-fork/latest.json | jq ."

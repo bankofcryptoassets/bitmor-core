@@ -18,7 +18,7 @@ PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae
 log "=== Preflight Checks ==="
 check_rpc "$RPC" "31337" "Start with: make anvil"
 
-mkdir -p "$ROOT/loan-provider/deployments"
+mkdir -p "$ROOT/deployments/31337"
 
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
@@ -28,6 +28,7 @@ log "=========================================="
 cd "$ROOT/loan-provider"
 
 make -C "$ROOT/loan-provider" deploy:phase1:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337 --phase phase1 --script DeployPhase1Local --env local
 
 log "Phase 1 complete."
 
@@ -39,6 +40,7 @@ log "=========================================="
 cd "$ROOT/lending-pool"
 
 npm run bitmor:localhost:dev:migration
+bitmor_deploy save-lp --chain 31337
 
 log "Phase 2 complete."
 
@@ -52,13 +54,14 @@ cd "$ROOT/loan-provider"
 # Deploy linked libraries
 log "Deploying linked libraries..."
 make -C "$ROOT/loan-provider" deploy:libraries:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337 --phase libraries --script DeployLibraries --env local
 
 # Read deployed addresses and build LIBRARY_FLAG
-cd "$ROOT/loan-provider"
-read_library_addresses "31337"
+LIBRARY_FLAG=$(bitmor_deploy libraries --chain 31337)
 
 # Deploy Phase 3
 make -C "$ROOT/loan-provider" deploy:phase3:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY" LIBRARY_FLAG="$LIBRARY_FLAG"
+bitmor_deploy save --chain 31337 --phase phase3 --script DeployPhase3Local --env local
 
 log "Phase 3 complete. Contracts deployed, strategies wired, roles granted."
 
@@ -78,9 +81,7 @@ log "=========================================="
 log "Deployment Complete!"
 log "=========================================="
 log ""
-log "Addresses saved to:"
-log "  - loan-provider/deployments.json"
-log "  - lending-pool/deployed-contracts.json"
+log "Addresses saved to: deployments/31337/latest.json"
 log ""
 log "Verify with:"
-log "  cat loan-provider/deployments.json | jq '.deployments[\"31337\"]'"
+log "  cat deployments/31337/latest.json | jq ."

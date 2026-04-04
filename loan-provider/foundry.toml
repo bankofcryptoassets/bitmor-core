@@ -11,7 +11,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "./out" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
@@ -55,8 +55,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "./out" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
-    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true
@@ -84,7 +83,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "./out" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -102,7 +101,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -119,7 +118,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -136,7 +135,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -157,7 +156,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -180,7 +179,7 @@ fs_permissions = [
     { access = "read", path = "./broadcast" },
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 
@@ -194,8 +193,7 @@ fs_permissions = [
     { access = "read", path = "./out/" },
     { access = "read", path = "./broadcast/" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
-    { access = "read-write", path = "./deployments/" },
+    { access = "read", path = "../deployments" },
 ]
 
 # Testnet deployment profile (Base Sepolia with full mocks)
@@ -211,8 +209,7 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "./out" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
-    { access = "read-write", path = "./deployments.json" },
-    { access = "read-write", path = "./deployments" },
+    { access = "read", path = "../deployments" },
     { access = "read", path = "../lending-pool" }
 ]
 cbor_metadata = true

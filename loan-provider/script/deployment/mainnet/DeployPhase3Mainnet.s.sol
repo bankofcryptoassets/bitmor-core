@@ -37,7 +37,7 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 contract DeployPhase3Mainnet is MainnetRolesConfig {
     uint256 constant STRATEGY_CAP = type(uint96).max;
 
-    // ============ Phase 1 Addresses (from deployments.json) ============
+    // ============ Phase 1 Addresses (from HelperConfig) ============
 
     /// @notice AccessManager deployed in Phase 1
     address public accessManager;
@@ -125,7 +125,7 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
     /**
      * @notice Main entry point for Phase 3 mainnet deployment
      * @dev Deploys all Phase 3 contracts as UUPS proxies (where applicable), configures
-     *      AccessManager roles, and saves addresses to deployments.json.
+     *      AccessManager roles. Address persistence is handled externally.
      *
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
@@ -138,7 +138,6 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
      * 8. Strategies (non-proxied)
      * 9. Wire strategies (pre-role-wiring, deployer holds ADMIN with 0 delay)
      * 10. AccessManager role wiring
-     * 11. Address persistence
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.BASE_MAINNET_CHAIN_ID);
@@ -157,19 +156,16 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
         console2.log("=== Phase 3: Mainnet Deployment (Upgradeable) ===");
 
-        Phase1Addresses memory p1 = _loadPhase1Addresses();
-        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
-
-        // Assign to state variables
-        accessManager = p1.accessManager;
-        cbBTC = p1.cbBTC;
-        btcVault = p1.btcVault;
-        btcVaultImpl = p1.btcVaultImpl;
-        aaveV3Pool = p1.aaveV3Pool;
-        aaveAddressesProvider = p1.aaveAddressesProvider;
-        bitmorPool = lp.bitmorPool;
-        aaveOracle = lp.aaveOracle;
-        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
+        // Load Phase 1 + lending pool addresses from unified registry via HelperConfig
+        accessManager = helperConfig.getAccessManager();
+        cbBTC = helperConfig.getCbBTC();
+        btcVault = helperConfig.getBTCVault();
+        btcVaultImpl = helperConfig.getBTCVaultImpl();
+        aaveV3Pool = helperConfig.getAaveV3Pool();
+        aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
+        bitmorPool = helperConfig.getBitmorPool();
+        aaveOracle = helperConfig.getOracle();
+        lendingPoolAddressesProvider = helperConfig.getAddressesProvider();
         swapAdapter = swapAdapterAddr;
         usdc = usdcAddr;
 
@@ -281,12 +277,6 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
 
         vm.stopBroadcast();
 
-        // 11. Save addresses
-        _saveDeployments();
-
-        // 12. Write deployment manifest
-        _writeManifest("Phase3");
-
         console2.log("=== Phase 3 Deploy Complete ===");
     }
 
@@ -324,118 +314,5 @@ contract DeployPhase3Mainnet is MainnetRolesConfig {
         _setupGuardians(manager, g.admin);
 
         console2.log("AccessManager roles configured via DeploymentBase helpers");
-    }
-
-    // ============ Address Persistence ============
-
-    /**
-     * @notice Saves all deployed addresses to deployments.json using `_mergeAndSave()`
-     * @dev Includes all proxy addresses, implementation addresses, beacon proxy addresses,
-     * strategies, and external protocol addresses needed for HelperConfig resolution.
-     */
-    function _saveDeployments() internal {
-        // Chunk 1: Phase 1 addresses (carried forward)
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"debtAsset":"',
-            vm.toString(usdc),
-            '",',
-            '"cbBTC":"',
-            vm.toString(cbBTC),
-            '",',
-            '"btc":"',
-            vm.toString(cbBTC),
-            '"'
-        );
-
-        // Chunk 2: Phase 3 proxy addresses
-        keys = string.concat(
-            keys,
-            ',"usdcVault":"',
-            vm.toString(usdcVault),
-            '",',
-            '"loan":"',
-            vm.toString(loan),
-            '",',
-            '"bitmorAddressesProvider":"',
-            vm.toString(bitmorAddressesProvider),
-            '",',
-            '"autoRepayment":"',
-            vm.toString(autoRepayment),
-            '"'
-        );
-
-        // Chunk 3: Implementation addresses (for upgrade tracking)
-        keys = string.concat(
-            keys,
-            ',"btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '",',
-            '"usdcVaultImpl":"',
-            vm.toString(usdcVaultImpl),
-            '",',
-            '"loanImpl":"',
-            vm.toString(loanImpl),
-            '",',
-            '"bitmorAddressesProviderImpl":"',
-            vm.toString(bitmorAddressesProviderImpl),
-            '",',
-            '"autoRepaymentImpl":"',
-            vm.toString(autoRepaymentImpl),
-            '"'
-        );
-
-        // Chunk 4: Beacon proxy addresses
-        keys = string.concat(
-            keys,
-            ',"loanVaultImpl":"',
-            vm.toString(loanVaultImpl),
-            '",',
-            '"beacon":"',
-            vm.toString(beacon),
-            '",',
-            '"beaconController":"',
-            vm.toString(beaconController),
-            '",',
-            '"loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '"'
-        );
-
-        // Chunk 5: Strategies and swap adapter
-        keys = string.concat(
-            keys,
-            ',"swapper":"',
-            vm.toString(swapAdapter),
-            '",',
-            '"aaveStrategy":"',
-            vm.toString(aaveStrategy),
-            '",',
-            '"usdcStrategy":"',
-            vm.toString(usdcStrategy),
-            '"'
-        );
-
-        // Chunk 6: Linked library addresses (carried forward from DeployLibraries)
-        Phase1Addresses memory p1 = _loadPhase1Addresses();
-        keys = string.concat(
-            keys,
-            ',"loanLogicLib":"',
-            vm.toString(p1.loanLogicLib),
-            '","repayLogicLib":"',
-            vm.toString(p1.repayLogicLib),
-            '","closeLoanLogicLib":"',
-            vm.toString(p1.closeLoanLogicLib),
-            '","flashLoanLogicLib":"',
-            vm.toString(p1.flashLoanLogicLib),
-            '"'
-        );
-
-        _mergeAndSave(keys, vm.toString(DeploymentConstants.BASE_MAINNET_CHAIN_ID), "base");
     }
 }

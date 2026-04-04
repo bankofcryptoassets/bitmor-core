@@ -77,6 +77,7 @@ install:
 	@cd lending-pool && npm install --legacy-peer-deps
 	@cd loan-provider && forge install
 	@cd swap-routers && forge install 2>/dev/null || echo "swap-routers: dependencies already present"
+	@cd deploy/tools && npm install
 	@echo "Configuring git hooks..."
 	@git config core.hooksPath .githooks
 	@echo "Done."

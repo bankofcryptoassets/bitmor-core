@@ -11,8 +11,7 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 /// @title DeployPhase1Fork
 /// @notice Phase 1 fork deployment: AccessManager and BTCVault (UUPS proxy) using real cbBTC
 /// @dev Runs on Anvil forking Base mainnet (chain ID 31337, Base state). No mock deployments.
-/// Saves to deployments.json under key "31337-fork" (via _getChainKey()).
-/// Also persists external protocol addresses (USDC, Aave V3) so DeployLibraries can read them.
+/// Address persistence is handled externally by the bitmor-deploy CLI tool.
 /// @custom:security For local fork deployments only. Requires FORK=base env var.
 contract DeployPhase1Fork is ForkRolesConfig {
     address public accessManager;
@@ -49,41 +48,6 @@ contract DeployPhase1Fork is ForkRolesConfig {
 
         vm.stopBroadcast();
 
-        _savePhase1(helperConfig);
-        _writeManifest("Phase1");
-
         console2.log("=== Phase 1 Complete ===");
-    }
-
-    /// @notice Persists Phase 1 addresses plus external protocol addresses needed by DeployLibraries
-    /// @dev DeployLibraries._readChunk1/2 requires debtAsset, aaveV3Pool, aaveAddressesProvider
-    /// to exist in deployments.json. On local these come from mocks; on fork we must
-    /// persist the real addresses here so DeployLibraries can read them.
-    function _savePhase1(HelperConfig helperConfig) internal {
-        address usdcAddr = helperConfig.getUSDC();
-        address aaveV3Pool = helperConfig.getAaveV3Pool();
-        address aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
-
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '","collateralAsset":"',
-            vm.toString(btcVault),
-            '","btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '","cbBTC":"',
-            vm.toString(cbBTCAddr),
-            '","btc":"',
-            vm.toString(cbBTCAddr),
-            '","debtAsset":"',
-            vm.toString(usdcAddr),
-            '","aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
-            '","aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
-            '"'
-        );
-
-        _mergeAndSave(keys, helperConfig.getChainKey(), "base-fork");
     }
 }

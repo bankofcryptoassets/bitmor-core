@@ -3,6 +3,8 @@ pragma solidity 0.8.30;
 
 import {console2} from "forge-std/Script.sol";
 import {TestnetRolesConfig} from "@bitmor-config/TestnetRolesConfig.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
+import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 import {DeploymentConstants} from "../DeploymentConstants.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
@@ -33,15 +35,14 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * - USDCVault, Loan, BitmorAddressesProvider, AutoRepayment deploy as UUPS proxies via `_deployUUPSProxy()`
  * - LoanVault uses beacon proxy via `_deployBeaconProxy()` (impl + beacon + controller + factory)
  * - Role setup uses `_grantOperationalRoles()`, `_wireUpgraderRole()`, and `_setupGuardians()` from DeploymentBase
- * - Address persistence uses `_mergeAndSave()` instead of manual JSON building
- * - Saves implementation addresses directly from deployed contracts
+ * - Address persistence is handled externally by the bitmor-deploy CLI tool
  *
  * @custom:security Only for Base Sepolia testnet deployments (chainId 84532)
  */
 contract DeployPhase3Testnet is TestnetRolesConfig {
     uint256 constant STRATEGY_CAP = type(uint96).max;
 
-    // ============ Phase 1 Addresses (from deployments.json) ============
+    // ============ Phase 1 Addresses (from HelperConfig) ============
 
     /// @notice AccessManager deployed in Phase 1
     address public accessManager;
@@ -92,18 +93,6 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
     /// @notice MockSwapAdapter address
     address public mockSwapAdapter;
 
-    /// @notice LoanLogic linked library address (deployed externally before this script)
-    address public loanLogicLib;
-
-    /// @notice RepayLogic linked library address (deployed externally before this script)
-    address public repayLogicLib;
-
-    /// @notice CloseLoanLogic linked library address (deployed externally before this script)
-    address public closeLoanLogicLib;
-
-    /// @notice FlashLoanLogic linked library address (deployed externally before this script)
-    address public flashLoanLogicLib;
-
     /// @notice Loan proxy address
     address public loan;
 
@@ -145,7 +134,7 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
     /**
      * @notice Main entry point for Phase 3 Base Sepolia testnet deployment
      * @dev Deploys all Phase 3 contracts as UUPS proxies (where applicable), configures
-     *      AccessManager roles, and saves addresses to deployments.json.
+     *      AccessManager roles. Address persistence is handled externally.
      *
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
@@ -163,7 +152,6 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
      * 13. Wire strategies (addStrategy/setStrategy) — before role wiring, deployer holds ADMIN_ROLE
      * 14. Reconfigure AaveOracle for real bvBTC pricing path
      * 15. AccessManager role wiring
-     * 16. Address persistence
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.BASE_SEPOLIA_CHAIN_ID);
@@ -174,26 +162,19 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
 
-        Phase1Addresses memory p1 = _loadPhase1Addresses();
-        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
-
-        // Assign to state variables for _saveDeployments() and _setupAccessManagerRoles()
-        accessManager = p1.accessManager;
-        mockUsdc = p1.debtAsset;
-        mockCbBTC = p1.cbBTC;
-        btcVault = p1.btcVault;
-        btcVaultImpl = p1.btcVaultImpl;
-        btcOracle = p1.btcOracle;
-        usdcOracle = p1.usdcOracle;
-        aaveV3Pool = p1.aaveV3Pool;
-        aaveAddressesProvider = p1.aaveAddressesProvider;
-        loanLogicLib = p1.loanLogicLib;
-        repayLogicLib = p1.repayLogicLib;
-        closeLoanLogicLib = p1.closeLoanLogicLib;
-        flashLoanLogicLib = p1.flashLoanLogicLib;
-        bitmorPool = lp.bitmorPool;
-        aaveOracle = lp.aaveOracle;
-        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
+        // Load Phase 1 + lending pool addresses from unified registry via HelperConfig
+        accessManager = helperConfig.getAccessManager();
+        mockUsdc = helperConfig.getUSDC();
+        mockCbBTC = helperConfig.getCbBTC();
+        btcVault = helperConfig.getBTCVault();
+        btcVaultImpl = helperConfig.getBTCVaultImpl();
+        btcOracle = helperConfig.getBtcUsdOracle();
+        usdcOracle = helperConfig.getUsdcUsdOracle();
+        aaveV3Pool = helperConfig.getAaveV3Pool();
+        aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
+        bitmorPool = helperConfig.getBitmorPool();
+        aaveOracle = helperConfig.getOracle();
+        lendingPoolAddressesProvider = helperConfig.getAddressesProvider();
 
         vm.startBroadcast();
 
@@ -365,12 +346,6 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
 
         vm.stopBroadcast();
 
-        // 16. Save addresses
-        _saveDeployments();
-
-        // 17. Write deployment manifest
-        _writeManifest("Phase3");
-
         console2.log("=== Phase 3 Deploy Complete ===");
     }
 
@@ -419,6 +394,7 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
      * - `_grantOperationalRoles()` for target function mappings and role grants
      * - `_wireUpgraderRole()` for UUPS + beacon upgrade permissions
      * - `_setupGuardians()` for guardian-guarded delayed operations
+     * - `_remapDelayedRolesToAdmin()` to override all delayed selectors to ADMIN (testnet only)
      *
      * Role grantees come from TestnetRolesConfig._getRoleGrantees() which assigns
      * all roles to `msg.sender` for testnet testing convenience.
@@ -444,134 +420,53 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
         // 15c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
 
+        // 15d. Testnet convenience: remap all delayed selectors to ADMIN role (ID 0)
+        // so the deployer can call delayed-role functions immediately without schedule+wait.
+        _remapDelayedRolesToAdmin(manager);
+
         console2.log("AccessManager roles configured via DeploymentBase helpers");
     }
 
-    // ============ Address Persistence ============
+    /// @notice Remaps all delayed-role selectors to ADMIN role (ID 0) for testnet convenience
+    /// @dev Called after full role wiring so that the deployer (who has ADMIN with 0 delay)
+    ///      can call delayed-role functions immediately via cast send or interaction scripts.
+    ///      This overrides: LPM_SLOW, BVM_SLOW, BVC, BVA_SLOW, UVM_SLOW, UVC, UPGRADER
+    ///      on their respective target contracts.
+    ///      Contract-to-contract roles (LPCM, BVD, UVA) are NOT remapped — they stay on
+    ///      their dedicated roles since they're granted to contracts, not human operators.
+    function _remapDelayedRolesToAdmin(BitmorAccessManager manager) internal {
+        RolesData rolesData = new RolesData();
+        uint64 ADMIN_ROLE = 0;
 
-    /**
-     * @notice Saves all deployed addresses to deployments.json using `_mergeAndSave()`
-     * @dev Includes all keys from the original DeployPhase3._saveDeployments() plus new keys:
-     * - `loanImpl`, `usdcVaultImpl`, `autoRepaymentImpl`, `bitmorAddressesProviderImpl` (implementation addresses)
-     * - `beacon`, `beaconController` (beacon proxy addresses)
-     *
-     * Implementation addresses are stored directly from the deployed implementation contracts.
-     */
-    function _saveDeployments() internal {
-        // Build JSON keys in chunks to avoid stack-too-deep
-        // Chunk 1: Phase 1 addresses (carried forward)
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"debtAsset":"',
-            vm.toString(mockUsdc),
-            '",',
-            '"cbBTC":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btc":"',
-            vm.toString(mockCbBTC),
-            '"'
-        );
+        // Loan: LPM_SLOW selectors (setGracePeriod, setPreClosureFee, unpause, etc.)
+        manager.setTargetFunctionRole(loan, rolesData.getLPM_SLOW_SELECTORS(), ADMIN_ROLE);
 
-        // Chunk 2: Phase 1 oracles and Aave mocks
-        keys = string.concat(
-            keys,
-            ',"btcOracle":"',
-            vm.toString(btcOracle),
-            '",',
-            '"usdcOracle":"',
-            vm.toString(usdcOracle),
-            '",',
-            '"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
-            '",',
-            '"aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
-            '"'
-        );
+        // BTCVault: BVM_SLOW, BVC, BVA_SLOW selectors
+        manager.setTargetFunctionRole(btcVault, rolesData.getBVM_SLOW_SELECTORS(), ADMIN_ROLE);
+        manager.setTargetFunctionRole(btcVault, rolesData.getBVC_SELECTORS(), ADMIN_ROLE);
+        manager.setTargetFunctionRole(btcVault, rolesData.getBVA_SLOW_SELECTORS(), ADMIN_ROLE);
 
-        // Chunk 3: Phase 3 proxy addresses
-        keys = string.concat(
-            keys,
-            ',"usdcVault":"',
-            vm.toString(usdcVault),
-            '",',
-            '"loan":"',
-            vm.toString(loan),
-            '",',
-            '"bitmorAddressesProvider":"',
-            vm.toString(bitmorAddressesProvider),
-            '",',
-            '"autoRepayment":"',
-            vm.toString(autoRepayment),
-            '"'
-        );
+        // USDCVault: UVM_SLOW, UVC selectors
+        manager.setTargetFunctionRole(usdcVault, rolesData.getUVM_SLOW_SELECTORS(), ADMIN_ROLE);
+        manager.setTargetFunctionRole(usdcVault, rolesData.getUVC_SELECTORS(), ADMIN_ROLE);
 
-        // Chunk 4: Implementation addresses and linked libraries
-        keys = string.concat(
-            keys,
-            ',"loanLogicLib":"',
-            vm.toString(loanLogicLib),
-            '","repayLogicLib":"',
-            vm.toString(repayLogicLib),
-            '","closeLoanLogicLib":"',
-            vm.toString(closeLoanLogicLib),
-            '","flashLoanLogicLib":"',
-            vm.toString(flashLoanLogicLib),
-            '",',
-            '"btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '",',
-            '"usdcVaultImpl":"',
-            vm.toString(usdcVaultImpl),
-            '",',
-            '"loanImpl":"',
-            vm.toString(loanImpl),
-            '",',
-            '"bitmorAddressesProviderImpl":"',
-            vm.toString(bitmorAddressesProviderImpl),
-            '",',
-            '"autoRepaymentImpl":"',
-            vm.toString(autoRepaymentImpl),
-            '"'
-        );
+        // BitmorAddressesProvider: BAP selectors (setVaultFactory, setAutoRepayer, etc.)
+        manager.setTargetFunctionRole(bitmorAddressesProvider, rolesData.getBAP_SELECTORS(), ADMIN_ROLE);
 
-        // Chunk 5: Beacon proxy addresses
-        keys = string.concat(
-            keys,
-            ',"loanVaultImpl":"',
-            vm.toString(loanVaultImpl),
-            '",',
-            '"beacon":"',
-            vm.toString(beacon),
-            '",',
-            '"beaconController":"',
-            vm.toString(beaconController),
-            '",',
-            '"loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '"'
-        );
+        // UPGRADER: upgradeToAndCall on UUPS proxies only (NOT upgradeBeacon — that's BeaconController only)
+        bytes4[] memory uupsSelectors = new bytes4[](1);
+        uupsSelectors[0] = bytes4(keccak256("upgradeToAndCall(address,bytes)"));
+        manager.setTargetFunctionRole(loan, uupsSelectors, ADMIN_ROLE);
+        manager.setTargetFunctionRole(btcVault, uupsSelectors, ADMIN_ROLE);
+        manager.setTargetFunctionRole(usdcVault, uupsSelectors, ADMIN_ROLE);
+        manager.setTargetFunctionRole(autoRepayment, uupsSelectors, ADMIN_ROLE);
+        manager.setTargetFunctionRole(bitmorAddressesProvider, uupsSelectors, ADMIN_ROLE);
 
-        // Chunk 6: Strategies and remaining addresses
-        keys = string.concat(
-            keys,
-            ',"swapper":"',
-            vm.toString(mockSwapAdapter),
-            '",',
-            '"aaveStrategy":"',
-            vm.toString(aaveStrategy),
-            '",',
-            '"usdcStrategy":"',
-            vm.toString(usdcStrategy),
-            '"'
-        );
+        // UPGRADER: upgradeBeacon on BeaconController only
+        bytes4[] memory beaconSelectors = new bytes4[](1);
+        beaconSelectors[0] = IBeaconController.upgradeBeacon.selector;
+        manager.setTargetFunctionRole(beaconController, beaconSelectors, ADMIN_ROLE);
 
-        _mergeAndSave(keys, vm.toString(DeploymentConstants.BASE_SEPOLIA_CHAIN_ID), "base-sepolia");
+        console2.log("Testnet override: all delayed selectors remapped to ADMIN role (ID 0)");
     }
 }
