@@ -38,6 +38,17 @@ contract MintableERC20 is ERC20 {
         _mint(to, value);
         return true;
     }
+
+    /**
+     * @notice Mints `value` tokens to `msg.sender`
+     * @dev ABI-compatible with lending-pool's MintableERC20 which only has mint(uint256)
+     * @param value The amount of tokens to mint
+     * @return True if the minting operation succeeded
+     */
+    function mint(uint256 value) public returns (bool) {
+        _mint(msg.sender, value);
+        return true;
+    }
 }
 
 /**

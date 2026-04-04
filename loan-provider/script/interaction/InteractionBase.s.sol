@@ -9,6 +9,7 @@ import {DeploymentConstants} from "../deployment/DeploymentConstants.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {MintableERC20} from "../../test/mock/MintableERC20.sol";
+import {MockChainlinkOracle} from "../../test/mock/MockChainlinkOracle.sol";
 
 /// @title InteractionBase
 /// @author Bitmor Protocol
@@ -45,6 +46,8 @@ abstract contract InteractionBase is DeploymentHelper {
     bool internal _forkMode;
     bool internal _liveMode;
     address internal _broadcaster;
+    address internal _btcOracle;
+    address internal _usdcOracle;
 
     // ============ Whale Addresses (Base Mainnet) ============
     // Used on fork to impersonate token transfers. Anvil unlocks all accounts by default.
@@ -90,6 +93,30 @@ abstract contract InteractionBase is DeploymentHelper {
             MintableERC20(_cbBTC).mint(to, amount);
         }
         console2.log("Funded cbBTC:", amount, "to:", to);
+    }
+
+    // ============ Oracle Price Refresh ============
+
+    /// @notice Re-stamps mock oracle prices so they pass the AaveOracle staleness check
+    /// @dev AaveOracle.MAX_STALENESS = 3600s. MockChainlinkOracle prices set at deploy time
+    ///      become stale after 1 hour. This reads the current answer and writes it back,
+    ///      which updates `updatedAt` to `block.timestamp`. No-op when oracles are address(0)
+    ///      (mainnet has real Chainlink feeds, not mock oracles).
+    function _refreshOraclePrices() internal {
+        if (_btcOracle == address(0) && _usdcOracle == address(0)) return;
+
+        vm.startBroadcast();
+        if (_btcOracle != address(0)) {
+            int256 btcPrice = MockChainlinkOracle(_btcOracle).latestAnswer();
+            MockChainlinkOracle(_btcOracle).updateAnswer(btcPrice);
+            console2.log("Refreshed BTC oracle price:", uint256(btcPrice));
+        }
+        if (_usdcOracle != address(0)) {
+            int256 usdcPrice = MockChainlinkOracle(_usdcOracle).latestAnswer();
+            MockChainlinkOracle(_usdcOracle).updateAnswer(usdcPrice);
+            console2.log("Refreshed USDC oracle price:", uint256(usdcPrice));
+        }
+        vm.stopBroadcast();
     }
 
     // ============ Lending Pool Seeding ============
@@ -166,6 +193,13 @@ abstract contract InteractionBase is DeploymentHelper {
         _forkMode = config.isForkMode();
         _liveMode = block.chainid == DeploymentConstants.BASE_MAINNET_CHAIN_ID;
         _broadcaster = _resolveBroadcaster();
+        _btcOracle = config.getBtcUsdOracle();
+        _usdcOracle = config.getUsdcUsdOracle();
+
+        // Refresh mock oracle timestamps so prices pass AaveOracle staleness check
+        if (!_liveMode) {
+            _refreshOraclePrices();
+        }
 
         // Validate
         requireNonZero(_loan, "Loan");

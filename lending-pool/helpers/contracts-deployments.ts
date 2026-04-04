@@ -12,7 +12,7 @@ import type {
   PoolConfiguration,
 } from './types.js';
 import type { MintableERC20, WETH9Mocked } from '../types/ethers-contracts/index.js';
-import { ConfigNames, getReservesConfigByPool, loadPoolConfig } from './configuration.js';
+import { ConfigNames, getReservesConfigByPool, loadPoolConfig, getUSDCAddress } from './configuration.js';
 import { getFirstSigner } from './contracts-getters.js';
 import {
   AaveProtocolDataProvider__factory,
@@ -582,9 +582,27 @@ export const deployBitmorMockTokens = async (verify?: boolean) => {
   tokens['WETH'] = await deployMintableERC20(['Wrapped Ether', 'WETH', '18'], verify);
   await registerContractInJsonDb('WETH', tokens['WETH']);
 
-  // Deploy USDC mock (6 decimals)
-  tokens['USDC'] = await deployMintableERC20(['USD Coin', 'USDC', '6'], verify);
-  await registerContractInJsonDb('USDC', tokens['USDC']);
+  // Reuse Phase 1 USDC if loan-provider deployed one, otherwise deploy fresh.
+  // Phase 1's MintableERC20 has both mint(address,uint256) and mint(uint256) overloads,
+  // so it is ABI-compatible with lending-pool callers.
+  const network = DRE.network.networkName as eNetwork;
+  let phase1Usdc: string | undefined;
+  try {
+    const poolConfig = loadPoolConfig(ConfigNames.Bitmor);
+    phase1Usdc = await getUSDCAddress(poolConfig, network);
+  } catch {
+    // getUSDCAddress throws if not found — fall through to deploy fresh
+  }
+
+  if (phase1Usdc) {
+    console.log(`USDC: reusing Phase 1 address ${phase1Usdc}`);
+    const signer = await getFirstSigner();
+    tokens['USDC'] = MintableERC20__factory.connect(phase1Usdc, signer) as unknown as MintableERC20;
+    await registerContractInJsonDb('USDC', tokens['USDC']);
+  } else {
+    tokens['USDC'] = await deployMintableERC20(['USD Coin', 'USDC', '6'], verify);
+    await registerContractInJsonDb('USDC', tokens['USDC']);
+  }
 
   // Deploy bcbBTC (8 decimals like real BTC)
   tokens['bcbBTC'] = await deployMintableERC20(['Bitmor cbBTC', 'bcbBTC', '8'], verify);
