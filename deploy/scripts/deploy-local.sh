@@ -41,6 +41,7 @@ cd "$ROOT/lending-pool"
 
 npm run bitmor:localhost:dev:migration
 bitmor_deploy save-lp --chain 31337
+bitmor_deploy save-lp-reserves --chain 31337 --rpc "$RPC"
 
 log "Phase 2 complete."
 

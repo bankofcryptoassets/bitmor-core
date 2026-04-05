@@ -47,6 +47,7 @@ cd "$ROOT/lending-pool"
 # causes ethers to send the next tx with a stale nonce. Verify contracts separately after.
 cd "$ROOT/lending-pool" && npm run compile && npx hardhat --network sepolia bitmor:sepolia --skip-registry
 bitmor_deploy save-lp --chain 84532
+bitmor_deploy save-lp-reserves --chain 84532 --rpc "$RPC"
 
 log "Phase 2 complete."
 

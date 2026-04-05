@@ -6,6 +6,7 @@ import { parseBroadcast } from "./broadcast.js";
 import { applyMapping, getMapping } from "./contracts.js";
 import { readRegistry, writeRegistry, mergeIntoRegistry, createEmptyRegistry } from "./registry.js";
 import { parseLendingPool } from "./lending-pool.js";
+import { queryReserveTokens, mapReservesToRegistry } from "./reserves.js";
 
 const program = new Command();
 
@@ -107,6 +108,41 @@ program
 
     const count = Object.keys(addresses).length;
     console.log(`[bitmor-deploy] Merged ${count} lending-pool addresses into deployments/${opts.chain}/latest.json`);
+  });
+
+program
+  .command("save-lp-reserves")
+  .description("Query LendingPool for aToken/VDT addresses and save to registry")
+  .requiredOption("--chain <chainKey>", "Chain key")
+  .requiredOption("--rpc <url>", "RPC URL to query the deployed LendingPool")
+  .action((opts) => {
+    const root = findRepoRoot();
+    const deploymentsDir = join(root, "deployments");
+
+    const existing = readRegistry(deploymentsDir, opts.chain);
+    if (!existing) throw new Error(`No registry for chain ${opts.chain}. Run Phase 1+2 first.`);
+
+    const poolAddress = (existing as any).lendingPool?.pool;
+    if (!poolAddress) throw new Error(`lendingPool.pool not found in registry for chain ${opts.chain}`);
+
+    // Build known assets map: underlying address → name
+    // bvBTC underlying = loanProvider.btcVault, USDC underlying = tokens.usdc
+    const knownAssets: Record<string, string> = {};
+    const btcVault = (existing as any).loanProvider?.btcVault;
+    const usdc = (existing as any).tokens?.usdc;
+    if (btcVault) knownAssets[btcVault.toLowerCase()] = "bvBTC";
+    if (usdc) knownAssets[usdc.toLowerCase()] = "usdc";
+
+    console.log(`[bitmor-deploy] Querying reserves from LendingPool at ${poolAddress}...`);
+    const reserves = queryReserveTokens(poolAddress, opts.rpc);
+    // Pass rpcUrl for fallback aToken symbol lookup (fork has no tokens.usdc in registry)
+    const addresses = mapReservesToRegistry(reserves, knownAssets, opts.rpc);
+
+    const updated = mergeIntoRegistry(existing, addresses, Date.now(), existing.commit);
+    writeRegistry(deploymentsDir, opts.chain, updated);
+
+    const count = Object.keys(addresses).length;
+    console.log(`[bitmor-deploy] Saved ${count} reserve token addresses to deployments/${opts.chain}/latest.json`);
   });
 
 program

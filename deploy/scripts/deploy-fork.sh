@@ -62,6 +62,7 @@ cd "$ROOT/lending-pool"
 
 FORK=base npm run bitmor:localhost:dev:migration
 bitmor_deploy save-lp --chain 31337-fork
+bitmor_deploy save-lp-reserves --chain 31337-fork --rpc "$RPC"
 
 log "Phase 2 complete."
 

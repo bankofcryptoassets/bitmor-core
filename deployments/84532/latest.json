@@ -1,7 +1,7 @@
 {
   "network": "base-sepolia",
   "chainId": 84532,
-  "timestamp": 1775345079578,
+  "timestamp": 1775347327165,
   "commit": "40de50f",
   "deployer": "0xc617c587122256e940e10fa46d30f610139a818e",
   "loanProvider": {
@@ -34,7 +34,17 @@
     "pool": "0x8F73B5778c7c1C260F8da903Ea70c1D456BA3be7",
     "addressesProvider": "0xeFE13d321d4dedB2cdd5A652fA9c918F1417fC30",
     "oracle": "0x287f17544eD3E8Efff8c0552b0522bbFdA183420",
-    "configurator": "0x8c1A7a3bfeaB4efEF2eE84AFFb416F20696e2F4E"
+    "configurator": "0x8c1A7a3bfeaB4efEF2eE84AFFb416F20696e2F4E",
+    "reserves": {
+      "usdc": {
+        "aToken": "0xdfacb23f1b1d1cc9f28ce77fd48b5dcef42345be",
+        "variableDebtToken": "0xdf95a0ad246d7e4772fdf4da90b9bb6469098ce0"
+      },
+      "bvBTC": {
+        "aToken": "0xd7092b462e336a956dc0dcf9d090567bfdd70d1b",
+        "variableDebtToken": "0x4919bed38c9bf3d55e2dddf3c26ce2cdc280de4e"
+      }
+    }
   },
   "tokens": {
     "usdc": "0x470a7d3bd1f596df7f26cbbb4405f117d54ce52e",

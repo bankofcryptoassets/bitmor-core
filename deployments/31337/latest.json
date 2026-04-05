@@ -1,8 +1,8 @@
 {
   "network": "localhost",
   "chainId": 31337,
-  "timestamp": 1775343714581,
-  "commit": "40de50f",
+  "timestamp": 1775347160199,
+  "commit": "e847521",
   "deployer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
   "loanProvider": {
     "accessManager": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
@@ -34,7 +34,17 @@
     "pool": "0x1F708C24a0D3A740cD47cC0444E9480899f3dA7D",
     "addressesProvider": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
     "oracle": "0xc5a5C42992dECbae36851359345FE25997F5C42d",
-    "configurator": "0xf41B47c54dEFF12f8fE830A411a09D865eBb120E"
+    "configurator": "0xf41B47c54dEFF12f8fE830A411a09D865eBb120E",
+    "reserves": {
+      "usdc": {
+        "aToken": "0xa72d95b637e64ba6c24a3a0e26ac0c79949fc55a",
+        "variableDebtToken": "0x13c7c1bef95b17615fa8adf5af8094d2cb7ae298"
+      },
+      "bvBTC": {
+        "aToken": "0x50778fa94fe72061257862940aab7941adfca22a",
+        "variableDebtToken": "0x097a4554fdfba0181c4142bb889d7cd4c8fe21a1"
+      }
+    }
   },
   "tokens": {
     "usdc": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
