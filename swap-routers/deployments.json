@@ -3,7 +3,7 @@
     "31337": {
       "networkName": "local",
       "contracts": {
-        "uniswapV4Swapper": ""
+        "uniswapV4Swapper": "0x87a810e9eB28a5Aa3E4f84c1d7941368704be068"
       }
     },
     "84532": {

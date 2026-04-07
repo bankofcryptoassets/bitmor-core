@@ -43,7 +43,7 @@ Address: 0x204fC5AD7D18b2fcBE86959A30A81ca28F831262
 
 ### What Gets Verified
 
-The script verifies all contracts listed in `deployments.json`:
+The script verifies all contracts using addresses from HelperConfig (which reads `../deployments/<chainId>/latest.json`):
 1. UniswapV4SwapAdapterWrapper
 2. LoanVault
 3. Loan
@@ -61,7 +61,7 @@ Verified contracts on Sourcify will show a checkmark on BaseScan and other block
 
 ### How It Works
 
-1. Script reads deployed contract addresses from `deployments.json`
+1. Script reads deployed contract addresses via HelperConfig from `../deployments/<chainId>/latest.json`
 2. For each contract, it executes `forge verify-contract` with:
    - Contract address (e.g., `0x204fC5AD7D18b2fcBE86959A30A81ca28F831262`)
    - Contract path (e.g., `src/protocol/Loan.sol:Loan`)
@@ -97,7 +97,7 @@ forge verify-contract 0x204fC5AD7D18b2fcBE86959A30A81ca28F831262 \
 ### Troubleshooting
 
 **Verification fails:**
-- Check that contracts are actually deployed to the addresses in `deployments.json`
+- Check that contracts are actually deployed to the addresses in `deployments/<chainId>/latest.json`
 - Ensure compiler settings in `foundry.toml` match deployment settings
   - `optimizer = true`
   - `optimizer_runs = 200`

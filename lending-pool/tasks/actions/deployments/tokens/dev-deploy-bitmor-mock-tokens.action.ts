@@ -15,7 +15,7 @@ export default async function devDeployBitmorMockTokensAction(
   const tokens = await deployBitmorMockTokens(verify);
 
   console.log('Mock tokens deployed:');
-  console.log('  - bUSDC:', tokens['bUSDC'].target || tokens['bUSDC'].target);
+  console.log('  - USDC:', tokens['USDC'].target || tokens['USDC'].target);
   console.log('  - bcbBTC:', tokens['bcbBTC'].target || tokens['bcbBTC'].target);
 
   return tokens;

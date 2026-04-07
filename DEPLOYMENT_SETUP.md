@@ -46,7 +46,7 @@ The deployment is split into phases to handle cross-module dependencies:
 
 ### Phase 1: loan-provider (Foundry → Anvil)
 
-Deploys foundational contracts and saves addresses to `loan-provider/deployments.json`:
+Deploys foundational contracts. The `bitmor-deploy` CLI parses Forge broadcast files and saves addresses to `deployments/31337/latest.json`:
 
 | Contract | Type | Description |
 |----------|------|-------------|
@@ -61,7 +61,7 @@ The `collateralAsset` field contains the BTCVault **proxy** address. `btcVaultIm
 
 ### Phase 2: lending-pool (Hardhat → same Anvil)
 
-Reads bvBTC address from `../loan-provider/deployments.json` and deploys:
+Reads bvBTC address from `../deployments/<chainId>/latest.json` and deploys:
 
 | Contract | Description |
 |----------|-------------|
@@ -250,42 +250,64 @@ OZ foundry-upgrades requires Node.js for upgrade validation (storage layout chec
 
 | File | Purpose |
 |------|---------|
-| `loan-provider/deployments.json` | All deployed addresses (proxy + impl) |
-| `lending-pool/deployed-contracts.json` | Lending pool addresses |
+| `deployments/<chainId>/latest.json` | Unified registry: all deployed addresses (loan-provider, lending-pool, tokens, external) |
+| `deployments/<chainId>/<timestamp>.json` | Historical snapshots of each deploy phase |
 | `loan-provider/script/deployment/DeploymentConstants.sol` | Shared Solidity constants |
 | `loan-provider/script/HelperConfig.s.sol` | Network-aware config reader |
 | `loan-provider/script/config/RolesData.sol` | Role definitions |
 | `loan-provider/script/config/LocalRolesConfig.sol` | Local role grantees |
 | `loan-provider/script/config/MainnetRolesConfig.sol` | Mainnet role grantees |
 
-## deployments.json Schema
+## Registry Schema (`deployments/<chainId>/latest.json`)
 
 ```json
 {
-  "deployments": {
-    "31337": {
-      "network": "localhost",
-      "networkConfig": {
-        "accessManager": "0x...",
-        "loan": "0x...(proxy)",
-        "loanImpl": "0x...(implementation)",
-        "collateralAsset": "0x...(BTCVault proxy)",
-        "btcVaultImpl": "0x...(implementation)",
-        "usdcVault": "0x...(proxy)",
-        "usdcVaultImpl": "0x...(implementation)",
-        "autoRepayment": "0x...(proxy)",
-        "autoRepaymentImpl": "0x...(implementation)",
-        "bitmorAddressesProvider": "0x...(proxy)",
-        "bitmorAddressesProviderImpl": "0x...(implementation)",
-        "loanLogicLib": "0x...(linked library)",
-        "beacon": "0x...(UpgradeableBeacon)",
-        "beaconController": "0x...(BeaconController)",
-        "loanVaultImpl": "0x...(LoanVault implementation)",
-        "loanVaultFactory": "0x...",
-        "aaveStrategy": "0x...",
-        "usdcStrategy": "0x..."
-      }
+  "network": "localhost",
+  "chainId": 31337,
+  "timestamp": 1712200800000,
+  "commit": "abc123",
+  "deployer": "0xf39F...",
+  "loanProvider": {
+    "accessManager": "0x...",
+    "loan": "0x...(proxy)",
+    "loanImpl": "0x...(implementation)",
+    "btcVault": "0x...(BTCVault proxy)",
+    "btcVaultImpl": "0x...(implementation)",
+    "usdcVault": "0x...(proxy)",
+    "usdcVaultImpl": "0x...(implementation)",
+    "autoRepayment": "0x...(proxy)",
+    "autoRepaymentImpl": "0x...(implementation)",
+    "addressesProvider": "0x...(proxy)",
+    "addressesProviderImpl": "0x...(implementation)",
+    "beacon": "0x...(UpgradeableBeacon)",
+    "beaconController": "0x...(BeaconController)",
+    "loanVaultImpl": "0x...(LoanVault implementation)",
+    "loanVaultFactory": "0x...",
+    "swapper": "0x...",
+    "aaveStrategy": "0x...",
+    "usdcStrategy": "0x...",
+    "libraries": {
+      "loanLogic": "0x...",
+      "repayLogic": "0x...",
+      "closeLoanLogic": "0x...",
+      "flashLoanLogic": "0x..."
     }
+  },
+  "lendingPool": {
+    "pool": "0x...",
+    "addressesProvider": "0x...",
+    "oracle": "0x...",
+    "configurator": "0x..."
+  },
+  "tokens": {
+    "usdc": "0x...",
+    "cbBTC": "0x..."
+  },
+  "external": {
+    "aaveV3Pool": "0x...",
+    "aaveAddressesProvider": "0x...",
+    "btcOracle": "0x...",
+    "usdcOracle": "0x..."
   }
 }
 ```
@@ -361,7 +383,7 @@ make anvil
 
 Phase 1 didn't complete. Check:
 ```bash
-cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig.accessManager'
+cat deployments/31337/latest.json | jq '.loanProvider.accessManager'
 ```
 
 ### "Preflight: LendingPool not deployed"

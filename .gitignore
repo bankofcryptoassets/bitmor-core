@@ -22,6 +22,12 @@ loan-provider/lcov.info
 loan-provider/lcov.filtered.info
 loan-provider/out
 loan-provider/deployments
+
+# Deployment registry — track latest.json, ignore timestamped snapshots
+deployments/**
+!deployments/**/
+!deployments/*/latest.json
+
 docs
 lending-pool/types
 loan-provider/coverage-html

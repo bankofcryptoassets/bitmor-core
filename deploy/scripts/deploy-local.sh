@@ -6,24 +6,19 @@ set -e
 # Uses consolidated scripts for faster deployment
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+DEPLOY_PREFIX="DEPLOY"
+source "$(dirname "$0")/_common.sh"
+
 RPC="http://127.0.0.1:8545"
 
 # Anvil's default funded account (Account 0)
 PRIVATE_KEY="${PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}"
 
-log() { echo "[DEPLOY] $1"; }
-error() { echo "[ERROR] $1"; exit 1; }
-
 # ============ Preflight Checks ============
 log "=== Preflight Checks ==="
+check_rpc "$RPC" "31337" "Start with: make anvil"
 
-cast chain-id --rpc-url "$RPC" > /dev/null 2>&1 || error "Anvil not running. Start with: make anvil"
-CHAIN_ID=$(cast chain-id --rpc-url "$RPC")
-log "Anvil running (chainId: $CHAIN_ID)"
-
-[ "$CHAIN_ID" = "31337" ] || error "Expected chainId 31337, got $CHAIN_ID"
-
-mkdir -p "$ROOT/loan-provider/deployments"
+mkdir -p "$ROOT/deployments/31337"
 
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
@@ -32,8 +27,8 @@ log "Phase 1: loan-provider (AccessManager, Tokens, Oracles, BTCVault)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase1Local.s.sol:DeployPhase1Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --force -v
+make -C "$ROOT/loan-provider" deploy:phase1:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337 --phase phase1 --script DeployPhase1Local --env local
 
 log "Phase 1 complete."
 
@@ -45,81 +40,31 @@ log "=========================================="
 cd "$ROOT/lending-pool"
 
 npm run bitmor:localhost:dev:migration
+bitmor_deploy save-lp --chain 31337
+bitmor_deploy save-lp-reserves --chain 31337 --rpc "$RPC"
 
 log "Phase 2 complete."
 
-# ============ Phase 3a: loan-provider (deploy + roles) ============
+# ============ Phase 3: loan-provider (deploy + strategies + roles) ============
 log ""
 log "=========================================="
-log "Phase 3a: loan-provider (Deploy contracts + Setup roles)"
+log "Phase 3: loan-provider (Deploy contracts + Strategies + Roles)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 
-# Deploy all linked libraries (must exist on-chain before Loan.sol)
-log "Deploying linked libraries (LoanLogic, RepayLogic, CloseLoanLogic, FlashLoanLogic)..."
-FOUNDRY_PROFILE=local forge script script/deployment/DeployLibraries.s.sol:DeployLibraries \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --force -v
+# Deploy linked libraries
+log "Deploying linked libraries..."
+make -C "$ROOT/loan-provider" deploy:libraries:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY"
+bitmor_deploy save --chain 31337 --phase libraries --script DeployLibraries --env local
 
-# Read deployed addresses from deployments.json
-LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.loanLogicLib' deployments.json)
-REPAY_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.repayLogicLib' deployments.json)
-CLOSE_LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.closeLoanLogicLib' deployments.json)
-FLASH_LOAN_LOGIC_ADDR=$(jq -r '.deployments["31337"].networkConfig.flashLoanLogicLib' deployments.json)
+# Read deployed addresses and build LIBRARY_FLAG
+LIBRARY_FLAG=$(bitmor_deploy libraries --chain 31337)
 
-[ -n "$LOAN_LOGIC_ADDR" ] && [ "$LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read LoanLogic address"
-[ -n "$REPAY_LOGIC_ADDR" ] && [ "$REPAY_LOGIC_ADDR" != "null" ] || error "Failed to read RepayLogic address"
-[ -n "$CLOSE_LOAN_LOGIC_ADDR" ] && [ "$CLOSE_LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read CloseLoanLogic address"
-[ -n "$FLASH_LOAN_LOGIC_ADDR" ] && [ "$FLASH_LOAN_LOGIC_ADDR" != "null" ] || error "Failed to read FlashLoanLogic address"
+# Deploy Phase 3
+make -C "$ROOT/loan-provider" deploy:phase3:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY" LIBRARY_FLAG="$LIBRARY_FLAG"
+bitmor_deploy save --chain 31337 --phase phase3 --script DeployPhase3Local --env local
 
-log "Libraries deployed:"
-log "  LoanLogic: $LOAN_LOGIC_ADDR"
-log "  RepayLogic: $REPAY_LOGIC_ADDR"
-log "  CloseLoanLogic: $CLOSE_LOAN_LOGIC_ADDR"
-log "  FlashLoanLogic: $FLASH_LOAN_LOGIC_ADDR"
-
-LIBRARY_FLAG="--libraries src/libraries/logic/LoanLogic.sol:LoanLogic:$LOAN_LOGIC_ADDR"
-LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/RepayLogic.sol:RepayLogic:$REPAY_LOGIC_ADDR"
-LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/CloseLoanLogic.sol:CloseLoanLogic:$CLOSE_LOAN_LOGIC_ADDR"
-LIBRARY_FLAG="$LIBRARY_FLAG --libraries src/libraries/logic/FlashLoanLogic.sol:FlashLoanLogic:$FLASH_LOAN_LOGIC_ADDR"
-
-FOUNDRY_PROFILE=local forge script script/deployment/local/DeployPhase3Local.s.sol:DeployPhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast --slow --force -v \
-    $LIBRARY_FLAG
-
-log "Phase 3a complete. Contracts deployed, roles granted."
-
-# ============ Phase 3b: Schedule operations ============
-log ""
-log "=========================================="
-log "Phase 3b: Schedule timelocked operations"
-log "=========================================="
-
-FOUNDRY_PROFILE=local forge script script/deployment/local/SchedulePhase3Local.s.sol:SchedulePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3b complete. Operations scheduled."
-
-# ============ Phase 3c: Advance time and execute ============
-log ""
-log "=========================================="
-log "Phase 3c: Advance Anvil time and execute scheduled operations"
-log "=========================================="
-
-# Advance Anvil's time by 1 day + 10 minutes + 1 second (87001 seconds)
-# Matches DeploymentConstants.TIME_ADVANCE_SECONDS
-TIME_ADVANCE=87001
-log "Advancing Anvil time by $TIME_ADVANCE seconds (1 day + 10 min + 1 second)..."
-cast rpc evm_increaseTime $TIME_ADVANCE --rpc-url "$RPC" > /dev/null
-cast rpc evm_mine --rpc-url "$RPC" > /dev/null
-log "Time advanced and block mined."
-
-# Execute scheduled operations
-FOUNDRY_PROFILE=local forge script script/deployment/local/ExecutePhase3Local.s.sol:ExecutePhase3Local \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" --broadcast -v \
-    $LIBRARY_FLAG
-
-log "Phase 3c complete. All operations executed."
+log "Phase 3 complete. Contracts deployed, strategies wired, roles granted."
 
 # ============ Phase 4: Post-Deploy Validation ============
 log ""
@@ -127,9 +72,7 @@ log "=========================================="
 log "Phase 4: Post-Deploy Validation"
 log "=========================================="
 
-FOUNDRY_PROFILE=local forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
-    --rpc-url "$RPC" --private-key "$PRIVATE_KEY" -v \
-    $LIBRARY_FLAG
+make -C "$ROOT/loan-provider" deploy:check:local LOCAL_PRIVATE_KEY="$PRIVATE_KEY" LIBRARY_FLAG="$LIBRARY_FLAG"
 
 log "Phase 4 complete. All deployment checks passed."
 
@@ -139,9 +82,7 @@ log "=========================================="
 log "Deployment Complete!"
 log "=========================================="
 log ""
-log "Addresses saved to:"
-log "  - loan-provider/deployments.json"
-log "  - lending-pool/deployed-contracts.json"
+log "Addresses saved to: deployments/31337/latest.json"
 log ""
 log "Verify with:"
-log "  cat loan-provider/deployments.json | jq '.deployments[\"31337\"]'"
+log "  cat deployments/31337/latest.json | jq ."

@@ -122,6 +122,7 @@ export enum eContractid {
     ParaSwapLiquiditySwapAdapter = "ParaSwapLiquiditySwapAdapter",
     UiIncentiveDataProviderV2V3 = "UiIncentiveDataProviderV2V3",
     UiIncentiveDataProviderV2 = "UiIncentiveDataProviderV2",
+    PythPriceOracleGetter = "PythPriceOracleGetter",
 }
 
 /*
@@ -279,7 +280,6 @@ export interface iAssetBase<T> {
     xSUSHI: T;
     WAVAX: T;
     bvBTC: T;
-    bUSDC: T;
     cbBTC: T;
 }
 
@@ -353,7 +353,7 @@ export type iAvalanchePoolAssets<T> = Pick<
     "WETH" | "DAI" | "USDT" | "AAVE" | "WBTC" | "WAVAX" | "USDC"
 >;
 
-export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "bUSDC" | "bvBTC">;
+export type iBitmorPoolAssets<T> = Pick<iAssetsWithoutUSD<T>, "USDC" | "bvBTC">;
 
 export type iMultiPoolsAssets<T> = iAssetCommon<T> | iAavePoolAssets<T>;
 
@@ -404,7 +404,6 @@ export enum TokenContractId {
     xSUSHI = "xSUSHI",
     WAVAX = "WAVAX",
     bvBTC = "bvBTC",
-    bUSDC = "bUSDC",
     /** cbBTC token - underlying asset for MockBTCVault (cbBTC → bvBTC shares). */
     cbBTC = "cbBTC",
 }
@@ -565,6 +564,8 @@ export interface IBaseConfiguration {
     ReserveAssets: iParamsPerNetwork<SymbolMap<tEthereumAddress>>;
     OracleQuoteCurrency: string;
     OracleQuoteUnit: string;
+    PythAddress?: iParamsPerNetwork<tEthereumAddress>;
+    PythPriceFeedIds?: iParamsPerNetwork<Record<string, string>>;
 }
 
 export interface ICommonConfiguration extends IBaseConfiguration {

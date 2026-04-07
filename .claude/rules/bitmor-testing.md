@@ -40,7 +40,7 @@ BitmorTestBase (Tier 0)
 │       └─ Real Aave V3 on fork, FFI deployment
 │
 └── IntegrationTestBase (Integration Tier)
-        └─ Loads from deployments.json
+        └─ Loads from deployments/<chainId>/latest.json
 ```
 
 ### Choose the Right Base Class

@@ -92,6 +92,16 @@ deploy-local:
 		--broadcast \
 		-vvvv
 
+DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+FORK_PRIVATE_KEY ?= $(DEFAULT_ANVIL_KEY)
+
+.PHONY: deploy-fork
+deploy-fork:
+	@echo "Deploying UniswapV4Swapper to Anvil fork (Base)..."
+	FORK=base forge script script/deployment/DeployUniswapV4Swapper.s.sol:DeployUniswapV4Swapper \
+		--rpc-url http://127.0.0.1:8545 --private-key $(FORK_PRIVATE_KEY) \
+		--broadcast -v
+
 # ============ Help ============
 
 .PHONY: help
@@ -118,3 +128,4 @@ help:
 	@echo "  make deploy-sepolia - Deploy to Base Sepolia"
 	@echo "  make deploy-mainnet - Deploy to Base Mainnet"
 	@echo "  make deploy-local   - Deploy to local Anvil"
+	@echo "  make deploy-fork    - Deploy to Anvil fork (Base)"

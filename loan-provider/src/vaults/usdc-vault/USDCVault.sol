@@ -12,6 +12,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
+import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
+
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {ISimpleStrategy} from "../../interfaces/ISimpleStrategy.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
@@ -45,16 +47,11 @@ contract USDCVault is
     UUPSUpgradeable,
     ERC4626Upgradeable,
     AccessManagedUpgradeable,
-    PausableUpgradeable
+    PausableUpgradeable,
+    IUSDCVault
 {
     using FixedPointMathLib for uint256;
     using SafeERC20 for IERC20;
-
-    /**
-     * @notice Emitted when the strategy contract is updated
-     * @param newStrategy The new strategy contract address
-     */
-    event SimpleVault__StrategyUpdated(address newStrategy);
 
     // ============ ERC-7201 Namespaced Storage ============
 
@@ -116,12 +113,7 @@ contract USDCVault is
       |_____/_/\_\\__\___|_|  |_| |_|\__,_|_| |_|   \__,_|_| |_|\___|\__|_|\___/|_| |_|___/
     */
 
-    /**
-     * @notice Updates the strategy contract used for yield generation
-     * @dev Withdraws funds from current strategy before switching to new one
-     * @param newStrategy The address of the new strategy contract (cannot be zero address)
-     * @custom:access Requires UVC role (1-day delay)
-     */
+    /// @inheritdoc IUSDCVault
     function setStrategy(address newStrategy) external restricted whenNotPaused {
         if (newStrategy == address(0)) revert Errors.ZeroAddress();
 
@@ -145,44 +137,26 @@ contract USDCVault is
         uint256 idle = asset_.balanceOf(address(this));
         if (idle > 0) $.strategy.supply(idle);
 
-        emit SimpleVault__StrategyUpdated(newStrategy);
+        emit USDCVault__StrategyUpdated(newStrategy);
     }
 
-    /**
-     * @notice Triggers reallocation of assets between Aave and BLP to match target ratios
-     * @dev USDC Vault invariants:
-     * - MUST only be callable by the USDC Vault allocator role (UVA)
-     * - Allocation MUST follow the target ratio set for Aave (`s_externalAllocation`),
-     *   unlike BTC Vault which uses manual per-strategy configuration
-     * - bvUSDC.totalAssets() before reallocateAssets() MUST equal
-     *   bvUSDC.totalAssets() after reallocateAssets()
-     * @custom:access Requires UVA role
-     */
+    /// @inheritdoc IUSDCVault
     function reallocateAssets() external restricted whenNotPaused {
         _getUSDCVaultStorage().strategy.reallocateAssets();
+
+        emit USDCVault__AssetsReallocated();
     }
 
-    /**
-     * @notice Reallocates assets by withdrawing `amountToWithdraw` from Aave to BLP
-     * @dev Only callable by the Bitmor Lending Pool to maintain liquidity reserves
-     * @param amountToWithdraw The amount of assets to move from Aave into BLP
-     * @custom:access Requires UVA role and caller must be `blp`
-     */
+    /// @inheritdoc IUSDCVault
     function reallocateAssets(uint256 amountToWithdraw) external restricted whenNotPaused {
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
         if (msg.sender != $.blp) revert Errors.UnauthorizedCaller();
         $.strategy.reallocateAssets(amountToWithdraw);
+
+        emit USDCVault__AssetsReallocated();
     }
 
-    /**
-     * @notice Routes a BLP deposit through the vault so `msg.sender` at the LendingPool is the vault
-     * @dev Called by the strategy to deposit assets into the Bitmor Lending Pool.
-     * The strategy transfers USDC to the vault first, then the vault deposits into BLP.
-     * This ensures the LendingPool sees USDCVault as the caller (not the strategy).
-     * @param amount The amount of USDC to deposit into BLP
-     * @param onBehalfOf The address that receives the aTokens
-     * @custom:access Only callable by the current strategy
-     */
+    /// @inheritdoc IUSDCVault
     function depositToBLP(uint256 amount, address onBehalfOf) external whenNotPaused {
         USDCVaultStorageData storage $ = _getUSDCVaultStorage();
         if (msg.sender != address($.strategy)) revert Errors.UnauthorizedCaller();
@@ -191,33 +165,26 @@ contract USDCVault is
         IERC20(asset_).safeTransferFrom(msg.sender, address(this), amount);
         IERC20(asset_).forceApprove($.blp, amount);
         ILendingPool($.blp).deposit(asset_, amount, onBehalfOf, 0);
+
+        emit USDCVault__AssetsDepositedToBLP(amount, onBehalfOf);
     }
 
-    /**
-     * @notice Updates the minimum delta threshold for triggering asset reallocation
-     * @param newMinimumDeltaRequired The new minimum delta in basis points
-     * @custom:access Requires UVC role
-     */
+    /// @inheritdoc IUSDCVault
     function updateMinimumDeltaRequired(uint256 newMinimumDeltaRequired) external restricted whenNotPaused {
         _getUSDCVaultStorage().strategy.updateMinimumDeltaRequired(newMinimumDeltaRequired);
     }
 
+    /// @inheritdoc IUSDCVault
     function updateExternalAllocation(uint256 externalAllocation) external restricted whenNotPaused {
         _getUSDCVaultStorage().strategy.updateExternalAllocation(externalAllocation);
     }
 
-    /**
-     * @notice Pauses all vault operations in case of emergency
-     * @custom:access Requires UVM_FAST role
-     */
+    /// @inheritdoc IUSDCVault
     function pause() external restricted whenNotPaused {
         _pause();
     }
 
-    /**
-     * @notice Resumes vault operations after an emergency pause
-     * @custom:access Requires UVM_SLOW role (1-day delay)
-     */
+    /// @inheritdoc IUSDCVault
     function unpause() external restricted whenPaused {
         _unpause();
     }
