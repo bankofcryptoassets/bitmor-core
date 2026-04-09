@@ -26,7 +26,7 @@ mkdir -p "$ROOT/deployments/84532"
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
 log "=========================================="
-log "Phase 1: loan-provider (AccessManager, Mock Tokens, Mock Oracles, BTCVault)"
+log "Phase 1: loan-provider (AccessManager, Mock Tokens, Chainlink Oracle Wrappers, BTCVault)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 

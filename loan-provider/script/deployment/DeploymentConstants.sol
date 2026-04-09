@@ -29,6 +29,13 @@ library DeploymentConstants {
     /// @notice USDC/USD oracle description
     string public constant USDC_USD_DESCRIPTION = "USDC/USD";
 
+    // ============ Chainlink Feed Addresses (Base Sepolia) ============
+    /// @notice BTC/USD Chainlink feed on Base Sepolia
+    address public constant BASE_SEPOLIA_BTC_USD_FEED = 0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298;
+
+    /// @notice USDC/USD Chainlink feed on Base Sepolia
+    address public constant BASE_SEPOLIA_USDC_USD_FEED = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165;
+
     // ============ Time Delays ============
     /// @notice Execution delay for scheduled operations (1 day)
     uint256 public constant EXECUTION_DELAY = 1 days;

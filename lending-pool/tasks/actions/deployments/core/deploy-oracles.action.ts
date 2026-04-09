@@ -13,6 +13,7 @@ import {
   getBcbBTCAddress,
   getBvBTCAddress,
   getUSDCAddress,
+  getOracleAggregatorsFromRegistry,
 } from '../../../../helpers/configuration.js';
 import {
   getAaveOracle,
@@ -93,7 +94,12 @@ export default async function deployOraclesAction(
       }
     }
 
-    const chainlinkAggregators = await getParamPerNetwork(ChainlinkAggregator, network);
+    const registryAggregators = getOracleAggregatorsFromRegistry(network);
+    const chainlinkAggregators = registryAggregators
+      ?? await getParamPerNetwork(ChainlinkAggregator, network);
+    if (registryAggregators) {
+      console.log('Using oracle aggregators from deployment registry (ChainlinkOracleWrapper)');
+    }
 
     const tokensToWatch: SymbolMap<string> = {
       ...reserveAssets,

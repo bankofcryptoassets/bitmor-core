@@ -4,6 +4,7 @@
 	deploy\:phase1\:local deploy\:libraries\:local deploy\:phase3\:local deploy\:check\:local \
 	deploy\:phase1\:fork deploy\:libraries\:fork deploy\:phase3\:fork deploy\:check\:fork \
 	deploy\:phase1\:testnet deploy\:libraries\:testnet deploy\:phase3\:testnet deploy\:check\:testnet \
+	deploy\:oracle-wrappers\:testnet \
 	deploy\:check
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -321,6 +322,11 @@ deploy\:check\:fork:
 	@FORK=base FOUNDRY_PROFILE=fork-deploy forge script script/deployment/PostDeployChecks.s.sol:PostDeployChecks \
 		--rpc-url $(RPC_FORK) --private-key $(FORK_PRIVATE_KEY) -v \
 		$(LIBRARY_FLAG)
+
+deploy\:oracle-wrappers\:testnet:
+	@echo "Deploying Chainlink oracle wrappers (testnet)..."
+	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployOracleWrappers.s.sol:DeployOracleWrappers \
+		--rpc-url $(NETWORK) --account $(ACCOUNT) --broadcast --slow -v
 
 deploy\:check\:testnet:
 	@echo "Running post-deploy checks (testnet)..."

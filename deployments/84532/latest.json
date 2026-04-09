@@ -1,8 +1,8 @@
 {
   "network": "base-sepolia",
   "chainId": 84532,
-  "timestamp": 1775347327165,
-  "commit": "40de50f",
+  "timestamp": 1775748843493,
+  "commit": "ac6318c",
   "deployer": "0xc617c587122256e940e10fa46d30f610139a818e",
   "loanProvider": {
     "accessManager": "0xd73c6e2c7bd9f3a13017d5ffb8714b1d5af55fb5",
@@ -51,8 +51,8 @@
     "cbBTC": "0x4fe9b5c05f42bec3a14108fe44026e276a17f439"
   },
   "external": {
-    "btcOracle": "0x44a9edd1db26d7099487c928abd3159c5546cd3c",
-    "usdcOracle": "0x0f3921623e119d52f43ccee2ce2859f9817b2d12",
+    "btcOracle": "0x66fb28a5d90a7da7c876bc738badf19c654bbe86",
+    "usdcOracle": "0xcf2b92a5106b9337122646362f6ba91f4265aa0d",
     "aaveV3Pool": "0xc002240789827f1260a0ae2266ceba5d34d8d535",
     "aaveAddressesProvider": "0xc002240789827f1260a0ae2266ceba5d34d8d535"
   }

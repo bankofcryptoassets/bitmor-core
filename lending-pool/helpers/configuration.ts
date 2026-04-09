@@ -282,3 +282,23 @@ export const getUSDCAddress = async (
     `Ensure deployments exist at ../deployments/${chainKey}/latest.json with tokens.usdc.`
   );
 };
+
+/**
+ * Returns oracle aggregator addresses from the unified deployment registry.
+ * On testnet, these are ChainlinkOracleWrapper addresses deployed by loan-provider Phase 1.
+ * Falls back to ChainlinkAggregator from pool config if registry has no entries.
+ */
+export const getOracleAggregatorsFromRegistry = (
+  network: eNetwork
+): { [symbol: string]: string } | null => {
+  const chainKey = getChainKeyFromNetwork(network);
+  const btcOracle = readFromRegistry(chainKey, 'external.btcOracle');
+  const usdcOracle = readFromRegistry(chainKey, 'external.usdcOracle');
+
+  if (!btcOracle || !usdcOracle) return null;
+
+  return {
+    USDC: usdcOracle,
+    bvBTC: btcOracle,
+  };
+};
