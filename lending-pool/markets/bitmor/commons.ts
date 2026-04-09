@@ -18,7 +18,7 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
     ProtocolGlobalParams: {
         TokenDistributorPercentageBase: "10000",
         MockUsdPriceInWei: "5848466240000000",
-        UsdAddress: ZERO_ADDRESS,
+        UsdAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
         NilAddress: ZERO_ADDRESS,
         OneAddress: "0x0000000000000000000000000000000000000001",
         AaveReferral: "0",
@@ -101,10 +101,25 @@ export const BitmorCommonsConfig: ICommonConfiguration = {
         [eBaseNetwork.sepolia]: ZERO_ADDRESS,
         [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
     },
+    PythAddress: {
+        [eBaseNetwork.base]: "0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a",
+        [eBaseNetwork.sepolia]: ZERO_ADDRESS,
+        [eEthereumNetwork.hardhat]: ZERO_ADDRESS,
+    },
+    PythPriceFeedIds: {
+        [eBaseNetwork.base]: {
+            USDC: "0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+            cbBTC: "0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+        },
+        [eBaseNetwork.sepolia]: {},
+        [eEthereumNetwork.hardhat]: {},
+    },
     ChainlinkAggregator: {
-        [eBaseNetwork.base]: {},
+        [eBaseNetwork.base]: {
+            USDC: "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B", // USDC/USD Chainlink on Base mainnet (key must match ReserveAssets['base'].USDC)
+        },
         [eBaseNetwork.sepolia]: {
-            bUSDC: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+            USDC: "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
             bvBTC: "0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298",
         },
         [eEthereumNetwork.hardhat]: {},

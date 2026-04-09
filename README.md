@@ -276,7 +276,7 @@ This runs a multi-phase proxy-based deployment:
 ### Verify Local Deployment
 
 ```bash
-cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig'
+cat deployments/31337/latest.json | jq .
 ```
 
 ---
@@ -334,9 +334,9 @@ All core loan-provider contracts are deployed behind UUPS or Beacon proxies. See
 
 ### Deployment Addresses
 
-Deployed addresses are stored in:
-- `lending-pool/deployed-contracts.json` - lending-pool addresses
-- `loan-provider/deployments.json` - loan-provider addresses (proxy + implementation)
+Deployed addresses are stored in the unified registry:
+- `deployments/<chainId>/latest.json` - all addresses (loan-provider, lending-pool, tokens, external)
+- Timestamped snapshots in `deployments/<chainId>/` for deployment history
 
 ---
 

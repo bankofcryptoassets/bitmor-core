@@ -148,6 +148,44 @@ interface ILendingPool {
     );
 
     /**
+     * @dev Emitted when a borrower is micro-liquidated. This event is emitted by the LendingPool via
+     * LendingPoolCollateralManager using a DELEGATECALL.
+     * This allows to have the events in the generated ABI for LendingPool.
+     * @param collateralAsset The address of the underlying asset used as collateral
+     * @param debtAsset The address of the underlying borrowed asset to be repaid
+     * @param user The address of the borrower getting micro-liquidated
+     * @param debtToCover The debt amount of borrowed `asset` the liquidator wants to cover
+     * @param liquidatedCollateralAmount The amount of collateral liquidated
+     * @param liquidator The address of the liquidator
+     * @param receiveAToken `true` if the liquidator wants to receive aTokens, `false` otherwise
+     */
+    event MicroLiquidationCall(
+        address indexed collateralAsset,
+        address indexed debtAsset,
+        address indexed user,
+        uint256 debtToCover,
+        uint256 liquidatedCollateralAmount,
+        address liquidator,
+        bool receiveAToken
+    );
+
+    /**
+     * @dev Emitted when protocol fee is charged on liquidation. This event is emitted by the LendingPool via
+     * LendingPoolCollateralManager using a DELEGATECALL.
+     * This allows to have the events in the generated ABI for LendingPool.
+     * @param collateral The address of the collateral being liquidated
+     * @param user The address of the user being liquidated
+     * @param liquidator The address of the liquidator
+     * @param protocolFeeAmount The amount of collateral received as protocol fee
+     */
+    event ProtocolLiquidationFee(
+        address indexed collateral,
+        address indexed user,
+        address indexed liquidator,
+        uint256 protocolFeeAmount
+    );
+
+    /**
      * @dev Emitted when the state of a reserve is updated. NOTE: This event is actually declared
      * in the ReserveLogic library and emitted in the updateInterestRates() function. Since the function is internal,
      * the event will actually be fired by the LendingPool contract. The event is therefore replicated here so it

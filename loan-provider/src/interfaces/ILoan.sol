@@ -16,12 +16,18 @@ interface ILoan {
      * @notice Emitted when a new loan is created
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
+     * @param monthlyPayment Amount to be paid monthly for the loan.
      * @param loanAmount Total loan amount in USDC (6 decimals)
      * @param btcAmount Target cbBTC amount (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 btcAmount, bytes data
+        address indexed borrower,
+        address indexed lsa,
+        uint256 indexed monthlyPayment,
+        uint256 loanAmount,
+        uint256 btcAmount,
+        bytes data
     );
 
     /**
@@ -186,7 +192,6 @@ interface ILoan {
      * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow.
      *
      * Initialization invariants:
-     * - MUST be called by an account with the `EXECUTOR` role only
      * - MUST NOT allow re-initialization of an existing LSA; each LoanVault is one-loan-only
      * - MUST deploy a new LoanVault via the factory, and that vault MUST NOT have been previously initialized
      * - MUST set `loanData.status` to `Active` for the newly created LSA
@@ -200,7 +205,6 @@ interface ILoan {
      * @param duration Loan duration in months
      * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
-     * @custom:access Restricted to `EXECUTOR` role
      */
     function initializeLoan(
         uint256 depositAmount,

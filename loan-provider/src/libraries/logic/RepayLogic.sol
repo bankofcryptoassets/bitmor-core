@@ -152,7 +152,5 @@ library RepayLogic {
         if (finalAmountRepaid < maxRepayableAmt) {
             IERC20(debtAsset).safeTransfer(msg.sender, maxRepayableAmt - finalAmountRepaid);
         }
-
-        emit ILoan.Loan__LoanRepaid(params.lsa, finalAmountRepaid);
     }
 }

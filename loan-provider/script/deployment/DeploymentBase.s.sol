@@ -2,7 +2,6 @@
 pragma solidity 0.8.30;
 
 import {Script, console2} from "forge-std/Script.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 import {Upgrades} from "@openzeppelin-foundry-upgrades/Upgrades.sol";
 import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -22,15 +21,16 @@ import {HelperConfig} from "../HelperConfig.s.sol";
  * @author Bitmor Protocol
  * @notice Abstract base contract providing shared deployment utilities for all Bitmor deployment scripts
  * @dev Encapsulates common logic for proxy deployment, beacon proxy setup, AccessManager role wiring,
- * JSON persistence, and preflight validation. Concrete deployment scripts inherit from this and implement
+ * and preflight validation. Concrete deployment scripts inherit from this and implement
  * `_getRoleGrantees()` to supply chain-specific role assignments.
+ *
+ * JSON persistence is handled externally by the bitmor-deploy CLI tool, which reads
+ * Forge broadcast files and maintains the deployment registry.
  *
  * @custom:security Deployment scripts handle privileged operations (role grants, ownership transfers).
  * Ensure the deployer account is secured and review all role assignments before broadcast.
  */
 abstract contract DeploymentBase is Script {
-    using stdJson for string;
-
     // ============ Structs ============
 
     /**
@@ -73,30 +73,6 @@ abstract contract DeploymentBase is Script {
         address uva;
         /// @dev UUPS and beacon upgrade executor (UPGRADER role, ID 5)
         address upgrader;
-    }
-
-    /// @notice Addresses loaded from deployments.json (Phase 1 outputs)
-    struct Phase1Addresses {
-        address accessManager;
-        address debtAsset; // USDC (mock or real)
-        address cbBTC; // cbBTC (mock or real)
-        address btcVault; // BTCVault proxy (collateralAsset)
-        address btcVaultImpl; // BTCVault implementation
-        address btcOracle; // BTC/USD oracle (local only, address(0) on mainnet)
-        address usdcOracle; // USDC/USD oracle (local only, address(0) on mainnet)
-        address aaveV3Pool; // Aave V3 Pool (mock or real)
-        address aaveAddressesProvider; // Aave V3 Addresses Provider (mock or real)
-        address loanLogicLib; // LoanLogic linked library (address(0) if not deployed)
-        address repayLogicLib; // RepayLogic linked library (address(0) if not deployed)
-        address closeLoanLogicLib; // CloseLoanLogic linked library (address(0) if not deployed)
-        address flashLoanLogicLib; // FlashLoanLogic linked library (address(0) if not deployed)
-    }
-
-    /// @notice Addresses loaded from lending-pool/deployed-contracts.json
-    struct LendingPoolAddresses {
-        address bitmorPool;
-        address aaveOracle;
-        address lendingPoolAddressesProvider;
     }
 
     // ============ Abstract Functions ============
@@ -406,13 +382,7 @@ abstract contract DeploymentBase is Script {
         private
     {
         (,,,, uint64 lpmSlowId,,,,,) = rolesData.LPM_SLOW();
-        bytes4[] memory bapSelectors = new bytes4[](5);
-        bapSelectors[0] = IBitmorAddressesProvider.setVaultFactory.selector;
-        bapSelectors[1] = IBitmorAddressesProvider.setAutoRepayer.selector;
-        bapSelectors[2] = IBitmorAddressesProvider.setLiquidationFeeCollector.selector;
-        bapSelectors[3] = IBitmorAddressesProvider.setSwapper.selector;
-        bapSelectors[4] = IBitmorAddressesProvider.setPremiumCollector.selector;
-        manager.setTargetFunctionRole(addressesProvider, bapSelectors, lpmSlowId);
+        manager.setTargetFunctionRole(addressesProvider, rolesData.getBAP_SELECTORS(), lpmSlowId);
         console2.log("Configured BitmorAddressesProvider roles");
     }
 
@@ -502,17 +472,16 @@ abstract contract DeploymentBase is Script {
      *
      * @param expectedChainId The expected chain ID
      */
-    function _preflightPhase3(uint256 expectedChainId) internal view {
+    function _preflightPhase3(uint256 expectedChainId) internal {
         _preflightPhase1(expectedChainId);
 
-        string memory json = vm.readFile("./deployments.json");
-        string memory base = string.concat(".deployments.", vm.toString(expectedChainId), ".networkConfig.");
+        HelperConfig _hc = new HelperConfig();
 
-        address accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
+        address accessManager = _hc.getAccessManager();
         require(accessManager != address(0), "DeploymentBase: accessManager is zero");
         require(accessManager.code.length > 0, "DeploymentBase: accessManager has no bytecode");
 
-        address collateralAsset = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
+        address collateralAsset = _hc.getBTCVault();
         require(collateralAsset != address(0), "DeploymentBase: collateralAsset is zero");
         require(collateralAsset.code.length > 0, "DeploymentBase: collateralAsset has no bytecode");
 
@@ -523,172 +492,12 @@ abstract contract DeploymentBase is Script {
 
     /**
      * @notice Validates that the Bitmor lending pool is deployed
-     * @dev Reads `../lending-pool/deployed-contracts.json` and checks the LendingPool address.
-     * Uses "localhost" key for local chain (31337) and "base" for mainnet (8453).
+     * @dev Reads the LendingPool address from the unified registry via HelperConfig
      */
     function _preflightLendingPool() internal {
-        string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
-
         HelperConfig helperConfig = new HelperConfig();
-        string memory networkKey = helperConfig.getLendingPoolNetworkKey();
-
-        address lendingPool = vm.parseJsonAddress(json, string.concat(".LendingPool.", networkKey, ".address"));
+        address lendingPool = helperConfig.getBitmorPool();
         require(lendingPool != address(0), "DeploymentBase: LendingPool is zero");
         require(lendingPool.code.length > 0, "DeploymentBase: LendingPool has no bytecode");
-    }
-
-    // ============ Shared Address Loaders ============
-
-    /// @notice Loads Phase 1 addresses from deployments.json for the current chain
-    /// @dev Uses `block.chainid` to construct the JSON path dynamically — no hardcoded chain ID strings.
-    /// Fields that don't exist for certain chains (e.g., oracles on mainnet) return address(0).
-    /// @return addrs The populated Phase1Addresses struct
-    function _loadPhase1Addresses() internal returns (Phase1Addresses memory addrs) {
-        string memory json = vm.readFile("./deployments.json");
-        string memory base = string.concat(".deployments.", vm.toString(block.chainid), ".networkConfig.");
-
-        addrs.accessManager = vm.parseJsonAddress(json, string.concat(base, "accessManager"));
-        addrs.cbBTC = vm.parseJsonAddress(json, string.concat(base, "cbBTC"));
-        addrs.btcVault = vm.parseJsonAddress(json, string.concat(base, "collateralAsset"));
-        addrs.btcVaultImpl = vm.parseJsonAddress(json, string.concat(base, "btcVaultImpl"));
-
-        // debtAsset may not exist in Phase 1 on mainnet (USDC is a known constant)
-        try vm.parseJsonAddress(json, string.concat(base, "debtAsset")) returns (address parsed) {
-            addrs.debtAsset = parsed;
-        } catch {}
-
-        // These only exist on local/testnet (mock deployments)
-        try vm.parseJsonAddress(json, string.concat(base, "btcOracle")) returns (address parsed) {
-            addrs.btcOracle = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "usdcOracle")) returns (address parsed) {
-            addrs.usdcOracle = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "aaveV3Pool")) returns (address parsed) {
-            addrs.aaveV3Pool = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "aaveAddressesProvider")) returns (address parsed) {
-            addrs.aaveAddressesProvider = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "loanLogicLib")) returns (address parsed) {
-            addrs.loanLogicLib = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "repayLogicLib")) returns (address parsed) {
-            addrs.repayLogicLib = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "closeLoanLogicLib")) returns (address parsed) {
-            addrs.closeLoanLogicLib = parsed;
-        } catch {}
-        try vm.parseJsonAddress(json, string.concat(base, "flashLoanLogicLib")) returns (address parsed) {
-            addrs.flashLoanLogicLib = parsed;
-        } catch {}
-
-        // On mainnet, Aave addresses come from HelperConfig constants, not deployments.json
-        if (block.chainid == DeploymentConstants.BASE_MAINNET_CHAIN_ID) {
-            HelperConfig helperConfig = new HelperConfig();
-            addrs.aaveV3Pool = helperConfig.getAaveV3Pool();
-            addrs.aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
-            addrs.debtAsset = helperConfig.getUSDC();
-        }
-
-        console2.log("Loaded Phase 1: AccessManager:", addrs.accessManager);
-        console2.log("Loaded Phase 1: BTCVault:", addrs.btcVault);
-    }
-
-    /// @notice Loads lending pool addresses from deployed-contracts.json for the current chain
-    /// @dev Uses `HelperConfig.getLendingPoolNetworkKey()` for the JSON network key.
-    /// @return addrs The populated LendingPoolAddresses struct
-    function _loadLendingPoolAddresses() internal returns (LendingPoolAddresses memory addrs) {
-        HelperConfig helperConfig = new HelperConfig();
-        string memory networkKey = helperConfig.getLendingPoolNetworkKey();
-        string memory json = vm.readFile("../lending-pool/deployed-contracts.json");
-
-        addrs.bitmorPool = vm.parseJsonAddress(json, string.concat(".LendingPool.", networkKey, ".address"));
-        addrs.aaveOracle = vm.parseJsonAddress(json, string.concat(".AaveOracle.", networkKey, ".address"));
-        addrs.lendingPoolAddressesProvider =
-            vm.parseJsonAddress(json, string.concat(".LendingPoolAddressesProvider.", networkKey, ".address"));
-
-        console2.log("Loaded LendingPool:", addrs.bitmorPool);
-        console2.log("Loaded AaveOracle:", addrs.aaveOracle);
-        console2.log("Loaded LendingPoolAddressesProvider:", addrs.lendingPoolAddressesProvider);
-    }
-
-    // ============ JSON Persistence ============
-
-    /**
-     * @notice Merges deployment data into `deployments.json`
-     * @dev Writes a JSON structure of the form:
-     * `{"deployments":{"<chainId>":{"network":"<name>","networkConfig":{<keys>}}}}`
-     *
-     * For MVP, the caller passes all serialized keys for their deployment phase.
-     * This function overwrites the existing file to avoid partial-merge complexity.
-     *
-     * @param keys Serialized JSON string of key-value pairs for `networkConfig` (e.g., `"accessManager":"0x..."`)
-     * @param chainId The chain ID to store under
-     * @param networkName Human-readable network name (e.g., "localhost", "base-mainnet")
-     */
-    function _mergeAndSave(string memory keys, uint256 chainId, string memory networkName) internal {
-        string memory fullJson = string.concat(
-            '{"deployments":{"',
-            vm.toString(chainId),
-            '":{"network":"',
-            networkName,
-            '","networkConfig":{',
-            keys,
-            "}}}}"
-        );
-
-        vm.writeFile("./deployments.json", fullJson);
-        console2.log("Saved deployments to deployments.json for chain:", chainId);
-    }
-
-    /**
-     * @notice Writes a deployment manifest file for audit trail and reproducibility
-     * @dev Creates a JSON file at `./deployments/<chainId>-<timestamp>-<phase>.manifest.json`
-     * containing deployment metadata: chain ID, block timestamp, phase name, git commit hash,
-     * and deployer address. The directory is created if it does not exist.
-     *
-     * @param phase Human-readable phase name (e.g., "phase1", "phase3")
-     */
-    function _writeManifest(string memory phase) internal {
-        // Ensure deployments directory exists
-        vm.createDir("./deployments", true);
-
-        // Get git commit hash via FFI
-        string[] memory gitCmd = new string[](3);
-        gitCmd[0] = "git";
-        gitCmd[1] = "rev-parse";
-        gitCmd[2] = "HEAD";
-        bytes memory commitBytes = vm.ffi(gitCmd);
-        string memory commitHash = string(commitBytes);
-
-        // Build manifest path
-        string memory manifestPath = string.concat(
-            "./deployments/",
-            vm.toString(block.chainid),
-            "-",
-            vm.toString(block.timestamp),
-            "-",
-            phase,
-            ".manifest.json"
-        );
-
-        // Build manifest JSON
-        string memory manifest = string.concat(
-            '{"chainId":',
-            vm.toString(block.chainid),
-            ',"timestamp":',
-            vm.toString(block.timestamp),
-            ',"phase":"',
-            phase,
-            '","commitHash":"',
-            commitHash,
-            '","deployer":"',
-            vm.toString(msg.sender),
-            '"}'
-        );
-
-        vm.writeFile(manifestPath, manifest);
-        console2.log("Written manifest to:", manifestPath);
     }
 }

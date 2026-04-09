@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IAutoRepayment} from "@bitmor/interfaces/IAutoRepayment.sol";
+import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
 import {ISimpleStrategy} from "@bitmor/interfaces/ISimpleStrategy.sol";
@@ -479,12 +480,14 @@ contract RolesData {
     }
 
     /// @notice Returns function selectors for BVM_SLOW role
-    /// @dev Selectors for setFeeRecipient and unpause functions on BTCVault
+    /// @dev Selectors for fee management, fee recipient, and unpause functions on BTCVault
     /// @return selectors Array of function selectors
     function getBVM_SLOW_SELECTORS() public pure returns (bytes4[] memory selectors) {
-        selectors = new bytes4[](2);
+        selectors = new bytes4[](4);
         selectors[0] = BTCVault.setFeeRecipient.selector;
         selectors[1] = bytes4(keccak256("unpause()"));
+        selectors[2] = BTCVault.setEntryFee.selector;
+        selectors[3] = BTCVault.setExitFee.selector;
     }
 
     /// @notice Returns function selectors for BVC role
@@ -557,6 +560,18 @@ contract RolesData {
         selectors = new bytes4[](2);
         selectors[0] = bytes4(keccak256("reallocateAssets()"));
         selectors[1] = bytes4(keccak256("reallocateAssets(uint256)"));
+    }
+
+    /// @notice Returns function selectors for LPM_SLOW role on BitmorAddressesProvider
+    /// @dev Selectors for all setter functions on BitmorAddressesProvider, governed by `LPM_SLOW` role
+    /// @return selectors Array of function selectors
+    function getBAP_SELECTORS() public pure returns (bytes4[] memory selectors) {
+        selectors = new bytes4[](5);
+        selectors[0] = IBitmorAddressesProvider.setVaultFactory.selector;
+        selectors[1] = IBitmorAddressesProvider.setAutoRepayer.selector;
+        selectors[2] = IBitmorAddressesProvider.setLiquidationFeeCollector.selector;
+        selectors[3] = IBitmorAddressesProvider.setSwapper.selector;
+        selectors[4] = IBitmorAddressesProvider.setPremiumCollector.selector;
     }
 
     /// @notice Returns function selectors for UPGRADER role

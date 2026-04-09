@@ -1,0 +1,49 @@
+{
+  "chain": 31337,
+  "commit": "abc1234",
+  "timestamp": 1712200900000,
+  "libraries": [
+    "src/libraries/logic/LoanLogic.sol:LoanLogic:0x1111000000000000000000000000000000000001",
+    "src/libraries/logic/RepayLogic.sol:RepayLogic:0x1111000000000000000000000000000000000002",
+    "src/libraries/logic/CloseLoanLogic.sol:CloseLoanLogic:0x1111000000000000000000000000000000000003",
+    "src/libraries/logic/FlashLoanLogic.sol:FlashLoanLogic:0x1111000000000000000000000000000000000004"
+  ],
+  "transactions": [
+    {
+      "hash": "0xaaaa",
+      "transactionType": "CREATE",
+      "contractName": "LoanLogic",
+      "contractAddress": "0x1111000000000000000000000000000000000001",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0xbbbb",
+      "transactionType": "CREATE",
+      "contractName": "RepayLogic",
+      "contractAddress": "0x1111000000000000000000000000000000000002",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0xcccc",
+      "transactionType": "CREATE",
+      "contractName": "CloseLoanLogic",
+      "contractAddress": "0x1111000000000000000000000000000000000003",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0xdddd",
+      "transactionType": "CREATE",
+      "contractName": "FlashLoanLogic",
+      "contractAddress": "0x1111000000000000000000000000000000000004",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    }
+  ]
+}

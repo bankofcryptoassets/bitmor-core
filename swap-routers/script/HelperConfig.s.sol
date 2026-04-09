@@ -42,16 +42,22 @@ contract HelperConfig is Script {
 
     /// @notice Returns Universal Router address for current chain
     function getUniversalRouter() public view returns (address) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) return UNIVERSAL_ROUTER_BASE_MAINNET;
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) return UNIVERSAL_ROUTER_BASE_MAINNET;
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) return UNIVERSAL_ROUTER_BASE_SEPOLIA;
         return _readDeployment("universalRouter");
     }
 
     /// @notice Returns V4 Quoter address for current chain
     function getV4Quoter() public view returns (address) {
-        if (block.chainid == CHAIN_ID_BASE_MAINNET) return V4_QUOTER_BASE_MAINNET;
+        if (block.chainid == CHAIN_ID_BASE_MAINNET || _isFork()) return V4_QUOTER_BASE_MAINNET;
         if (block.chainid == CHAIN_ID_BASE_SEPOLIA) return V4_QUOTER_BASE_SEPOLIA;
         return _readDeployment("v4Quoter");
+    }
+
+    /// @notice Returns true if running in fork mode (FORK env var set)
+    function _isFork() internal view returns (bool) {
+        string memory fork = vm.envOr("FORK", string(""));
+        return bytes(fork).length > 0;
     }
 
     /// @notice Returns pool fee for current chain

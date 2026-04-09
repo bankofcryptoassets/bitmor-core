@@ -12,7 +12,7 @@ import {
   loadPoolConfig,
   getEmergencyAdmin,
   getBvBTCAddress,
-  getBUSDCAddress,
+  getUSDCAddress,
 } from '../../../helpers/configuration.js';
 
 import { tEthereumAddress, eContractid } from '../../../helpers/types.js';
@@ -46,7 +46,7 @@ export default async function devInitializeLendingPoolAction(
   }
 
   const conn = await hre.network.connect();
-  const network = conn.networkName as eNetwork;
+  const network = (process.env.FORK || conn.networkName) as eNetwork;
   const poolConfig = loadPoolConfig(pool as ConfigNames);
   const {
     ATokenNamePrefix,
@@ -78,14 +78,14 @@ export default async function devInitializeLendingPoolAction(
     }
   }
 
-  // Dynamically populate bUSDC address from loan-provider deployment if not in mock tokens
-  if (!protoPoolReservesAddresses['bUSDC']) {
+  // Dynamically populate USDC address from loan-provider deployment if not in mock tokens
+  if (!protoPoolReservesAddresses['USDC']) {
     try {
-      const bUSDCAddress = await getBUSDCAddress(poolConfig, network);
-      protoPoolReservesAddresses = { ...protoPoolReservesAddresses, bUSDC: bUSDCAddress };
-      console.log(`bUSDC address loaded from loan-provider: ${bUSDCAddress}`);
+      const usdcAddress = await getUSDCAddress(poolConfig, network);
+      protoPoolReservesAddresses = { ...protoPoolReservesAddresses, USDC: usdcAddress };
+      console.log(`USDC address loaded from loan-provider: ${usdcAddress}`);
     } catch (error) {
-      console.warn(`Could not load bUSDC address: ${error}`);
+      console.warn(`Could not load USDC address: ${error}`);
     }
   }
 

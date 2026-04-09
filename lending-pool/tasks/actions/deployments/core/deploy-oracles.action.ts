@@ -1,6 +1,6 @@
 import type { HardhatRuntimeEnvironment } from 'hardhat/types/hre';
 import { getParamPerNetwork, getContractAddress } from '../../../../helpers/contracts-helpers.js';
-import { deployAaveOracle, deployLendingRateOracle } from '../../../../helpers/contracts-deployments.js';
+import { deployAaveOracle, deployLendingRateOracle, deployPythPriceOracleGetter } from '../../../../helpers/contracts-deployments.js';
 import { setInitialMarketRatesInRatesOracleByHelper } from '../../../../helpers/oracles-helpers.js';
 import { ICommonConfiguration, eNetwork, SymbolMap } from '../../../../helpers/types.js';
 import { waitForTx, notFalsyOrZeroAddress } from '../../../../helpers/misc-utils.js';
@@ -12,6 +12,7 @@ import {
   getQuoteCurrency,
   getBcbBTCAddress,
   getBvBTCAddress,
+  getUSDCAddress,
 } from '../../../../helpers/configuration.js';
 import {
   getAaveOracle,
@@ -42,7 +43,7 @@ export default async function deployOraclesAction(
 
     const conn = await hre.network.connect();
     // Map localhost to hardhat for config lookups
-    const network = (conn.networkName === 'localhost' ? 'hardhat' : conn.networkName) as eNetwork;
+    const network = (process.env.FORK || (conn.networkName === 'localhost' ? 'hardhat' : conn.networkName)) as eNetwork;
     const poolConfig = loadPoolConfig(pool as ConfigNames);
     const {
       ProtocolGlobalParams: { UsdAddress },
@@ -59,14 +60,25 @@ export default async function deployOraclesAction(
     let reserveAssets = await getParamPerNetwork(ReserveAssets, network);
 
     // For localhost/hardhat, dynamically load token addresses from deployed-contracts.json
-    if (network === 'hardhat' && Object.keys(reserveAssets).length === 0) {
+    if (network === 'hardhat' && !process.env.FORK && Object.keys(reserveAssets).length === 0) {
       const { getDb } = await import('../../../../helpers/misc-utils.js');
       const db = getDb();
       const actualNetwork = conn.networkName; // Use actual network name for DB lookup
-      const bUSDC = db.get(`bUSDC.${actualNetwork}`).value()?.address;
+      const USDC = db.get(`USDC.${actualNetwork}`).value()?.address;
       const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
-      if (bUSDC && bcbBTC) {
-        reserveAssets = { bUSDC, bcbBTC };
+      if (USDC && bcbBTC) {
+        reserveAssets = { USDC, bcbBTC };
+      }
+    }
+
+    // Dynamically populate USDC address from loan-provider deployment
+    if (reserveAssets['USDC'] === '') {
+      try {
+        const usdcAddress = await getUSDCAddress(poolConfig, network);
+        reserveAssets = { ...reserveAssets, USDC: usdcAddress };
+        console.log(`USDC address loaded from loan-provider: ${usdcAddress}`);
+      } catch (error) {
+        console.warn(`Could not load USDC address: ${error}`);
       }
     }
 
@@ -93,6 +105,72 @@ export default async function deployOraclesAction(
       poolConfig.OracleQuoteCurrency
     );
 
+    // --- Pyth fallback oracle ---
+    const pythAddress = poolConfig.PythAddress
+      ? await getParamPerNetwork(poolConfig.PythAddress, network)
+      : undefined;
+
+    let resolvedFallbackOracleAddress = fallbackOracleAddress;
+
+    if (pythAddress && notFalsyOrZeroAddress(pythAddress)) {
+      const pythFeedIds = poolConfig.PythPriceFeedIds
+        ? await getParamPerNetwork(poolConfig.PythPriceFeedIds, network)
+        : {};
+
+      const bcbBTCAddress = await getBcbBTCAddress(poolConfig, network);
+      const bvBTCAddress = await getBvBTCAddress(poolConfig, network);
+
+      // Build parallel arrays of assets and their Pyth feed IDs.
+      // IMPORTANT: Include cbBTC explicitly — AaveOracle prices bvBTC via s_btc (cbBTC).
+      // If Chainlink for cbBTC goes stale, the fallback must have a cbBTC source too.
+      const pythAssets: string[] = [];
+      const pythFeeds: string[] = [];
+
+      // 1. Map reserve asset symbols to addresses, matching against configured Pyth feed IDs
+      const { USD, ...reserveAssetsOnly } = tokensToWatch;
+      for (const [symbol, address] of Object.entries(reserveAssetsOnly)) {
+        const feedId = pythFeedIds[symbol]
+          || (symbol === 'bcbBTC' ? pythFeedIds['cbBTC'] : undefined);
+
+        if (feedId && address) {
+          pythAssets.push(address);
+          pythFeeds.push(feedId);
+        }
+      }
+
+      // 2. Ensure cbBTC (s_btc) has a Pyth source — needed for bvBTC fallback pricing
+      //    AaveOracle.getAssetPrice(bvBTC) → _getAssetPrice(s_btc) → fallback needs cbBTC source
+      if (pythFeedIds['cbBTC'] && !pythAssets.includes(bcbBTCAddress)) {
+        pythAssets.push(bcbBTCAddress);
+        pythFeeds.push(pythFeedIds['cbBTC']);
+      }
+
+      if (pythAssets.length > 0) {
+        console.log('Deploying PythPriceOracleGetter as fallback oracle...');
+        console.log('  Pyth contract: %s', pythAddress);
+        console.log('  Assets: %s', pythAssets.join(', '));
+
+        const pythOracle = await deployPythPriceOracleGetter(
+          [
+            pythAddress,
+            pythAssets,
+            pythFeeds,
+            bcbBTCAddress,
+            bvBTCAddress,
+            await getQuoteCurrency(poolConfig),
+            poolConfig.OracleQuoteUnit,
+          ],
+          verify
+        );
+
+        resolvedFallbackOracleAddress = getContractAddress(pythOracle);
+        console.log('PythPriceOracleGetter deployed at: %s', resolvedFallbackOracleAddress);
+      } else {
+        console.log('Pyth address configured but no feed IDs matched reserve assets — skipping fallback');
+      }
+    }
+    // --- End Pyth fallback oracle ---
+
     let aaveOracle: AaveOracle;
     let lendingRateOracle: LendingRateOracle;
 
@@ -115,7 +193,7 @@ export default async function deployOraclesAction(
           aggregators,
           bcbBTCAddress,
           bvBTCAddress,
-          fallbackOracleAddress,
+          resolvedFallbackOracleAddress,
           await getQuoteCurrency(poolConfig),
           poolConfig.OracleQuoteUnit,
         ],

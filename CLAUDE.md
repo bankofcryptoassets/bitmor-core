@@ -115,24 +115,21 @@ npm run prettier:write       # Format
 
 ```
 make deploy-local (FOUNDRY_PROFILE=local)
-├── Phase 1: DeployPhase1Local.s.sol
-│   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy) → save JSON
-├── Phase 2: lending-pool
+├── Phase 1: DeployPhase1Local.s.sol → bitmor-deploy save
+│   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy)
+├── Phase 2: lending-pool → bitmor-deploy save-lp
 │   └── npm run bitmor:localhost:dev:migration
-├── Phase 3a: LoanLogic linked library deploy + DeployPhase3Local.s.sol
+├── Phase 3: DeployLibraries → bitmor-deploy save → bitmor-deploy libraries
+│            DeployPhase3Local.s.sol → bitmor-deploy save
 │   └── USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
 │       → Beacon chain (LoanVault impl → Beacon → Controller → Factory)
-│       → Strategies → Role setup + UPGRADER wiring → save JSON
-├── Phase 3b: SchedulePhase3Local.s.sol
-│   └── Schedule timelocked operations (1-day delay + 10min buffer)
-├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
-├── Phase 3c: ExecutePhase3Local.s.sol
-│   └── Execute scheduled operations via AccessManager
+│       → Strategies → Wire strategies (as ADMIN) → Oracle reconfig
+│       → Role setup + UPGRADER wiring
 └── Phase 4: PostDeployChecks.s.sol
     └── Validate proxy pointers, beacon ownership, role wiring
 ```
 
-The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays. `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
+**Address registry:** All addresses are saved to `deployments/<chainId>/latest.json` by the `bitmor-deploy` TS CLI (`deploy/tools/`). Forge scripts no longer write JSON directly. Timestamped snapshots are created for each save.
 
 ## Architecture
 
@@ -208,13 +205,10 @@ loan-provider/script/
 │   ├── PostDeployChecks.s.sol           # Post-deploy invariant validation
 │   ├── local/                           # Local Anvil scripts
 │   │   ├── DeployPhase1Local.s.sol
-│   │   ├── DeployPhase3Local.s.sol
-│   │   ├── SchedulePhase3Local.s.sol
-│   │   └── ExecutePhase3Local.s.sol
+│   │   └── DeployPhase3Local.s.sol
 │   └── mainnet/                         # Base mainnet scripts
 │       ├── DeployPhase1Mainnet.s.sol
 │       ├── DeployPhase3Mainnet.s.sol
-│       ├── SchedulePhase3Mainnet.s.sol
 │       └── TransferToMultisig.s.sol
 ├── upgrade/                             # Upgrade scripts
 │   ├── UpgradeUUPS.s.sol
@@ -229,16 +223,15 @@ loan-provider/script/
 ```
 
 **HelperConfig.s.sol** is the single source of truth for deployment addresses:
-- **Type A getters** (read from `deployments.json`): `getAccessManager()`, `getLoan()`, `getLoanImpl()`, `getBTCVault()`, `getBTCVaultImpl()`, `getUSDCVault()`, `getUSDCVaultImpl()`, `getLoanVaultFactory()`, `getBeacon()`, `getBeaconController()`, `getSwapAdapterWrapper()`, etc.
-- **Type B getters** (mainnet constants): `getAaveV3Pool()`, `getAaveAddressesProvider()`
-- **Type C getters** (lending pool): `getBitmorPool()`, `getOracle()` — read from `../lending-pool/deployed-contracts.json`
+- **All getters** read from `../deployments/<chainId>/latest.json` using dot-path keys (e.g., `.loanProvider.loan`, `.lendingPool.pool`, `.tokens.usdc`)
+- **Mainnet overrides**: `getAaveV3Pool()`, `getAaveAddressesProvider()`, `getCbBTC()`, `getUSDC()` return hardcoded constants on Base mainnet
 
 **Chain Behavior**:
 | Chain | Bitmor Contracts | External Protocols |
 |-------|------------------|--------------------|
-| Local (31337) | `deployments.json` | `deployments.json` (mocks) |
-| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) |
-| Mainnet (8453) | `deployments.json` | Constants |
+| Local (31337) | `deployments/31337/latest.json` | `deployments/31337/latest.json` (mocks) |
+| Testnet (84532) | `deployments/84532/latest.json` | `deployments/84532/latest.json` (mocks) |
+| Mainnet (8453) | `deployments/8453/latest.json` | Constants |
 
 ## Testing
 
@@ -263,7 +256,7 @@ loan-provider/script/
 | `UnitTestBase` | BitmorTestBase | MockAaveV3Pool, MockERC20, `_fundUSDC()`, `_fundCbBTC()` |
 | `LoanUnitTestBase` | UnitTestBase | Full Loan+mock infrastructure, `_createStandardLoan()` |
 | `ForkTestBase` | BitmorTestBase | Real Aave V3 on fork, `_dealToken()` |
-| `IntegrationTestBase` | BitmorTestBase | Loads addresses from `deployments.json` |
+| `IntegrationTestBase` | BitmorTestBase | Loads addresses from `deployments/<chainId>/latest.json` |
 
 **Integration tests** require Anvil running with `make deploy-local` completed first.
 
@@ -312,7 +305,7 @@ Two `cast` wallets required: `bitmor_owner` (admin/deployer) and `bitmor_user` (
 
 ### Key Addresses
 
-Deployed addresses: `loan-provider/deployments.json` and `lending-pool/deployed-contracts.json`.
+Deployed addresses: `deployments/<chainId>/latest.json` (unified registry for all modules).
 Base Sepolia Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 
 ## Role Configuration (AccessManager)
@@ -380,13 +373,11 @@ Security documentation: `vulnerability-reports/`, `Vulnerability-testing-list.md
 | Mainnet roles | `loan-provider/script/config/MainnetRolesConfig.sol` |
 | Phase 1 deploy (local) | `loan-provider/script/deployment/local/DeployPhase1Local.s.sol` |
 | Phase 3 deploy (local) | `loan-provider/script/deployment/local/DeployPhase3Local.s.sol` |
-| Schedule ops (local) | `loan-provider/script/deployment/local/SchedulePhase3Local.s.sol` |
-| Execute ops (local) | `loan-provider/script/deployment/local/ExecutePhase3Local.s.sol` |
 | Post-deploy checks | `loan-provider/script/deployment/PostDeployChecks.s.sol` |
 | UUPS upgrade | `loan-provider/script/upgrade/UpgradeUUPS.s.sol` |
 | Beacon upgrade | `loan-provider/script/upgrade/UpgradeBeacon.s.sol` |
 | Deploy orchestrator | `deploy/scripts/deploy-local.sh` |
 | Protocol invariants | `Invariants.md` |
 | Test constants | `loan-provider/test/helpers/TestConstants.sol` |
-| loan-provider addresses | `loan-provider/deployments.json` |
-| lending-pool addresses | `lending-pool/deployed-contracts.json` |
+| Deployment registry | `deployments/<chainId>/latest.json` |
+| Deploy CLI tool | `deploy/tools/src/cli.ts` |

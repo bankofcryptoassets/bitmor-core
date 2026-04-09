@@ -19,6 +19,41 @@ import { DRE, filterMapBy, getDb } from './misc-utils.js';
 import { getParamPerNetwork } from './contracts-helpers.js';
 // import { deployWETHMocked } from './contracts-deployments'; // Removed to break circular dependency
 
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Read a value from the unified deployment registry at `../deployments/<chainKey>/latest.json`.
+ * Returns `null` if the file doesn't exist or the path is unresolvable.
+ */
+function readFromRegistry(chainKey: string, dotPath: string): string | null {
+  const registryPath = path.join(process.cwd(), '../deployments', chainKey, 'latest.json');
+  if (!fs.existsSync(registryPath)) return null;
+  const json = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+  const parts = dotPath.split('.');
+  let current: any = json;
+  for (const part of parts) {
+    current = current?.[part];
+  }
+  return current ?? null;
+}
+
+/**
+ * Map a Hardhat network name to the chain key used in the deployment registry.
+ * When `FORK` env is set, appends `-fork` to distinguish fork deployments.
+ */
+function getChainKeyFromNetwork(network: string): string {
+  const map: Record<string, string> = {
+    'sepolia': '84532',
+    'base': '8453',
+    'hardhat': '31337',
+    'localhost': '31337',
+  };
+  const fork = process.env.FORK;
+  const chainId = map[network] ?? '31337';
+  return fork ? `${chainId}-fork` : chainId;
+}
+
 export enum ConfigNames {
   Commons = 'Commons',
   Aave = 'Aave',
@@ -181,139 +216,69 @@ export const getBcbBTCAddress = async (
   config: PoolConfiguration,
   network: eNetwork
 ): Promise<tEthereumAddress> => {
-  // mainnet
+  // mainnet — hardcoded
   if (network === 'base') {
     return '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
   }
 
-  // For testnet (sepolia): fetch mock cbBTC from loan-provider
-  if (network === 'sepolia') {
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-
-      const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
-
-      if (fs.existsSync(loanProviderPath)) {
-        const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
-        const deployments = JSON.parse(deploymentsContent);
-
-        const chainId = await getChainIdFromNetwork(network);
-        const cbBTCMock = deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
-
-        if (cbBTCMock) {
-          return cbBTCMock;
-        }
-      }
-
-      throw new Error(
-        `cbBTC mock not found in loan-provider deployments for sepolia. ` +
-        `Please ensure loan-provider mocks are deployed and cbBTC field exists.`
-      );
-    } catch (error) {
-      throw new Error(`Failed to load cbBTC mock for sepolia: ${error}`);
-    }
+  // For fork of base mainnet: return real cbBTC address
+  if (process.env.FORK === 'base') {
+    return '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
   }
 
-  // For hardhat: fetch from database
-  if (network === 'hardhat') {
+  // Try unified deployment registry first
+  const chainKey = getChainKeyFromNetwork(network);
+  const registryAddress = readFromRegistry(chainKey, 'tokens.cbBTC');
+  if (registryAddress) {
+    return registryAddress;
+  }
+
+  // Fallback: hardhat database (non-fork local)
+  if (network === 'hardhat' && !process.env.FORK) {
     const db = getDb();
     const actualNetwork = DRE.network.networkName;
     const bcbBTC = db.get(`bcbBTC.${actualNetwork}`).value()?.address;
     if (bcbBTC) {
       return bcbBTC;
     }
-    throw new Error(
-      `bcbBTC address not found in database for local network ${actualNetwork}. ` +
-      `Please ensure bcbBTC mock is deployed.`
-    );
   }
 
-  throw new Error(`cbBTC address not configured for network ${network}.`);
+  throw new Error(
+    `cbBTC address not found for network ${network}. ` +
+    `Ensure deployments exist at ../deployments/${chainKey}/latest.json or bcbBTC is in the local database.`
+  );
 };
 
 export const getBvBTCAddress = async (
   config: PoolConfiguration,
   network: eNetwork
 ): Promise<tEthereumAddress> => {
-  let bvBTCAddress: string | undefined;
-
-  try {
-    const fs = await import('fs');
-    const path = await import('path');
-
-    const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
-
-    if (fs.existsSync(loanProviderPath)) {
-      const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
-      const deployments = JSON.parse(deploymentsContent);
-
-      const chainId = await getChainIdFromNetwork(network);
-      const collateralAsset =
-        deployments.deployments?.[chainId]?.networkConfig?.collateralAsset;
-
-      if (collateralAsset) bvBTCAddress = collateralAsset;
-    } else {
-      console.warn(`loan-provider deployments.json not found at: ${loanProviderPath}`);
-    }
-  } catch (error) {
-    console.warn('Could not load bvBTC from loan-provider deployments:', error);
+  // Try unified deployment registry first
+  const chainKey = getChainKeyFromNetwork(network);
+  const registryAddress = readFromRegistry(chainKey, 'loanProvider.btcVault');
+  if (registryAddress) {
+    return registryAddress;
   }
 
-  if (!bvBTCAddress || bvBTCAddress === '') {
-    throw new Error(
-      `bvBTC address not found for network ${network}. ` +
-      `Please ensure loan-provider is deployed first and deployments.json exists at ../loan-provider/deployments.json`
-    );
-  }
-
-  return bvBTCAddress;
+  throw new Error(
+    `bvBTC address not found for network ${network}. ` +
+    `Ensure deployments exist at ../deployments/${chainKey}/latest.json with loanProvider.btcVault.`
+  );
 };
 
-export const getBUSDCAddress = async (
+export const getUSDCAddress = async (
   config: PoolConfiguration,
   network: eNetwork
 ): Promise<tEthereumAddress> => {
-  let bUSDCAddress: string | undefined;
-
-  try {
-    const fs = await import('fs');
-    const path = await import('path');
-
-    const loanProviderPath = path.join(process.cwd(), '../loan-provider/deployments.json');
-
-    if (fs.existsSync(loanProviderPath)) {
-      const deploymentsContent = fs.readFileSync(loanProviderPath, 'utf8');
-      const deployments = JSON.parse(deploymentsContent);
-
-      const chainId = await getChainIdFromNetwork(network);
-      const debtAsset = deployments.deployments?.[chainId]?.networkConfig?.debtAsset;
-
-      if (debtAsset) bUSDCAddress = debtAsset;
-    } else {
-      console.warn(`loan-provider deployments.json not found at: ${loanProviderPath}`);
-    }
-  } catch (error) {
-    console.warn('Could not load bUSDC from loan-provider deployments:', error);
+  // Try unified deployment registry first
+  const chainKey = getChainKeyFromNetwork(network);
+  const registryAddress = readFromRegistry(chainKey, 'tokens.usdc');
+  if (registryAddress) {
+    return registryAddress;
   }
 
-  if (!bUSDCAddress || bUSDCAddress === '') {
-    throw new Error(
-      `bUSDC address not found for network ${network}. ` +
-        `Please ensure loan-provider is deployed first and deployments.json exists at ../loan-provider/deployments.json`
-    );
-  }
-
-  return bUSDCAddress;
-};
-
-const getChainIdFromNetwork = async (network: eNetwork): Promise<string> => {
-  const chainIds: { [key: string]: string } = {
-    'sepolia': '84532',
-    'base': '8453',
-    'hardhat': '31337',
-    'localhost': '31337',
-  };
-
-  return chainIds[network] || '31337';
+  throw new Error(
+    `USDC address not found for network ${network}. ` +
+    `Ensure deployments exist at ../deployments/${chainKey}/latest.json with tokens.usdc.`
+  );
 };

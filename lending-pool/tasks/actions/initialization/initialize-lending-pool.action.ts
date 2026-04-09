@@ -5,7 +5,7 @@ import {
   // deployWalletBalancerProvider,  // Not used in Bitmor protocol
   // authorizeWETHGateway,  // Not used in Bitmor protocol
 } from '../../../helpers/contracts-deployments.js';
-import { loadPoolConfig, ConfigNames, getTreasuryAddress, getBvBTCAddress } from '../../../helpers/configuration.js';
+import { loadPoolConfig, ConfigNames, getTreasuryAddress, getBvBTCAddress, getUSDCAddress } from '../../../helpers/configuration.js';
 // import { getWETHGateway } from '../../../helpers/contracts-getters.js';  // Not used in Bitmor protocol
 import { eNetwork, ICommonConfiguration } from '../../../helpers/types.js';
 import { notFalsyOrZeroAddress, waitForTx } from '../../../helpers/misc-utils.js';
@@ -52,6 +52,17 @@ export default async function initializeLendingPoolAction(
     let reserveAssets = await getParamPerNetwork(ReserveAssets, network);
     const incentivesController = await getParamPerNetwork(IncentivesController, network);
     const addressesProvider = await getLendingPoolAddressesProvider();
+
+    // Dynamically populate USDC address from loan-provider deployment
+    if (reserveAssets['USDC'] === '') {
+      try {
+        const usdcAddress = await getUSDCAddress(poolConfig, network);
+        reserveAssets = { ...reserveAssets, USDC: usdcAddress };
+        console.log(`USDC address loaded from loan-provider: ${usdcAddress}`);
+      } catch (error) {
+        console.warn(`Could not load USDC address: ${error}`);
+      }
+    }
 
     // Dynamically populate bvBTC address from loan-provider deployment
     if (reserveAssets['bvBTC'] === '') {

@@ -14,7 +14,7 @@ contract DeploymentHelper is Script {
 
     // ===== Contract Address Getters =====
 
-    /// @notice Gets the deployed address for a contract from deployments.json
+    /// @notice Gets the deployed address for a contract from the deployment registry
     /// @dev Maps contract names to HelperConfig getters for centralized address management
     /// @param contractName The name of the contract (must match expected names)
     /// @return The deployed address

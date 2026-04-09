@@ -67,13 +67,13 @@ async function main() {
   console.log('Balance:', (await deployer.getBalance()).toString());
 
   // Deploy USDC
-  const usdc = await deployToken('Bitmor USDC', 'bUSDC', 6);
+  const usdc = await deployToken('USD Coin', 'USDC', 6);
 
   // Deploy cbBTC
   const cbBTC = await deployToken('Bitmor cbBTC', 'bcbBTC', 8);
 
   console.log('\nDeployment Summary:');
-  console.log('bUSDC:', usdc.address);
+  console.log('USDC:', usdc.address);
   console.log('bcbBTC:', cbBTC.address);
 
   return {

@@ -13,7 +13,7 @@ async function main() {
 
   // Load deployment files
   const deployedContractsPath = path.join(__dirname, "../deployed-contracts.json");
-  const usdcPath = path.join(__dirname, "../deployments/sepolia-busdc.json");
+  const usdcPath = path.join(__dirname, "../deployments/sepolia-usdc.json");
 
   if (!fs.existsSync(deployedContractsPath)) {
     throw new Error("deployed-contracts.json not found");

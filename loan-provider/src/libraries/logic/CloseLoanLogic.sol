@@ -222,8 +222,6 @@ library CloseLoanLogic {
         if (vars.remainingDebtAssetBal > 0) {
             IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);
         }
-
-        emit ILoan.Loan__ClosedLoan(params.lsa);
     }
 
     /**

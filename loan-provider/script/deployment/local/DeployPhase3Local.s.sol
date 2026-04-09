@@ -10,6 +10,7 @@ import {Loan} from "@bitmor/protocol/Loan.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {AutoRepayment} from "@bitmor/protocol/AutoRepayment.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
+import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCStrategy} from "@usdcVault/USDCStrategy.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
@@ -32,13 +33,14 @@ import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
  * - USDCVault, Loan, BitmorAddressesProvider, AutoRepayment deploy as UUPS proxies via `_deployUUPSProxy()`
  * - LoanVault uses beacon proxy via `_deployBeaconProxy()` (impl + beacon + controller + factory)
  * - Role setup uses `_grantOperationalRoles()`, `_wireUpgraderRole()`, and `_setupGuardians()` from DeploymentBase
- * - Address persistence uses `_mergeAndSave()` instead of manual JSON building
- * - Saves implementation addresses directly from deployed contracts
+ * - Address persistence is handled externally by the bitmor-deploy CLI tool
  *
  * @custom:security Only for local Anvil deployments (chainId 31337)
  */
 contract DeployPhase3Local is LocalRolesConfig {
-    // ============ Phase 1 Addresses (from deployments.json) ============
+    uint256 constant STRATEGY_CAP = type(uint96).max;
+
+    // ============ Phase 1 Addresses (from HelperConfig) ============
 
     /// @notice AccessManager deployed in Phase 1
     address public accessManager;
@@ -89,18 +91,6 @@ contract DeployPhase3Local is LocalRolesConfig {
     /// @notice MockSwapAdapter address
     address public mockSwapAdapter;
 
-    /// @notice LoanLogic linked library address (deployed externally before this script)
-    address public loanLogicLib;
-
-    /// @notice RepayLogic linked library address (deployed externally before this script)
-    address public repayLogicLib;
-
-    /// @notice CloseLoanLogic linked library address (deployed externally before this script)
-    address public closeLoanLogicLib;
-
-    /// @notice FlashLoanLogic linked library address (deployed externally before this script)
-    address public flashLoanLogicLib;
-
     /// @notice Loan proxy address
     address public loan;
 
@@ -142,7 +132,7 @@ contract DeployPhase3Local is LocalRolesConfig {
     /**
      * @notice Main entry point for Phase 3 local deployment
      * @dev Deploys all Phase 3 contracts as UUPS proxies (where applicable), configures
-     *      AccessManager roles, and saves addresses to deployments.json.
+     *      AccessManager roles. Address persistence is handled externally.
      *
      * Deployment order:
      * 1. USDCVault (UUPS proxy)
@@ -157,8 +147,9 @@ contract DeployPhase3Local is LocalRolesConfig {
      * 10. LendingPoolAddressesProvider registration
      * 11. Strategies (non-proxied)
      * 12. MockAaveV3Pool reserves
-     * 13. AccessManager role wiring
-     * 14. Address persistence
+     * 13. Wire strategies (addStrategy/setStrategy) — before role wiring, deployer holds ADMIN_ROLE
+     * 14. Reconfigure AaveOracle for real bvBTC pricing path
+     * 15. AccessManager role wiring
      */
     function run() external {
         _preflightPhase3(DeploymentConstants.LOCAL_CHAIN_ID);
@@ -169,26 +160,19 @@ contract DeployPhase3Local is LocalRolesConfig {
         HelperConfig helperConfig = new HelperConfig();
         HelperConfig.ProtocolConfig memory pc = helperConfig.getProtocolConfig();
 
-        Phase1Addresses memory p1 = _loadPhase1Addresses();
-        LendingPoolAddresses memory lp = _loadLendingPoolAddresses();
-
-        // Assign to state variables for _saveDeployments() and _setupAccessManagerRoles()
-        accessManager = p1.accessManager;
-        mockUsdc = p1.debtAsset;
-        mockCbBTC = p1.cbBTC;
-        btcVault = p1.btcVault;
-        btcVaultImpl = p1.btcVaultImpl;
-        btcOracle = p1.btcOracle;
-        usdcOracle = p1.usdcOracle;
-        aaveV3Pool = p1.aaveV3Pool;
-        aaveAddressesProvider = p1.aaveAddressesProvider;
-        loanLogicLib = p1.loanLogicLib;
-        repayLogicLib = p1.repayLogicLib;
-        closeLoanLogicLib = p1.closeLoanLogicLib;
-        flashLoanLogicLib = p1.flashLoanLogicLib;
-        bitmorPool = lp.bitmorPool;
-        aaveOracle = lp.aaveOracle;
-        lendingPoolAddressesProvider = lp.lendingPoolAddressesProvider;
+        // Load Phase 1 + lending pool addresses from unified registry via HelperConfig
+        accessManager = helperConfig.getAccessManager();
+        mockUsdc = helperConfig.getUSDC();
+        mockCbBTC = helperConfig.getCbBTC();
+        btcVault = helperConfig.getBTCVault();
+        btcVaultImpl = helperConfig.getBTCVaultImpl();
+        btcOracle = helperConfig.getBtcUsdOracle();
+        usdcOracle = helperConfig.getUsdcUsdOracle();
+        aaveV3Pool = helperConfig.getAaveV3Pool();
+        aaveAddressesProvider = helperConfig.getAaveAddressesProvider();
+        bitmorPool = helperConfig.getBitmorPool();
+        aaveOracle = helperConfig.getOracle();
+        lendingPoolAddressesProvider = helperConfig.getAddressesProvider();
 
         vm.startBroadcast();
 
@@ -342,19 +326,62 @@ contract DeployPhase3Local is LocalRolesConfig {
         // Note: USDC already minted to aaveV3Pool above (10M for flash loans)
         console2.log("Initialized MockAaveV3Pool reserves: cbBTC aToken:", aTokenCbBTC, "USDC aToken:", aTokenUsdc);
 
-        // 13. AccessManager role wiring
+        // 13. Wire strategies — called before _setupAccessManagerRoles() maps
+        // these functions to BVC/UVC roles. Until role wiring, restricted functions
+        // default to ADMIN_ROLE (0) which the deployer holds with 0 delay.
+        BTCVault(btcVault).addStrategy(aaveStrategy, STRATEGY_CAP);
+        console2.log("BTCVault strategy added (as ADMIN, pre-role-wiring)");
+        USDCVault(usdcVault).setStrategy(usdcStrategy);
+        console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
+
+        // 14. Reconfigure AaveOracle for real bvBTC pricing path
+        // Now that BTCVault has a strategy wired, convertToAssets() works correctly.
+        // Enable the special bvBTC pricing: price = btcPrice * BTCVault.convertToAssets(1e8) / 1e8
+        _reconfigureOracleForBvBTC();
+
+        // 15. AccessManager role wiring
         _setupAccessManagerRoles();
 
         vm.stopBroadcast();
 
-        // 14. Save addresses
-        _saveDeployments();
-
-        // 15. Write deployment manifest
-        _writeManifest("Phase3");
-
         console2.log("=== Phase 3 Deploy Complete ===");
-        console2.log("Run SchedulePhase3Local.s.sol next to schedule operations.");
+    }
+
+    // ============ Oracle Reconfiguration ============
+
+    /// @notice Reconfigures AaveOracle to use the real bvBTC pricing path
+    /// @dev Called after addStrategy so BTCVault.convertToAssets() works correctly.
+    ///      In step 4, the bvBTC path was disabled (setbvBTC(address(0))) because
+    ///      the strategy wasn't wired yet. Now we enable it:
+    ///      1. Set s_bvBTC = btcVault so getAssetPrice detects the bvBTC path
+    ///      2. Set s_btc = mockCbBTC so btcPrice lookup works
+    ///      3. Remove btcVault from direct assetsSources (no longer needs direct oracle)
+    function _reconfigureOracleForBvBTC() internal {
+        console2.log("Reconfiguring AaveOracle for real bvBTC pricing path...");
+
+        // Enable the special bvBTC pricing path
+        (bool okBvBtc,) = aaveOracle.call(abi.encodeWithSignature("setbvBTC(address)", btcVault));
+        require(okBvBtc, "Failed to setbvBTC");
+        console2.log("  setbvBTC:", btcVault);
+
+        // Ensure s_btc is set
+        (bool okBtc2,) = aaveOracle.call(abi.encodeWithSignature("setBTC(address)", mockCbBTC));
+        require(okBtc2, "Failed to setBTC");
+        console2.log("  setBTC:", mockCbBTC);
+
+        // Update assetsSources: remove btcVault from direct pricing (it now uses convertToAssets path).
+        // Keep mockCbBTC and mockUsdc with their direct oracle sources.
+        address[] memory assets2 = new address[](2);
+        address[] memory sources2 = new address[](2);
+        assets2[0] = mockCbBTC;
+        assets2[1] = mockUsdc;
+        sources2[0] = btcOracle;
+        sources2[1] = usdcOracle;
+        (bool ok2,) =
+            aaveOracle.call(abi.encodeWithSignature("setAssetSources(address[],address[])", assets2, sources2));
+        require(ok2, "Failed to update oracle sources");
+        console2.log("  Updated assetsSources (cbBTC, USDC direct; bvBTC via convertToAssets)");
+        console2.log("AaveOracle bvBTC pricing path active.");
     }
 
     // ============ Role Setup ============
@@ -369,155 +396,27 @@ contract DeployPhase3Local is LocalRolesConfig {
      * Role grantees come from LocalRolesConfig._getRoleGrantees() which assigns
      * all roles to `msg.sender` for local testing convenience.
      *
-     * @custom:security Scheduling of timelocked operations is deferred to SchedulePhase3Local
-     * because Foundry simulates the entire script before broadcasting, so `schedule()` calls
-     * would not see the role grants from this script.
+     * Strategy wiring (addStrategy/setStrategy) is done BEFORE this function is called,
+     * while the deployer still holds ADMIN_ROLE (0) with 0 delay. Once role wiring maps
+     * those functions to BVC/UVC roles, they require the proper role + delay.
      */
     function _setupAccessManagerRoles() internal {
         BitmorAccessManager manager = BitmorAccessManager(accessManager);
         RoleGrantees memory g = _getRoleGrantees();
 
-        // 13a. Grant operational roles and set target function mappings
+        // 15a. Grant operational roles and set target function mappings
         _grantOperationalRoles(
             manager, g, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, bitmorPool
         );
 
-        // 13b. Wire UPGRADER role across all UUPS proxies and BeaconController
+        // 15b. Wire UPGRADER role across all UUPS proxies and BeaconController
         _wireUpgraderRole(
             manager, loan, btcVault, usdcVault, autoRepayment, bitmorAddressesProvider, beaconController, g.upgrader
         );
 
-        // 13c. Set up guardian roles for delayed operations
+        // 15c. Set up guardian roles for delayed operations
         _setupGuardians(manager, g.admin);
 
         console2.log("AccessManager roles configured via DeploymentBase helpers");
-    }
-
-    // ============ Address Persistence ============
-
-    /**
-     * @notice Saves all deployed addresses to deployments.json using `_mergeAndSave()`
-     * @dev Includes all keys from the original DeployPhase3._saveDeployments() plus new keys:
-     * - `loanImpl`, `usdcVaultImpl`, `autoRepaymentImpl`, `bitmorAddressesProviderImpl` (implementation addresses)
-     * - `beacon`, `beaconController` (beacon proxy addresses)
-     *
-     * Implementation addresses are stored directly from the deployed implementation contracts.
-     */
-    function _saveDeployments() internal {
-        // Build JSON keys in chunks to avoid stack-too-deep
-        // Chunk 1: Phase 1 addresses (carried forward)
-        string memory keys = string.concat(
-            '"accessManager":"',
-            vm.toString(accessManager),
-            '",',
-            '"collateralAsset":"',
-            vm.toString(btcVault),
-            '",',
-            '"debtAsset":"',
-            vm.toString(mockUsdc),
-            '",',
-            '"cbBTC":"',
-            vm.toString(mockCbBTC),
-            '",',
-            '"btc":"',
-            vm.toString(mockCbBTC),
-            '"'
-        );
-
-        // Chunk 2: Phase 1 oracles and Aave mocks
-        keys = string.concat(
-            keys,
-            ',"btcOracle":"',
-            vm.toString(btcOracle),
-            '",',
-            '"usdcOracle":"',
-            vm.toString(usdcOracle),
-            '",',
-            '"aaveV3Pool":"',
-            vm.toString(aaveV3Pool),
-            '",',
-            '"aaveAddressesProvider":"',
-            vm.toString(aaveAddressesProvider),
-            '"'
-        );
-
-        // Chunk 3: Phase 3 proxy addresses
-        keys = string.concat(
-            keys,
-            ',"usdcVault":"',
-            vm.toString(usdcVault),
-            '",',
-            '"loan":"',
-            vm.toString(loan),
-            '",',
-            '"bitmorAddressesProvider":"',
-            vm.toString(bitmorAddressesProvider),
-            '",',
-            '"autoRepayment":"',
-            vm.toString(autoRepayment),
-            '"'
-        );
-
-        // Chunk 4: Implementation addresses and linked libraries
-        keys = string.concat(
-            keys,
-            ',"loanLogicLib":"',
-            vm.toString(loanLogicLib),
-            '","repayLogicLib":"',
-            vm.toString(repayLogicLib),
-            '","closeLoanLogicLib":"',
-            vm.toString(closeLoanLogicLib),
-            '","flashLoanLogicLib":"',
-            vm.toString(flashLoanLogicLib),
-            '",',
-            '"btcVaultImpl":"',
-            vm.toString(btcVaultImpl),
-            '",',
-            '"usdcVaultImpl":"',
-            vm.toString(usdcVaultImpl),
-            '",',
-            '"loanImpl":"',
-            vm.toString(loanImpl),
-            '",',
-            '"bitmorAddressesProviderImpl":"',
-            vm.toString(bitmorAddressesProviderImpl),
-            '",',
-            '"autoRepaymentImpl":"',
-            vm.toString(autoRepaymentImpl),
-            '"'
-        );
-
-        // Chunk 5: Beacon proxy addresses
-        keys = string.concat(
-            keys,
-            ',"loanVaultImpl":"',
-            vm.toString(loanVaultImpl),
-            '",',
-            '"beacon":"',
-            vm.toString(beacon),
-            '",',
-            '"beaconController":"',
-            vm.toString(beaconController),
-            '",',
-            '"loanVaultFactory":"',
-            vm.toString(loanVaultFactory),
-            '"'
-        );
-
-        // Chunk 6: Strategies and remaining addresses
-        keys = string.concat(
-            keys,
-            ',"swapper":"',
-            vm.toString(mockSwapAdapter),
-            '",',
-            '"aaveStrategy":"',
-            vm.toString(aaveStrategy),
-            '",',
-            '"usdcStrategy":"',
-            vm.toString(usdcStrategy),
-            '"'
-        );
-
-        _mergeAndSave(keys, DeploymentConstants.LOCAL_CHAIN_ID, "localhost");
     }
 }
