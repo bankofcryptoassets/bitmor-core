@@ -47,15 +47,18 @@ contract DeployOracleWrappers is Script {
         HelperConfig helperConfig = new HelperConfig();
         address aaveOracle = helperConfig.getOracle();
         address usdc = helperConfig.getUSDC();
+        address cbBTC = helperConfig.getCbBTC();
         address bvBTC = helperConfig.getBTCVault();
 
         require(aaveOracle != address(0), "AaveOracle not deployed");
         require(usdc != address(0), "USDC not deployed");
+        require(cbBTC != address(0), "cbBTC not deployed");
         require(bvBTC != address(0), "bvBTC not deployed");
 
         console2.log("=== Deploy Oracle Wrappers (Base Sepolia) ===");
         console2.log("AaveOracle:", aaveOracle);
         console2.log("USDC:", usdc);
+        console2.log("cbBTC:", cbBTC);
         console2.log("bvBTC:", bvBTC);
 
         vm.startBroadcast();
@@ -67,12 +70,16 @@ contract DeployOracleWrappers is Script {
         console2.log("USDC/USD Wrapper:", usdcOracleWrapper);
 
         // 2. Wire wrappers into AaveOracle as asset sources
-        address[] memory assets = new address[](2);
-        address[] memory sources = new address[](2);
+        //    cbBTC must be included — the Loan contract calls oracle.getAssetPrice(cbBTC)
+        //    via calculateStrikePrice, and the bvBTC pricing path also depends on it.
+        address[] memory assets = new address[](3);
+        address[] memory sources = new address[](3);
         assets[0] = usdc;
-        assets[1] = bvBTC;
+        assets[1] = cbBTC;
+        assets[2] = bvBTC;
         sources[0] = usdcOracleWrapper;
         sources[1] = btcOracleWrapper;
+        sources[2] = btcOracleWrapper;
 
         // Sanity check: verify wrapper descriptions match assets
         require(
@@ -81,7 +88,7 @@ contract DeployOracleWrappers is Script {
         );
         require(
             keccak256(bytes(ChainlinkOracleWrapper(sources[1]).description())) != keccak256(bytes("USDC / USD")),
-            "bvBTC asset paired with USDC feed"
+            "cbBTC asset paired with USDC feed"
         );
 
         IAaveOracleSetSources(aaveOracle).setAssetSources(assets, sources);
@@ -90,9 +97,11 @@ contract DeployOracleWrappers is Script {
         vm.stopBroadcast();
 
         // 3. Verify
-        address btcSource = IAaveOracleSetSources(aaveOracle).getSourceOfAsset(bvBTC);
+        address cbBTCSource = IAaveOracleSetSources(aaveOracle).getSourceOfAsset(cbBTC);
+        address bvBTCSource = IAaveOracleSetSources(aaveOracle).getSourceOfAsset(bvBTC);
         address usdcSource = IAaveOracleSetSources(aaveOracle).getSourceOfAsset(usdc);
-        require(btcSource == btcOracleWrapper, "BTC source mismatch after setAssetSources");
+        require(cbBTCSource == btcOracleWrapper, "cbBTC source mismatch after setAssetSources");
+        require(bvBTCSource == btcOracleWrapper, "bvBTC source mismatch after setAssetSources");
         require(usdcSource == usdcOracleWrapper, "USDC source mismatch after setAssetSources");
         console2.log("Verification passed: AaveOracle sources match deployed wrappers");
 

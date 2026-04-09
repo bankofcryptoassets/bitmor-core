@@ -299,6 +299,7 @@ export const getOracleAggregatorsFromRegistry = (
 
   return {
     USDC: usdcOracle,
+    bcbBTC: btcOracle,
     bvBTC: btcOracle,
   };
 };

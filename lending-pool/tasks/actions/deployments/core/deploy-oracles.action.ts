@@ -101,8 +101,13 @@ export default async function deployOraclesAction(
       console.log('Using oracle aggregators from deployment registry (ChainlinkOracleWrapper)');
     }
 
+    // Include cbBTC in tokensToWatch — AaveOracle needs a source for cbBTC because:
+    //   1. The Loan contract calls oracle.getAssetPrice(cbBTC) via calculateStrikePrice
+    //   2. The bvBTC pricing path calls _getAssetPrice(s_btc) where s_btc = cbBTC
+    const bcbBTCAddress = await getBcbBTCAddress(poolConfig, network);
     const tokensToWatch: SymbolMap<string> = {
       ...reserveAssets,
+      bcbBTC: bcbBTCAddress,
       USD: UsdAddress,
     };
     const [tokens, aggregators] = getPairsTokenAggregator(
