@@ -326,7 +326,7 @@ deploy\:check\:fork:
 deploy\:oracle-wrappers\:testnet:
 	@echo "Deploying Chainlink oracle wrappers (testnet)..."
 	@FOUNDRY_PROFILE=testnet forge script script/deployment/testnet/DeployOracleWrappers.s.sol:DeployOracleWrappers \
-		--rpc-url $(NETWORK) --account $(ACCOUNT) --broadcast --slow -v
+		--rpc-url $(RPC_URL) --account $(ACCOUNT) --sender $(SENDER) --broadcast --slow -v
 
 deploy\:check\:testnet:
 	@echo "Running post-deploy checks (testnet)..."
