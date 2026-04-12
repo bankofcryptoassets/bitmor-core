@@ -15,6 +15,8 @@ import {BTCVault} from "@btcVault/BTCVault.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {Options} from "@openzeppelin-foundry-upgrades/Options.sol";
 import {HelperConfig} from "../../HelperConfig.s.sol";
+import {StdStorage, stdStorage} from "forge-std/StdStorage.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title DeployPhase3Fork
 /// @notice Phase 3 fork deployment: all UUPS proxies, beacon, strategies, and roles
@@ -23,6 +25,10 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 /// @custom:security For local fork deployments only.
 contract DeployPhase3Fork is ForkRolesConfig {
     uint256 constant STRATEGY_CAP = type(uint96).max;
+
+    using stdStorage for StdStorage;
+
+    StdStorage private _stdstore;
 
     // ============ Phase 1 Addresses ============
     address public accessManager;
@@ -198,6 +204,12 @@ contract DeployPhase3Fork is ForkRolesConfig {
         console2.log("BTCVault strategy added (as ADMIN, pre-role-wiring)");
         USDCVault(usdcVault).setStrategy(usdcStrategy);
         console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
+
+        // 10b. Seed BLP with USDC liquidity for loan borrows
+        // Write USDC balance directly — fork has real USDC (no mint())
+        _stdstore.target(usdc).sig(IERC20.balanceOf.selector).with_key(msg.sender)
+            .checked_write(DeploymentConstants.USDC_SEED_AMOUNT);
+        _seedUSDCVault(usdcVault, usdc, DeploymentConstants.USDC_SEED_AMOUNT);
 
         // 11. AccessManager role wiring
         _setupAccessManagerRoles();

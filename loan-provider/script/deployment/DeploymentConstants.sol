@@ -22,6 +22,17 @@ library DeploymentConstants {
     /// @notice cbBTC decimals
     uint8 public constant CBBTC_DECIMALS = 8;
 
+    // ============ Liquidity Seeding ============
+    /// @notice Initial USDC liquidity seeded into USDCVault during deployment (1M USDC)
+    /// @dev Ensures Bitmor Lending Pool has borrowable USDC for initializeLoan flash loan repayments.
+    ///      Only used by non-mainnet deployment scripts (local, testnet, fork).
+    uint256 public constant USDC_SEED_AMOUNT = 1_000_000e6;
+
+    /// @notice Target Aave allocation for USDCStrategy (80%)
+    /// @dev 80% of deposits go to Aave V3 for yield, 20% stays in BLP for immediate borrow liquidity.
+    ///      Matches DEFAULT_AAVE_ALLOCATION in HelperConfig.s.sol.
+    uint256 public constant USDC_STRATEGY_AAVE_ALLOCATION = 80_00;
+
     // ============ Oracle Descriptions ============
     /// @notice BTC/USD oracle description
     string public constant BTC_USD_DESCRIPTION = "BTC/USD";
