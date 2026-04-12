@@ -91,6 +91,8 @@ library CloseLoanLogic {
         uint256 remainingBTCAmt;
         /// @dev Remaining debt asset (USDC) after all operations
         uint256 remainingDebtAssetBal;
+        /// @dev Total paid in USD (including flash loan premium and pre-closure fee)
+        uint256 grossCloseCostUsd;
     }
 
     function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
@@ -117,12 +119,13 @@ library CloseLoanLogic {
      * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Context containing protocol addresses and configuration
      * @param params Parameters including LSA and withdrawal preference
+     * @return grossCloseCostUsd Total paid in USD (including flash loan premium and pre-closure fee)
      */
     function executeCloseLoan(
         bytes32 storageSlot,
         DataTypes.ExecuteCloseLoanContext memory ctx,
         DataTypes.ExecuteCloseLoanParams memory params
-    ) public {
+    ) public returns (uint256) {
         LocalVarsCloseLoan memory vars;
 
         if (params.lsa == address(0)) revert Errors.ZeroAddress();
@@ -178,7 +181,8 @@ library CloseLoanLogic {
         vars.flashLoanPremiumAmountInBTC =
             vars.flashLoanPremiumAmountUSD.mulDivUp(10 ** IERC20Metadata(ctx.btc).decimals(), vars.btcPrice);
 
-        if (vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD > vars.totalCollateralUSD) {
+        vars.grossCloseCostUsd = vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD;
+        if (vars.grossCloseCostUsd > vars.totalCollateralUSD) {
             revert Errors.InsufficientCollateral();
         }
 
@@ -222,6 +226,8 @@ library CloseLoanLogic {
         if (vars.remainingDebtAssetBal > 0) {
             IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);
         }
+
+        return vars.grossCloseCostUsd;
     }
 
     /**
