@@ -245,9 +245,9 @@ contract Loan is
             $.slippageSwap
         );
         DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
-        CloseLoanLogic.executeCloseLoan(LOAN_STORAGE_LOCATION, ctx, params);
+        uint256 grossCloseCostUsd = CloseLoanLogic.executeCloseLoan(LOAN_STORAGE_LOCATION, ctx, params);
 
-        emit ILoan.Loan__ClosedLoan(lsa);
+        emit ILoan.Loan__ClosedLoan(lsa, grossCloseCostUsd);
     }
 
     // ============ State Update Function  ============
