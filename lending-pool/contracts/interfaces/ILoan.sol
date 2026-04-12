@@ -40,7 +40,7 @@ interface ILoan {
      * @param lsa Address of the closed Loan Specific Address
      * @param grossCloseCostUsd Gross paid in USD (including flash loan premium and pre-closure fee)
      */
-    event Loan__ClosedLoan(address indexed lsa, uint256 grossCloseCostUsd);
+    event Loan__ClosedLoan(address indexed lsa, uint256 indexed grossCloseCostUsd);
 
     /**
      * @notice Emitted when a loan is completed.
