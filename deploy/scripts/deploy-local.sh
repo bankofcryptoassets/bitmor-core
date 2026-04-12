@@ -20,6 +20,12 @@ check_rpc "$RPC" "31337" "Start with: make anvil"
 
 mkdir -p "$ROOT/deployments/31337"
 
+# Forge can skip recompilation when cache metadata exists even if `out/` was cleaned.
+# Build once up front so OpenZeppelin upgrades helpers can read fresh artifacts during Phase 3.
+log "Compiling loan-provider artifacts (local profile)..."
+cd "$ROOT/loan-provider"
+FOUNDRY_PROFILE=local forge build
+
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
 log "=========================================="

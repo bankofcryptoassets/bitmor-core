@@ -1,59 +1,59 @@
 {
   "network": "base-sepolia",
   "chainId": 84532,
-  "timestamp": 1775748843493,
-  "commit": "ac6318c",
+  "timestamp": 1775988673313,
+  "commit": "fc88bc5",
   "deployer": "0xc617c587122256e940e10fa46d30f610139a818e",
   "loanProvider": {
-    "accessManager": "0xd73c6e2c7bd9f3a13017d5ffb8714b1d5af55fb5",
-    "btcVaultImpl": "0xa1c3194a208016e27cc580ce924728aee1454556",
-    "btcVault": "0x1ce30e3cb86f1027775e54ea8e07b96d47129088",
+    "accessManager": "0xdcbff96a2587950d7e0aa1e36a35bbd4256d9f32",
+    "btcVaultImpl": "0xe5e8ff6bf989ecdce8f802cecc99398808f32128",
+    "btcVault": "0x52ff0bfd2e0997075aa1cd7e565809f2cb19847d",
     "libraries": {
-      "loanLogic": "0x12b8825b7b10554de3f6ac4cbc1ad6879db36542",
-      "repayLogic": "0xb8b6fd383a0e9cdada38a5c081dabe47cfca768b",
-      "closeLoanLogic": "0x943f74fc7453a71797e844da329cb96c4cddcbf1",
-      "flashLoanLogic": "0xa499e9bd5a3cc0afc2dd25c18f4ce9755ce689b7"
+      "loanLogic": "0xe0a5be1f6fa62e5baebf69b56e0191b56b610dc3",
+      "repayLogic": "0x4f1072037e8202b6b3968ea11729eec94aa6a9b7",
+      "closeLoanLogic": "0xab373c3174f904951277266391a3620a713f2e45",
+      "flashLoanLogic": "0xd41cdfe337857daf4ff233de7eec2d768ebada76"
     },
-    "usdcVaultImpl": "0xaf48c18ac6a3e334eca8a4a8c04c402d67b4848a",
-    "usdcVault": "0x4b99af6b3afd452a5a6d92f12f7f64e3b817c410",
-    "swapper": "0xbca9843dacbd31fafbdfd88e63e83e6bad1174a4",
-    "addressesProviderImpl": "0xf872693a452157ac2d0f808b659659ec107bdab0",
-    "addressesProvider": "0x058e2b7cbea5537ca701e99ccc32f94a4a63f5b0",
-    "loanImpl": "0x6d5b3b0fe7448eff1bd072d60dd98bd5263c8d9e",
-    "loan": "0x25cd89cb47aa52b14c650ffffa9b0dacda4019bb",
-    "loanVaultImpl": "0xd5830dba3b74a7e52f3300af7729dcc407b21c36",
-    "beacon": "0x42651944e52f8b8c8e542d1f1e56aed1f57fa730",
-    "beaconController": "0x76238a866cf539774e384df706c1ac71ffdd2937",
-    "loanVaultFactory": "0xd59e6ed799260d2e623546ec5fefb274a655cd7a",
-    "autoRepaymentImpl": "0x06a5f2ebe83fa66659aee0a37e4914c60da2f1af",
-    "autoRepayment": "0xe1c95b79c009fbdb0a114c4e31463c7182cadc4e",
-    "aaveStrategy": "0xdf12b8a4403a671ffcba4fcbb7f64b6032782580",
-    "usdcStrategy": "0xdc8244ff7ce9bb104ac786e1adac8f8428d4550b"
+    "usdcVaultImpl": "0xffbe9af69df8aa997dd658cc3196a74c42258ad6",
+    "usdcVault": "0xe3b236e73d814d38c498cdaf839155a103e4e9db",
+    "swapper": "0xc42688f20ee35b56b85523ca344fcb8588f43b71",
+    "addressesProviderImpl": "0x0b99b477adf62b50f02a224d0394c9277b212f41",
+    "addressesProvider": "0xd120f2488f31985fd56ed706dbe076470fa4d5fe",
+    "loanImpl": "0x8757bf350f720d16d405d33d1e404acc187ea795",
+    "loan": "0x4053c298ddddce30ed522c87b7ddf3bd30b30739",
+    "loanVaultImpl": "0xc7973948d15a1ab15fe050205cab2a3634f895f3",
+    "beacon": "0xe23dccd21b9763867ec0d301759e7e15eb62ce0c",
+    "beaconController": "0x4e1795400082eef0efc9ef0258680ca2acdae028",
+    "loanVaultFactory": "0x2d3e57565075431146565ae475f4f7e0695e462a",
+    "autoRepaymentImpl": "0x3ea36901491c4826db869624080995bc4c85432f",
+    "autoRepayment": "0x94b27d03cc9c3f2b691e4175cf283a5290f50ed4",
+    "aaveStrategy": "0x2a82ddce8025df804ecc4c3e26b055bff846ca78",
+    "usdcStrategy": "0x4eece07eece17a50a65b892b6e4c61d9f53b1ae4"
   },
   "lendingPool": {
-    "pool": "0x8F73B5778c7c1C260F8da903Ea70c1D456BA3be7",
-    "addressesProvider": "0xeFE13d321d4dedB2cdd5A652fA9c918F1417fC30",
-    "oracle": "0x287f17544eD3E8Efff8c0552b0522bbFdA183420",
-    "configurator": "0x8c1A7a3bfeaB4efEF2eE84AFFb416F20696e2F4E",
+    "pool": "0x16429FE7C0F1D3199520c4915c4B2D798503086c",
+    "addressesProvider": "0xE991Ae2BB8b1c0ea542B64dCC00e6b9960D9680D",
+    "oracle": "0xc9D8792a40774D22a0eB551c7B3e60f46fa423eE",
+    "configurator": "0xF78d9D86403f8BE9908E9714Df9b57498d49c68C",
     "reserves": {
       "usdc": {
-        "aToken": "0xdfacb23f1b1d1cc9f28ce77fd48b5dcef42345be",
-        "variableDebtToken": "0xdf95a0ad246d7e4772fdf4da90b9bb6469098ce0"
+        "aToken": "0x1fe5cee77234ceaf83498e58ab63a9e5fa87dab8",
+        "variableDebtToken": "0xf7c0a6a450d474689b93a4c7c5f57767e5bfcac0"
       },
       "bvBTC": {
-        "aToken": "0xd7092b462e336a956dc0dcf9d090567bfdd70d1b",
-        "variableDebtToken": "0x4919bed38c9bf3d55e2dddf3c26ce2cdc280de4e"
+        "aToken": "0xb7f4912f051237f902942e6294d21b89f57d1167",
+        "variableDebtToken": "0xace08fd0f4e0e02f15e094caea33bbb40500fd05"
       }
     }
   },
   "tokens": {
-    "usdc": "0x470a7d3bd1f596df7f26cbbb4405f117d54ce52e",
-    "cbBTC": "0x4fe9b5c05f42bec3a14108fe44026e276a17f439"
+    "usdc": "0x05999aad11d009c4e1f0536c99a13563440bf27e",
+    "cbBTC": "0xdbc2779db392effa7c39cda5102017461c318039"
   },
   "external": {
-    "btcOracle": "0x66fb28a5d90a7da7c876bc738badf19c654bbe86",
-    "usdcOracle": "0xcf2b92a5106b9337122646362f6ba91f4265aa0d",
-    "aaveV3Pool": "0xc002240789827f1260a0ae2266ceba5d34d8d535",
-    "aaveAddressesProvider": "0xc002240789827f1260a0ae2266ceba5d34d8d535"
+    "btcOracle": "0x3153f565ccd3a5986d3f65653d5f309c633246d1",
+    "usdcOracle": "0x4d4b741a1d239ad02de2fb544863032458a3c1c1",
+    "aaveV3Pool": "0x7d203b7489850145c536a69947881e2ee7026734",
+    "aaveAddressesProvider": "0x7d203b7489850145c536a69947881e2ee7026734"
   }
 }

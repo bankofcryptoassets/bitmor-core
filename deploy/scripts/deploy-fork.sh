@@ -21,6 +21,12 @@ check_rpc "$RPC" "31337" "Start with: make anvil-fork"
 
 mkdir -p "$ROOT/deployments/31337-fork"
 
+# Forge can skip recompilation when cache metadata exists even if `out/` was cleaned.
+# Build once up front so OpenZeppelin upgrades helpers can read fresh artifacts during Phase 3.
+log "Compiling loan-provider artifacts (fork-deploy profile)..."
+cd "$ROOT/loan-provider"
+FOUNDRY_PROFILE=fork-deploy forge build
+
 # ============ Phase 0: swap-routers (UniswapV4Swapper) ============
 log ""
 log "=========================================="
