@@ -87,7 +87,20 @@ contract PostDeployChecks is Script {
             console2.log("  [SKIP] Strategy role checks (testnet admin override active)");
         }
 
-        // 7. Summary
+        // 7. BLP has USDC borrow liquidity
+        {
+            address usdcStrategy = config.getUSDCStrategy();
+            if (usdcStrategy != address(0)) {
+                (bool okWA, bytes memory waData) =
+                    usdcStrategy.staticcall(abi.encodeWithSignature("withdrawableAssets()"));
+                uint256 withdrawable = (okWA && waData.length >= 32) ? abi.decode(waData, (uint256)) : 0;
+                _check("USDCStrategy withdrawableAssets > 0 (BLP has borrow liquidity)", withdrawable > 0);
+            } else {
+                console2.log("  [SKIP] USDCStrategy not deployed - skipping liquidity check");
+            }
+        }
+
+        // 8. Summary
         console2.log("");
         console2.log(string.concat("=== Results: ", vm.toString(passed), " / ", vm.toString(checks), " passed ==="));
         require(passed == checks, "PostDeployChecks: FAILED");

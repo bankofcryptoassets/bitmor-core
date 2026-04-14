@@ -23,10 +23,16 @@ cast wallet list 2>/dev/null | grep -q "bitmor_owner" || error "Cast wallet 'bit
 
 mkdir -p "$ROOT/deployments/84532"
 
+# Forge can skip recompilation when cache metadata exists even if `out/` was cleaned.
+# Build once up front so OpenZeppelin upgrades helpers can read fresh artifacts during Phase 3.
+log "Compiling loan-provider artifacts (testnet profile)..."
+cd "$ROOT/loan-provider"
+FOUNDRY_PROFILE=testnet forge build
+
 # ============ Phase 1: loan-provider (consolidated) ============
 log ""
 log "=========================================="
-log "Phase 1: loan-provider (AccessManager, Mock Tokens, Mock Oracles, BTCVault)"
+log "Phase 1: loan-provider (AccessManager, Mock Tokens, Chainlink Oracle Wrappers, BTCVault)"
 log "=========================================="
 cd "$ROOT/loan-provider"
 

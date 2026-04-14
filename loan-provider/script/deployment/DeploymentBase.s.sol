@@ -13,6 +13,8 @@ import {BeaconController} from "@bitmor/protocol/BeaconController.sol";
 import {IBeaconController} from "@bitmor/interfaces/IBeaconController.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {USDCVault} from "@usdcVault/USDCVault.sol";
 import {DeploymentConstants} from "./DeploymentConstants.sol";
 import {HelperConfig} from "../HelperConfig.s.sol";
 
@@ -499,5 +501,28 @@ abstract contract DeploymentBase is Script {
         address lendingPool = helperConfig.getBitmorPool();
         require(lendingPool != address(0), "DeploymentBase: LendingPool is zero");
         require(lendingPool.code.length > 0, "DeploymentBase: LendingPool has no bytecode");
+    }
+
+    // ============ Liquidity Seeding ============
+
+    /**
+     * @notice Configures USDCStrategy allocation and deposits USDC into USDCVault to seed BLP liquidity
+     * @dev Caller must ensure `msg.sender` already holds `amount` of `usdcToken` before calling.
+     *      Local/testnet scripts mint mock tokens first; fork scripts use stdstore to set balances.
+     *      Called before `_setupAccessManagerRoles()` so the deployer still holds ADMIN_ROLE (0)
+     *      with 0 delay, allowing direct calls to `updateExternalAllocation` (restricted to UVC post-wiring).
+     * @param usdcVaultAddr The USDCVault proxy address
+     * @param usdcToken The USDC token address (mock or real)
+     * @param amount The amount of USDC to deposit (6 decimals)
+     */
+    function _seedUSDCVault(address usdcVaultAddr, address usdcToken, uint256 amount) internal {
+        // Configure 80% Aave / 20% BLP split before depositing so funds route correctly
+        USDCVault(usdcVaultAddr).updateExternalAllocation(DeploymentConstants.USDC_STRATEGY_AAVE_ALLOCATION);
+        console2.log("USDCStrategy externalAllocation set to", DeploymentConstants.USDC_STRATEGY_AAVE_ALLOCATION);
+
+        // Deposit into USDCVault — routes through USDCStrategy.supply() into Aave + BLP
+        IERC20(usdcToken).approve(usdcVaultAddr, amount);
+        USDCVault(usdcVaultAddr).deposit(amount, msg.sender);
+        console2.log("Seeded USDCVault with USDC:", amount / 1e6, "USDC");
     }
 }

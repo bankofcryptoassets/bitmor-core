@@ -22,12 +22,30 @@ library DeploymentConstants {
     /// @notice cbBTC decimals
     uint8 public constant CBBTC_DECIMALS = 8;
 
+    // ============ Liquidity Seeding ============
+    /// @notice Initial USDC liquidity seeded into USDCVault during deployment (1M USDC)
+    /// @dev Ensures Bitmor Lending Pool has borrowable USDC for initializeLoan flash loan repayments.
+    ///      Only used by non-mainnet deployment scripts (local, testnet, fork).
+    uint256 public constant USDC_SEED_AMOUNT = 1_000_000e6;
+
+    /// @notice Target Aave allocation for USDCStrategy (80%)
+    /// @dev 80% of deposits go to Aave V3 for yield, 20% stays in BLP for immediate borrow liquidity.
+    ///      Matches DEFAULT_AAVE_ALLOCATION in HelperConfig.s.sol.
+    uint256 public constant USDC_STRATEGY_AAVE_ALLOCATION = 80_00;
+
     // ============ Oracle Descriptions ============
     /// @notice BTC/USD oracle description
     string public constant BTC_USD_DESCRIPTION = "BTC/USD";
 
     /// @notice USDC/USD oracle description
     string public constant USDC_USD_DESCRIPTION = "USDC/USD";
+
+    // ============ Chainlink Feed Addresses (Base Sepolia) ============
+    /// @notice BTC/USD Chainlink feed on Base Sepolia
+    address public constant BASE_SEPOLIA_BTC_USD_FEED = 0x0FB99723Aee6f420beAD13e6bBB79b7E6F034298;
+
+    /// @notice USDC/USD Chainlink feed on Base Sepolia
+    address public constant BASE_SEPOLIA_USDC_USD_FEED = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165;
 
     // ============ Time Delays ============
     /// @notice Execution delay for scheduled operations (1 day)

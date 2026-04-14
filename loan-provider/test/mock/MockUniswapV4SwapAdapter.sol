@@ -4,13 +4,14 @@ pragma solidity 0.8.30;
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ISwapAdaptor} from "@bitmor/interfaces/ISwapAdaptor.sol";
+import {IPriceOracleGetter} from "@bitmor/interfaces/IPriceOracleGetter.sol";
 
 /**
  * @title MockUniswapV4SwapAdapter
  * @author Bitmor Protocol
  * @notice Mock swap adapter for local testing
- * @dev Simulates swaps using a fixed exchange rate from oracle prices.
- *      This is for local testing only - not for production use.
+ * @dev Simulates swaps using live prices from the Aave oracle.
+ *      This is for local/testnet testing only - not for production use.
  */
 contract MockUniswapV4SwapAdapter is ISwapAdaptor {
     using SafeERC20 for IERC20;
@@ -23,12 +24,6 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
 
     /// @notice USDC token address (6 decimals)
     address public immutable i_USDC;
-
-    /// @notice BTC price in USD with 8 decimals (e.g., 100000e8 = $100,000)
-    uint256 public btcPrice;
-
-    /// @notice USDC price in USD with 8 decimals (e.g., 1e8 = $1)
-    uint256 public usdcPrice;
 
     /**
      * @notice Emitted when a mock swap is executed
@@ -52,19 +47,6 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
         i_ORACLE = _oracle;
         i_BTC = _btc;
         i_USDC = _usdc;
-        // Default prices for testing
-        btcPrice = 100_000e8; // $100,000
-        usdcPrice = 1e8; // $1
-    }
-
-    /// @notice Set BTC price for testing
-    function setBtcPrice(uint256 _price) external {
-        btcPrice = _price;
-    }
-
-    /// @notice Set USDC price for testing
-    function setUsdcPrice(uint256 _price) external {
-        usdcPrice = _price;
     }
 
     /// @inheritdoc ISwapAdaptor
@@ -145,9 +127,9 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
      * @return amountOut Output amount
      */
     function _calculateOutput(address tokenIn, address tokenOut, uint256 amountIn) internal view returns (uint256) {
-        // Get prices
-        uint256 priceIn = tokenIn == i_BTC ? btcPrice : usdcPrice;
-        uint256 priceOut = tokenOut == i_BTC ? btcPrice : usdcPrice;
+        // Get prices from Aave oracle
+        uint256 priceIn = IPriceOracleGetter(i_ORACLE).getAssetPrice(tokenIn);
+        uint256 priceOut = IPriceOracleGetter(i_ORACLE).getAssetPrice(tokenOut);
 
         // Get decimals
         uint8 decimalsIn = tokenIn == i_BTC ? 8 : 6;
@@ -181,9 +163,9 @@ contract MockUniswapV4SwapAdapter is ISwapAdaptor {
      * @return amountIn Required input amount
      */
     function _calculateInput(address tokenIn, address tokenOut, uint256 amountOut) internal view returns (uint256) {
-        // Get prices
-        uint256 priceIn = tokenIn == i_BTC ? btcPrice : usdcPrice;
-        uint256 priceOut = tokenOut == i_BTC ? btcPrice : usdcPrice;
+        // Get prices from Aave oracle
+        uint256 priceIn = IPriceOracleGetter(i_ORACLE).getAssetPrice(tokenIn);
+        uint256 priceOut = IPriceOracleGetter(i_ORACLE).getAssetPrice(tokenOut);
 
         // Get decimals
         uint8 decimalsIn = tokenIn == i_BTC ? 8 : 6;

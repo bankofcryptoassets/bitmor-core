@@ -336,6 +336,10 @@ contract DeployPhase3Testnet is TestnetRolesConfig {
         USDCVault(usdcVault).setStrategy(usdcStrategy);
         console2.log("USDCVault strategy set (as ADMIN, pre-role-wiring)");
 
+        // 13b. Seed BLP with USDC liquidity for loan borrows
+        MintableERC20(mockUsdc).mint(msg.sender, DeploymentConstants.USDC_SEED_AMOUNT);
+        _seedUSDCVault(usdcVault, mockUsdc, DeploymentConstants.USDC_SEED_AMOUNT);
+
         // 14. Reconfigure AaveOracle for real bvBTC pricing path
         // Now that BTCVault has a strategy wired, convertToAssets() works correctly.
         // Enable the special bvBTC pricing: price = btcPrice * BTCVault.convertToAssets(1e8) / 1e8

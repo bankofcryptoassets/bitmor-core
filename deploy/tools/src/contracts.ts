@@ -27,7 +27,7 @@ export const PHASE1_TESTNET: PhaseMapping = {
   BitmorAccessManager: "loanProvider.accessManager",
   MockUSDC: "tokens.usdc",
   MockCbBTC: "tokens.cbBTC",
-  MockChainlinkOracle: ["external.btcOracle", "external.usdcOracle"],
+  ChainlinkOracleWrapper: ["external.btcOracle", "external.usdcOracle"],
   // Testnet also deploys MockAaveV3Pool, saved to both keys (see DeployPhase1Testnet.s.sol:105,149)
   MockAaveV3Pool: ["external.aaveV3Pool", "external.aaveAddressesProvider"],
   BTCVault: "loanProvider.btcVaultImpl",
@@ -109,6 +109,11 @@ export const PHASE3_MAINNET: PhaseMapping = {
   // Mainnet same as fork -- no swapper deployed in Phase 3
 };
 
+export const ORACLE_WRAPPERS_TESTNET: PhaseMapping = {
+  // Two ChainlinkOracleWrapper deploys: first wraps BTC/USD, second wraps USDC/USD
+  ChainlinkOracleWrapper: ["external.btcOracle", "external.usdcOracle"],
+};
+
 /**
  * Resolve phase+environment to the correct mapping.
  */
@@ -127,6 +132,7 @@ export function getMapping(phase: string, env: string): PhaseMapping {
     PHASE3_TESTNET: PHASE3_TESTNET,
     PHASE3_FORK: PHASE3_FORK,
     PHASE3_MAINNET: PHASE3_MAINNET,
+    "ORACLE-WRAPPERS_TESTNET": ORACLE_WRAPPERS_TESTNET,
   };
   const mapping = mappings[key];
   if (!mapping) throw new Error(`Unknown phase/env combination: ${key}`);

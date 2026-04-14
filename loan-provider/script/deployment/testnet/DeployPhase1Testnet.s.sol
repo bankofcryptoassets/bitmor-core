@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {console2} from "forge-std/Script.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
 import {MockUSDC, MockCbBTC} from "../../../test/mock/MintableERC20.sol";
-import {MockChainlinkOracle} from "../../../test/mock/MockChainlinkOracle.sol";
+import {ChainlinkOracleWrapper} from "../../../test/mock/ChainlinkOracleWrapper.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {MockAaveV3Pool} from "../../../test/mock/MockAaveV3Pool.sol";
 import {DeploymentConstants} from "../DeploymentConstants.sol";
@@ -14,7 +14,7 @@ import {HelperConfig} from "../../HelperConfig.s.sol";
 /**
  * @title DeployPhase1Testnet
  * @author Bitmor Protocol
- * @notice Phase 1 Base Sepolia testnet deployment: AccessManager, mock tokens/oracles, BTCVault (UUPS proxy),
+ * @notice Phase 1 Base Sepolia testnet deployment: AccessManager, mock tokens, Chainlink oracle wrappers, BTCVault (UUPS proxy),
  *         MockAaveV3Pool
  * @dev Replaces the original DeployPhase1.s.sol for the upgradeable architecture.
  * Key change: BTCVault is deployed as a UUPS proxy via `_deployUUPSProxy()` instead of `new BTCVault(...)`.
@@ -51,7 +51,7 @@ contract DeployPhase1Testnet is TestnetRolesConfig {
     /// Deployment order:
     /// 1. BitmorAccessManager (direct deploy, owned by `msg.sender`)
     /// 2. MockUSDC + MockCbBTC (direct deploy)
-    /// 3. MockChainlinkOracle for BTC/USD and USDC/USD (direct deploy)
+    /// 3. ChainlinkOracleWrapper for BTC/USD and USDC/USD (wrapping real Chainlink feeds)
     /// 4. BTCVault as UUPS proxy (via `_deployUUPSProxy`)
     /// 5. MockAaveV3Pool (direct deploy)
     function run() external {
@@ -71,21 +71,9 @@ contract DeployPhase1Testnet is TestnetRolesConfig {
         console2.log("MockUSDC:", mockUsdc);
         console2.log("MockCbBTC:", mockCbBTC);
 
-        // 3. Mock Oracles
-        btcOracle = address(
-            new MockChainlinkOracle(
-                DeploymentConstants.ORACLE_DECIMALS,
-                DeploymentConstants.BTC_USD_PRICE,
-                DeploymentConstants.BTC_USD_DESCRIPTION
-            )
-        );
-        usdcOracle = address(
-            new MockChainlinkOracle(
-                DeploymentConstants.ORACLE_DECIMALS,
-                DeploymentConstants.USDC_USD_PRICE,
-                DeploymentConstants.USDC_USD_DESCRIPTION
-            )
-        );
+        // 3. Chainlink Oracle Wrappers (wrap real feeds with override capability)
+        btcOracle = address(new ChainlinkOracleWrapper(DeploymentConstants.BASE_SEPOLIA_BTC_USD_FEED));
+        usdcOracle = address(new ChainlinkOracleWrapper(DeploymentConstants.BASE_SEPOLIA_USDC_USD_FEED));
         console2.log("BTC Oracle:", btcOracle);
         console2.log("USDC Oracle:", usdcOracle);
 
