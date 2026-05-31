@@ -260,6 +260,11 @@ abstract contract LoanUnitTestBase is UnitTestBase, ProxyTestHelper {
             address(manager), address(mockSwapAdapter), premiumCollector, premiumCollector
         );
 
+        // Pre-compute config-derived params to avoid stack-too-deep under --ir-minimum (coverage)
+        uint32 gracePeriod = uint32(config.getGracePeriod());
+        uint16 preClosureFeeBps = uint16(config.getPreClosureFee());
+        uint16 maxDuration = uint16(config.getMaxDuration());
+
         // Deploy Loan via UUPS proxy with InitParams struct
         loan = _deployLoanProxy(
             DataTypes.InitParams({
@@ -274,13 +279,13 @@ abstract contract LoanUnitTestBase is UnitTestBase, ProxyTestHelper {
                 bitmorAddressesProvider: address(bitmorAddressesProvider),
                 maxBTCAmt: uint64(TC.MAX_COLLATERAL),
                 minBTCAmt: uint64(TC.MIN_COLLATERAL),
-                gracePeriod: uint32(config.getGracePeriod()),
-                preClosureFeeBps: uint16(config.getPreClosureFee()),
+                gracePeriod: gracePeriod,
+                preClosureFeeBps: preClosureFeeBps,
                 liquidationFee: 0,
                 slippageSharesToAsset: uint16(TC.SLIPPAGE_SHARES_TO_ASSET),
                 slippageSwap: uint16(TC.SLIPPAGE_SWAP),
                 minDeposit: uint16(TC.MIN_DEPOSIT),
-                maxDuration: uint16(config.getMaxDuration())
+                maxDuration: maxDuration
             })
         );
 

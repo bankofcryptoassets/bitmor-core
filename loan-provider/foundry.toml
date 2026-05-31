@@ -172,7 +172,7 @@ test = "test/unit"
 script = ".coverage-disabled"  # Non-existent path to exclude scripts
 libs = ["node_modules", "lib"]
 optimizer = false  # Coverage needs optimizer disabled for accurate reports
-via_ir = false
+via_ir = true
 ffi = true
 dynamic_test_linking = true
 fs_permissions = [
@@ -180,7 +180,8 @@ fs_permissions = [
     { access = "read", path = "./reports" },
     { access = "read", path = "../lending-pool/deployed-contracts.json" },
     { access = "read", path = "../deployments" },
-    { access = "read", path = "../lending-pool" }
+    { access = "read", path = "../lending-pool" },
+    { access = "read", path = "./out" }
 ]
 
 # Fork deployment (Anvil forking Base mainnet, no mocks)
