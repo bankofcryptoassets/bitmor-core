@@ -5,7 +5,7 @@ import {BTCVaultFuzzTestBase} from "../base/BTCVaultFuzzTestBase.sol";
 import {FuzzConstants as FC} from "../helpers/FuzzConstants.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /**
  * @title BTCVaultCoreFuzzTest

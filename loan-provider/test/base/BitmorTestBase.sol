@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {TestConstants} from "../helpers/TestConstants.sol";
 
 /// @title BitmorTestBase
@@ -478,29 +478,37 @@ abstract contract BitmorTestBase is Test {
         uint256 minDepositBps
     ) internal {
         _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint256)", maxBTC)
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMaxBTCAmount(uint64)", uint64(maxBTC))
         );
         _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinBTCAmount(uint256)", minBTC)
-        );
-        _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setSlippageForSwap(uint256)", slippage)
-        );
-        _scheduleAndExecute(
-            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinDepositBps(uint256)", minDepositBps)
+            loanContract, lpm_slow, LPM_SLOW_ID(), abi.encodeWithSignature("setMinBTCAmount(uint64)", uint64(minBTC))
         );
         _scheduleAndExecute(
             loanContract,
             lpm_slow,
             LPM_SLOW_ID(),
-            abi.encodeWithSignature("setSlippageForSharesToAsset(uint256)", TestConstants.SLIPPAGE_SHARES_TO_ASSET)
+            abi.encodeWithSignature("setSlippageForSwap(uint16)", uint16(slippage))
+        );
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature("setMinDepositBps(uint16)", uint16(minDepositBps))
+        );
+        _scheduleAndExecute(
+            loanContract,
+            lpm_slow,
+            LPM_SLOW_ID(),
+            abi.encodeWithSignature(
+                "setSlippageForSharesToAsset(uint16)", uint16(TestConstants.SLIPPAGE_SHARES_TO_ASSET)
+            )
         );
 
         _scheduleAndExecute(
             loanContract,
             lpm_slow,
             LPM_SLOW_ID(),
-            abi.encodeWithSignature("setMaxDuration(uint256)", TestConstants.MAX_DURATION)
+            abi.encodeWithSignature("setMaxDuration(uint16)", uint16(TestConstants.MAX_DURATION))
         );
     }
 }

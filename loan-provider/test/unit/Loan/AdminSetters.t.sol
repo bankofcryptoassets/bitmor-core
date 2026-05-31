@@ -5,7 +5,7 @@ import {BaseLoanTest} from "./BaseLoan.t.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 import {TestConstants as TC} from "../../helpers/TestConstants.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 
@@ -28,8 +28,18 @@ contract AdminSettersTest is BaseLoanTest {
     function test_setBitmorAddressesProvider() public {
         address originalProvider = loan.getBitmorAddressesProvider();
 
-        // Deploy a new BitmorAddressesProvider to use as the new value
-        BitmorAddressesProvider newProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW (removed from default wiring since it's set in initialize)
+        // Cache role ID before vm.prank to avoid consuming the prank
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), selectors, lpmSlowId);
+
+        // Deploy a new BitmorAddressesProvider via UUPS proxy
+        BitmorAddressesProvider newProvider = _deployAddressesProviderProxy(
+            address(manager), address(mockSwapAdapter), premiumCollector, premiumCollector
+        );
 
         bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(newProvider));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
@@ -65,6 +75,14 @@ contract AdminSettersTest is BaseLoanTest {
 
     /// @notice Test that setBitmorAddressesProvider reverts when given zero address
     function test_setBitmorAddressesProvider_RevertWhen_ZeroAddress() public {
+        // Wire setBitmorAddressesProvider selector to LPM_SLOW
+        // Cache role ID before vm.prank to avoid consuming the prank
+        uint64 lpmSlowId = LPM_SLOW_ID();
+        bytes4[] memory selectors = new bytes4[](1);
+        selectors[0] = Loan.setBitmorAddressesProvider.selector;
+        vm.prank(admin);
+        manager.setTargetFunctionRole(address(loan), selectors, lpmSlowId);
+
         bytes memory data = abi.encodeWithSelector(Loan.setBitmorAddressesProvider.selector, address(0));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAddress.selector)
@@ -76,7 +94,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the grace period
     function test_setGracePeriod() public {
         uint256 newValue = 7 days;
-        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, uint32(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getGracePeriod(), newValue, "GracePeriod should be updated");
@@ -85,7 +103,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the pre-closure fee
     function test_setPreClosureFee() public {
         uint256 newValue = 500; // 5% in bps
-        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, uint16(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getPreClosureFee(), newValue, "PreClosureFee should be updated");
@@ -94,7 +112,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the slippage for shares to asset conversion
     function test_setSlippageForSharesToAsset() public {
         uint256 newValue = 100; // 1%
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, uint16(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getSlippageForSharesToAsset(), newValue, "SlippageForSharesToAsset should be updated");
@@ -103,7 +121,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the slippage for swap operations
     function test_setSlippageForSwap() public {
         uint256 newValue = 75;
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, uint16(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getSlippageForSwap(), newValue, "SlippageForSwap should be updated");
@@ -112,7 +130,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the maximum BTC collateral amount
     function test_setMaxBTCAmount() public {
         uint256 newValue = 5e8; // 5 BTC
-        bytes memory data = abi.encodeWithSelector(Loan.setMaxBTCAmount.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxBTCAmount.selector, uint64(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getMaxBTCAmount(), newValue, "MaxBTCAmount should be updated");
@@ -121,7 +139,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the minimum BTC collateral amount
     function test_setMinBTCAmount() public {
         uint256 newValue = 0.005e8; // 0.005 BTC
-        bytes memory data = abi.encodeWithSelector(Loan.setMinBTCAmount.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMinBTCAmount.selector, uint64(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getMinBTCAmount(), newValue, "MinBTCAmount should be updated");
@@ -130,7 +148,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the minimum deposit basis points
     function test_setMinDepositBps() public {
         uint256 newValue = 5000; // 50%
-        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, uint16(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getMinDepositBps(), newValue, "MinDepositBps should be updated");
@@ -139,7 +157,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the maximum loan duration and emitting event
     function test_setMaxDuration() public {
         uint256 newValue = 36; // 3 years
-        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, uint16(newValue));
 
         // Schedule first, then expect event before execute
         uint64 roleId = LPM_SLOW_ID();
@@ -161,7 +179,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test successfully setting the liquidation fee in basis points
     function test_setLiquidationFeeBps() public {
         uint256 newValue = TC.DEFAULT_LIQUIDATION_FEE_BPS;
-        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, newValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, uint16(newValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getLiquidationFeeBps(), newValue, "LiquidationFeeBps should be updated");
@@ -172,7 +190,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting liquidation fee at exactly max value (20%)
     function test_setLiquidationFeeBps_AtMaxValue() public {
         uint256 maxValue = TC.MAX_LIQUIDATION_FEE_BPS;
-        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, uint16(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getLiquidationFeeBps(), maxValue, "Should accept max value");
@@ -181,7 +199,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting liquidation fee above max reverts
     function test_setLiquidationFeeBps_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.MAX_LIQUIDATION_FEE_BPS + 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setLiquidationFeeBps.selector, uint16(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidFee.selector)
         );
@@ -189,7 +207,7 @@ contract AdminSettersTest is BaseLoanTest {
 
     /// @notice Test that setting max duration to zero reverts
     function test_setMaxDuration_RevertWhen_Zero() public {
-        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, 0);
+        bytes memory data = abi.encodeWithSelector(Loan.setMaxDuration.selector, uint16(0));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.ZeroAmount.selector)
         );
@@ -198,7 +216,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting pre-closure fee at just below BASIS_POINT_SCALE succeeds
     function test_setPreClosureFee_AtMaxValue() public {
         uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, uint16(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getPreClosureFee(), maxValue, "Should accept max valid pre-closure fee");
@@ -207,7 +225,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting pre-closure fee at BASIS_POINT_SCALE reverts
     function test_setPreClosureFee_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.BASIS_POINT_SCALE;
-        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setPreClosureFee.selector, uint16(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidFee.selector)
         );
@@ -216,7 +234,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting min deposit BPS at just below BASIS_POINT_SCALE succeeds
     function test_setMinDepositBps_AtMaxValue() public {
         uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, uint16(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getMinDepositBps(), maxValue, "Should accept max valid min deposit BPS");
@@ -225,7 +243,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting min deposit BPS at BASIS_POINT_SCALE reverts
     function test_setMinDepositBps_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.BASIS_POINT_SCALE;
-        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setMinDepositBps.selector, uint16(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
         );
@@ -234,7 +252,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting slippage for shares-to-asset at just below BASIS_POINT_SCALE succeeds
     function test_setSlippageForSharesToAsset_AtMaxValue() public {
         uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, uint16(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getSlippageForSharesToAsset(), maxValue, "Should accept max valid shares-to-asset slippage");
@@ -243,7 +261,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting slippage for shares-to-asset at BASIS_POINT_SCALE reverts
     function test_setSlippageForSharesToAsset_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.BASIS_POINT_SCALE;
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSharesToAsset.selector, uint16(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
         );
@@ -252,7 +270,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting grace period at exactly MAX_GRACE_PERIOD (45 days) succeeds
     function test_setGracePeriod_AtMaxValue() public {
         uint256 maxValue = TC.MAX_GRACE_PERIOD;
-        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, uint32(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getGracePeriod(), maxValue, "Should accept max grace period");
@@ -261,7 +279,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting grace period above MAX_GRACE_PERIOD reverts
     function test_setGracePeriod_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.MAX_GRACE_PERIOD + 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setGracePeriod.selector, uint32(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidInputs.selector)
         );
@@ -270,7 +288,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test setting slippage for swap at just below BASIS_POINT_SCALE succeeds
     function test_setSlippageForSwap_AtMaxValue() public {
         uint256 maxValue = TC.BASIS_POINT_SCALE - 1;
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, maxValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, uint16(maxValue));
         _scheduleAndExecute(address(loan), lpm_slow, LPM_SLOW_ID(), data);
 
         assertEq(loan.getSlippageForSwap(), maxValue, "Should accept max valid swap slippage");
@@ -279,7 +297,7 @@ contract AdminSettersTest is BaseLoanTest {
     /// @notice Test that setting slippage for swap at BASIS_POINT_SCALE reverts
     function test_setSlippageForSwap_RevertWhen_ExceedsMax() public {
         uint256 invalidValue = TC.BASIS_POINT_SCALE;
-        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, invalidValue);
+        bytes memory data = abi.encodeWithSelector(Loan.setSlippageForSwap.selector, uint16(invalidValue));
         _scheduleAndExpectRevert(
             address(loan), lpm_slow, LPM_SLOW_ID(), data, abi.encodeWithSelector(Errors.InvalidSlippage.selector)
         );
@@ -295,10 +313,10 @@ contract AdminSettersTest is BaseLoanTest {
         loan.setBitmorAddressesProvider(newAddress);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
-        loan.setMinBTCAmount(TC.MIN_COLLATERAL);
+        loan.setMinBTCAmount(uint64(TC.MIN_COLLATERAL));
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
-        loan.setLiquidationFeeBps(TC.DEFAULT_LIQUIDATION_FEE_BPS);
+        loan.setLiquidationFeeBps(uint16(TC.DEFAULT_LIQUIDATION_FEE_BPS));
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, user));
         loan.setMaxDuration(60);
@@ -312,7 +330,7 @@ contract AdminSettersTest is BaseLoanTest {
     function test_setters_RevertWhen_Paused() public {
         _pauseContract();
 
-        bytes memory data = abi.encodeCall(loan.setMinBTCAmount, (100));
+        bytes memory data = abi.encodeCall(loan.setMinBTCAmount, (uint64(100)));
 
         // Schedule and execute through AccessManager - expect EnforcedPause error
         (, uint32 delay,,) = manager.getAccess(LPM_SLOW_ID(), lpm_slow);

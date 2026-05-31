@@ -3,14 +3,16 @@ pragma solidity 0.8.30;
 
 import {UnitTestBase} from "./UnitTestBase.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
+import {ProxyTestHelper} from "../helpers/ProxyTestHelper.sol";
 
 // Protocol contracts
 import {Loan} from "@bitmor/protocol/Loan.sol";
+import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {LoanVault} from "@bitmor/protocol/LoanVault.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 // Mock contracts
 import {MockBitmorLendingPool} from "../mock/MockBitmorLendingPool.sol";
@@ -30,7 +32,7 @@ import {MockUSDCInterestRateStrategy} from "../mock/MockUSDCInterestRateStrategy
 /// @author Bitmor Protocol
 /// @notice Tier 2 test base providing a fully deployed Loan contract with mock lending pool infrastructure
 /// @dev Inherits UnitTestBase (Tier 1) and adds 20+ mock contracts for complete loan lifecycle testing
-abstract contract LoanUnitTestBase is UnitTestBase {
+abstract contract LoanUnitTestBase is UnitTestBase, ProxyTestHelper {
     // ============ Loan Infrastructure ============
 
     /// @notice The real Loan contract under test
@@ -41,6 +43,9 @@ abstract contract LoanUnitTestBase is UnitTestBase {
 
     /// @notice LoanVault implementation address used by the factory
     address public loanVaultImplementation;
+
+    /// @notice UpgradeableBeacon address for LoanVault proxies
+    address public beacon;
 
     // ============ Test Actors ============
 
@@ -248,40 +253,53 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         mockUSDC.mint(address(mockAavePool), TC.LENDING_POOL_USDC_BALANCE);
     }
 
-    /// @notice Deploys Loan contract with mock dependencies
+    /// @notice Deploys Loan contract with mock dependencies via UUPS proxies
     function _deployLoanInfrastructure() internal virtual {
-        loanVaultImplementation = address(new LoanVault());
-
-        // Deploy Loan with bvBTC (vault shares) as collateral
-        loan = new Loan(
-            address(manager), // AccessManager
-            address(mockAavePool), // Mock Aave V3 for flash loans
-            address(mockAddressesProvider), // Our mock addresses provider
-            address(mockBitmorPool), // Our mock Bitmor lending pool
-            address(mockOracle), // Our mock price oracle
-            address(mockBTCVault), // collateralAsset = bvBTC (vault shares)
-            address(mockUSDC), // debtAsset
-            address(mockCbBTC), // btc token (underlying)
-            config.getPreClosureFee(), // preClosureFeeBps
-            config.getGracePeriod() // gracePeriod
+        // Deploy BitmorAddressesProvider FIRST via UUPS proxy (Loan.initialize needs its address)
+        bitmorAddressesProvider = _deployAddressesProviderProxy(
+            address(manager), address(mockSwapAdapter), premiumCollector, premiumCollector
         );
 
-        loanVaultFactory = new LoanVaultFactory(loanVaultImplementation, address(loan));
+        // Pre-compute config-derived params to avoid stack-too-deep under --ir-minimum (coverage)
+        uint32 gracePeriod = uint32(config.getGracePeriod());
+        uint16 preClosureFeeBps = uint16(config.getPreClosureFee());
+        uint16 maxDuration = uint16(config.getMaxDuration());
 
-        bitmorAddressesProvider = new BitmorAddressesProvider(address(manager), address(loan));
+        // Deploy Loan via UUPS proxy with InitParams struct
+        loan = _deployLoanProxy(
+            DataTypes.InitParams({
+                manager: address(manager),
+                aaveV3Pool: address(mockAavePool),
+                aaveAddressesProvider: address(mockAddressesProvider),
+                bitmorPool: address(mockBitmorPool),
+                oracle: address(mockOracle),
+                collateralAsset: address(mockBTCVault),
+                debtAsset: address(mockUSDC),
+                btc: address(mockCbBTC),
+                bitmorAddressesProvider: address(bitmorAddressesProvider),
+                maxBTCAmt: uint64(TC.MAX_COLLATERAL),
+                minBTCAmt: uint64(TC.MIN_COLLATERAL),
+                gracePeriod: gracePeriod,
+                preClosureFeeBps: preClosureFeeBps,
+                liquidationFee: 0,
+                slippageSharesToAsset: uint16(TC.SLIPPAGE_SHARES_TO_ASSET),
+                slippageSwap: uint16(TC.SLIPPAGE_SWAP),
+                minDeposit: uint16(TC.MIN_DEPOSIT),
+                maxDuration: maxDuration
+            })
+        );
+
+        // Deploy beacon proxy (simplified -- no BeaconController for unit tests)
+        address factoryAddr;
+        (loanVaultImplementation, beacon, factoryAddr) = _deploySimpleBeaconProxy(address(loan));
+        loanVaultFactory = LoanVaultFactory(factoryAddr);
+
+        // BAP post-init setters: register factory and autoRepayer
         bitmorAddressesProvider.setVaultFactory(address(loanVaultFactory));
-        bitmorAddressesProvider.setSwapper(address(mockSwapAdapter));
-        bitmorAddressesProvider.setPremiumCollector(premiumCollector);
         bitmorAddressesProvider.setAutoRepayer(autoRepayer);
-        loan.setBitmorAddressesProvider(address(bitmorAddressesProvider));
 
-        loan.setMaxBTCAmount(TC.MAX_COLLATERAL);
-
-        // Register loan in addresses provider
+        // Register loan in lending pool addresses provider
         mockAddressesProvider.setBitmorLoan(address(loan));
-
-        // Configure loan parameters using proper setters via AccessManager
-        // Note: Done in _configureLoanRoles() after roles are configured
     }
 
     /// @notice Configures roles for Loan contract
@@ -289,16 +307,8 @@ abstract contract LoanUnitTestBase is UnitTestBase {
         _setLoanRoles(user);
         _setLoanTargetSelectors(address(loan));
 
-        // Register setBitmorAddressesProvider under LPM_SLOW role (not in RolesData defaults)
-        bytes4[] memory bapSelectors = new bytes4[](1);
-        bapSelectors[0] = Loan.setBitmorAddressesProvider.selector;
-        manager.setTargetFunctionRole(address(loan), bapSelectors, LPM_SLOW_ID());
-
         // Grant LPCM role to mock pool so it can call updateLoanDataFor* functions
         manager.grantRole(LPCM_ID(), address(mockBitmorPool), 0);
-
-        // Configure loan parameters using proper setters (replaces vm.store)
-        _configureLoanParameters(address(loan), TC.MAX_COLLATERAL, TC.MIN_COLLATERAL, TC.SLIPPAGE_SWAP, TC.MIN_DEPOSIT);
     }
 
     /// @notice Funds test accounts with tokens

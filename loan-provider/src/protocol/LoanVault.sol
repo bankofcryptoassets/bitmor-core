@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
 import {ILoanVault} from "../interfaces/ILoanVault.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
@@ -11,41 +12,44 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @title LoanVault
  * @author Bitmor Protocol
  * @notice Loan Specific Address (LSA) that holds the Aave V2 position
- * @dev Minimal proxy pattern - deployed via CREATE2 for deterministic addresses.
+ * @dev BeaconProxy implementation - deployed via BeaconProxy for upgradeable clones.
  * Each loan gets its own LSA which holds abvBTC collateral and vdtUSDC debt.
+ * Uses ERC-7201 namespaced storage for proxy-safe state management.
  *
  * ## Design
- * - Each loan creates a new LoanVault instance via minimal proxy (clone)
+ * - Each loan creates a new LoanVault instance via BeaconProxy
  * - The vault holds aTokens (abvBTC) representing collateral
  * - The vault holds variable debt tokens (vdtUSDC) representing the borrowed amount
  * - Only the Loan contract (owner) can execute operations on this vault
  *
  * ## Security Model
  * - Single owner (Loan contract) controls all operations
- * - Initialization can only happen once
+ * - Initialization can only happen once (OZ Initializable)
  * - Arbitrary execution allows flexibility while maintaining access control
  *
  * @custom:security Only owner can approve, transfer, or execute operations
  */
-contract LoanVault is ILoanVault {
+contract LoanVault is Initializable, ILoanVault {
     using SafeERC20 for IERC20;
 
-    // ============ State Variables ============
+    // ============ ERC-7201 Namespaced Storage ============
 
-    /**
-     * @notice The Loan contract that controls this vault
-     */
-    address private s_owner; // This will be our Loan.sol contract address
+    bytes32 private constant LOANVAULT_STORAGE_LOCATION =
+        0xa0a94b49cce2521eaaf21187dc515dfe232b097cb1dca0424a8353bf0c8db800;
 
-    /**
-     * @notice The user who created this loan
-     */
-    address private s_borrower;
+    /// @custom:storage-location erc7201:bitmor.storage.LoanVault
+    struct LoanVaultStorageData {
+        /// @dev The Loan contract that controls this vault
+        address owner;
+        /// @dev The user who created this loan
+        address borrower;
+    }
 
-    /**
-     * @notice Prevents re-initialization
-     */
-    bool private s_initialized;
+    function _getLoanVaultStorage() internal pure returns (LoanVaultStorageData storage $) {
+        assembly {
+            $.slot := LOANVAULT_STORAGE_LOCATION
+        }
+    }
 
     // ============ Modifiers ============
 
@@ -54,32 +58,34 @@ contract LoanVault is ILoanVault {
         _;
     }
 
-    modifier notInitialized() {
-        _notInitialized();
-        _;
+    // ============ Constructor ============
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     // ============ Initialization ============
 
     /**
      * @notice Initializes the vault after deployment
-     * @dev Called by factory immediately after CREATE2 deployment.
+     * @dev Called by factory immediately after BeaconProxy deployment.
      *
      * Initialization invariants:
      * - MUST revert if already initialized; each LoanVault supports exactly one loan
-     * - MUST NOT allow re-initialization once `s_initialized` is true
+     * - MUST NOT allow re-initialization (enforced by OZ `initializer` modifier)
      * - MUST revert if `_owner` or `_borrower` is the zero address
      *
      * @param _owner The Loan contract address that will control this vault
      * @param _borrower The user who created this loan
      */
-    function initialize(address _owner, address _borrower) external override notInitialized {
+    function initialize(address _owner, address _borrower) external override initializer {
         if (_owner == address(0)) revert Errors.LoanVault__InvalidOwner();
         if (_borrower == address(0)) revert Errors.LoanVault__InvalidBorrower();
 
-        s_owner = _owner;
-        s_borrower = _borrower;
-        s_initialized = true;
+        LoanVaultStorageData storage $ = _getLoanVaultStorage();
+        $.owner = _owner;
+        $.borrower = _borrower;
 
         emit LoanVault__VaultInitialized(_owner, _borrower);
     }
@@ -147,7 +153,7 @@ contract LoanVault is ILoanVault {
      * @return The owner address
      */
     function owner() external view override returns (address) {
-        return s_owner;
+        return _getLoanVaultStorage().owner;
     }
 
     /**
@@ -155,7 +161,7 @@ contract LoanVault is ILoanVault {
      * @return The borrower address
      */
     function borrower() external view override returns (address) {
-        return s_borrower;
+        return _getLoanVaultStorage().borrower;
     }
 
     /**
@@ -163,7 +169,7 @@ contract LoanVault is ILoanVault {
      * @return True if initialized, false otherwise
      */
     function isInitialized() external view override returns (bool) {
-        return s_initialized;
+        return _getInitializedVersion() > 0;
     }
 
     /**
@@ -176,20 +182,11 @@ contract LoanVault is ILoanVault {
     }
 
     /**
-     * @notice Internal validation to ensure vault is not already initialized
-     * @dev Reverts if `s_initialized` is true.
-     * Enforces invariant: MUST NOT allow re-initialization of same LoanVault.
-     */
-    function _notInitialized() internal view {
-        if (s_initialized) revert Errors.LoanVault__AlreadyInitialized();
-    }
-
-    /**
      * @notice Internal validation to ensure caller is the owner
-     * @dev Reverts if `msg.sender` is not `s_owner`
+     * @dev Reverts if `msg.sender` is not the owner
      */
     function _onlyOwner() internal view {
-        if (msg.sender != s_owner) revert Errors.LoanVault__CallerIsNotOwner();
+        if (msg.sender != _getLoanVaultStorage().owner) revert Errors.LoanVault__CallerIsNotOwner();
     }
 
     /**

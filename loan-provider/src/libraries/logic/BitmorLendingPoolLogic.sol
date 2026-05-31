@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILendingPool} from "../../interfaces/ILendingPool.sol";
 import {DataTypes} from "../types/DataTypes.sol";
 
@@ -52,9 +52,17 @@ library BitmorLendingPoolLogic {
         view
         returns (uint256 vdtTokenAmount)
     {
-        DataTypes.ReserveData memory data = ILendingPool(bitmorPool).getReserveData(debtAsset);
+        vdtTokenAmount = IERC20(getVDTAddress(bitmorPool, debtAsset)).balanceOf(lsa);
+    }
 
-        vdtTokenAmount = IERC20(data.variableDebtTokenAddress).balanceOf(lsa);
+    /**
+     * @notice Returns the variable debt token address for a given reserve
+     * @param bitmorPool Bitmor Lending Pool address
+     * @param debtAsset Debt asset token address (USDC)
+     * @return vdt The variable debt token contract address
+     */
+    function getVDTAddress(address bitmorPool, address debtAsset) internal view returns (address vdt) {
+        vdt = ILendingPool(bitmorPool).getReserveData(debtAsset).variableDebtTokenAddress;
     }
 
     /**

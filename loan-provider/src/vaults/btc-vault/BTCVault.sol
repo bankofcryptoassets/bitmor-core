@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
-import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
-import {ReentrancyGuard} from "@solady/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC4626Upgradeable} from "@openzeppelin-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {ERC20Upgradeable, IERC20Metadata} from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {AccessManagedUpgradeable} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {BTCVault__Validation as Helpers} from "../../libraries/helpers/BTCVault__Validation.sol";
@@ -22,8 +28,8 @@ import {BTCVault__Storage} from "./BTCVault__Storage.sol";
  * @title BTCVault
  * @author Bitmor Protocol
  * @notice Advanced ERC-4626 compliant vault with modular tokenized strategy support
- * @dev Extends Solady's ERC4626 with role-based access control, multiple strategies,
- * and advanced allocation management for BTC-based assets.
+ * @dev Extends OZ ERC4626Upgradeable with role-based access control, multiple strategies,
+ * and advanced allocation management for BTC-based assets. Uses UUPS proxy pattern.
  *
  * ## Features
  * - **ERC-4626 Compliance**: Standard vault interface for deposits/withdrawals
@@ -57,20 +63,53 @@ import {BTCVault__Storage} from "./BTCVault__Storage.sol";
  * @custom:security Validates all strategy operations to prevent fund loss
  */
 // aderyn-ignore-next-line(centralization-risk)
-contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard, Pausable {
+contract BTCVault is
+    Initializable,
+    UUPSUpgradeable,
+    BTCVault__Storage,
+    ERC4626Upgradeable,
+    AccessManagedUpgradeable,
+    ReentrancyGuardTransient,
+    PausableUpgradeable
+{
     using FixedPointMathLib for uint256;
-    using SafeTransferLib for address;
+    using SafeERC20 for IERC20;
     using Helpers for DataTypes.StrategyState;
     using StrategyStateLogic for DataTypes.StrategyState;
     using VaultStateLogic for DataTypes.VaultState;
     using TokenizedStrategyLogic for address;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /**
-     * @notice Initializes the vault with the specified underlying asset
+     * @notice Initializes the vault with the specified underlying asset and strategy configuration
      * @param _asset The address of the ERC20 token to be used as the underlying asset
-     * @param _manager Access Manager address.
+     * @param _manager Access Manager address
+     * @param _maxStrategies Maximum number of strategies that can be added to the vault
      */
-    constructor(address _asset, address _manager) BTCVault__Storage(_asset) AccessManaged(_manager) {}
+    function initialize(address _asset, address _manager, uint256 _maxStrategies) public initializer {
+        if (_asset == address(0)) revert Errors.ZeroAddress();
+        if (_maxStrategies == 0) revert Errors.InvalidInputs();
+
+        __ERC20_init("BitmorBTCVault", "bvBTC");
+        __ERC4626_init(IERC20(_asset));
+        __AccessManaged_init(_manager);
+        __Pausable_init();
+
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        $.vault.maxStrategies = SafeCast.toUint16(_maxStrategies);
+    }
+
+    /**
+     * @notice Authorizes contract upgrades
+     * @dev Only callable by addresses with the appropriate AccessManager role
+     * @param newImplementation Address of the new implementation
+     * @custom:access Requires upgrade role via AccessManager
+     */
+    function _authorizeUpgrade(address newImplementation) internal override restricted {}
 
     /*
        _____      _                        _   _____                 _   _
@@ -86,7 +125,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return index The index of the strategy in the strategies array
      */
     function getStrategyIndex(address strategy) external view returns (uint256 index) {
-        return s_strategy.getStrategyIndex(strategy);
+        return _getBTCVaultStorage().strategy.getStrategyIndex(strategy);
     }
 
     /**
@@ -94,7 +133,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return The address that receives collected entry and exit fees
      */
     function getFeeRecipient() external view returns (address) {
-        return s_vault.feeRecipient;
+        return _getBTCVaultStorage().vault.feeRecipient;
     }
 
     /**
@@ -102,7 +141,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return The maximum strategies limit
      */
     function getMaxStrategies() external view returns (uint256) {
-        return s_vault.maxStrategies;
+        return _getBTCVaultStorage().vault.maxStrategies;
     }
 
     /**
@@ -111,13 +150,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return strategy The strategy struct containing address and allocation cap
      */
     function getStrategyDetails(uint256 strategyIndex) external view returns (DataTypes.Strategy memory strategy) {
-        strategy = s_strategy.strategies[strategyIndex];
+        strategy = _getBTCVaultStorage().strategy.strategies[strategyIndex];
     }
 
     /// @notice Returns the next available strategy index (monotonic counter, never decremented)
     /// @return The next index that will be assigned when a new strategy is added
     function getNextStrategyIndex() external view returns (uint256) {
-        return s_strategy.nextStrategyIndex;
+        return _getBTCVaultStorage().strategy.nextStrategyIndex;
     }
 
     /**
@@ -129,7 +168,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return assets The amount of underlying assets held by the specified strategy
      */
     function getAssetInStrategy(address strategy) external view returns (uint256 assets) {
-        assets = s_strategy.strategies[s_strategy.getStrategyIndex(strategy)].strategy.getAssetBalanceInStrategy();
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        assets = $.strategy.strategies[$.strategy.getStrategyIndex(strategy)].strategy.getAssetBalanceInStrategy();
     }
 
     /**
@@ -137,7 +177,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return supplyQueue Array of strategy indices in supply order
      */
     function getSupplyQueue() external view returns (uint256[] memory supplyQueue) {
-        supplyQueue = s_strategy.supplyQueue;
+        supplyQueue = _getBTCVaultStorage().strategy.supplyQueue;
     }
 
     /**
@@ -145,7 +185,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return withdrawQueue Array of strategy indices in withdrawal order
      */
     function getWithdrawQueue() external view returns (uint256[] memory withdrawQueue) {
-        withdrawQueue = s_strategy.withdrawQueue;
+        withdrawQueue = _getBTCVaultStorage().strategy.withdrawQueue;
     }
 
     /**
@@ -153,7 +193,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return Length of the supply queue array
      */
     function getSupplyQueueLength() external view returns (uint256) {
-        return s_strategy.supplyQueue.length;
+        return _getBTCVaultStorage().strategy.supplyQueue.length;
     }
 
     /**
@@ -161,7 +201,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return Length of the withdraw queue array
      */
     function getWithdrawQueueLength() external view returns (uint256) {
-        return s_strategy.withdrawQueue.length;
+        return _getBTCVaultStorage().strategy.withdrawQueue.length;
     }
 
     /**
@@ -170,12 +210,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function setEntryFee(uint256 newEntryFee) external restricted {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         if (newEntryFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
-        if (newEntryFee > 0 && s_vault.feeRecipient == address(0)) {
+        if (newEntryFee > 0 && $.vault.feeRecipient == address(0)) {
             revert Errors.Vault__FeeRecipientNotSet();
         }
 
-        s_vault.updateEntryFee(newEntryFee);
+        $.vault.updateEntryFee(newEntryFee);
 
         emit BTCVault__EntryFeeUpdated(newEntryFee);
     }
@@ -186,12 +227,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVM_SLOW role (1-day delay)
      */
     function setExitFee(uint256 newExitFee) external restricted {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         if (newExitFee > MAX_FEE_BPS) revert Errors.ExceedMaxFee();
-        if (newExitFee > 0 && s_vault.feeRecipient == address(0)) {
+        if (newExitFee > 0 && $.vault.feeRecipient == address(0)) {
             revert Errors.Vault__FeeRecipientNotSet();
         }
 
-        s_vault.updateExitFee(newExitFee);
+        $.vault.updateExitFee(newExitFee);
 
         emit BTCVault__ExitFeeUpdated(newExitFee);
     }
@@ -204,7 +246,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     function setFeeRecipient(address newFeeRecipient) external restricted {
         if (newFeeRecipient == address(0)) revert Errors.ZeroAddress();
 
-        s_vault.updateFeeRecipient(newFeeRecipient);
+        _getBTCVaultStorage().vault.updateFeeRecipient(newFeeRecipient);
 
         emit BTCVault__FeeRecipientUpdated(newFeeRecipient);
     }
@@ -215,7 +257,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVC role (1-day delay)
      */
     function setMaxStrategies(uint256 newMaxStrategies) external restricted {
-        s_vault.maxStrategies = newMaxStrategies;
+        _getBTCVaultStorage().vault.maxStrategies = SafeCast.toUint16(newMaxStrategies);
 
         emit BTCVault__MaxStrategiesUpdated(newMaxStrategies);
     }
@@ -231,11 +273,13 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVC role (1-day delay)
      */
     function addStrategy(address strategy, uint256 cap) external restricted {
-        s_strategy.validateStrategyAddition(strategy, i_asset, s_vault.maxStrategies);
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        address asset_ = asset();
+        $.strategy.validateStrategyAddition(strategy, asset_, $.vault.maxStrategies);
 
-        s_strategy.addStrategy(strategy, cap);
+        $.strategy.addStrategy(strategy, cap);
 
-        i_asset.safeApprove(strategy, type(uint256).max);
+        IERC20(asset_).forceApprove(strategy, type(uint256).max);
 
         emit BTCVault__TokenizedStrategyAdded(strategy, cap);
     }
@@ -249,9 +293,10 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVC role (1-day delay)
      */
     function changeStrategyCap(address strategy, uint256 newCap) external restricted {
-        s_strategy.validateCapChange(strategy, newCap);
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        $.strategy.validateCapChange(strategy, newCap);
 
-        s_strategy.changeCap(strategy, newCap);
+        $.strategy.changeCap(strategy, newCap);
 
         emit BTCVault__CapUpdated(strategy, newCap);
     }
@@ -265,7 +310,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVA_FAST role
      */
     function reallocateFunds(DataTypes.Allocation[] calldata allocations) external restricted {
-        s_strategy.validateReallocateFunds(allocations);
+        _getBTCVaultStorage().strategy.validateReallocateFunds(allocations);
 
         _reallocateFunds(allocations);
 
@@ -282,16 +327,20 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:security Critical safety mechanism — must never be blocked by a single strategy failure
      */
     function emergencyWithdrawFunds() external restricted {
-        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
         uint256 totalRecovered;
 
-        for (uint256 i; i < withdrawQueue.length; i++) {
-            address strategyAddress = s_strategy.strategies[withdrawQueue[i]].strategy;
+        for (uint256 i; i < withdrawQueue.length;) {
+            address strategyAddress = $.strategy.strategies[withdrawQueue[i]].strategy;
 
             try SimpleTokenizedStrategy(strategyAddress).withdrawAll() returns (uint256 recovered) {
                 totalRecovered += recovered;
             } catch (bytes memory reason) {
                 emit BTCVault__EmergencyWithdrawFailed(withdrawQueue[i], reason);
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -304,10 +353,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param newSupplyQueue Array of strategy indices in desired supply order
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
-    function updateSupplyQueue(uint256[] memory newSupplyQueue) external restricted {
-        s_strategy.validateNewSupplyQueue(newSupplyQueue, s_vault.maxStrategies);
+    function updateSupplyQueue(uint256[] calldata newSupplyQueue) external restricted {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        $.strategy.validateNewSupplyQueue(newSupplyQueue, $.vault.maxStrategies);
 
-        s_strategy.updateSupplyQueue(newSupplyQueue);
+        $.strategy.updateSupplyQueue(newSupplyQueue);
 
         emit BTCVault__SupplyQueueUpdated(newSupplyQueue);
     }
@@ -321,14 +371,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @custom:access Requires BVA_SLOW role (1-day delay)
      */
     function updateWithdrawQueue(uint256[] memory newWithdrawQueue) external restricted {
-        s_strategy.validateNewWithdrawQueue(newWithdrawQueue);
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        $.strategy.validateNewWithdrawQueue(newWithdrawQueue);
 
-        bool supplyQueueCleaned = s_strategy.updateWithdrawQueue(newWithdrawQueue, i_asset);
+        bool supplyQueueCleaned = $.strategy.updateWithdrawQueue(newWithdrawQueue, asset());
 
         emit BTCVault__WithdrawQueueUpdated(newWithdrawQueue);
 
         if (supplyQueueCleaned) {
-            emit BTCVault__SupplyQueueUpdated(s_strategy.supplyQueue);
+            emit BTCVault__SupplyQueueUpdated($.strategy.supplyQueue);
         }
     }
 
@@ -358,34 +409,22 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Returns the name of the vault token
-     * @inheritdoc ERC20
      * @return The vault token name
      */
-    function name() public pure override returns (string memory) {
+    function name() public pure override(ERC20Upgradeable, IERC20Metadata) returns (string memory) {
         return "BitmorBTCVault";
     }
 
     /**
      * @notice Returns the symbol of the vault token
-     * @inheritdoc ERC20
      * @return The vault token symbol
      */
-    function symbol() public pure override returns (string memory) {
+    function symbol() public pure override(ERC20Upgradeable, IERC20Metadata) returns (string memory) {
         return "bvBTC";
     }
 
     /**
-     * @notice Returns the address of the underlying asset
-     * @inheritdoc ERC4626
-     * @return The address of the underlying ERC20 token
-     */
-    function asset() public view override returns (address) {
-        return i_asset;
-    }
-
-    /**
      * @notice Previews the amount of shares that would be minted for a deposit
-     * @inheritdoc ERC4626
      * @dev Deducts entry fees from assets before calculating shares
      * @param assets The amount of assets to be deposited
      * @return shares The amount of shares that would be minted (after fees)
@@ -397,7 +436,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Previews the amount of assets needed to mint a specific amount of shares
-     * @inheritdoc ERC4626
      * @dev Adds entry fees to the required assets
      * @param shares The amount of shares to be minted
      * @return assets The total amount of assets needed (including fees)
@@ -409,7 +447,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Previews the amount of shares needed to withdraw a specific amount of assets
-     * @inheritdoc ERC4626
      * @dev Deducts exit fees from assets before calculating shares
      * @param assets The amount of assets to be withdrawn
      * @return shares The amount of shares that need to be burned
@@ -421,7 +458,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Previews the amount of assets that would be withdrawn for redeeming shares
-     * @inheritdoc ERC4626
      * @dev Adds exit fees to the assets calculation.
      *
      * Invariant 6.8: `btcVault.totalSupply() * btcVault.convertToAssets(1e8) / 1e8` MUST equal
@@ -437,7 +473,6 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
     /**
      * @notice Returns the total amount of assets under management
-     * @inheritdoc ERC4626
      * @dev Sums the vault's idle balance (`balanceOf(address(this))`) and all strategy
      *      balances in the withdraw queue. Only active strategies (those in the withdraw
      *      queue) are counted -- removed strategies are excluded.
@@ -452,11 +487,15 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return assets The total amount of underlying assets managed by the vault
      */
     function totalAssets() public view override returns (uint256 assets) {
-        assets = ERC20(i_asset).balanceOf(address(this));
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        assets = IERC20(asset()).balanceOf(address(this));
 
-        uint256[] memory wq = s_strategy.withdrawQueue;
-        for (uint256 i = 0; i < wq.length; i++) {
-            assets = assets.rawAdd(s_strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
+        uint256[] memory wq = $.strategy.withdrawQueue;
+        for (uint256 i = 0; i < wq.length;) {
+            assets = assets.rawAdd($.strategy.strategies[wq[i]].strategy.getAssetBalanceInStrategy());
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -468,18 +507,27 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     function maxDeposit(address owner) public view override returns (uint256 maxAssets) {
         if (paused()) return 0;
 
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 i = 0;
-        uint256[] memory supplyQueue = s_strategy.supplyQueue;
-        for (i; i < supplyQueue.length; i++) {
-            DataTypes.Strategy memory strategy = s_strategy.strategies[supplyQueue[i]];
+        uint256[] memory supplyQueue = $.strategy.supplyQueue;
+        for (i; i < supplyQueue.length;) {
+            DataTypes.Strategy memory strategy = $.strategy.strategies[supplyQueue[i]];
 
             uint256 cap = strategy.cap;
 
-            if (cap == 0) continue;
+            if (cap == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
             uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
 
             maxAssets = maxAssets.rawAdd(cap.zeroFloorSub(currentBalance));
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -534,7 +582,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return The entry fee charged on deposits (in basis points)
      */
     function getEntryFee() public view returns (uint256) {
-        return s_vault.entryFee;
+        return _getBTCVaultStorage().vault.entryFee;
     }
 
     /**
@@ -542,7 +590,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return The exit fee charged on withdrawals (in basis points)
      */
     function getExitFee() public view returns (uint256) {
-        return s_vault.exitFee;
+        return _getBTCVaultStorage().vault.exitFee;
     }
 
     /**
@@ -554,7 +602,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      *
      * Invariant 6.9: The first depositor depositing X BTC MUST receive shares proportional to X.
      * A second depositor MUST NOT be able to manipulate the share price to steal from the first.
-     * Solady's ERC4626 virtual offset and the `MIN_STRATEGY_DEPOSIT` threshold mitigate inflation
+     * OZ ERC4626's virtual offset and the `MIN_STRATEGY_DEPOSIT` threshold mitigate inflation
      * attacks.
      * @param assets Amount of underlying assets to deposit
      * @param to Address to receive the minted shares
@@ -656,7 +704,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      *
      * Invariant 6.9: The first depositor depositing X BTC MUST receive shares proportional to X.
      * A second depositor MUST NOT be able to manipulate the share price to steal from the first.
-     * The `shares == 0` revert guard, Solady's virtual offset, the `MIN_STRATEGY_DEPOSIT`
+     * The `shares == 0` revert guard, OZ ERC4626's virtual offset, the `MIN_STRATEGY_DEPOSIT`
      * threshold, and ghost-dust cleanup collectively prevent inflation attacks.
      * @param by Address where the `assets` will be transferred from.
      * @param to Address where the `shares` will be minted to.
@@ -679,19 +727,22 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
         super._deposit(by, to, assets, shares);
 
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        IERC20 asset_ = IERC20(asset());
+
         if (fee != 0) {
             uint256 feeAmount = _feeOnTotal(assets, fee);
 
             // Transfer entry fee to fee recipient (if fee exists and recipient is not this contract)
-            if (feeAmount > 0 && s_vault.feeRecipient != address(this)) {
-                i_asset.safeTransfer(s_vault.feeRecipient, feeAmount);
+            if (feeAmount > 0 && $.vault.feeRecipient != address(this)) {
+                asset_.safeTransfer($.vault.feeRecipient, feeAmount);
             }
         }
 
         // Deposit all idle vault balance (current + accumulated dust) to strategies
         // if it meets the minimum threshold. Otherwise, assets stay idle in the vault
         // and are still counted by totalAssets() via balanceOf(address(this)).
-        uint256 toDeposit = ERC20(i_asset).balanceOf(address(this));
+        uint256 toDeposit = asset_.balanceOf(address(this));
         if (toDeposit >= MIN_STRATEGY_DEPOSIT) {
             _depositFunds(toDeposit);
         }
@@ -708,6 +759,8 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param shares The amount of shares to burn
      */
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        IERC20 asset_ = IERC20(asset());
         uint256 fee = getExitFee();
         uint256 feeAmount = 0;
         uint256 totalToWithdraw = assets;
@@ -718,14 +771,14 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
         }
 
         // Use idle vault balance first, then pull remainder from strategies
-        uint256 vaultBalance = ERC20(i_asset).balanceOf(address(this));
+        uint256 vaultBalance = asset_.balanceOf(address(this));
         if (totalToWithdraw > vaultBalance) {
             _withdrawFunds(totalToWithdraw - vaultBalance);
         }
 
         // Send fee to recipient
-        if (feeAmount > 0 && s_vault.feeRecipient != address(this)) {
-            i_asset.safeTransfer(s_vault.feeRecipient, feeAmount);
+        if (feeAmount > 0 && $.vault.feeRecipient != address(this)) {
+            asset_.safeTransfer($.vault.feeRecipient, feeAmount);
         }
 
         // Send exact 'assets' amount to user as per ERC4626 spec
@@ -748,22 +801,16 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @return liquidity The total amount of assets available for immediate withdrawal
      */
     function _getAvailableLiquidity() internal view returns (uint256 liquidity) {
-        liquidity = ERC20(i_asset).balanceOf(address(this));
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
+        liquidity = IERC20(asset()).balanceOf(address(this));
 
-        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
-        for (uint256 i = 0; i < withdrawQueue.length; i++) {
-            liquidity = liquidity.rawAdd(s_strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
+        uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
+        for (uint256 i = 0; i < withdrawQueue.length;) {
+            liquidity = liquidity.rawAdd($.strategy.strategies[withdrawQueue[i]].strategy.getMaxWithdrawable());
+            unchecked {
+                ++i;
+            }
         }
-    }
-
-    /**
-     * @notice Returns the number of decimals used by the underlying asset
-     * @inheritdoc ERC4626
-     * @dev Used internally for precise share calculations
-     * @return The number of decimals of the underlying asset
-     */
-    function _underlyingDecimals() internal view override returns (uint8) {
-        return ERC20(i_asset).decimals();
     }
 
     /**
@@ -794,10 +841,11 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      * @param assets The total amount of assets to deposit
      */
     function _depositFunds(uint256 assets) internal {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 i = 0;
-        uint256[] memory supplyQueue = s_strategy.supplyQueue;
+        uint256[] memory supplyQueue = $.strategy.supplyQueue;
         for (i; i < supplyQueue.length; ++i) {
-            DataTypes.Strategy memory strategy = s_strategy.strategies[supplyQueue[i]];
+            DataTypes.Strategy memory strategy = $.strategy.strategies[supplyQueue[i]];
 
             // Skip strategies with zero cap (defense-in-depth: also handles any
             // stale supply queue entries pointing to deleted strategies)
@@ -807,7 +855,7 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
             uint256 currentAssets = strategy.strategy.getAssetBalanceInStrategy();
 
             // Calculate available capacity: min(remaining assets, available cap)
-            uint256 amountToSupply = assets.min(strategy.cap.zeroFloorSub(currentAssets));
+            uint256 amountToSupply = assets.min(uint256(strategy.cap).zeroFloorSub(currentAssets));
 
             // Deposit available assets to the strategy
             if (amountToSupply > 0) {
@@ -828,21 +876,27 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
     /**
      * @notice Withdraws assets from strategies following the withdraw queue order
      * @dev When draining a strategy's full position (`assets >= maxWithdrawable`), uses
-     *      `withdrawAll()` to prevent orphaned yield from Solady's virtual offset rounding.
+     *      `withdrawAll()` to prevent orphaned yield from rounding.
      *      Any excess from `withdrawAll()` is re-deposited to keep strategy accounting clean.
      *      For partial withdrawals, uses standard ERC-4626 `withdraw()`.
      * @param assets The total amount of assets to withdraw
      */
     function _withdrawFunds(uint256 assets) internal {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 i = 0;
-        uint256[] memory withdrawQueue = s_strategy.withdrawQueue;
-        for (i; i < withdrawQueue.length; i++) {
-            DataTypes.Strategy memory strategy = s_strategy.strategies[withdrawQueue[i]];
+        uint256[] memory withdrawQueue = $.strategy.withdrawQueue;
+        for (i; i < withdrawQueue.length;) {
+            DataTypes.Strategy memory strategy = $.strategy.strategies[withdrawQueue[i]];
 
             // Get maximum withdrawable amount from this strategy
             uint256 maxWithdrawable = strategy.strategy.getMaxWithdrawable();
 
-            if (maxWithdrawable == 0) continue;
+            if (maxWithdrawable == 0) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
 
             if (assets >= maxWithdrawable) {
                 // Full position drain — use withdrawAll to prevent orphaned yield
@@ -869,6 +923,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
 
             // Exit if all required assets have been withdrawn
             if (assets == 0) return;
+            unchecked {
+                ++i;
+            }
         }
 
         // Revert if insufficient liquidity across all strategies
@@ -887,13 +944,14 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
      *      transaction, which is correct: admins should not silently lose funds into broken strategies
      */
     function _reallocateFunds(DataTypes.Allocation[] memory allocations) internal {
+        BTCVaultStorageData storage $ = _getBTCVaultStorage();
         uint256 totalSupplied;
         uint256 totalWithdrawn;
 
         uint256 i = 0;
-        for (i; i < allocations.length; i++) {
+        for (i; i < allocations.length;) {
             DataTypes.Allocation memory allocation = allocations[i];
-            DataTypes.Strategy memory strategy = s_strategy.strategies[allocation.index];
+            DataTypes.Strategy memory strategy = $.strategy.strategies[allocation.index];
 
             uint256 currentBalance = strategy.strategy.getAssetBalanceInStrategy();
             uint256 newAllocation = allocation.amount;
@@ -918,7 +976,12 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
                     ? totalWithdrawn.zeroFloorSub(totalSupplied)
                     : newAllocation.zeroFloorSub(currentBalance);
 
-                if (assetToSupply == 0) continue;
+                if (assetToSupply == 0) {
+                    unchecked {
+                        ++i;
+                    }
+                    continue;
+                }
 
                 // Validate strategy cap constraints
                 uint256 currentSupplyCap = strategy.cap;
@@ -933,6 +996,9 @@ contract BTCVault is BTCVault__Storage, ERC4626, AccessManaged, ReentrancyGuard,
                 emit BTCVault__DepositedInStrategy(allocation.index, assetToSupply);
 
                 totalSupplied += assetToSupply;
+            }
+            unchecked {
+                ++i;
             }
         }
 

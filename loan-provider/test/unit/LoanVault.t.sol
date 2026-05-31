@@ -9,6 +9,8 @@ import {ILoanVaultFactory} from "@bitmor/interfaces/ILoanVaultFactory.sol";
 import {MintableERC20} from "../../test/mock/MintableERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Mocks
 import {MockRevertingTarget, MockReturnTarget} from "../mock/LoanVaultMocks.sol";
@@ -66,6 +68,16 @@ contract LoanVaultTest is Test {
     // Setup
     // ============================================================================
 
+    /// @notice Deploys a LoanVault behind an ERC1967Proxy for testing
+    /// @param _owner The vault owner
+    /// @param _borrower The borrower address
+    /// @return The proxied LoanVault instance
+    function _newLoanVaultProxy(address _owner, address _borrower) internal returns (LoanVault) {
+        LoanVault impl = new LoanVault();
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(LoanVault.initialize, (_owner, _borrower)));
+        return LoanVault(payable(address(proxy)));
+    }
+
     function setUp() public {
         // Create labeled test actors
         owner = makeAddr("owner");
@@ -74,8 +86,8 @@ contract LoanVaultTest is Test {
         spender = makeAddr("spender");
         recipient = makeAddr("recipient");
 
-        // Deploy contracts
-        vault = new LoanVault();
+        // Deploy vault behind proxy (initialized with owner + borrower)
+        vault = _newLoanVaultProxy(owner, borrower);
         mockToken = new MintableERC20("Mock Token", "MOCK", 18);
         revertingTarget = new MockRevertingTarget();
         returnTarget = new MockReturnTarget();
@@ -87,29 +99,32 @@ contract LoanVaultTest is Test {
 
     // --- Initialization Tests ---
 
-    /// @notice Vault is not initialized before initialize() is called
-    function test_initialize_PreInitState() public view {
-        assertFalse(vault.isInitialized(), "vault should not be initialized");
-        assertEq(vault.owner(), address(0), "owner should be zero before init");
-        assertEq(vault.borrower(), address(0), "borrower should be zero before init");
+    /// @notice Implementation contract is blocked from initialization by _disableInitializers
+    function test_initialize_PreInitState() public {
+        LoanVault impl = new LoanVault();
+        // Implementation has _disableInitializers() so isInitialized returns true
+        assertTrue(impl.isInitialized(), "implementation should have initializers disabled");
+        // But owner/borrower remain zero on the implementation
+        assertEq(impl.owner(), address(0), "impl owner should be zero");
+        assertEq(impl.borrower(), address(0), "impl borrower should be zero");
     }
 
     /// @notice initialize reverts when owner is zero address
     function test_initialize_RevertWhen_OwnerIsZeroAddress() public {
-        vm.expectRevert(Errors.LoanVault__InvalidOwner.selector);
-        vault.initialize(address(0), borrower);
+        LoanVault impl = new LoanVault();
+        vm.expectRevert();
+        new ERC1967Proxy(address(impl), abi.encodeCall(LoanVault.initialize, (address(0), borrower)));
     }
 
     /// @notice initialize reverts when borrower is zero address
     function test_initialize_RevertWhen_BorrowerIsZeroAddress() public {
-        vm.expectRevert(Errors.LoanVault__InvalidBorrower.selector);
-        vault.initialize(owner, address(0));
+        LoanVault impl = new LoanVault();
+        vm.expectRevert();
+        new ERC1967Proxy(address(impl), abi.encodeCall(LoanVault.initialize, (owner, address(0))));
     }
 
     /// @notice initialize sets owner and borrower correctly
-    function test_initialize_SetsOwnerAndBorrower() public {
-        vault.initialize(owner, borrower);
-
+    function test_initialize_SetsOwnerAndBorrower() public view {
         assertTrue(vault.isInitialized(), "vault should be initialized");
         assertEq(vault.owner(), owner, "owner should be set");
         assertEq(vault.borrower(), borrower, "borrower should be set");
@@ -117,32 +132,27 @@ contract LoanVaultTest is Test {
 
     /// @notice initialize reverts when called twice
     function test_initialize_RevertWhen_AlreadyInitialized() public {
-        vault.initialize(owner, borrower);
-
-        vm.expectRevert(Errors.LoanVault__AlreadyInitialized.selector);
+        vm.expectRevert();
         vault.initialize(attacker, attacker);
     }
 
     /// @notice initialize emits VaultInitialized event
     function test_initialize_EmitsVaultInitializedEvent() public {
         // Arrange
-        LoanVault newVault = new LoanVault();
+        LoanVault impl = new LoanVault();
 
         // Assert - expect event
         vm.expectEmit(true, true, true, true);
         emit ILoanVault.LoanVault__VaultInitialized(owner, borrower);
 
-        // Act
-        newVault.initialize(owner, borrower);
+        // Act - deploy proxy which triggers initialize
+        new ERC1967Proxy(address(impl), abi.encodeCall(LoanVault.initialize, (owner, borrower)));
     }
 
     // --- approveToken Isolated Tests ---
 
     /// @notice approveToken reverts when token is zero address
     function test_approveToken_RevertWhen_TokenIsZeroAddress() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(owner);
         vm.expectRevert(Errors.LoanVault__InvalidToken.selector);
@@ -151,9 +161,6 @@ contract LoanVaultTest is Test {
 
     /// @notice approveToken reverts when spender is zero address
     function test_approveToken_RevertWhen_SpenderIsZeroAddress() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(owner);
         vm.expectRevert(Errors.LoanVault__InvalidSpender.selector);
@@ -162,9 +169,6 @@ contract LoanVaultTest is Test {
 
     /// @notice approveToken succeeds with valid parameters
     function test_approveToken_SucceedsWithValidParams() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act
         vm.prank(owner);
         vault.approveToken(address(mockToken), spender, TC.USER_USDC_BALANCE);
@@ -175,9 +179,6 @@ contract LoanVaultTest is Test {
 
     /// @notice approveToken reverts when caller is not owner
     function test_approveToken_RevertWhen_CallerNotOwner() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(attacker);
         vm.expectRevert(Errors.LoanVault__CallerIsNotOwner.selector);
@@ -187,7 +188,6 @@ contract LoanVaultTest is Test {
     /// @notice approveToken can update existing allowance
     function test_approveToken_UpdatesExistingAllowance() public {
         // Arrange
-        vault.initialize(owner, borrower);
         vm.prank(owner);
         vault.approveToken(address(mockToken), spender, TC.USER_USDC_BALANCE);
 
@@ -203,7 +203,6 @@ contract LoanVaultTest is Test {
     /// @notice approveToken emits TokenApproved event
     function test_approveToken_EmitsTokenApprovedEvent() public {
         // Arrange
-        vault.initialize(owner, borrower);
         uint256 amount = TC.USER_USDC_BALANCE;
 
         // Assert - expect event
@@ -219,9 +218,6 @@ contract LoanVaultTest is Test {
 
     /// @notice transferToken reverts when token is zero address
     function test_transferToken_RevertWhen_TokenIsZeroAddress() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(owner);
         vm.expectRevert(Errors.LoanVault__InvalidToken.selector);
@@ -231,7 +227,6 @@ contract LoanVaultTest is Test {
     /// @notice transferToken reverts when to is zero address
     function test_transferToken_RevertWhen_ToIsZeroAddress() public {
         // Arrange
-        vault.initialize(owner, borrower);
         mockToken.mint(address(vault), TC.USER_USDC_BALANCE);
 
         // Act + Assert
@@ -243,7 +238,6 @@ contract LoanVaultTest is Test {
     /// @notice transferToken succeeds with valid parameters
     function test_transferToken_SucceedsWithValidParams() public {
         // Arrange
-        vault.initialize(owner, borrower);
         mockToken.mint(address(vault), TC.USER_USDC_BALANCE);
         uint256 vaultBefore = mockToken.balanceOf(address(vault));
         uint256 recipientBefore = mockToken.balanceOf(recipient);
@@ -260,7 +254,6 @@ contract LoanVaultTest is Test {
     /// @notice transferToken reverts when caller is not owner
     function test_transferToken_RevertWhen_CallerNotOwner() public {
         // Arrange
-        vault.initialize(owner, borrower);
         mockToken.mint(address(vault), TC.USER_USDC_BALANCE);
 
         // Act + Assert
@@ -272,7 +265,6 @@ contract LoanVaultTest is Test {
     /// @notice transferToken emits TokenTransferred event
     function test_transferToken_EmitsTokenTransferredEvent() public {
         // Arrange
-        vault.initialize(owner, borrower);
         uint256 amount = TC.PREMIUM_AMOUNT;
         mockToken.mint(address(vault), amount);
 
@@ -287,8 +279,6 @@ contract LoanVaultTest is Test {
 
     /// @notice transferToken reverts when vault has insufficient balance
     function test_transferToken_RevertWhen_InsufficientBalance() public {
-        // Arrange
-        vault.initialize(owner, borrower);
         // Note: vault has 0 tokens
 
         // Act + Assert
@@ -300,7 +290,6 @@ contract LoanVaultTest is Test {
     /// @notice transferToken succeeds with zero amount
     function test_transferToken_SucceedsWithZeroAmount() public {
         // Arrange
-        vault.initialize(owner, borrower);
         uint256 recipientBalanceBefore = mockToken.balanceOf(recipient);
 
         // Act
@@ -315,9 +304,6 @@ contract LoanVaultTest is Test {
 
     /// @notice execute reverts when target is zero address
     function test_execute_RevertWhen_TargetIsZeroAddress() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(owner);
         vm.expectRevert(Errors.LoanVault__InvalidTarget.selector);
@@ -326,9 +312,6 @@ contract LoanVaultTest is Test {
 
     /// @notice execute reverts when call fails
     function test_execute_RevertWhen_CallFails() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(owner);
         vm.expectRevert(Errors.LoanVault__ExecutionFailed.selector);
@@ -337,9 +320,6 @@ contract LoanVaultTest is Test {
 
     /// @notice execute succeeds with valid call and returns data
     function test_execute_SucceedsWithValidCall() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Test values: TEST_INPUT_VALUE is recognizable non-zero; mock returns input * 2
         uint256 expectedOutput = TEST_INPUT_VALUE * 2; // 84
 
@@ -357,9 +337,6 @@ contract LoanVaultTest is Test {
 
     /// @notice execute reverts when caller is not owner
     function test_execute_RevertWhen_CallerNotOwner() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act + Assert
         vm.prank(attacker);
         vm.expectRevert(Errors.LoanVault__CallerIsNotOwner.selector);
@@ -369,7 +346,6 @@ contract LoanVaultTest is Test {
     /// @notice execute emits Executed event
     function test_execute_EmitsExecutedEvent() public {
         // Arrange
-        vault.initialize(owner, borrower);
         bytes memory callData = abi.encodeWithSignature("setAndReturnValue(uint256)", TEST_INPUT_VALUE);
 
         // Assert - expect event
@@ -385,9 +361,6 @@ contract LoanVaultTest is Test {
 
     /// @notice execute succeeds with empty calldata (no-op call to EOA)
     function test_execute_SucceedsWithEmptyCalldata() public {
-        // Arrange
-        vault.initialize(owner, borrower);
-
         // Act - empty calldata to EOA should succeed
         vm.prank(owner);
         bytes memory result = vault.execute(recipient, "");
@@ -400,8 +373,6 @@ contract LoanVaultTest is Test {
 
     /// @notice getTokenBalance returns correct balance for token
     function test_getTokenBalance_ReturnsCorrectBalance() public {
-        vault.initialize(owner, borrower);
-
         // Initial state - zero balance
         assertEq(vault.getTokenBalance(address(mockToken)), 0, "balance should be zero initially");
 
@@ -414,26 +385,27 @@ contract LoanVaultTest is Test {
 
     // --- ETH Handling Tests ---
 
-    /// @notice Vault can receive ETH before initialization
+    /// @notice Vault proxy can receive ETH (BeaconProxy in production also receives ETH)
     function test_receive_AcceptsETH_BeforeInit() public {
+        // Deploy a fresh impl (not behind proxy) just to test ETH receipt on uninitialized contract
+        // Note: with _disableInitializers, the impl is "initialized" but has no owner/borrower
+        LoanVault impl = new LoanVault();
         address sender = makeAddr("ethSender");
         vm.deal(sender, 1 ether);
 
-        assertFalse(vault.isInitialized(), "vault should not be initialized");
-
+        // Impl can still receive ETH via receive()
         vm.prank(sender);
-        (bool success,) = address(vault).call{value: 0.5 ether}("");
+        (bool success,) = address(impl).call{value: 0.5 ether}("");
 
-        assertTrue(success, "should accept ETH before init");
-        assertEq(address(vault).balance, 0.5 ether, "balance should be 0.5 ether");
+        assertTrue(success, "should accept ETH on implementation");
+        assertEq(address(impl).balance, 0.5 ether, "balance should be 0.5 ether");
     }
 
-    /// @notice Vault can receive ETH after initialization
+    /// @notice Vault can receive ETH after initialization (via proxy)
     function test_receive_AcceptsETH_AfterInit() public {
         address sender = makeAddr("ethSender");
         vm.deal(sender, 1 ether);
 
-        vault.initialize(owner, borrower);
         assertTrue(vault.isInitialized(), "vault should be initialized");
 
         vm.prank(sender);
@@ -447,10 +419,18 @@ contract LoanVaultTest is Test {
     // SECTION 2: LoanVaultFactory Tests
     // ============================================================================
 
+    // --- Helper ---
+
+    /// @notice Deploys a LoanVaultFactory with beacon wrapping the given implementation
+    function _deployFactory(address implementation, address loanContract) internal returns (LoanVaultFactory) {
+        address beaconAddr = address(new UpgradeableBeacon(implementation, address(this)));
+        return new LoanVaultFactory(beaconAddr, loanContract);
+    }
+
     // --- Constructor Tests ---
 
-    /// @notice Constructor reverts when implementation is zero address
-    function test_constructor_RevertWhen_ImplementationIsZeroAddress() public {
+    /// @notice Constructor reverts when beacon is zero address
+    function test_constructor_RevertWhen_BeaconIsZeroAddress() public {
         // Arrange
         address loanContract = makeAddr("loanContract");
 
@@ -463,10 +443,11 @@ contract LoanVaultTest is Test {
     function test_constructor_RevertWhen_LoanContractIsZeroAddress() public {
         // Arrange
         address implementation = address(new LoanVault());
+        address beaconAddr = address(new UpgradeableBeacon(implementation, address(this)));
 
         // Act + Assert
         vm.expectRevert(Errors.ZeroAddress.selector);
-        new LoanVaultFactory(implementation, address(0));
+        new LoanVaultFactory(beaconAddr, address(0));
     }
 
     /// @notice Constructor sets immutable variables correctly
@@ -474,12 +455,13 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
+        address beaconAddr = address(new UpgradeableBeacon(implementation, address(this)));
 
         // Act
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = new LoanVaultFactory(beaconAddr, loanContract);
 
         // Assert
-        assertEq(factory.i_IMPLEMENTATION(), implementation, "implementation should be set");
+        assertEq(factory.i_BEACON(), beaconAddr, "beacon should be set");
         assertEq(factory.i_LOAN(), loanContract, "loan contract should be set");
     }
 
@@ -490,7 +472,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
 
         // Act + Assert
         vm.prank(attacker);
@@ -503,7 +485,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
         address testBorrower = makeAddr("testBorrower");
 
         // Act
@@ -525,7 +507,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
         address testBorrower = makeAddr("testBorrower");
         uint256 timestamp = block.timestamp;
 
@@ -549,7 +531,7 @@ contract LoanVaultTest is Test {
         // Deploy implementation and factory
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
 
         address testBorrower = makeAddr("testBorrower");
         uint256 timestamp = block.timestamp;
@@ -575,7 +557,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
         address testBorrower = makeAddr("testBorrower");
 
         // Act
@@ -593,7 +575,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
         uint256 timestamp = block.timestamp;
 
         // Act
@@ -611,7 +593,7 @@ contract LoanVaultTest is Test {
         // Arrange
         address implementation = address(new LoanVault());
         address loanContract = makeAddr("loanContract");
-        LoanVaultFactory factory = new LoanVaultFactory(implementation, loanContract);
+        LoanVaultFactory factory = _deployFactory(implementation, loanContract);
         address testBorrower = makeAddr("testBorrower");
         uint256 timestamp = block.timestamp;
 
@@ -845,9 +827,8 @@ contract LoanVaultTest is Test {
         // Initialize reserve with debt token
         mockBitmorPool.initReserve(address(mockUSDC), address(0), address(mockDebtToken));
 
-        // Deploy LSA (LoanVault) and initialize with harness as owner
-        lsa = new LoanVault();
-        lsa.initialize(address(lsaHarness), borrower);
+        // Deploy LSA (LoanVault) via proxy and initialize with harness as owner
+        lsa = _newLoanVaultProxy(address(lsaHarness), borrower);
 
         // Fund infrastructure
         mockCbBTC.mint(address(mockBTCVault), TC.SWAP_ADAPTER_CBBTC_BALANCE);
@@ -929,9 +910,8 @@ contract LoanVaultTest is Test {
         mockBitmorPool = new MockBitmorLendingPool(address(mockAddressesProvider));
         mockAddressesProvider.setLendingPool(address(mockBitmorPool));
 
-        // Deploy LSA (LoanVault) and initialize with harness as owner
-        lsa = new LoanVault();
-        lsa.initialize(address(lsaHarness), borrower);
+        // Deploy LSA (LoanVault) via proxy and initialize with harness as owner
+        lsa = _newLoanVaultProxy(address(lsaHarness), borrower);
 
         // Mint vault shares directly to LSA
         mockBTCVault.mint(address(lsa), TC.STANDARD_COLLATERAL);

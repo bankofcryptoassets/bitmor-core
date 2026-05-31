@@ -1,0 +1,62 @@
+{
+  "chain": 31337,
+  "commit": "abc1234",
+  "timestamp": 1712200800000,
+  "libraries": [],
+  "transactions": [
+    {
+      "hash": "0x1111",
+      "transactionType": "CREATE",
+      "contractName": "BitmorAccessManager",
+      "contractAddress": "0x525c7063e7c20997baae9bda922159152d0e8417",
+      "function": null,
+      "arguments": ["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0x2222",
+      "transactionType": "CREATE",
+      "contractName": "MockUSDC",
+      "contractAddress": "0xaaaa000000000000000000000000000000000001",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0x3333",
+      "transactionType": "CREATE",
+      "contractName": "MockCbBTC",
+      "contractAddress": "0xaaaa000000000000000000000000000000000002",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0x4444",
+      "transactionType": "CALL",
+      "contractName": "MockUSDC",
+      "contractAddress": "0xaaaa000000000000000000000000000000000001",
+      "function": "initialize(string,string,uint8)",
+      "arguments": ["USD Coin", "USDC", "6"],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0x5555",
+      "transactionType": "CREATE",
+      "contractName": "BTCVault",
+      "contractAddress": "0xbbbb000000000000000000000000000000000001",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    },
+    {
+      "hash": "0x6666",
+      "transactionType": "CREATE",
+      "contractName": "ERC1967Proxy",
+      "contractAddress": "0xcccc000000000000000000000000000000000001",
+      "function": null,
+      "arguments": [],
+      "transaction": { "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" }
+    }
+  ]
+}

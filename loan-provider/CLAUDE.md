@@ -32,23 +32,22 @@ make coverage
 make gas-report
 ```
 
-### Deployment (Base Sepolia)
+### Deployment
+
+All core contracts are deployed behind UUPS or Beacon proxies. See `../DEPLOYMENT_SETUP.md` for full details.
 
 ```bash
-# Full setup: deploys all contracts and configures the system
-make setup
+# Local deployment (from repo root)
+make deploy-local               # All phases: proxies + beacon + roles + validation
 
-# Individual deployments
-make deployLoan                 # Deploy Loan contract
-make deployLoanVault            # Deploy LoanVault implementation
-make deployLoanVaultFactory     # Deploy vault factory
-make deploySwapAdapterWrapper   # Deploy Uniswap V4 swap adapter
+# Individual phases
+make deploy:phase1:local        # AccessManager + BTCVault proxy + mocks
+make deploy:phase3:local        # All remaining proxies + roles
+make deploy:check               # Post-deploy invariant checks
 
-# Post-deployment configuration
-make setLoanVaultFactory        # Link factory to Loan contract
-make setBitmorLoan              # Register Loan in AddressesProvider
-make saveAddresses              # Persist deployment addresses
-make verifyAll                  # Verify contracts on Sourcify
+# Upgrades
+make upgrade:uups:schedule PROXY=0x... CONTRACT="src/..." INIT_DATA=0x RPC_URL=...
+make upgrade:beacon:schedule NEW_IMPL=0x... RPC_URL=...
 ```
 
 ### Wallet Setup
@@ -60,21 +59,39 @@ Tests and deployments require two cast wallets:
 
 ## Architecture
 
+### Proxy Architecture
+
+| Contract | Proxy Pattern | Upgrade Control |
+|----------|--------------|-----------------|
+| Loan | UUPS | UPGRADER role (48h delay) |
+| BTCVault | UUPS | UPGRADER role (48h delay) |
+| USDCVault | UUPS | UPGRADER role (48h delay) |
+| AutoRepayment | UUPS | UPGRADER role (48h delay) |
+| BitmorAddressesProvider | UUPS | UPGRADER role (48h delay) |
+| LoanVault | BeaconProxy | BeaconController (48h delay) |
+| LoanVaultFactory | Non-upgradeable | Uses beacon address |
+| BeaconController | Non-upgradeable | AccessManaged wrapper |
+| Strategies | Non-upgradeable | Swappable via vault curator |
+
+All upgradeable contracts use ERC-7201 namespaced storage (`@bitmor.storage.*`).
+
 ### Core Contracts (`src/protocol/`)
 
 | Contract               | Description                                                                                                                                               |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Loan.sol`             | Main entry point for loan lifecycle (initialize, repay, close). Uses flash loans from Aave V3, swaps via Uniswap V4, stores collateral in per-user vaults |
-| `LoanVault.sol`        | Per-loan smart account (LSA) holding the Aave position (aTokens/debt tokens). Deployed via CREATE2 for deterministic addresses                            |
-| `LoanVaultFactory.sol` | Minimal proxy factory deploying LoanVaults                                                                                                                |
-| `LoanStorage.sol`      | Storage layout for Loan contract                                                                                                                          |
-| `AutoRepayment.sol`    | Scheduled repayment automation                                                                                                                            |
+| `Loan.sol`             | UUPS upgradeable. Main entry point for loan lifecycle (initialize, repay, close). Uses flash loans from Aave V3, swaps via Uniswap V4 |
+| `LoanVault.sol`        | BeaconProxy. Per-loan smart account (LSA) holding the Aave position (aTokens/debt tokens)                            |
+| `LoanVaultFactory.sol` | Non-upgradeable. Factory deploying LoanVaults as BeaconProxies                                                                                                                |
+| `LoanStorage.sol`      | ERC-7201 namespaced storage for Loan contract                                                                                                                          |
+| `AutoRepayment.sol`    | UUPS upgradeable. Scheduled repayment automation                                                                                                                            |
+| `BeaconController.sol` | Non-upgradeable. AccessManaged wrapper for beacon upgrades                                                                                                                            |
+| `BitmorAddressesProvider.sol` | UUPS upgradeable. Protocol address registry                                                                                                                            |
 
 ### Logic Libraries (`src/libraries/logic/`)
 
 | Library                      | Lines | Description                                                     |
 | ---------------------------- | ----- | --------------------------------------------------------------- |
-| `LoanLogic.sol`              | ~277  | Loan initialization, validation, state updates for liquidations |
+| `LoanLogic.sol`              | ~277  | Public linked library. Loan initialization, validation, state updates for liquidations |
 | `FlashLoanLogic.sol`         | ~242  | Aave V3 flash loan callback handling for init and close flows   |
 | `RepayLogic.sol`             | ~107  | Monthly repayment execution logic                               |
 | `CloseLoanLogic.sol`         | ~185  | Pre-closure flow with flash loan coordination                   |
@@ -194,7 +211,7 @@ Loan.closeLoan(lsa, withdrawInBTC)
 
 ## Access Control System
 
-Uses OpenZeppelin `AccessManaged` pattern with role-based restrictions defined in `src/accessManager/RolesData.sol`.
+Uses OpenZeppelin `AccessManagedUpgradeable` pattern with role-based restrictions defined in `script/config/RolesData.sol`.
 
 ### Operational Roles (16 total)
 
@@ -206,6 +223,7 @@ Uses OpenZeppelin `AccessManaged` pattern with role-based restrictions defined i
 | `LPM_FAST` | 3   | Loan          | Emergency pause                        | 0     |
 | `LPM_SLOW` | 30  | Loan          | State variable updates, unpause        | 1 day |
 | `ARE`      | 4   | AutoRepayment | Auto repayment execution               | 0     |
+| `UPGRADER` | 5   | All proxies   | UUPS + beacon upgrades                 | 48h   |
 | `BVM_FAST` | 11  | BTCVault      | Pause, emergency withdraw              | 0     |
 | `BVM_SLOW` | 110 | BTCVault      | Fee recipient, unpause                 | 1 day |
 | `BVC`      | 12  | BTCVault      | Strategy add/remove/cap changes        | 1 day |
@@ -227,6 +245,7 @@ Guardians can cancel delayed operations before execution:
 - `GUARDIAN_BVA_SLOW` (9130) - Guards BVA_SLOW operations
 - `GUARDIAN_UVM_SLOW` (9210) - Guards UVM_SLOW operations
 - `GUARDIAN_UVC` (922) - Guards UVC operations
+- `GUARDIAN_UPGRADER` (95) - Guards UPGRADER operations (can cancel pending upgrades)
 
 ## Security Patterns
 
@@ -240,7 +259,7 @@ if (params.initiator != address(this)) revert Errors.WrongFLInitiator();
 
 ### Reentrancy Protection
 
-Critical functions use OpenZeppelin's `ReentrancyGuard`:
+Critical functions use OpenZeppelin's `ReentrancyGuardTransient` (transient storage for gas efficiency):
 
 - `Loan.initializeLoan()` - `nonReentrant`
 - `Loan.repay()` - `nonReentrant`
@@ -364,9 +383,9 @@ mockAddressesProvider.setBitmorLoan(address(newLoanInstance));
 - Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 - Aave Addresses Provider: `0x39Eb7Ca3b8f0F29C21a008b1F281b30c4539736a`
 
-**Deployment state**: `deployments.json` - Contains deployed contract addresses and block numbers
+**Deployment state**: `../deployments/<chainId>/latest.json` - Unified registry containing all deployed contract addresses (loan-provider, lending-pool, tokens, external)
 
-**Integration**: Reads Bitmor Lending Pool addresses from `../lending-pool/deployed-contracts.json`
+**Integration**: All addresses (including lending pool) are read from the unified registry via HelperConfig
 
 ## Import Aliases
 
@@ -374,8 +393,14 @@ From `remappings.txt`:
 
 ```
 @bitmor/=src/
-@openzeppelin/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@openzeppelin-foundry-upgrades/=lib/openzeppelin-foundry-upgrades/src/
 @solady/=lib/solady/src/
+@btcVault/=src/vaults/btc-vault/
+@usdcVault/=src/vaults/usdc-vault/
+@bitmor-config/=script/config/
+@lending-pool/=../lending-pool/contracts/
 forge-std/=lib/forge-std/src/
 ```
 

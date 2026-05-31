@@ -7,6 +7,7 @@ import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {ILoanVault} from "@bitmor/interfaces/ILoanVault.sol";
 import {MockERC20} from "../../mock/MockERC20.sol";
 import {MockReturnTarget} from "../../mock/LoanVaultMocks.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 /**
  * @title LoanVaultFactoryFuzzTest
@@ -26,9 +27,12 @@ contract LoanVaultFactoryFuzzTest is Test {
 
     // ============ Setup ============
 
+    UpgradeableBeacon public beacon;
+
     function setUp() public {
         implementation = new LoanVault();
-        factory = new LoanVaultFactory(address(implementation), address(this));
+        beacon = new UpgradeableBeacon(address(implementation), address(this));
+        factory = new LoanVaultFactory(address(beacon), address(this));
         token = new MockERC20("Test Token", "TKN", 18);
     }
 

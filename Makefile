@@ -1,13 +1,17 @@
 # Bitmor Protocol - Root Makefile
 
-.PHONY: help install build clean anvil anvil-stop deploy-local test coverage \
+.PHONY: help install build clean anvil anvil-stop deploy-local deploy-testnet test coverage \
 	test\:unit test\:fork test\:loan\:unit test\:vault\:unit test\:strategy\:unit \
 	test\:liquidation\:unit test\:fuzz test\:invariant \
 	test\:integration test\:integration\:setup test\:integration\:access \
 	test\:integration\:liquidation test\:integration\:lifecycle \
 	test\:integration\:vault test\:integration\:initloan \
 	test\:lp test\:lp\:aave test\:lp\:scenarios test\:all \
-	coverage coverage-lcov coverage-html
+	coverage coverage-lcov coverage-html \
+	deploy\:libraries\:local deploy\:libraries\:fork deploy\:libraries\:testnet \
+	deploy\:check\:local deploy\:check\:fork deploy\:check\:testnet \
+	deploy\:phase1\:testnet deploy\:phase3\:testnet \
+	deploy\:swap-router\:fork
 
 # Chain configuration
 LOCAL_CHAIN_ID := 31337
@@ -33,6 +37,7 @@ help:
 	@echo "  make anvil               Start Anvil (localhost:$(ANVIL_PORT), chainId $(LOCAL_CHAIN_ID))"
 	@echo "  make anvil-stop          Stop Anvil"
 	@echo "  make deploy-local        Deploy full protocol to Anvil"
+	@echo "  make deploy-testnet      Deploy full protocol to Base Sepolia with mocks"
 	@echo ""
 	@echo "Testing (loan-provider unit):"
 	@echo "  make test                    Run unit tests (default, no RPC needed)"
@@ -72,6 +77,7 @@ install:
 	@cd lending-pool && npm install --legacy-peer-deps
 	@cd loan-provider && forge install
 	@cd swap-routers && forge install 2>/dev/null || echo "swap-routers: dependencies already present"
+	@cd deploy/tools && npm install
 	@echo "Configuring git hooks..."
 	@git config core.hooksPath .githooks
 	@echo "Done."
@@ -121,6 +127,88 @@ anvil-stop:
 
 deploy-local:
 	@./deploy/scripts/deploy-local.sh
+
+# Fork deployment (Base mainnet fork on Anvil)
+anvil-fork:
+	@echo "Starting Anvil forking Base mainnet..."
+	@. ./loan-provider/.env 2>/dev/null; \
+	anvil --fork-url $${BASE_MAINNET_RPC_URL} \
+		--chain-id $(LOCAL_CHAIN_ID) \
+		$${FORK_BLOCK_NUMBER:+--fork-block-number $${FORK_BLOCK_NUMBER}} \
+		--port $(ANVIL_PORT) --accounts 10 --balance 10000
+
+deploy-fork:
+	@./deploy/scripts/deploy-fork.sh
+
+deploy-testnet:  ## Deploy full protocol to Base Sepolia with mocks
+	bash deploy/scripts/deploy-testnet.sh
+
+deploy\:phase1\:fork:
+	@cd loan-provider && make deploy:phase1:fork
+
+deploy\:phase3\:fork:
+	@cd loan-provider && make deploy:phase3:fork
+
+# Individual phase targets (proxy-based)
+deploy\:phase1\:local:
+	@cd loan-provider && make deploy:phase1:local
+
+deploy\:phase3\:local:
+	@cd loan-provider && make deploy:phase3:local
+
+deploy\:check:
+	@cd loan-provider && $(MAKE) deploy:check:local
+
+# Mainnet deployment
+deploy\:phase1\:mainnet:
+	@cd loan-provider && make deploy:phase1:mainnet
+
+deploy\:phase3\:mainnet:
+	@cd loan-provider && make deploy:phase3:mainnet
+
+deploy\:schedule\:mainnet:
+	@cd loan-provider && make deploy:schedule:mainnet
+
+deploy\:transfer\:mainnet:
+	@cd loan-provider && make deploy:transfer:mainnet
+
+# Library deployment
+deploy\:libraries\:local:
+	@cd loan-provider && $(MAKE) deploy:libraries:local $(if $(LOCAL_PRIVATE_KEY),LOCAL_PRIVATE_KEY="$(LOCAL_PRIVATE_KEY)")
+
+deploy\:libraries\:fork:
+	@cd loan-provider && $(MAKE) deploy:libraries:fork $(if $(FORK_PRIVATE_KEY),FORK_PRIVATE_KEY="$(FORK_PRIVATE_KEY)")
+
+deploy\:libraries\:testnet:
+	@cd loan-provider && $(MAKE) deploy:libraries:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)")
+
+# Post-deploy checks
+deploy\:check\:local:
+	@cd loan-provider && $(MAKE) deploy:check:local $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)") $(if $(LOCAL_PRIVATE_KEY),LOCAL_PRIVATE_KEY="$(LOCAL_PRIVATE_KEY)")
+
+deploy\:check\:fork:
+	@cd loan-provider && $(MAKE) deploy:check:fork $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)") $(if $(FORK_PRIVATE_KEY),FORK_PRIVATE_KEY="$(FORK_PRIVATE_KEY)")
+
+deploy\:check\:testnet:
+	@cd loan-provider && $(MAKE) deploy:check:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)") $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)")
+
+# Testnet deployment
+deploy\:phase1\:testnet:
+	@cd loan-provider && $(MAKE) deploy:phase1:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)")
+
+deploy\:phase3\:testnet:
+	@cd loan-provider && $(MAKE) deploy:phase3:testnet $(if $(RPC_URL),RPC_URL="$(RPC_URL)") $(if $(LIBRARY_FLAG),LIBRARY_FLAG="$(LIBRARY_FLAG)")
+
+# Swap router deployment
+deploy\:swap-router\:fork:
+	@cd swap-routers && $(MAKE) deploy-fork
+
+# Upgrades
+upgrade\:uups\:schedule:
+	@cd loan-provider && make upgrade:uups:schedule PROXY=$(PROXY) CONTRACT=$(CONTRACT) INIT_DATA=$(INIT_DATA) RPC_URL=$(RPC_URL)
+
+upgrade\:beacon\:schedule:
+	@cd loan-provider && make upgrade:beacon:schedule NEW_IMPL=$(NEW_IMPL) RPC_URL=$(RPC_URL)
 
 # ============ Testing (loan-provider) ============
 

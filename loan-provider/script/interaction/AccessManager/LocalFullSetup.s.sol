@@ -5,7 +5,7 @@ import {console} from "forge-std/console.sol";
 import {InitialSetup} from "./InitialSetup.s.sol";
 import {DeploymentHelper} from "../../helpers/DeploymentHelper.s.sol";
 import {StrategyConfig} from "../../StrategyConfig.s.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {ILoan} from "@bitmor/interfaces/ILoan.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 
@@ -184,9 +184,9 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         address swapper = config.getSwapper();
 
         manager.schedule(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())), when);
-        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (config.getMaxDuration())), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setGracePeriod, (uint32(config.getGracePeriod()))), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setPreClosureFee, (uint16(config.getPreClosureFee()))), when);
+        manager.schedule(loan, abi.encodeCall(ILoan.setMaxDuration, (uint16(config.getMaxDuration()))), when);
 
         // BitmorAddressesProvider Operations
         manager.schedule(
@@ -234,9 +234,9 @@ contract LocalFullSetup is InitialSetup, DeploymentHelper {
         address swapper = config.getSwapper();
 
         manager.execute(loan, abi.encodeCall(ILoan.setBitmorAddressesProvider, (bitmorAddressesProvider)));
-        manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (config.getGracePeriod())));
-        manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (config.getPreClosureFee())));
-        manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (config.getMaxDuration())));
+        manager.execute(loan, abi.encodeCall(ILoan.setGracePeriod, (uint32(config.getGracePeriod()))));
+        manager.execute(loan, abi.encodeCall(ILoan.setPreClosureFee, (uint16(config.getPreClosureFee()))));
+        manager.execute(loan, abi.encodeCall(ILoan.setMaxDuration, (uint16(config.getMaxDuration()))));
 
         // BitmorAddressesProvider Operations
         manager.execute(

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ERC20} from "@openzeppelin/token/ERC20/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title MintableERC20
@@ -36,6 +36,17 @@ contract MintableERC20 is ERC20 {
      */
     function mint(address to, uint256 value) public returns (bool) {
         _mint(to, value);
+        return true;
+    }
+
+    /**
+     * @notice Mints `value` tokens to `msg.sender`
+     * @dev ABI-compatible with lending-pool's MintableERC20 which only has mint(uint256)
+     * @param value The amount of tokens to mint
+     * @return True if the minting operation succeeded
+     */
+    function mint(uint256 value) public returns (bool) {
+        _mint(msg.sender, value);
         return true;
     }
 }

@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 import {Constants} from "../helpers/Constants.sol";
 import {DataTypes} from "../types/DataTypes.sol";
+
+import {LoanStorage} from "../../protocol/LoanStorage.sol";
 
 import {LSALogic} from "./LSALogic.sol";
 import {SwapLogic} from "./SwapLogic.sol";
@@ -22,7 +24,8 @@ import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
  * @title FlashLoanLogic
  * @author Bitmor Protocol
  * @notice Library for handling Aave V3 flash loan callbacks
- * @dev Processes flash loan operations for both loan initialization and loan closure.
+ * @dev Deployed as a public linked library. Resolves ERC-7201 storage internally
+ * via `_resolveStorage(bytes32)`.
  *
  * ### Loan Closure
  * 1. Receive flash loaned USDC to repay debt
@@ -81,6 +84,12 @@ library FlashLoanLogic {
      */
     uint256 constant BASIS_POINT_SCALE = 100_00;
 
+    function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
+        assembly {
+            $.slot := slot
+        }
+    }
+
     /**
      * @notice Executes flash loan callback for loan initialization
      * @dev Called by Aave V3 pool during loan creation.
@@ -102,16 +111,16 @@ library FlashLoanLogic {
      * - The change in IERC20(debtAsset).balanceOf(address(loan)) across this operation
      *   MUST equal 0 (the Loan contract MUST NOT keep any USDC).
      *
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
-     * @param loansByLSA Storage mapping of loans by LSA
      * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
      */
     function executeFLOperationInitiailizingLoan(
+        bytes32 storageSlot,
         DataTypes.ExecuteFLOperationContext memory ctx,
-        DataTypes.ExecuteFLOperationParams memory params,
-        mapping(address => DataTypes.LoanData) storage loansByLSA
-    ) internal {
+        DataTypes.ExecuteFLOperationParams memory params
+    ) public {
         if (msg.sender != ctx.aavePool) {
             revert Errors.CallerIsNotAAVEPool();
         }
@@ -120,7 +129,7 @@ library FlashLoanLogic {
         (address lsa, uint256 btcAmount) = abi.decode(params.params, (address, uint256));
 
         // Retrieve loan data from storage
-        DataTypes.LoanData storage loan = loansByLSA[lsa];
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[lsa];
 
         uint256 totalSwapAmount = loan.depositAmount + params.amount;
 
@@ -189,17 +198,16 @@ library FlashLoanLogic {
      * - LSA bvBTC share balance MUST be 0 after this operation completes
      * - Pre-closure fee MUST be deducted from redeemed cbBTC before any swap
      *
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Execution context with protocol addresses
      * @param params Flash loan parameters (asset, amount, premium, etc.)
-     * @param loansByLSA Storage mapping of loans by LSA
      * @custom:security Validates `msg.sender` is the Aave V3 pool and `params.initiator` is this contract
-     * TODO: to check whether we need to pass uint256 max or this will work through integration testing.
      */
     function executeFLOperationCloseLoan(
+        bytes32 storageSlot,
         DataTypes.ExecuteFLOperationContext memory ctx,
-        DataTypes.ExecuteFLOperationParams memory params,
-        mapping(address => DataTypes.LoanData) storage loansByLSA
-    ) internal {
+        DataTypes.ExecuteFLOperationParams memory params
+    ) public {
         if (msg.sender != ctx.aavePool) {
             revert Errors.CallerIsNotAAVEPool();
         }
@@ -212,7 +220,7 @@ library FlashLoanLogic {
             abi.decode(params.params, (address, bool, uint256, uint256));
 
         // Retrieve loan data from storage
-        DataTypes.LoanData storage loan = loansByLSA[vars.lsa];
+        DataTypes.LoanData storage loan = _resolveStorage(storageSlot).loansByLSA[vars.lsa];
 
         // To allow aavePool to withdraw borrow amount
         vars.totalFlashLoanBorrowedAmt = params.amount + params.premium;

@@ -55,7 +55,13 @@ library DataTypes {
 
     /**
      * @notice Complete loan information stored per LSA
+     * @dev Field order MUST match loan-provider/src/libraries/types/DataTypes.sol
+     *      because getLoanByLSA() returns ABI-encoded data in declaration order.
      * @param borrower The address that created and owns this loan
+     * @param duration Loan term length in months
+     * @param status Current lifecycle status of the loan
+     * @param createdAt Unix timestamp when loan was created
+     * @param lastPaymentTimestamp Timestamp at which last payment was made.
      * @param depositAmount Initial USDC deposit amount (6 decimals)
      * @param loanAmount Total amount borrowed via flash loan (6 decimals).
      *        Historical record only — does not track accrued interest.
@@ -63,25 +69,26 @@ library DataTypes {
      * @param btcAmount cbBTC amount user wants to achieve (8 decimals)
      * @param estimatedMonthlyPayment Estimated monthly payment calculated at creation (6 decimals).
      *        Computed once using max variable borrow rate; not updated during loan lifetime.
-     * @param duration Loan term length in months
-     * @param createdAt Unix timestamp when loan was created
-     * @param insuranceID Insurance/Order ID for tracking this loan
-     * @param lastPaymentTimestamp Timestamp at which last payment was made.
      * @param amountRepaidInCurrentPeriod Accumulated partial repayments within the current billing period (6 decimals)
-     * @param status Current lifecycle status of the loan
+     * @param insuranceID Insurance/Order ID for tracking this loan
      */
     struct LoanData {
-        address borrower;
-        uint256 depositAmount;
-        uint256 loanAmount;
-        uint256 btcAmount;
-        uint256 estimatedMonthlyPayment;
-        uint256 duration;
-        uint256 createdAt;
+        // ── Slot 0 (31B, 1B spare): identity + lifecycle metadata
+        address borrower; // 20B
+        uint16 duration; // 2B  | months
+        LoanStatus status; // 1B  | Active / Completed / Liquidated
+        uint32 createdAt; // 4B  | unix timestamp (good until 2106)
+        uint32 lastPaymentTimestamp; // 4B  | unix timestamp
+        // ── Slot 1 (32B): amounts set at creation
+        uint96 depositAmount; // 12B | USDC 6 dec, max ~$79T
+        uint96 loanAmount; // 12B | USDC 6 dec
+        uint64 btcAmount; // 8B  | cbBTC 8 dec, max ~184B BTC
+        // ── Slot 2 (32B): payment tracking
+        uint96 estimatedMonthlyPayment; // 12B | USDC 6 dec
+        uint96 amountRepaidInCurrentPeriod; // 12B | USDC 6 dec
+        // 8B spare
+        // ── Slot 3 (32B): insurance ID (kept as uint256 for extensibility)
         uint256 insuranceID;
-        uint256 lastPaymentTimestamp;
-        uint256 amountRepaidInCurrentPeriod;
-        LoanStatus status;
     }
 
     // ============ Loan Status ============

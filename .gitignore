@@ -20,10 +20,19 @@ broadcast
 
 loan-provider/lcov.info
 loan-provider/lcov.filtered.info
+loan-provider/out
+loan-provider/deployments
+
+# Deployment registry — track latest.json, ignore timestamped snapshots
+deployments/**
+!deployments/**/
+!deployments/*/latest.json
+
 docs
 lending-pool/types
 loan-provider/coverage-html
 lending-pool/types
+
 
 # Git worktrees
 .worktrees/
@@ -34,3 +43,12 @@ out-foundry
 swap-routers/out
 swap-routeres/lib
 swap-routers/cache
+.omx/
+.codex/*
+!.codex/agents/
+!.codex/agents/**
+!.codex/skills/
+!.codex/skills/**
+.codex/skills/.system/**
+!.codex/prompts/
+!.codex/prompts/**

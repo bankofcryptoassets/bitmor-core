@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/interfaces/IERC20Metadata.sol";
-import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/interfaces/IERC20Metadata.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
 import {IPriceOracleGetter} from "../../interfaces/IPriceOracleGetter.sol";
@@ -11,6 +11,8 @@ import {ILoan} from "../../interfaces/ILoan.sol";
 
 import {Errors} from "../helpers/Errors.sol";
 import {DataTypes} from "../types/DataTypes.sol";
+
+import {LoanStorage} from "../../protocol/LoanStorage.sol";
 
 import {AavePoolLogic} from "./AavePoolLogic.sol";
 import {BTCVaultLogic} from "./BTCVaultLogic.sol";
@@ -20,7 +22,8 @@ import {BitmorLendingPoolLogic} from "./BitmorLendingPoolLogic.sol";
  * @title CloseLoanLogic
  * @author Bitmor Protocol
  * @notice Library for loan closure logic and calculations
- * @dev Handles the complex flow of closing a loan including fee calculations and flash loan initiation.
+ * @dev Deployed as a public linked library. Resolves ERC-7201 storage internally
+ * via `_resolveStorage(bytes32)`.
  *
  * ## Close Loan Flow
  * 1. Validates loan ownership and existence
@@ -88,6 +91,14 @@ library CloseLoanLogic {
         uint256 remainingBTCAmt;
         /// @dev Remaining debt asset (USDC) after all operations
         uint256 remainingDebtAssetBal;
+        /// @dev Total paid in USD (including flash loan premium and pre-closure fee)
+        uint256 grossCloseCostUsd;
+    }
+
+    function _resolveStorage(bytes32 slot) private pure returns (LoanStorage.LoanStorageData storage $) {
+        assembly {
+            $.slot := slot
+        }
     }
 
     /**
@@ -105,20 +116,21 @@ library CloseLoanLogic {
      * - All remaining cbBTC and USDC on the Loan contract (above pre-snapshot balances) MUST be
      *   forwarded to the borrower
      *
+     * @param storageSlot ERC-7201 storage slot for LoanStorageData
      * @param ctx Context containing protocol addresses and configuration
      * @param params Parameters including LSA and withdrawal preference
-     * @param loansByLSA Storage mapping of all loans by LSA
+     * @return grossCloseCostUsd Total paid in USD (including flash loan premium and pre-closure fee)
      */
     function executeCloseLoan(
+        bytes32 storageSlot,
         DataTypes.ExecuteCloseLoanContext memory ctx,
-        DataTypes.ExecuteCloseLoanParams memory params,
-        mapping(address => DataTypes.LoanData) storage loansByLSA
-    ) internal {
+        DataTypes.ExecuteCloseLoanParams memory params
+    ) public returns (uint256) {
         LocalVarsCloseLoan memory vars;
 
         if (params.lsa == address(0)) revert Errors.ZeroAddress();
 
-        DataTypes.LoanData memory loan = loansByLSA[params.lsa];
+        DataTypes.LoanData memory loan = _resolveStorage(storageSlot).loansByLSA[params.lsa];
 
         if (loan.borrower == address(0)) revert Errors.LoanDoesNotExists();
         if (loan.borrower != msg.sender) revert Errors.UnauthorizedCaller();
@@ -169,7 +181,8 @@ library CloseLoanLogic {
         vars.flashLoanPremiumAmountInBTC =
             vars.flashLoanPremiumAmountUSD.mulDivUp(10 ** IERC20Metadata(ctx.btc).decimals(), vars.btcPrice);
 
-        if (vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD > vars.totalCollateralUSD) {
+        vars.grossCloseCostUsd = vars.preClosureFeeUSD + vars.flashLoanPremiumAmountUSD + vars.totalDebtUSD;
+        if (vars.grossCloseCostUsd > vars.totalCollateralUSD) {
             revert Errors.InsufficientCollateral();
         }
 
@@ -214,7 +227,7 @@ library CloseLoanLogic {
             IERC20(ctx.debtAsset).safeTransfer(loan.borrower, vars.remainingDebtAssetBal);
         }
 
-        emit ILoan.Loan__ClosedLoan(params.lsa);
+        return vars.grossCloseCostUsd;
     }
 
     /**

@@ -115,20 +115,21 @@ npm run prettier:write       # Format
 
 ```
 make deploy-local (FOUNDRY_PROFILE=local)
-├── Phase 1: DeployPhase1.s.sol
-│   └── AccessManager → MockTokens → MockOracles → BTCVault → save JSON
-├── Phase 2: lending-pool
+├── Phase 1: DeployPhase1Local.s.sol → bitmor-deploy save
+│   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy)
+├── Phase 2: lending-pool → bitmor-deploy save-lp
 │   └── npm run bitmor:localhost:dev:migration
-├── Phase 3a: DeployPhase3.s.sol
-│   └── USDCVault → SwapAdapter → Loan → Strategies → roles → save JSON
-├── Phase 3b: SchedulePhase3.s.sol
-│   └── Schedule timelocked operations (1-day delay + 10min buffer)
-├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
-└── Phase 3c: ExecutePhase3.s.sol
-    └── Execute scheduled operations via AccessManager
+├── Phase 3: DeployLibraries → bitmor-deploy save → bitmor-deploy libraries
+│            DeployPhase3Local.s.sol → bitmor-deploy save
+│   └── USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
+│       → Beacon chain (LoanVault impl → Beacon → Controller → Factory)
+│       → Strategies → Wire strategies (as ADMIN) → Oracle reconfig
+│       → Role setup + UPGRADER wiring
+└── Phase 4: PostDeployChecks.s.sol
+    └── Validate proxy pointers, beacon ownership, role wiring
 ```
 
-The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execution delays. `SCHEDULE_BUFFER` (10 minutes) compensates for timestamp drift between Foundry simulation and broadcast.
+**Address registry:** All addresses are saved to `deployments/<chainId>/latest.json` by the `bitmor-deploy` TS CLI (`deploy/tools/`). Forge scripts no longer write JSON directly. Timestamped snapshots are created for each save.
 
 ## Architecture
 
@@ -141,13 +142,32 @@ The schedule/execute pattern uses OpenZeppelin's AccessManager with 1-day execut
 5. Flash loan repaid from user's deposit
 6. User repays monthly; on completion, collateral returned
 
+### Proxy Architecture (loan-provider/)
+
+All core contracts are deployed behind proxies with ERC-7201 namespaced storage:
+
+| Contract | Proxy Pattern | Upgrade Control |
+|----------|--------------|-----------------|
+| Loan | UUPS | UPGRADER role (48h delay) |
+| BTCVault | UUPS | UPGRADER role (48h delay) |
+| USDCVault | UUPS | UPGRADER role (48h delay) |
+| AutoRepayment | UUPS | UPGRADER role (48h delay) |
+| BitmorAddressesProvider | UUPS | UPGRADER role (48h delay) |
+| LoanVault | BeaconProxy | BeaconController (48h delay) |
+| LoanVaultFactory | Non-upgradeable | Uses beacon address |
+| BeaconController | Non-upgradeable | AccessManaged wrapper |
+| Strategies | Non-upgradeable | Swappable via vault curator |
+
 ### Core Contracts (loan-provider/src/)
 
 **Protocol Layer**:
-- `protocol/Loan.sol` - Main entry point for loan lifecycle
-- `protocol/LoanVault.sol` - Per-loan smart account (LSA) holding Aave position
-- `protocol/LoanVaultFactory.sol` - Minimal proxy factory for deterministic LSA deployment
-- `protocol/AutoRepayment.sol` - Scheduled repayment automation
+- `protocol/Loan.sol` - Main entry point for loan lifecycle (UUPS upgradeable)
+- `protocol/LoanVault.sol` - Per-loan smart account (LSA) holding Aave position (BeaconProxy)
+- `protocol/LoanVaultFactory.sol` - Factory deploying LoanVaults as BeaconProxies
+- `protocol/AutoRepayment.sol` - Scheduled repayment automation (UUPS upgradeable)
+- `protocol/BeaconController.sol` - AccessManaged wrapper for beacon upgrades
+- `protocol/BitmorAddressesProvider.sol` - Protocol address registry (UUPS upgradeable)
+- `protocol/LoanStorage.sol` - ERC-7201 namespaced storage for Loan
 
 **Logic Libraries** (`libraries/logic/`):
 - `LoanLogic.sol` - Loan initialization, validation, state updates for liquidations
@@ -177,17 +197,41 @@ Standard Aave V2 structure — `protocol/`, `interfaces/`, `flashloan/`, `adapte
 
 ### Script Architecture (loan-provider/script/)
 
+```
+loan-provider/script/
+├── deployment/
+│   ├── DeploymentConstants.sol          # Shared constants
+│   ├── DeploymentBase.s.sol             # Proxy helpers, role wiring, preflight, manifest
+│   ├── PostDeployChecks.s.sol           # Post-deploy invariant validation
+│   ├── local/                           # Local Anvil scripts
+│   │   ├── DeployPhase1Local.s.sol
+│   │   └── DeployPhase3Local.s.sol
+│   └── mainnet/                         # Base mainnet scripts
+│       ├── DeployPhase1Mainnet.s.sol
+│       ├── DeployPhase3Mainnet.s.sol
+│       └── TransferToMultisig.s.sol
+├── upgrade/                             # Upgrade scripts
+│   ├── UpgradeUUPS.s.sol
+│   └── UpgradeBeacon.s.sol
+├── config/                              # Per-network configs
+│   ├── RolesData.sol                    # Role definitions (selectors, IDs, delays)
+│   ├── LocalRolesConfig.sol             # All roles → deployer
+│   └── MainnetRolesConfig.sol           # Roles → multisig addresses
+├── HelperConfig.s.sol                   # Network-aware address reader
+└── helpers/
+    └── DeploymentHelper.s.sol           # Common deployment utilities
+```
+
 **HelperConfig.s.sol** is the single source of truth for deployment addresses:
-- **Type A getters** (read from `deployments.json`): `getAccessManager()`, `getLoan()`, `getBTCVault()`, `getUSDCVault()`, `getLoanVaultFactory()`, `getSwapAdapterWrapper()`, etc.
-- **Type B getters** (mainnet constants): `getAaveV3Pool()`, `getAaveAddressesProvider()`
-- **Type C getters** (lending pool): `getBitmorPool()`, `getOracle()` — read from `../lending-pool/deployed-contracts.json`
+- **All getters** read from `../deployments/<chainId>/latest.json` using dot-path keys (e.g., `.loanProvider.loan`, `.lendingPool.pool`, `.tokens.usdc`)
+- **Mainnet overrides**: `getAaveV3Pool()`, `getAaveAddressesProvider()`, `getCbBTC()`, `getUSDC()` return hardcoded constants on Base mainnet
 
 **Chain Behavior**:
 | Chain | Bitmor Contracts | External Protocols |
 |-------|------------------|--------------------|
-| Local (31337) | `deployments.json` | `deployments.json` (mocks) |
-| Testnet (84532) | `deployments.json` | `deployments.json` (mocks) |
-| Mainnet (8453) | `deployments.json` | Constants |
+| Local (31337) | `deployments/31337/latest.json` | `deployments/31337/latest.json` (mocks) |
+| Testnet (84532) | `deployments/84532/latest.json` | `deployments/84532/latest.json` (mocks) |
+| Mainnet (8453) | `deployments/8453/latest.json` | Constants |
 
 ## Testing
 
@@ -212,7 +256,7 @@ Standard Aave V2 structure — `protocol/`, `interfaces/`, `flashloan/`, `adapte
 | `UnitTestBase` | BitmorTestBase | MockAaveV3Pool, MockERC20, `_fundUSDC()`, `_fundCbBTC()` |
 | `LoanUnitTestBase` | UnitTestBase | Full Loan+mock infrastructure, `_createStandardLoan()` |
 | `ForkTestBase` | BitmorTestBase | Real Aave V3 on fork, `_dealToken()` |
-| `IntegrationTestBase` | BitmorTestBase | Loads addresses from `deployments.json` |
+| `IntegrationTestBase` | BitmorTestBase | Loads addresses from `deployments/<chainId>/latest.json` |
 
 **Integration tests** require Anvil running with `make deploy-local` completed first.
 
@@ -249,20 +293,24 @@ Two `cast` wallets required: `bitmor_owner` (admin/deployer) and `bitmor_user` (
 
 ```
 @bitmor/=src/
-@openzeppelin/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts-upgradeable/lib/openzeppelin-contracts/contracts/
+@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+@openzeppelin-foundry-upgrades/=lib/openzeppelin-foundry-upgrades/src/
 @solady/=lib/solady/src/
 @btcVault/=src/vaults/btc-vault/
 @usdcVault/=src/vaults/usdc-vault/
+@bitmor-config/=script/config/
+@lending-pool/=../lending-pool/contracts/
 ```
 
 ### Key Addresses
 
-Deployed addresses: `loan-provider/deployments.json` and `lending-pool/deployed-contracts.json`.
+Deployed addresses: `deployments/<chainId>/latest.json` (unified registry for all modules).
 Base Sepolia Aave V3 Pool: `0xcFc53C27C1b813066F22D2fa70C3D0b4CAa70b7B`
 
 ## Role Configuration (AccessManager)
 
-Role definitions: `loan-provider/src/accessManager/RolesData.sol`
+Role definitions: `loan-provider/script/config/RolesData.sol`
 
 ### Operational Roles
 
@@ -274,6 +322,7 @@ Role definitions: `loan-provider/src/accessManager/RolesData.sol`
 | LPM_FAST   | 3   | Loan        | 0      | Emergency pause                      |
 | LPM_SLOW   | 30  | Loan        | 1 day  | State variable updates, unpause      |
 | ARE        | 4   | AutoRepay   | 0      | Auto repayment execution             |
+| UPGRADER   | 5   | All proxies | 48h    | UUPS + beacon upgrades               |
 | BVM_FAST   | 11  | BTCVault    | 0      | Pause, emergency withdraw            |
 | BVM_SLOW   | 110 | BTCVault    | 1 day  | Fee recipient, unpause               |
 | BVC        | 12  | BTCVault    | 1 day  | Strategy add/remove/cap              |
@@ -290,6 +339,7 @@ Role definitions: `loan-provider/src/accessManager/RolesData.sol`
 Guardians cancel delayed operations before execution:
 - `GUARDIAN_LPM_SLOW` (930), `GUARDIAN_BVM_SLOW` (9110), `GUARDIAN_BVC` (912)
 - `GUARDIAN_BVA_SLOW` (9130), `GUARDIAN_UVM_SLOW` (9210), `GUARDIAN_UVC` (922)
+- `GUARDIAN_UPGRADER` (95) - Can cancel pending proxy upgrades during 48h window
 
 ## Security Analysis
 
@@ -317,13 +367,17 @@ Security documentation: `vulnerability-reports/`, `Vulnerability-testing-list.md
 |----------|------|
 | Network config | `loan-provider/script/HelperConfig.s.sol` |
 | Deployment constants | `loan-provider/script/deployment/DeploymentConstants.sol` |
-| Role definitions | `loan-provider/src/accessManager/RolesData.sol` |
-| Phase 1 deploy | `loan-provider/script/deployment/DeployPhase1.s.sol` |
-| Phase 3 deploy | `loan-provider/script/deployment/DeployPhase3.s.sol` |
-| Schedule ops | `loan-provider/script/deployment/SchedulePhase3.s.sol` |
-| Execute ops | `loan-provider/script/deployment/ExecutePhase3.s.sol` |
+| Deployment base | `loan-provider/script/deployment/DeploymentBase.s.sol` |
+| Role definitions | `loan-provider/script/config/RolesData.sol` |
+| Local roles | `loan-provider/script/config/LocalRolesConfig.sol` |
+| Mainnet roles | `loan-provider/script/config/MainnetRolesConfig.sol` |
+| Phase 1 deploy (local) | `loan-provider/script/deployment/local/DeployPhase1Local.s.sol` |
+| Phase 3 deploy (local) | `loan-provider/script/deployment/local/DeployPhase3Local.s.sol` |
+| Post-deploy checks | `loan-provider/script/deployment/PostDeployChecks.s.sol` |
+| UUPS upgrade | `loan-provider/script/upgrade/UpgradeUUPS.s.sol` |
+| Beacon upgrade | `loan-provider/script/upgrade/UpgradeBeacon.s.sol` |
 | Deploy orchestrator | `deploy/scripts/deploy-local.sh` |
 | Protocol invariants | `Invariants.md` |
 | Test constants | `loan-provider/test/helpers/TestConstants.sol` |
-| loan-provider addresses | `loan-provider/deployments.json` |
-| lending-pool addresses | `lending-pool/deployed-contracts.json` |
+| Deployment registry | `deployments/<chainId>/latest.json` |
+| Deploy CLI tool | `deploy/tools/src/cli.ts` |

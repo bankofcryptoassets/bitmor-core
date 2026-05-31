@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Clones} from "@openzeppelin/proxy/Clones.sol";
+import {BeaconProxy} from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 import {ILoanVault} from "../interfaces/ILoanVault.sol";
 import {ILoanVaultFactory} from "../interfaces/ILoanVaultFactory.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
@@ -10,17 +10,17 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @title LoanVaultFactory
  * @author Bitmor Protocol
  * @notice Factory for deploying LoanVault instances using CREATE2
- * @dev Uses minimal proxy (clone) pattern for gas-efficient deployment.
+ * @dev Uses BeaconProxy pattern for upgradeable deployment.
  * Produces deterministic addresses that can be computed before deployment.
  *
  * ## Design
- * - Uses OpenZeppelin Clones for minimal proxy deployment
+ * - Uses BeaconProxy for upgradeable proxy deployment
  * - CREATE2 enables deterministic address computation
  * - Salt is derived from borrower address and timestamp
  * - Only the authorized Loan contract can create vaults
  *
  * ## Benefits
- * - Gas efficient: ~10x cheaper than deploying full contract
+ * - Upgradeable: All LoanVaults can be upgraded via the beacon
  * - Predictable: Addresses can be computed off-chain
  * - Secure: Only Loan contract can create vaults
  *
@@ -30,14 +30,14 @@ contract LoanVaultFactory is ILoanVaultFactory {
     // ============ State Variables ============
 
     /**
-     * @notice The LoanVault implementation contract to clone
+     * @notice The UpgradeableBeacon that points to the LoanVault implementation
      */
-    address public immutable i_IMPLEMENTATION;
+    address public immutable i_BEACON;
 
     /**
      * @notice The Loan contract authorized to create vaults
      */
-    address public immutable i_LOAN; // This will be our Loan.sol contract address
+    address public immutable i_LOAN;
 
     // ============ Modifiers ============
 
@@ -49,34 +49,37 @@ contract LoanVaultFactory is ILoanVaultFactory {
     // ============ Constructor ============
 
     /**
-     * @notice Initializes the factory with implementation
-     * @param implementation The LoanVault implementation address to clone
-     * @param loanContract The Loan contract address authorized to create vaults
+     * @notice Initializes the factory with the beacon and loan contract
+     * @param _beacon The UpgradeableBeacon address for LoanVault
+     * @param _loan The Loan contract address authorized to create vaults
      */
-    constructor(address implementation, address loanContract) {
-        if (implementation == address(0)) revert Errors.ZeroAddress();
-        if (loanContract == address(0)) revert Errors.ZeroAddress();
+    constructor(address _beacon, address _loan) {
+        if (_beacon == address(0)) revert Errors.ZeroAddress();
+        if (_loan == address(0)) revert Errors.ZeroAddress();
 
-        i_IMPLEMENTATION = implementation;
-        i_LOAN = loanContract;
+        i_BEACON = _beacon;
+        i_LOAN = _loan;
     }
 
     // ============ Public Functions ============
 
     /**
      * @notice Computes the deterministic address for a vault before deployment
-     * @dev Uses CREATE2 formula: keccak256(0xff ++ factory ++ salt ++ keccak256(initCode))
+     * @dev Uses CREATE2 formula: keccak256(0xff ++ factory ++ salt ++ keccak256(creationCode))
      * @param borrower The borrower's address
      * @param timestamp The creation timestamp
      * @return The predicted vault address
      */
     function computeAddress(address borrower, uint256 timestamp) external view returns (address) {
         bytes32 salt = _generateSalt(borrower, timestamp);
-        return Clones.predictDeterministicAddress(i_IMPLEMENTATION, salt, address(this));
+        bytes memory initData = abi.encodeCall(ILoanVault.initialize, (i_LOAN, borrower));
+        bytes memory creationCode = abi.encodePacked(type(BeaconProxy).creationCode, abi.encode(i_BEACON, initData));
+        bytes32 hash = keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(creationCode)));
+        return address(uint160(uint256(hash)));
     }
 
     /**
-     * @notice Creates a new LoanVault using CREATE2
+     * @notice Creates a new LoanVault using CREATE2 with BeaconProxy
      * @param borrower The user creating the loan
      * @param timestamp The creation timestamp (for salt generation)
      * @return vault The address of the newly created vault
@@ -86,11 +89,11 @@ contract LoanVaultFactory is ILoanVaultFactory {
         // Generate deterministic salt from borrower and timestamp
         bytes32 salt = _generateSalt(borrower, timestamp);
 
-        // Deploy clone using CREATE2 (deterministic address)
-        vault = Clones.cloneDeterministic(i_IMPLEMENTATION, salt);
+        // Encode initialization data for the BeaconProxy
+        bytes memory initData = abi.encodeCall(ILoanVault.initialize, (i_LOAN, borrower));
 
-        // Initialize the vault
-        ILoanVault(vault).initialize(i_LOAN, borrower);
+        // Deploy BeaconProxy using CREATE2 (deterministic address)
+        vault = address(new BeaconProxy{salt: salt}(i_BEACON, initData));
 
         emit LoanVaultFactory__VaultCreated(vault, borrower, salt);
 

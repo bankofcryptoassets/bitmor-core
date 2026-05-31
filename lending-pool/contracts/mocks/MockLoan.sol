@@ -118,7 +118,7 @@ contract MockLoan is ILoan {
         }
 
         // Update last payment timestamp
-        _loanData[lsa].lastPaymentTimestamp = block.timestamp;
+        _loanData[lsa].lastPaymentTimestamp = uint32(block.timestamp);
 
         // Track call for testing
         microLiquidationCount[lsa]++;
@@ -138,7 +138,7 @@ contract MockLoan is ILoan {
         _loanData[lsa].status = DataTypes.LoanStatus.Liquidated;
 
         // Update timestamp
-        _loanData[lsa].lastPaymentTimestamp = block.timestamp;
+        _loanData[lsa].lastPaymentTimestamp = uint32(block.timestamp);
 
         // Track call for testing
         fullLiquidationCount[lsa]++;
@@ -158,7 +158,7 @@ contract MockLoan is ILoan {
         _loanData[lsa].status = DataTypes.LoanStatus.Completed;
 
         // Update timestamp
-        _loanData[lsa].lastPaymentTimestamp = block.timestamp;
+        _loanData[lsa].lastPaymentTimestamp = uint32(block.timestamp);
 
         // Track call for testing
         microLiquidationCompletionCount[lsa]++;
@@ -315,16 +315,16 @@ contract MockLoan is ILoan {
     ) external {
         _loanData[lsa] = DataTypes.LoanData({
             borrower: borrower,
-            depositAmount: loanAmount / 3, // ~33% deposit
-            loanAmount: loanAmount,
-            btcAmount: btcAmount,
-            estimatedMonthlyPayment: monthlyPayment,
-            duration: duration,
-            createdAt: block.timestamp,
-            insuranceID: 0,
-            lastPaymentTimestamp: block.timestamp,
+            duration: uint16(duration),
+            status: DataTypes.LoanStatus.Active,
+            createdAt: uint32(block.timestamp),
+            lastPaymentTimestamp: uint32(block.timestamp),
+            depositAmount: uint96(loanAmount / 3), // ~33% deposit
+            loanAmount: uint96(loanAmount),
+            btcAmount: uint64(btcAmount),
+            estimatedMonthlyPayment: uint96(monthlyPayment),
             amountRepaidInCurrentPeriod: 0,
-            status: DataTypes.LoanStatus.Active
+            insuranceID: 0
         });
         _loanExists[lsa] = true;
     }
@@ -355,28 +355,28 @@ contract MockLoan is ILoan {
      * @notice Set last payment timestamp (for overdue testing)
      */
     function setLastPaymentTimestamp(address lsa, uint256 timestamp) external {
-        _loanData[lsa].lastPaymentTimestamp = timestamp;
+        _loanData[lsa].lastPaymentTimestamp = uint32(timestamp);
     }
 
     /**
      * @notice Set collateral amount
      */
     function setCollateralAmount(address lsa, uint256 amount) external {
-        _loanData[lsa].btcAmount = amount;
+        _loanData[lsa].btcAmount = uint64(amount);
     }
 
     /**
      * @notice Set estimated monthly payment
      */
     function setEstimatedMonthlyPayment(address lsa, uint256 amount) external {
-        _loanData[lsa].estimatedMonthlyPayment = amount;
+        _loanData[lsa].estimatedMonthlyPayment = uint96(amount);
     }
 
     /**
      * @notice Set loan duration
      */
     function setDuration(address lsa, uint256 duration) external {
-        _loanData[lsa].duration = duration;
+        _loanData[lsa].duration = uint16(duration);
     }
 
     /**
@@ -417,6 +417,6 @@ contract MockLoan is ILoan {
         // Set timestamp such that: lastPayment + grace + interval < now
         // So: lastPayment = now - grace - interval - daysOverdue
         uint256 overdueTime = _gracePeriod + REPAYMENT_INTERVAL + (daysOverdue * 1 days);
-        _loanData[lsa].lastPaymentTimestamp = block.timestamp - overdueTime;
+        _loanData[lsa].lastPaymentTimestamp = uint32(block.timestamp - overdueTime);
     }
 }

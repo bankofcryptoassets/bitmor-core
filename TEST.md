@@ -252,7 +252,7 @@ make test:fork
 
 ### Test hanging or timing out
 
-For fork tests, the deployment block is read from `deployments.json`. If the file is missing or outdated:
+For fork tests, deployment addresses are read from `deployments/<chainId>/latest.json` via HelperConfig. If the registry is missing or outdated:
 ```bash
 cd loan-provider
 BLOCK_NUMBER=latest make test:fork
@@ -281,8 +281,11 @@ The loan-provider uses different profiles for different test types:
 | `unit` | Unit tests with mocks (default for `make test`) |
 | `integration` | Integration tests against local Anvil (`make test:integration`) |
 | `fork` | Fork tests against Base Sepolia |
-| `security` | Analysis builds with extra checks |
-| `local` | Local Anvil deployments |
+| `fuzz` | Fuzz tests (10,000 runs) |
+| `invariant` | Invariant tests (10,000 runs, depth 50) |
+| `coverage` | Coverage with optimizer disabled |
+| `security` | Model checker (CHC engine, overflow/underflow targets) |
+| `local` | Fast local deployment builds |
 
 Example:
 ```bash

@@ -16,12 +16,18 @@ interface ILoan {
      * @notice Emitted when a new loan is created
      * @param borrower Address of the loan borrower
      * @param lsa Address of the created Loan Specific Address
+     * @param monthlyPayment Amount to be paid monthly for the loan.
      * @param loanAmount Total loan amount in USDC (6 decimals)
      * @param btcAmount Target cbBTC amount (8 decimals)
      * @param data Additional data for insurance management
      */
     event Loan__LoanCreated(
-        address indexed borrower, address indexed lsa, uint256 loanAmount, uint256 btcAmount, bytes data
+        address indexed borrower,
+        address indexed lsa,
+        uint256 indexed monthlyPayment,
+        uint256 loanAmount,
+        uint256 btcAmount,
+        bytes data
     );
 
     /**
@@ -33,8 +39,9 @@ interface ILoan {
     /**
      * @notice Emitted when a loan is closed via early pre-closure
      * @param lsa Address of the closed Loan Specific Address
+     * @param grossCloseCostUsd Gross paid in USD (including flash loan premium and pre-closure fee)
      */
-    event Loan__ClosedLoan(address indexed lsa);
+    event Loan__ClosedLoan(address indexed lsa, uint256 indexed grossCloseCostUsd);
 
     /**
      * @notice Emitted when a loan is completed.
@@ -78,6 +85,7 @@ interface ILoan {
      * @notice Emitted when loan data is updated after a micro liquidation
      * @param lsa Address of the Loan Specific Address
      * @param newDuration Remaining loan duration in months after reduction
+     * !TODO: add btc amount deducted
      */
     event Loan__LoanDataForMicroLiquidationUpdated(address indexed lsa, uint256 indexed newDuration);
 
@@ -170,6 +178,14 @@ interface ILoan {
 
     event Loan__BitmorAddressesProviderUpdated(address indexed newBitmorAddressesProvider);
 
+    // ============ Initialization ============
+
+    /**
+     * @notice Initializes the Loan contract with all protocol addresses and configuration
+     * @param params Struct containing all initialization parameters
+     */
+    function initialize(DataTypes.InitParams calldata params) external;
+
     // ============ Main Functions ============
 
     /**
@@ -177,7 +193,6 @@ interface ILoan {
      * @dev Creates LSA, calculates loan terms, stores loan data on-chain, and executes flash loan flow.
      *
      * Initialization invariants:
-     * - MUST be called by an account with the `EXECUTOR` role only
      * - MUST NOT allow re-initialization of an existing LSA; each LoanVault is one-loan-only
      * - MUST deploy a new LoanVault via the factory, and that vault MUST NOT have been previously initialized
      * - MUST set `loanData.status` to `Active` for the newly created LSA
@@ -191,7 +206,6 @@ interface ILoan {
      * @param duration Loan duration in months
      * @param data Data for insurance management
      * @return lsa Address of the created Loan Specific Address
-     * @custom:access Restricted to `EXECUTOR` role
      */
     function initializeLoan(
         uint256 depositAmount,
@@ -343,7 +357,7 @@ interface ILoan {
      * @param gracePeriod New grace period in seconds
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setGracePeriod(uint256 gracePeriod) external;
+    function setGracePeriod(uint32 gracePeriod) external;
 
     /// @notice Returns the `s_gracePeriod` value in seconds.
     /// @return gracePeriod The current grace period in seconds
@@ -363,7 +377,7 @@ interface ILoan {
      * @param newFee New pre-closure fee in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setPreClosureFee(uint256 newFee) external;
+    function setPreClosureFee(uint16 newFee) external;
 
     /**
      * @notice Calculates loan details based on `btcAmount` and `duration`
@@ -384,7 +398,7 @@ interface ILoan {
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setSlippageForSharesToAsset(uint256 newSlippage) external;
+    function setSlippageForSharesToAsset(uint16 newSlippage) external;
 
     /// @notice Returns the `s_slippage_sharesToAsset` value in basis points.
     /// @return The current shares-to-asset slippage tolerance in basis points
@@ -396,7 +410,7 @@ interface ILoan {
      * @param newSlippage New slippage value in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setSlippageForSwap(uint256 newSlippage) external;
+    function setSlippageForSwap(uint16 newSlippage) external;
 
     /// @notice Returns the `s_slippage_swap` value in basis points.
     /// @return The current swap slippage tolerance in basis points
@@ -408,7 +422,7 @@ interface ILoan {
      * @param newMaxBTCAmt New maximum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setMaxBTCAmount(uint256 newMaxBTCAmt) external;
+    function setMaxBTCAmount(uint64 newMaxBTCAmt) external;
 
     /// @notice Returns the `s_maxBTCAmt` value (8 decimals).
     /// @return The maximum cbBTC amount
@@ -419,7 +433,7 @@ interface ILoan {
      * @param newMinBTCAmt New minimum cbBTC amount (8 decimals)
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setMinBTCAmount(uint256 newMinBTCAmt) external;
+    function setMinBTCAmount(uint64 newMinBTCAmt) external;
 
     /// @notice Returns the `s_minBTCAmt` value (8 decimals).
     /// @return The minimum cbBTC amount
@@ -435,7 +449,7 @@ interface ILoan {
      * @param newMinDepositBps New minimum deposit in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setMinDepositBps(uint256 newMinDepositBps) external;
+    function setMinDepositBps(uint16 newMinDepositBps) external;
 
     /**
      * @notice Updates the liquidation fee applied to the liquidation bonus
@@ -443,7 +457,7 @@ interface ILoan {
      * @param newLiquidationFee New liquidation fee in basis points
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setLiquidationFeeBps(uint256 newLiquidationFee) external;
+    function setLiquidationFeeBps(uint16 newLiquidationFee) external;
 
     /// @notice Returns the `s_liquidationFee` value in basis points.
     /// @return The current liquidation fee in basis points
@@ -455,7 +469,7 @@ interface ILoan {
      * @param newMaxDuration New maximum duration in months
      * @custom:access Restricted to `LPM_SLOW` role
      */
-    function setMaxDuration(uint256 newMaxDuration) external;
+    function setMaxDuration(uint16 newMaxDuration) external;
 
     /// @notice Returns the `s_maxDuration` value in months.
     /// @return The maximum loan duration in months

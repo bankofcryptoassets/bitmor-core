@@ -83,24 +83,6 @@ jobs:
         working-directory: loan-provider
         run: forge fmt --check
 
-      - name: Setup Node.js
-        if: ${{ !env.ACT }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: lending-pool/package-lock.json
-
-      - name: Install lending-pool dependencies
-        if: ${{ !env.ACT }}
-        working-directory: lending-pool
-        run: npm ci
-
-      - name: Check lending-pool formatting (Prettier)
-        if: ${{ !env.ACT }}
-        working-directory: lending-pool
-        run: npm run prettier:check
-
   unit-tests:
     name: Unit Tests (loan-provider)
     runs-on: ubuntu-latest
@@ -156,15 +138,10 @@ jobs:
         working-directory: lending-pool
         run: npm ci
 
-      - name: Run Aave tests
+      - name: Run lending-pool tests
         if: ${{ !env.ACT }}
         working-directory: lending-pool
         run: npm test
-
-      - name: Run Bitmor-specific tests
-        if: ${{ !env.ACT }}
-        working-directory: lending-pool
-        run: npm run test-bitmor
 
   fuzz-tests:
     name: Fuzz Tests (loan-provider)

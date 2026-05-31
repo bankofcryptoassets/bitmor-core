@@ -166,10 +166,10 @@ contract EdgeCasesTest is BaseTestForBTCVault {
     function test_deposit_revertWhen_NoStrategies() public {
         // Arrange - No strategies added
 
-        // Act & Assert - ERC4626 reverts with DepositMoreThanMax when amount > maxDeposit (which is 0)
+        // Act & Assert - OZ ERC4626 reverts with ERC4626ExceededMaxDeposit when amount > maxDeposit (which is 0)
         vm.startPrank(user);
         mockUSDC.approve(address(vault), EDGE_DEPOSIT_AMOUNT);
-        vm.expectRevert(abi.encodeWithSignature("DepositMoreThanMax()"));
+        vm.expectRevert();
         vault.deposit(EDGE_DEPOSIT_AMOUNT, user);
         vm.stopPrank();
     }

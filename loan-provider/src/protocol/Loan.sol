@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {ReentrancyGuard} from "@openzeppelin/utils/ReentrancyGuard.sol";
-import {AccessManaged} from "@openzeppelin/access/manager/AccessManaged.sol";
-import {Pausable} from "@openzeppelin/utils/Pausable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessManagedUpgradeable} from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import {LoanLogic, LoanMath} from "../libraries/logic/LoanLogic.sol";
 import {LSALogic} from "../libraries/logic/LSALogic.sol";
@@ -42,48 +44,78 @@ import {LoanStorage} from "./LoanStorage.sol";
  * @custom:security Uses reentrancy guards, access control, and pausability for secure operations
  * @custom:security Flash loan callback validates caller is Aave V3 pool and initiator is this contract
  */
-contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, AccessManaged, Pausable {
-    using LoanLogic for mapping(address => DataTypes.LoanData);
+contract Loan is
+    Initializable,
+    UUPSUpgradeable,
+    LoanStorage,
+    ILoan,
+    ReentrancyGuardTransient,
+    IFlashLoanSimpleReceiver,
+    AccessManagedUpgradeable,
+    PausableUpgradeable
+{
     using LSALogic for address;
-    using FlashLoanLogic for DataTypes.ExecuteFLOperationContext;
-    using CloseLoanLogic for DataTypes.ExecuteCloseLoanContext;
-    using LoanLogic for DataTypes.CalculateLoanDetailsContext;
 
     // ============ Constructor ============
 
-    /**
-     * @notice Initializes the Loan contract with protocol addresses and configuration
-     * @param _manager AccessManager contract address for role-based access control
-     * @param _aaveV3Pool Aave V3 pool address for flash loans
-     * @param _aaveAddressesProvider Addresses Provider for flash loan operations
-     * @param _bitmorPool Bitmor Lending Pool
-     * @param _oracle Price Oracle
-     * @param _collateralAsset `bvBTC` address
-     * @param _debtAsset USDC address
-     * @param _btc Wrapped BTC address
-     * @param _preClosureFeeBps Loan pre-closure fee (in bps)
-     * @param _gracePeriod Grace period for monthly payment in seconds
-     */
-    constructor(
-        address _manager,
-        address _aaveV3Pool,
-        address _aaveAddressesProvider,
-        address _bitmorPool,
-        address _oracle,
-        address _collateralAsset,
-        address _debtAsset,
-        address _btc,
-        uint256 _preClosureFeeBps,
-        uint256 _gracePeriod
-    )
-        LoanStorage(_aaveV3Pool, _aaveAddressesProvider, _bitmorPool, _oracle, _collateralAsset, _debtAsset, _btc)
-        AccessManaged(_manager)
-    {
-        if (_preClosureFeeBps >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
-        if (_gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
-        s_preClosureFeeBps = _preClosureFeeBps;
-        s_gracePeriod = _gracePeriod;
+    /**
+     * @notice Initializes the Loan contract with all protocol addresses and configuration
+     * @param params Struct containing all initialization parameters
+     * @dev Uses InitParams struct to avoid stack-too-deep with 18 parameters.
+     *      All addresses validated via `_checkZeroAddress()`. Numeric params validated
+     *      against BASIS_POINT_SCALE, MAX_GRACE_PERIOD, MAX_LIQUIDATION_FEE, etc.
+     */
+    function initialize(DataTypes.InitParams calldata params) public initializer {
+        __AccessManaged_init(params.manager);
+        __Pausable_init();
+
+        LoanStorageData storage $ = _getLoanStorage();
+
+        // Validate addresses
+        _checkZeroAddress(params.aaveV3Pool);
+        _checkZeroAddress(params.aaveAddressesProvider);
+        _checkZeroAddress(params.bitmorPool);
+        _checkZeroAddress(params.oracle);
+        _checkZeroAddress(params.collateralAsset);
+        _checkZeroAddress(params.debtAsset);
+        _checkZeroAddress(params.btc);
+        _checkZeroAddress(params.bitmorAddressesProvider);
+
+        // Validate numeric parameters
+        _checkValidFee(params.preClosureFeeBps);
+        if (params.gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
+        _checkValidSlippage(params.slippageSwap);
+        _checkValidSlippage(params.slippageSharesToAsset);
+        if (params.maxBTCAmt < params.minBTCAmt) revert Errors.InvalidInputs();
+        _checkZeroAmount(params.maxBTCAmt);
+        if (params.minDeposit >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
+        _checkZeroAmount(params.minDeposit);
+        if (params.maxDuration == 0) revert Errors.InvalidInputs();
+        if (params.liquidationFee > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
+
+        // Set all storage
+        $.aaveV3Pool = params.aaveV3Pool;
+        $.aaveAddressesProvider = params.aaveAddressesProvider;
+        $.bitmorPool = params.bitmorPool;
+        $.oracle = params.oracle;
+        $.collateralAsset = params.collateralAsset;
+        $.debtAsset = params.debtAsset;
+        $.btc = params.btc;
+        $.bitmorAddressesProvider = params.bitmorAddressesProvider;
+        $.preClosureFeeBps = params.preClosureFeeBps;
+        $.gracePeriod = params.gracePeriod;
+        $.slippageSwap = params.slippageSwap;
+        $.slippageSharesToAsset = params.slippageSharesToAsset;
+        $.maxBTCAmt = params.maxBTCAmt;
+        $.minBTCAmt = params.minBTCAmt;
+        $.minDeposit = params.minDeposit;
+        $.maxDuration = params.maxDuration;
+        $.liquidationFee = params.liquidationFee;
     }
 
     /**
@@ -113,6 +145,24 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         _;
     }
 
+    /**
+     * @notice Reverts if `value` >= BASIS_POINT_SCALE
+     * @param value The slippage value in basis points
+     */
+    modifier checkValidSlippage(uint256 value) {
+        _checkValidSlippage(value);
+        _;
+    }
+
+    /**
+     * @notice Reverts if `value` >= BASIS_POINT_SCALE
+     * @param value The fee value in basis points
+     */
+    modifier checkValidFee(uint256 value) {
+        _checkValidFee(value);
+        _;
+    }
+
     // ============ Main Loan Creation ============
 
     /**
@@ -124,30 +174,35 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         uint256 btcAmount,
         uint256 duration,
         bytes calldata data
-    ) external whenNotPaused restricted nonReentrant returns (address lsa) {
+    ) external whenNotPaused nonReentrant returns (address lsa) {
+        LoanStorageData storage $ = _getLoanStorage();
+        uint256 loanAmount;
+        uint256 monthlyPayment;
+
+        DataTypes.ExecuteInitializeLoanParams memory params = DataTypes.ExecuteInitializeLoanParams(
+            msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
+        );
+
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
+
         DataTypes.InitializeLoanContext memory ctx = DataTypes.InitializeLoanContext({
-            bitmorPool: i_BITMOR_POOL,
-            oracle: i_ORACLE,
-            btc: i_BTC,
-            debtAsset: i_DEBT_ASSET,
-            aavePool: i_AAVE_V3_POOL,
-            loanVaultFactory: getLoanVaultFactory(),
-            premiumCollector: getPremiumCollector(),
-            minBTCAmt: s_minBTCAmt,
-            maxBTCAmt: s_maxBTCAmt,
+            bitmorPool: $.bitmorPool,
+            oracle: $.oracle,
+            btc: $.btc,
+            debtAsset: $.debtAsset,
+            aavePool: $.aaveV3Pool,
+            loanVaultFactory: bap.getLoanVaultFactory(),
+            premiumCollector: bap.getPremiumCollector(),
+            minBTCAmt: $.minBTCAmt,
+            maxBTCAmt: $.maxBTCAmt,
             loanRepaymentInterval: LOAN_REPAYMENT_INTERVAL,
-            minDepositBps: s_minDeposit,
-            maxDuration: s_maxDuration
+            minDepositBps: $.minDeposit,
+            maxDuration: $.maxDuration
         });
 
-        lsa = s_loansByLSA.executeInitializeLoan(
-            s_userLoanCount,
-            s_userLoanAtIndex,
-            ctx,
-            DataTypes.ExecuteInitializeLoanParams(
-                msg.sender, depositAmount, premiumAmount, btcAmount, duration, INITIAL_INSURANCE_ID, data
-            )
-        );
+        (lsa, loanAmount, monthlyPayment) = LoanLogic.executeInitializeLoan(LOAN_STORAGE_LOCATION, ctx, params);
+
+        emit ILoan.Loan__LoanCreated(msg.sender, lsa, monthlyPayment, loanAmount, btcAmount, data);
     }
 
     /**
@@ -159,14 +214,17 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         nonReentrant
         returns (uint256 finalAmountRepaid)
     {
+        LoanStorageData storage $ = _getLoanStorage();
         finalAmountRepaid = RepayLogic.executeRepay(
-            i_BITMOR_POOL,
-            i_DEBT_ASSET,
-            i_COLLATERAL_ASSET,
+            LOAN_STORAGE_LOCATION,
+            $.bitmorPool,
+            $.debtAsset,
+            $.collateralAsset,
             getAutoRepayer(),
-            DataTypes.ExecuteRepayParams(lsa, amount, s_slippage_sharesToAsset),
-            s_loansByLSA
+            DataTypes.ExecuteRepayParams(lsa, amount, $.slippageSharesToAsset)
         );
+
+        emit ILoan.Loan__LoanRepaid(lsa, finalAmountRepaid);
     }
 
     // ============ Close Loan Function  ============
@@ -175,18 +233,21 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function closeLoan(address lsa, bool withdrawInBTC) external whenNotPaused nonReentrant {
+        LoanStorageData storage $ = _getLoanStorage();
         DataTypes.ExecuteCloseLoanContext memory ctx = DataTypes.ExecuteCloseLoanContext(
-            i_BITMOR_POOL,
-            i_AAVE_V3_POOL,
-            i_ORACLE,
-            i_DEBT_ASSET,
-            i_COLLATERAL_ASSET,
-            i_BTC,
-            s_preClosureFeeBps,
-            s_slippage_swap
+            $.bitmorPool,
+            $.aaveV3Pool,
+            $.oracle,
+            $.debtAsset,
+            $.collateralAsset,
+            $.btc,
+            $.preClosureFeeBps,
+            $.slippageSwap
         );
         DataTypes.ExecuteCloseLoanParams memory params = DataTypes.ExecuteCloseLoanParams(lsa, withdrawInBTC);
-        ctx.executeCloseLoan(params, s_loansByLSA);
+        uint256 grossCloseCostUsd = CloseLoanLogic.executeCloseLoan(LOAN_STORAGE_LOCATION, ctx, params);
+
+        emit ILoan.Loan__ClosedLoan(lsa, grossCloseCostUsd);
     }
 
     // ============ State Update Function  ============
@@ -200,15 +261,21 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         restricted
         checkIfLoanExists(lsa)
     {
-        s_loansByLSA.updateInsuranceId(lsa, insuranceID);
+        LoanLogic.updateInsuranceId(LOAN_STORAGE_LOCATION, lsa, insuranceID);
         emit Loan__InsuranceIDUpdated(lsa, insuranceID);
     }
 
     /**
      * @inheritdoc ILoan
      */
-    function updateLoanDataForMicroLiquidation(address _lsa) external whenNotPaused restricted checkZeroAddress(_lsa) {
-        uint256 newDuration = s_loansByLSA.updateLoanDataForMicroLiquidation(_lsa);
+    function updateLoanDataForMicroLiquidation(address _lsa)
+        external
+        whenNotPaused
+        restricted
+        checkZeroAddress(_lsa)
+        checkIfLoanExists(_lsa)
+    {
+        uint256 newDuration = LoanLogic.updateLoanDataForMicroLiquidation(LOAN_STORAGE_LOCATION, _lsa);
         emit Loan__LoanDataForMicroLiquidationUpdated(_lsa, newDuration);
     }
 
@@ -221,7 +288,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkZeroAddress(_lsa)
         checkIfLoanExists(_lsa)
     {
-        s_loansByLSA.updateLoanForMicroLiquidationCompletion(_lsa);
+        LoanLogic.updateLoanForMicroLiquidationCompletion(LOAN_STORAGE_LOCATION, _lsa);
 
         emit Loan__Completed(_lsa);
     }
@@ -237,7 +304,7 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkZeroAddress(_lsa)
         checkIfLoanExists(_lsa)
     {
-        s_loansByLSA.updateLoanDataForFullLiquidation(_lsa);
+        LoanLogic.updateLoanDataForFullLiquidation(LOAN_STORAGE_LOCATION, _lsa);
 
         emit Loan__LoanDataForFullLiquidationUpdated(_lsa);
     }
@@ -253,16 +320,18 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     {
         (bool initializingLoan, bytes memory flData) = abi.decode(params, (bool, bytes));
 
+        LoanStorageData storage $ = _getLoanStorage();
+        IBitmorAddressesProvider bap = IBitmorAddressesProvider($.bitmorAddressesProvider);
         DataTypes.ExecuteFLOperationContext memory ctx = DataTypes.ExecuteFLOperationContext({
-            aavePool: i_AAVE_V3_POOL,
-            bitmorPool: i_BITMOR_POOL,
-            swapper: getSwapper(),
-            debtAsset: i_DEBT_ASSET,
-            collateralAsset: i_COLLATERAL_ASSET,
-            btc: i_BTC,
-            feeCollector: getPremiumCollector(),
-            oracle: i_ORACLE,
-            maxSlippage: s_slippage_swap
+            aavePool: $.aaveV3Pool,
+            bitmorPool: $.bitmorPool,
+            swapper: bap.getSwapper(),
+            debtAsset: $.debtAsset,
+            collateralAsset: $.collateralAsset,
+            btc: $.btc,
+            feeCollector: bap.getPremiumCollector(),
+            oracle: $.oracle,
+            maxSlippage: $.slippageSwap
         });
 
         DataTypes.ExecuteFLOperationParams memory flOpParams = DataTypes.ExecuteFLOperationParams({
@@ -271,13 +340,13 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
             premium: premium,
             initiator: initiator,
             params: flData,
-            slippage_sharesToAsset: s_slippage_sharesToAsset
+            slippage_sharesToAsset: $.slippageSharesToAsset
         });
 
         if (initializingLoan) {
-            ctx.executeFLOperationInitiailizingLoan(flOpParams, s_loansByLSA);
+            FlashLoanLogic.executeFLOperationInitiailizingLoan(LOAN_STORAGE_LOCATION, ctx, flOpParams);
         } else {
-            ctx.executeFLOperationCloseLoan(flOpParams, s_loansByLSA);
+            FlashLoanLogic.executeFLOperationCloseLoan(LOAN_STORAGE_LOCATION, ctx, flOpParams);
         }
 
         return true;
@@ -295,34 +364,39 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkIfLoanExists(lsa)
         returns (DataTypes.LoanData memory)
     {
-        return s_loansByLSA[lsa];
+        return _getLoanStorage().loansByLSA[lsa];
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getUserLoanCount(address user) external view checkZeroAddress(user) returns (uint256) {
-        return s_userLoanCount[user];
+        return _getLoanStorage().userLoanCount[user];
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getUserLoanAtIndex(address user, uint256 index) external view checkZeroAddress(user) returns (address) {
-        if (index >= s_userLoanCount[user]) revert Errors.IndexOutOfBounds();
-        return s_userLoanAtIndex[user][index];
+        LoanStorageData storage $ = _getLoanStorage();
+        if (index >= $.userLoanCount[user]) revert Errors.IndexOutOfBounds();
+        return $.userLoanAtIndex[user][index];
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getUserAllLoans(address user) external view checkZeroAddress(user) returns (DataTypes.LoanData[] memory) {
-        uint256 count = s_userLoanCount[user];
+        LoanStorageData storage $ = _getLoanStorage();
+        uint256 count = $.userLoanCount[user];
         DataTypes.LoanData[] memory loans = new DataTypes.LoanData[](count);
 
-        for (uint256 i = 0; i < count; i++) {
-            address lsa = s_userLoanAtIndex[user][i];
-            loans[i] = s_loansByLSA[lsa];
+        for (uint256 i = 0; i < count;) {
+            address lsa = $.userLoanAtIndex[user][i];
+            loans[i] = $.loansByLSA[lsa];
+            unchecked {
+                ++i;
+            }
         }
 
         return loans;
@@ -332,14 +406,14 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc ILoan
      */
     function getCollateralAsset() external view returns (address) {
-        return i_COLLATERAL_ASSET;
+        return _getLoanStorage().collateralAsset;
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getDebtAsset() external view returns (address) {
-        return i_DEBT_ASSET;
+        return _getLoanStorage().debtAsset;
     }
 
     /**
@@ -352,9 +426,10 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkZeroAmount(deposit)
         returns (uint256 strikePrice)
     {
-        IPriceOracleGetter oracle = IPriceOracleGetter(i_ORACLE);
+        LoanStorageData storage $ = _getLoanStorage();
+        IPriceOracleGetter oracle = IPriceOracleGetter($.oracle);
 
-        uint256 btcPriceUSD = oracle.getAssetPrice(i_BTC);
+        uint256 btcPriceUSD = oracle.getAssetPrice($.btc);
         if (btcPriceUSD == 0) revert Errors.InvalidAssetPrice();
 
         strikePrice = LoanMath.calculateStrikePrice(btcPriceUSD, loanAmount, deposit);
@@ -368,30 +443,31 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         view
         returns (uint256 loanAmount, uint256 monthlyPayment, uint256 minDepositRequired)
     {
+        LoanStorageData storage $ = _getLoanStorage();
         DataTypes.CalculateLoanDetailsContext memory ctx = DataTypes.CalculateLoanDetailsContext({
-            minBTCAmt: s_minBTCAmt,
-            maxBTCAmt: s_maxBTCAmt,
-            minDepositBps: s_minDeposit,
-            maxDuration: s_maxDuration,
-            bitmorPool: i_BITMOR_POOL,
-            oracle: i_ORACLE,
-            aavePool: i_AAVE_V3_POOL,
-            btc: i_BTC,
-            debtAsset: i_DEBT_ASSET
+            minBTCAmt: $.minBTCAmt,
+            maxBTCAmt: $.maxBTCAmt,
+            minDepositBps: $.minDeposit,
+            maxDuration: $.maxDuration,
+            bitmorPool: $.bitmorPool,
+            oracle: $.oracle,
+            aavePool: $.aaveV3Pool,
+            btc: $.btc,
+            debtAsset: $.debtAsset
         });
 
-        (loanAmount, monthlyPayment, minDepositRequired) = ctx.calculateLoanDetails(btcAmount, duration);
+        (loanAmount, monthlyPayment, minDepositRequired) = LoanLogic.calculateLoanDetails(ctx, btcAmount, duration);
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getGracePeriod() external view returns (uint256) {
-        return s_gracePeriod;
+        return _getLoanStorage().gracePeriod;
     }
 
     function getPremiumCollector() internal view returns (address) {
-        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getPremiumCollector();
+        return IBitmorAddressesProvider(_getLoanStorage().bitmorAddressesProvider).getPremiumCollector();
     }
 
     /**
@@ -405,72 +481,72 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
      * @inheritdoc IFlashLoanSimpleReceiver
      */
     function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider) {
-        return IPoolAddressesProvider(i_AAVE_ADDRESSES_PROVIDER);
+        return IPoolAddressesProvider(_getLoanStorage().aaveAddressesProvider);
     }
 
     /**
      * @inheritdoc IFlashLoanSimpleReceiver
      */
     function POOL() external view returns (IPool) {
-        return IPool(i_AAVE_V3_POOL);
+        return IPool(_getLoanStorage().aaveV3Pool);
     }
 
     /**
      * @inheritdoc ILoan
      */
     function getPreClosureFee() external view returns (uint256) {
-        return s_preClosureFeeBps;
+        return _getLoanStorage().preClosureFeeBps;
     }
 
     /// @inheritdoc ILoan
     function getSlippageForSharesToAsset() external view returns (uint256) {
-        return s_slippage_sharesToAsset;
+        return _getLoanStorage().slippageSharesToAsset;
     }
 
     /// @inheritdoc ILoan
     function getSlippageForSwap() external view returns (uint256) {
-        return s_slippage_swap;
+        return _getLoanStorage().slippageSwap;
     }
 
     /// @inheritdoc ILoan
     function getMaxBTCAmount() external view returns (uint256) {
-        return s_maxBTCAmt;
+        return _getLoanStorage().maxBTCAmt;
     }
 
     /// @inheritdoc ILoan
     function getMinBTCAmount() external view returns (uint256) {
-        return s_minBTCAmt;
+        return _getLoanStorage().minBTCAmt;
     }
 
     /// @inheritdoc ILoan
     function getMinDepositBps() external view returns (uint256) {
-        return s_minDeposit;
+        return _getLoanStorage().minDeposit;
     }
 
     /// @inheritdoc ILoan
     function getMaxDuration() external view returns (uint256) {
-        return s_maxDuration;
+        return _getLoanStorage().maxDuration;
     }
 
     /// @inheritdoc ILoan
     function getLiquidationFeeBps() external view returns (uint256) {
-        return s_liquidationFee;
+        return _getLoanStorage().liquidationFee;
     }
 
     function getAutoRepayer() internal view returns (address) {
-        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getAutoRepayer();
+        return IBitmorAddressesProvider(_getLoanStorage().bitmorAddressesProvider).getAutoRepayer();
     }
 
     function getLoanVaultFactory() internal view returns (address) {
-        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getLoanVaultFactory();
+        return IBitmorAddressesProvider(_getLoanStorage().bitmorAddressesProvider).getLoanVaultFactory();
     }
 
     function getSwapper() internal view returns (address) {
-        return IBitmorAddressesProvider(s_bitmorAddressesProvider).getSwapper();
+        return IBitmorAddressesProvider(_getLoanStorage().bitmorAddressesProvider).getSwapper();
     }
 
     function getBitmorAddressesProvider() external view returns (address) {
-        return s_bitmorAddressesProvider;
+        return _getLoanStorage().bitmorAddressesProvider;
     }
 
     // ============ Admin Functions ============
@@ -489,73 +565,77 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         restricted
         checkZeroAddress(newBitmorAddressesProvider)
     {
-        s_bitmorAddressesProvider = newBitmorAddressesProvider;
+        _getLoanStorage().bitmorAddressesProvider = newBitmorAddressesProvider;
         emit Loan__BitmorAddressesProviderUpdated(newBitmorAddressesProvider);
     }
 
     /**
      * @inheritdoc ILoan
      */
-    function setGracePeriod(uint256 gracePeriod) external whenNotPaused restricted {
+    function setGracePeriod(uint32 gracePeriod) external whenNotPaused restricted {
         if (gracePeriod > MAX_GRACE_PERIOD) revert Errors.InvalidInputs();
-        s_gracePeriod = gracePeriod;
+        _getLoanStorage().gracePeriod = gracePeriod;
         emit Loan__GracePeriodUpdated(gracePeriod);
     }
 
     /**
      * @inheritdoc ILoan
      */
-    function setPreClosureFee(uint256 newFee) external whenNotPaused restricted {
-        if (newFee >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
-        s_preClosureFeeBps = newFee;
+    function setPreClosureFee(uint16 newFee) external whenNotPaused restricted checkValidFee(newFee) {
+        _getLoanStorage().preClosureFeeBps = newFee;
         emit Loan__PreClosureFeeUpdated(newFee);
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSharesToAsset(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
-        s_slippage_sharesToAsset = newSlippage;
+    function setSlippageForSharesToAsset(uint16 newSlippage)
+        external
+        whenNotPaused
+        restricted
+        checkValidSlippage(newSlippage)
+    {
+        _getLoanStorage().slippageSharesToAsset = newSlippage;
         emit Loan__SlippageForSharesToAssetUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
-    function setSlippageForSwap(uint256 newSlippage) external whenNotPaused restricted {
-        if (newSlippage >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
-        s_slippage_swap = newSlippage;
+    function setSlippageForSwap(uint16 newSlippage) external whenNotPaused restricted checkValidSlippage(newSlippage) {
+        _getLoanStorage().slippageSwap = newSlippage;
         emit Loan__SlippageForSwapUpdated(newSlippage);
     }
 
     /// @inheritdoc ILoan
-    function setMaxBTCAmount(uint256 newMaxBTCAmt) external whenNotPaused restricted {
-        if (newMaxBTCAmt < s_minBTCAmt) revert Errors.InvalidInputs();
-        s_maxBTCAmt = newMaxBTCAmt;
+    function setMaxBTCAmount(uint64 newMaxBTCAmt) external whenNotPaused restricted {
+        LoanStorageData storage $ = _getLoanStorage();
+        if (newMaxBTCAmt < $.minBTCAmt) revert Errors.InvalidInputs();
+        $.maxBTCAmt = newMaxBTCAmt;
         emit Loan__MaxBTCAmountUpdated(newMaxBTCAmt);
     }
 
     /// @inheritdoc ILoan
-    function setMinBTCAmount(uint256 newMinBTCAmt) external whenNotPaused restricted {
-        if (newMinBTCAmt > s_maxBTCAmt) revert Errors.InvalidInputs();
-        s_minBTCAmt = newMinBTCAmt;
+    function setMinBTCAmount(uint64 newMinBTCAmt) external whenNotPaused restricted {
+        LoanStorageData storage $ = _getLoanStorage();
+        if (newMinBTCAmt > $.maxBTCAmt) revert Errors.InvalidInputs();
+        $.minBTCAmt = newMinBTCAmt;
         emit Loan__MinBTCAmountUpdated(newMinBTCAmt);
     }
 
     /// @inheritdoc ILoan
-    function setMinDepositBps(uint256 newMinDepositBps) external whenNotPaused restricted {
+    function setMinDepositBps(uint16 newMinDepositBps) external whenNotPaused restricted {
         if (newMinDepositBps >= BASIS_POINT_SCALE) revert Errors.InvalidInputs();
-        s_minDeposit = newMinDepositBps;
+        _getLoanStorage().minDeposit = newMinDepositBps;
         emit Loan__MinDepositUpdated(newMinDepositBps);
     }
 
     /// @inheritdoc ILoan
-    function setMaxDuration(uint256 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
-        s_maxDuration = newMaxDuration;
+    function setMaxDuration(uint16 newMaxDuration) external whenNotPaused restricted checkZeroAmount(newMaxDuration) {
+        _getLoanStorage().maxDuration = newMaxDuration;
         emit Loan__MaxDurationUpdated(newMaxDuration);
     }
 
     /// @inheritdoc ILoan
-    function setLiquidationFeeBps(uint256 newLiquidationFeeBps) external whenNotPaused restricted {
+    function setLiquidationFeeBps(uint16 newLiquidationFeeBps) external whenNotPaused restricted {
         if (newLiquidationFeeBps > MAX_LIQUIDATION_FEE) revert Errors.InvalidFee();
-        s_liquidationFee = newLiquidationFeeBps;
+        _getLoanStorage().liquidationFee = newLiquidationFeeBps;
         emit Loan__LiquidationFeeUpdated(newLiquidationFeeBps);
     }
 
@@ -584,16 +664,17 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
         checkIfLoanExists(_lsa)
         returns (uint256 assetsClaimed)
     {
-        DataTypes.LoanData storage loanData = s_loansByLSA[_lsa];
+        LoanStorageData storage $ = _getLoanStorage();
+        DataTypes.LoanData storage loanData = $.loansByLSA[_lsa];
 
         assetsClaimed = LoanLogic.executeClaimRemainingCollateral(
             _lsa,
             loanData.borrower,
             loanData.status,
-            i_BITMOR_POOL,
-            i_DEBT_ASSET,
-            i_COLLATERAL_ASSET,
-            s_slippage_sharesToAsset
+            $.bitmorPool,
+            $.debtAsset,
+            $.collateralAsset,
+            $.slippageSharesToAsset
         );
 
         emit Loan__SurplusCollateralClaimed(_lsa, loanData.borrower, assetsClaimed);
@@ -624,13 +705,33 @@ contract Loan is LoanStorage, ILoan, ReentrancyGuard, IFlashLoanSimpleReceiver, 
     }
 
     /**
+     * @notice Internal validation for slippage values
+     * @dev Reverts with `Errors.InvalidSlippage()` if `value` >= BASIS_POINT_SCALE
+     * @param value The slippage value in basis points
+     */
+    function _checkValidSlippage(uint256 value) internal pure {
+        if (value >= BASIS_POINT_SCALE) revert Errors.InvalidSlippage();
+    }
+
+    /**
+     * @notice Internal validation for fee values
+     * @dev Reverts with `Errors.InvalidFee()` if `value` >= BASIS_POINT_SCALE
+     * @param value The fee value in basis points
+     */
+    function _checkValidFee(uint256 value) internal pure {
+        if (value >= BASIS_POINT_SCALE) revert Errors.InvalidFee();
+    }
+
+    /**
      * @notice Internal check for loan existence
      * @dev Reverts with `Errors.LoanDoesNotExists()` if no loan found for LSA
      * @param _lsa The Loan Specific Address to check
      */
     function _checkIfLoanExists(address _lsa) internal view {
-        if (s_loansByLSA[_lsa].borrower == address(0)) {
+        if (_getLoanStorage().loansByLSA[_lsa].borrower == address(0)) {
             revert Errors.LoanDoesNotExists();
         }
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override restricted {}
 }

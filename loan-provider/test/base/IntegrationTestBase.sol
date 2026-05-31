@@ -9,13 +9,13 @@ import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {Loan} from "@bitmor/protocol/Loan.sol";
 import {LoanVaultFactory} from "@bitmor/protocol/LoanVaultFactory.sol";
 import {BitmorAccessManager} from "@bitmor/accessManager/BitmorAccessManager.sol";
-import {RolesData} from "@bitmor/accessManager/RolesData.sol";
+import {RolesData} from "@bitmor-config/RolesData.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {BTCVault} from "@btcVault/BTCVault.sol";
 import {USDCVault} from "@usdcVault/USDCVault.sol";
 
 // Interfaces
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {IBitmorAddressesProvider} from "@bitmor/interfaces/IBitmorAddressesProvider.sol";
 import {BitmorAddressesProvider} from "@bitmor/protocol/BitmorAddressesProvider.sol";
 // Mocks (for minting and oracle manipulation on deployed mock contracts)
@@ -27,7 +27,7 @@ import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedSt
 /// @title IntegrationTestBase
 /// @author Bitmor Protocol
 /// @notice Base contract for integration tests using pre-deployed contracts
-/// @dev Reads all addresses from deployments.json - requires `make deploy-local` first.
+/// @dev Reads all addresses from deployments/<chainId>/latest.json via HelperConfig - requires `make deploy-local` first.
 ///      Tests must run with `--fork-url http://127.0.0.1:8545` to connect to live Anvil.
 abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Configuration & State ============
@@ -67,7 +67,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Setup ============
 
     function setUp() public virtual override {
-        // 1. Load configuration (reads from deployments.json on disk)
+        // 1. Load configuration (reads from deployments/<chainId>/latest.json via HelperConfig)
         config = new HelperConfig();
 
         // 2. Load pre-deployed AccessManager (don't deploy new one)
@@ -84,13 +84,17 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         // 5. Load all pre-deployed contracts
         _loadDeployedContracts();
 
-        // 6. Snapshot BEFORE any liquidity seeding (for tests needing empty BLP)
+        // 6. Refresh oracle prices so they aren't stale after deploy-local's 87001s time advance
+        //    (AaveOracle.MAX_STALENESS = 3600s, but deploy-local advances ~24h for AccessManager scheduling)
+        _refreshOraclePrices();
+
+        // 7. Snapshot BEFORE any liquidity seeding (for tests needing empty BLP)
         _preSeededSnapshotId = vm.snapshot();
 
-        // 7. Setup test user (fund tokens, approve, grant EXECUTOR role)
+        // 8. Setup test user (fund tokens, approve, grant EXECUTOR role)
         _setupTestUser();
 
-        // 8. Snapshot AFTER seeding (standard test baseline)
+        // 9. Snapshot AFTER seeding (standard test baseline)
         _baseSnapshotId = vm.snapshot();
     }
 
@@ -126,6 +130,20 @@ abstract contract IntegrationTestBase is BitmorTestBase {
         btcOracle = MockChainlinkOracle(config.getBtcUsdOracle());
         usdcOracle = MockChainlinkOracle(config.getUsdcUsdOracle());
         aaveV3Pool = config.getAaveV3Pool();
+    }
+
+    // ============ Oracle Freshness ============
+
+    /// @notice Re-sets oracle prices to refresh `updatedAt` to current `block.timestamp`
+    /// @dev deploy-local advances Anvil time by 87001s for AccessManager scheduling,
+    ///      but AaveOracle.MAX_STALENESS is only 3600s. Without this refresh, every
+    ///      `getAssetPrice()` call falls through to the fallback oracle (address(0)) and reverts.
+    function _refreshOraclePrices() internal virtual {
+        (, int256 btcPrice,,,) = btcOracle.latestRoundData();
+        btcOracle.updateAnswer(btcPrice);
+
+        (, int256 usdcPrice,,,) = usdcOracle.latestRoundData();
+        usdcOracle.updateAnswer(usdcPrice);
     }
 
     // ============ Actor Setup ============
@@ -182,12 +200,12 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     // ============ Funding & Liquidity ============
 
     /// @notice Mints mock USDC to `to` (MintableERC20.mint is public)
-    function _fundUSDC(address to, uint256 amount) internal {
+    function _fundUSDC(address to, uint256 amount) internal virtual {
         MintableERC20(address(usdc)).mint(to, amount);
     }
 
     /// @notice Mints mock cbBTC to `to` (MintableERC20.mint is public)
-    function _fundCbBTC(address to, uint256 amount) internal {
+    function _fundCbBTC(address to, uint256 amount) internal virtual {
         MintableERC20(address(cbBTC)).mint(to, amount);
     }
 
@@ -276,7 +294,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     ///      is a mock of an EXTERNAL dependency (Chainlink). The mocking boundary permits mocking
     ///      external infrastructure that our protocol does not control. This is distinct from mocking
     ///      our own protocol contracts (e.g., LendingPool, Loan), which should use real deployments.
-    function _dropOraclePrice(uint256 dropPercent) internal {
+    function _dropOraclePrice(uint256 dropPercent) internal virtual {
         (, int256 currentPrice,,,) = btcOracle.latestRoundData();
         int256 newPrice = currentPrice * int256(100 - dropPercent) / 100;
         btcOracle.updateAnswer(newPrice);
@@ -284,7 +302,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     /// @notice Sets BTC price directly via MockChainlinkOracle
     /// @dev Acceptable external dependency mock. See `_dropOraclePrice` for rationale.
-    function _setBtcPrice(int256 price) internal {
+    function _setBtcPrice(int256 price) internal virtual {
         btcOracle.updateAnswer(price);
     }
 
@@ -298,14 +316,17 @@ abstract contract IntegrationTestBase is BitmorTestBase {
 
     // ============ Time Helpers ============
 
-    /// @notice Warps forward by `days_` days
+    /// @notice Warps forward by `days_` days and refreshes oracle prices
+    /// @dev Oracle refresh is required because AaveOracle.MAX_STALENESS = 3600s
     function _advanceDays(uint256 days_) internal {
         vm.warp(block.timestamp + days_ * 1 days);
+        _refreshOraclePrices();
     }
 
     /// @notice Advances time past the grace period to make loan overdue
     function _makeOverdue() internal {
         vm.warp(block.timestamp + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
     }
 
     /// @notice Makes a freshly created loan overdue by advancing past the first payment + grace period
@@ -314,6 +335,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     ///      was just created and no payments have been made.
     function _makeFirstPaymentOverdue() internal {
         vm.warp(block.timestamp + 30 days + config.getGracePeriod() + 1);
+        _refreshOraclePrices();
     }
 
     // ============ BLP Query Helpers ============
@@ -580,6 +602,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
                 _makeFirstPaymentOverdue();
             } else {
                 vm.warp(block.timestamp + TC.REPAYMENT_INTERVAL + config.getGracePeriod() + 1);
+                _refreshOraclePrices();
             }
 
             uint256 liquidationType = _checkTypeOfLiquidation(lsa);
@@ -673,9 +696,13 @@ abstract contract IntegrationTestBase is BitmorTestBase {
     }
 
     /// @notice Sets the liquidation fee and collector via schedule-and-execute
+    /// @dev Refreshes oracle prices after schedule-and-execute warps (LPM_SLOW has 1-day delay)
     function _setLiquidationFee(uint256 feeBps, address collector) internal {
         _scheduleAndExecute(
-            address(loanContract), admin, LPM_SLOW_ID(), abi.encodeCall(loanContract.setLiquidationFeeBps, (feeBps))
+            address(loanContract),
+            admin,
+            LPM_SLOW_ID(),
+            abi.encodeCall(loanContract.setLiquidationFeeBps, (uint16(feeBps)))
         );
         _scheduleAndExecute(
             address(bitmorAddressesProvider),
@@ -683,6 +710,7 @@ abstract contract IntegrationTestBase is BitmorTestBase {
             LPM_SLOW_ID(),
             abi.encodeCall(bitmorAddressesProvider.setLiquidationFeeCollector, (collector))
         );
+        _refreshOraclePrices();
     }
 
     /// @notice Creates a standard loan and makes N monthly payments

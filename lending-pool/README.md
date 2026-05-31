@@ -61,7 +61,7 @@ This function checks the following conditions of a particular user and based on 
 
 ## Integration with loan-provider
 
-- After deployment, this module exports addresses to `deployed-contracts.json` (keyed by network). Key contracts: `LendingPool`, `LendingPoolCollateralManager`, `AaveOracle`, `bUSDC`, `bcbBTC`.
+- After deployment, this module exports addresses to `deployed-contracts.json` (keyed by network). Key contracts: `LendingPool`, `LendingPoolCollateralManager`, `AaveOracle`, `USDC`, `bcbBTC`.
 - The `loan-provider` module reads `LendingPool` and `AaveOracle` addresses from that file via `HelperConfig.s.sol` (`getBitmorPool()`, `getOracle()`).
 - This module uses Solidity 0.6.12 (Hardhat); `loan-provider` uses Solidity 0.8.30 (Foundry). The interaction between them is interface-only — `loan-provider` defines its own interface (`ILendingPool`) and communicates through ABI boundaries only.
 

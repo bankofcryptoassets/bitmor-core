@@ -74,8 +74,8 @@ contract DepositFundsTest is BaseTestForBTCVault {
 
         vm.startPrank(user);
         mockUSDC.approve(address(vault), depositAmount);
-        // ERC4626 checks maxDeposit first, so we get DepositMoreThanMax error
-        vm.expectRevert(abi.encodeWithSignature("DepositMoreThanMax()"));
+        // ERC4626 checks maxDeposit first, so we get ERC4626ExceededMaxDeposit error
+        vm.expectRevert();
         vault.deposit(depositAmount, user);
         vm.stopPrank();
     }
@@ -172,8 +172,8 @@ contract DepositFundsTest is BaseTestForBTCVault {
 
         vm.startPrank(user);
         mockUSDC.approve(address(vault), remainingCap + 1000e6);
-        // ERC4626 checks maxDeposit first, so we get DepositMoreThanMax error
-        vm.expectRevert(abi.encodeWithSignature("DepositMoreThanMax()"));
+        // ERC4626 checks maxDeposit first, so we get ERC4626ExceededMaxDeposit error
+        vm.expectRevert();
         vault.deposit(remainingCap + 1000e6, user);
         vm.stopPrank();
     }

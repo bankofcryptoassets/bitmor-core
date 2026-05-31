@@ -2,6 +2,8 @@
 pragma solidity 0.8.30;
 
 import {SimpleTokenizedStrategy} from "@btcVault/TokenizedStrategy/SimpleTokenizedStrategy.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /// @title SimpleTokenizedStrategyHarness
 /// @author Bitmor Protocol
@@ -16,18 +18,19 @@ contract SimpleTokenizedStrategyHarness is SimpleTokenizedStrategy {
     constructor(address yieldSource_, address vault_) SimpleTokenizedStrategy(yieldSource_, vault_) {}
 
     /// @notice Returns the name of the harness token
-    function name() public pure override returns (string memory) {
+    function name() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "StrategyHarness";
     }
 
     /// @notice Returns the symbol of the harness token
-    function symbol() public pure override returns (string memory) {
+    function symbol() public pure override(ERC20, IERC20Metadata) returns (string memory) {
         return "sHRNS";
     }
 
-    /// @notice Exposes internal `_underlyingDecimals()` for testing decimal resolution
+    /// @notice Returns the underlying asset's decimals for testing
+    /// @dev After migrating from Solady to OZ ERC4626, decimals are exposed via `decimals()`.
     /// @return The number of decimals used by the underlying asset
     function exposed_underlyingDecimals() external view returns (uint8) {
-        return _underlyingDecimals();
+        return decimals();
     }
 }

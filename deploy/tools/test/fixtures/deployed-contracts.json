@@ -1,0 +1,14 @@
+{
+  "LendingPool": {
+    "localhost": { "address": "0xdddd000000000000000000000000000000000001", "deployer": "0xf39f..." }
+  },
+  "LendingPoolAddressesProvider": {
+    "localhost": { "address": "0xdddd000000000000000000000000000000000002", "deployer": "0xf39f..." }
+  },
+  "AaveOracle": {
+    "localhost": { "address": "0xdddd000000000000000000000000000000000003", "deployer": "0xf39f..." }
+  },
+  "LendingPoolConfigurator": {
+    "localhost": { "address": "0xdddd000000000000000000000000000000000004", "deployer": "0xf39f..." }
+  }
+}

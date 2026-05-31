@@ -19,32 +19,49 @@ make test
 ## Architecture
 
 ```
-cbBTC → BTCVault → bvBTC (vault shares) → Lending Pool (collateral) → Borrow USDC
+cbBTC → BTCVault (UUPS proxy) → bvBTC (vault shares) → Lending Pool (collateral) → Borrow USDC
 ```
 
 **Key:** The lending pool uses **bvBTC** (BTCVault shares) as collateral, not raw cbBTC.
 
+### Proxy Architecture
+
+All core contracts are deployed behind UUPS proxies with ERC-7201 namespaced storage:
+
+| Contract | Proxy Pattern | Upgrade Control |
+|----------|--------------|-----------------|
+| Loan | UUPS | UPGRADER role (48h delay) |
+| BTCVault | UUPS | UPGRADER role (48h delay) |
+| USDCVault | UUPS | UPGRADER role (48h delay) |
+| AutoRepayment | UUPS | UPGRADER role (48h delay) |
+| BitmorAddressesProvider | UUPS | UPGRADER role (48h delay) |
+| LoanVault | BeaconProxy | BeaconController (48h delay) |
+| LoanVaultFactory | Non-upgradeable | Uses beacon address |
+| BeaconController | Non-upgradeable | AccessManaged wrapper |
+| Strategies | Non-upgradeable | Swappable via vault curator |
+
 ## Deployment Phases
 
-The deployment is split into three phases to handle cross-module dependencies:
+The deployment is split into phases to handle cross-module dependencies:
 
 ### Phase 1: loan-provider (Foundry → Anvil)
 
-Deploys foundational contracts and saves addresses to `loan-provider/deployments.json`:
+Deploys foundational contracts. The `bitmor-deploy` CLI parses Forge broadcast files and saves addresses to `deployments/31337/latest.json`:
 
-| Contract | Description |
-|----------|-------------|
-| AccessManager | Role-based access control |
-| MockUSDC | Mock USDC token (6 decimals) |
-| MockCbBTC | Mock cbBTC token (8 decimals) |
-| MockChainlinkOracle | BTC ($100k) and USDC ($1) price feeds |
-| BTCVault | ERC-4626 vault producing **bvBTC** shares |
+| Contract | Type | Description |
+|----------|------|-------------|
+| AccessManager | Direct deploy | Role-based access control (root of trust) |
+| MockUSDC | Direct deploy | Mock USDC token (6 decimals) |
+| MockCbBTC | Direct deploy | Mock cbBTC token (8 decimals) |
+| MockChainlinkOracle | Direct deploy | BTC ($100k) and USDC ($1) price feeds |
+| BTCVault | **UUPS proxy** | ERC-4626 vault producing **bvBTC** shares |
+| MockAaveV3Pool | Direct deploy | Mock Aave V3 for flash loans |
 
-The `collateralAsset` field in `deployments.json` contains the bvBTC (BTCVault) address.
+The `collateralAsset` field contains the BTCVault **proxy** address. `btcVaultImpl` contains the implementation.
 
 ### Phase 2: lending-pool (Hardhat → same Anvil)
 
-Reads bvBTC address from `../loan-provider/deployments.json` and deploys:
+Reads bvBTC address from `../deployments/<chainId>/latest.json` and deploys:
 
 | Contract | Description |
 |----------|-------------|
@@ -57,39 +74,154 @@ Reads bvBTC address from `../loan-provider/deployments.json` and deploys:
 
 Reads LendingPool from `../lending-pool/deployed-contracts.json` and deploys:
 
-| Contract | Description |
-|----------|-------------|
-| USDCVault | USDC vault (needs LendingPool address) |
-| SwapAdapterWrapper | Uniswap V4 swap integration |
-| LoanVault | Per-loan smart account implementation |
-| Loan | Main entry point for loans |
-| LoanVaultFactory | CREATE2 factory for LoanVaults |
+| Contract | Type | Description |
+|----------|------|-------------|
+| LoanLogic | **Linked library** | Public library deployed separately (Loan.sol exceeds 24KB without it) |
+| USDCVault | **UUPS proxy** | USDC vault (needs LendingPool address) |
+| Loan | **UUPS proxy** | Main entry point for loans (linked to LoanLogic) |
+| AutoRepayment | **UUPS proxy** | Scheduled repayment automation |
+| BitmorAddressesProvider | **UUPS proxy** | Protocol address registry |
+| LoanVault | **Beacon impl** | Per-loan smart account implementation |
+| UpgradeableBeacon | Direct deploy | Beacon for LoanVault proxies |
+| BeaconController | Direct deploy | AccessManaged wrapper for beacon upgrades |
+| LoanVaultFactory | Direct deploy | CREATE2 factory using BeaconProxy |
+| AaveTokenizedStrategy | Direct deploy | BTC vault strategy |
+| USDCStrategy | Direct deploy | USDC vault strategy |
+
+### Phase 4: Post-Deploy Validation
+
+Runs `PostDeployChecks.s.sol` to verify:
+- All proxy → implementation pointers are correct
+- Beacon ownership transferred to BeaconController
+- LoanVaultFactory points to correct beacon
+- UPGRADER role wired on all proxies + BeaconController
+- Guardian roles configured
 
 ## Commands
+
+### Core Commands
 
 | Command | Description |
 |---------|-------------|
 | `make anvil` | Start local Anvil (chainId 31337) |
 | `make anvil-stop` | Stop Anvil |
-| `make deploy-local` | Deploy complete protocol to Anvil |
+| `make deploy-local` | Deploy full protocol to Anvil (all phases) |
 | `make build` | Build all contracts |
 | `make install` | Install all dependencies |
 | `make test` | Run all tests |
-| `make test-unit` | Run loan-provider tests only |
-| `make test-lending-pool` | Run lending-pool tests only |
 | `make clean` | Clean build artifacts |
+
+### Individual Phase Deployment (Local)
+
+| Command | Description |
+|---------|-------------|
+| `make deploy:phase1:local` | Phase 1: AccessManager + BTCVault proxy + mocks |
+| `make deploy:phase3:local` | Phase 3: All proxies + beacon chain + roles |
+| `make deploy:check` | Post-deploy invariant checks |
+
+### Mainnet Deployment (Base)
+
+| Command | Description |
+|---------|-------------|
+| `make deploy:phase1:mainnet` | Phase 1: AccessManager + BTCVault proxy (real cbBTC) |
+| `make deploy:phase3:mainnet` | Phase 3: All proxies + roles (real addresses) |
+| `make deploy:schedule:mainnet` | Schedule timelocked operations |
+| `make deploy:transfer:mainnet` | Transfer ADMIN to governance Safe |
+
+### Upgrade Commands
+
+| Command | Description |
+|---------|-------------|
+| `make upgrade:uups:schedule PROXY=0x... CONTRACT="src/..." INIT_DATA=0x RPC_URL=...` | Schedule UUPS upgrade |
+| `make upgrade:uups:execute PROXY=0x... NEW_IMPL=0x... INIT_DATA=0x RPC_URL=...` | Execute after 48h delay |
+| `make upgrade:beacon:schedule NEW_IMPL=0x... RPC_URL=...` | Schedule beacon upgrade |
+| `make upgrade:beacon:execute NEW_IMPL=0x... RPC_URL=...` | Execute beacon upgrade |
+
+## Local Deployment Flow
+
+```
+make deploy-local (FOUNDRY_PROFILE=local)
+├── Phase 1: DeployPhase1Local.s.sol
+│   └── AccessManager → MockTokens → MockOracles → BTCVault (UUPS proxy) → save JSON
+├── Phase 2: lending-pool
+│   └── npm run bitmor:localhost:dev:migration
+├── Phase 3a: LoanLogic linked library + DeployPhase3Local.s.sol
+│   └── Deploy LoanLogic as standalone library (Loan.sol exceeds 24KB without it)
+│       → USDCVault/Loan/AutoRepayment/AddressesProvider (UUPS proxies)
+│       → Beacon chain (LoanVault impl → Beacon → Controller → Factory)
+│       → Strategies → Role setup + UPGRADER wiring → save JSON
+├── Phase 3b: SchedulePhase3Local.s.sol
+│   └── Schedule timelocked operations (1-day delay + 10min buffer)
+├── Time advance: 87001 seconds (1 day + 10 min + 1 sec)
+├── Phase 3c: ExecutePhase3Local.s.sol
+│   └── Execute scheduled operations via AccessManager
+└── Phase 4: PostDeployChecks.s.sol
+    └── Validate proxy pointers, beacon ownership, role wiring
+```
+
+## Mainnet Deployment Flow
+
+```
+1. Deploy Phase 1 (deployer EOA)
+   └── AccessManager + BTCVault proxy (real cbBTC)
+
+2. Deploy lending-pool (Hardhat migration)
+
+3. Deploy Phase 3 (deployer EOA)
+   └── All proxies + beacon chain + strategies
+       Roles granted to multisigs via MainnetRolesConfig
+
+4. Schedule operations (deployer EOA)
+   └── Timelocked ops with real 1-day delays
+
+5. Wait real time (1 day for ops, 2 days for upgrades)
+
+6. Execute operations (deployer EOA or Safe)
+
+7. PostDeployChecks — verify all invariants
+
+8. TransferToMultisig — ADMIN → governance Safe (irreversible)
+```
+
+## Script Architecture
+
+```
+loan-provider/script/
+├── deployment/
+│   ├── DeploymentConstants.sol          # Shared constants
+│   ├── DeploymentBase.s.sol             # Proxy helpers, role wiring, preflight, manifest
+│   ├── PostDeployChecks.s.sol           # Post-deploy invariant validation
+│   ├── local/                           # Local Anvil scripts
+│   │   ├── DeployPhase1Local.s.sol
+│   │   ├── DeployPhase3Local.s.sol
+│   │   ├── SchedulePhase3Local.s.sol
+│   │   └── ExecutePhase3Local.s.sol
+│   └── mainnet/                         # Base mainnet scripts
+│       ├── DeployPhase1Mainnet.s.sol
+│       ├── DeployPhase3Mainnet.s.sol
+│       ├── SchedulePhase3Mainnet.s.sol
+│       └── TransferToMultisig.s.sol
+├── upgrade/                             # Future upgrade scripts
+│   ├── UpgradeUUPS.s.sol
+│   └── UpgradeBeacon.s.sol
+├── config/                              # Per-network configs
+│   ├── RolesData.sol                    # Role definitions (selectors, IDs, delays)
+│   ├── LocalRolesConfig.sol             # All roles → deployer
+│   └── MainnetRolesConfig.sol           # Roles → multisig addresses
+├── HelperConfig.s.sol                   # Network-aware address reader
+└── helpers/
+    └── DeploymentHelper.s.sol           # Common deployment utilities
+```
 
 ## Prerequisites
 
 ### Required Wallets
 
-The deployment scripts use cast wallets (keystore-based) instead of raw private keys:
-
 ```bash
-# Create dev wallet for local deployment (uses Anvil's default account)
+# Local deployment (uses Anvil's default account)
 cast wallet import dev --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
-# For testnet deployment (interactive password prompt)
+# Mainnet deployment (interactive password prompt)
 cast wallet import bitmor_owner --interactive
 cast wallet import bitmor_user --interactive
 ```
@@ -99,6 +231,7 @@ cast wallet import bitmor_user --interactive
 **loan-provider/.env:**
 ```
 BASE_SEPOLIA_RPC_URL=https://...
+BASE_MAINNET_RPC_URL=https://...
 ETHERSCAN_KEY=...
 ```
 
@@ -109,25 +242,121 @@ ALCHEMY_KEY=...
 ETHERSCAN_KEY=...
 ```
 
-## Testnet Deployment (Base Sepolia)
+### Node.js Requirement
 
-```bash
-# Use bitmor_owner account
-DEPLOY_ACCOUNT=bitmor_owner ./deploy/scripts/deploy-local.sh
-
-# Or use existing module-specific targets
-cd lending-pool && npm run aave:baseSepolia:full:migration
-cd loan-provider && make setup
-```
+OZ foundry-upgrades requires Node.js for upgrade validation (storage layout checks, initializer analysis). Ensure `node` is available in PATH.
 
 ## Configuration Files
 
 | File | Purpose |
 |------|---------|
-| `loan-provider/deployments.json` | Phase 1 addresses (bvBTC, mocks) |
-| `lending-pool/deployed-contracts.json` | Phase 2 addresses (LendingPool, Oracle) |
+| `deployments/<chainId>/latest.json` | Unified registry: all deployed addresses (loan-provider, lending-pool, tokens, external) |
+| `deployments/<chainId>/<timestamp>.json` | Historical snapshots of each deploy phase |
 | `loan-provider/script/deployment/DeploymentConstants.sol` | Shared Solidity constants |
 | `loan-provider/script/HelperConfig.s.sol` | Network-aware config reader |
+| `loan-provider/script/config/RolesData.sol` | Role definitions |
+| `loan-provider/script/config/LocalRolesConfig.sol` | Local role grantees |
+| `loan-provider/script/config/MainnetRolesConfig.sol` | Mainnet role grantees |
+
+## Registry Schema (`deployments/<chainId>/latest.json`)
+
+```json
+{
+  "network": "localhost",
+  "chainId": 31337,
+  "timestamp": 1712200800000,
+  "commit": "abc123",
+  "deployer": "0xf39F...",
+  "loanProvider": {
+    "accessManager": "0x...",
+    "loan": "0x...(proxy)",
+    "loanImpl": "0x...(implementation)",
+    "btcVault": "0x...(BTCVault proxy)",
+    "btcVaultImpl": "0x...(implementation)",
+    "usdcVault": "0x...(proxy)",
+    "usdcVaultImpl": "0x...(implementation)",
+    "autoRepayment": "0x...(proxy)",
+    "autoRepaymentImpl": "0x...(implementation)",
+    "addressesProvider": "0x...(proxy)",
+    "addressesProviderImpl": "0x...(implementation)",
+    "beacon": "0x...(UpgradeableBeacon)",
+    "beaconController": "0x...(BeaconController)",
+    "loanVaultImpl": "0x...(LoanVault implementation)",
+    "loanVaultFactory": "0x...",
+    "swapper": "0x...",
+    "aaveStrategy": "0x...",
+    "usdcStrategy": "0x...",
+    "libraries": {
+      "loanLogic": "0x...",
+      "repayLogic": "0x...",
+      "closeLoanLogic": "0x...",
+      "flashLoanLogic": "0x..."
+    }
+  },
+  "lendingPool": {
+    "pool": "0x...",
+    "addressesProvider": "0x...",
+    "oracle": "0x...",
+    "configurator": "0x..."
+  },
+  "tokens": {
+    "usdc": "0x...",
+    "cbBTC": "0x..."
+  },
+  "external": {
+    "aaveV3Pool": "0x...",
+    "aaveAddressesProvider": "0x...",
+    "btcOracle": "0x...",
+    "usdcOracle": "0x..."
+  }
+}
+```
+
+## Upgrade Process
+
+### UUPS Proxy Upgrade (e.g., Loan V1 → V2)
+
+```bash
+# 1. Deploy new implementation + schedule upgrade (48h delay)
+make upgrade:uups:schedule \
+  PROXY=0x<loan_proxy> \
+  CONTRACT="src/protocol/Loan.sol:Loan" \
+  INIT_DATA=0x \
+  RPC_URL=https://...
+
+# 2. Wait 48 hours
+
+# 3. Execute upgrade
+make upgrade:uups:execute \
+  PROXY=0x<loan_proxy> \
+  NEW_IMPL=0x<new_impl> \
+  INIT_DATA=0x \
+  RPC_URL=https://...
+```
+
+### Beacon Upgrade (all LoanVault instances)
+
+```bash
+# 1. Schedule beacon upgrade (48h delay)
+make upgrade:beacon:schedule \
+  NEW_IMPL=0x<new_loanvault_impl> \
+  RPC_URL=https://...
+
+# 2. Wait 48 hours
+
+# 3. Execute — atomically upgrades ALL LoanVault proxies
+make upgrade:beacon:execute \
+  NEW_IMPL=0x<new_loanvault_impl> \
+  RPC_URL=https://...
+```
+
+### Guardian Cancellation
+
+If an upgrade needs to be cancelled during the 48h window:
+```bash
+# Guardian multisig calls AccessManager.cancel() directly
+cast send <accessManager> "cancel(address,address,bytes)" <caller> <target> <data> --account guardian
+```
 
 ## Troubleshooting
 
@@ -146,24 +375,42 @@ make anvil
 ### "Expected chainId 31337"
 
 ```bash
-# Restart Anvil with correct chainId
 make anvil-stop
 make anvil
 ```
 
-### "bvBTC address not found"
+### "Preflight: accessManager not deployed"
 
-Ensure Phase 1 completed successfully. Check:
+Phase 1 didn't complete. Check:
 ```bash
-cat loan-provider/deployments.json | jq '.deployments["31337"].networkConfig.collateralAsset'
+cat deployments/31337/latest.json | jq '.loanProvider.accessManager'
 ```
 
-### "LendingPool not deployed yet"
+### "Preflight: LendingPool not deployed"
 
-Ensure Phase 2 completed successfully. Check:
+Phase 2 didn't complete. Check:
 ```bash
-cat lending-pool/deployed-contracts.json | jq '.LendingPool.hardhat.address'
+cat lending-pool/deployed-contracts.json | jq '.LendingPool.localhost.address'
 ```
+
+### "PostDeployChecks: FAILED"
+
+One or more invariants failed. Check the console output for `[FAIL]` lines. Common causes:
+- Beacon ownership not transferred to BeaconController
+- UPGRADER role not wired on a proxy
+- Implementation address mismatch
+
+### OZ Upgrade Validation Error
+
+If `Upgrades.deployUUPSProxy()` fails with storage layout errors:
+```bash
+cd loan-provider && forge clean && forge build
+```
+Ensure `ast = true`, `build_info = true`, `extra_output = ["storageLayout"]` are in foundry.toml for the active profile.
+
+### LoanLogic Linking Error
+
+If tests fail with unlinked library errors, ensure `dynamic_test_linking = true` is in foundry.toml. For deployment scripts, the `--libraries` flag must be passed (handled automatically by `deploy-local.sh`).
 
 ## Tech Stack
 
@@ -171,4 +418,6 @@ cat lending-pool/deployed-contracts.json | jq '.LendingPool.hardhat.address'
 |--------|-----------|-----------------|
 | lending-pool | Hardhat v3 | 0.6.12 |
 | loan-provider | Foundry | 0.8.30 |
+| Proxy toolkit | OpenZeppelin Foundry Upgrades | v5 |
+| LoanLogic | Public linked library | 0.8.30 |
 | Orchestration | Bash + Make | - |

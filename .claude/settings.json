@@ -20,6 +20,8 @@
     "ask-questions-if-underspecified@trailofbits": true,
     "testing-handbook-skills@trailofbits": true,
     "github@claude-plugins-official": true,
-    "solskill@solskill-marketplace": true
+    "solskill@solskill-marketplace": true,
+    "decipher-gas-optimizoor@decipher-gas-optimizoor": true,
+    "openzeppelin-skills@openzeppelin-skills": true
   }
 }

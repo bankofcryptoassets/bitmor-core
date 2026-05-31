@@ -1,0 +1,18 @@
+{
+  "network": "localhost",
+  "chainId": 31337,
+  "timestamp": 1712200800000,
+  "commit": "abc1234",
+  "deployer": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+  "loanProvider": {
+    "accessManager": "0x525c7063e7c20997baae9bda922159152d0e8417",
+    "btcVault": "0xcccc000000000000000000000000000000000001",
+    "btcVaultImpl": "0xbbbb000000000000000000000000000000000001"
+  },
+  "lendingPool": {},
+  "tokens": {
+    "usdc": "0xaaaa000000000000000000000000000000000001",
+    "cbBTC": "0xaaaa000000000000000000000000000000000002"
+  },
+  "external": {}
+}

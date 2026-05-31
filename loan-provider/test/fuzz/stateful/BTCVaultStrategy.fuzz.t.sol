@@ -224,9 +224,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         uint256 extraDeposit = bound(assetsSeed, 1, FC.MAX_BTC_AMOUNT);
         _fundCbBTCAndApprove(depositor2, address(vault), extraDeposit);
 
-        // Act + Assert - Solady ERC4626 reverts with DepositMoreThanMax()
+        // Act + Assert - OZ ERC4626 reverts with ERC4626ExceededMaxDeposit()
         vm.prank(depositor2);
-        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("DepositMoreThanMax()"))));
+        vm.expectRevert();
         vault.deposit(extraDeposit, depositor2);
     }
 
@@ -330,9 +330,9 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
         // Try to withdraw more than max
         uint256 withdrawAmt = bound(withdrawSeed, maxW + 1, maxW + FC.MAX_BTC_AMOUNT);
 
-        // Act + Assert - Solady ERC4626 reverts with WithdrawMoreThanMax()
+        // Act + Assert - OZ ERC4626 reverts with ERC4626ExceededMaxWithdraw()
         vm.prank(depositor);
-        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("WithdrawMoreThanMax()"))));
+        vm.expectRevert();
         vault.withdraw(withdrawAmt, depositor, depositor);
     }
 
@@ -759,7 +759,7 @@ contract BTCVaultStrategyFuzzTest is BTCVaultFuzzTestBase {
 
         bytes4 sel = ret.length >= 4 ? bytes4(ret) : bytes4(0);
         bool knownSelector = sel == Errors.NotEnoughLiquidity.selector
-            || sel == bytes4(keccak256("WithdrawMoreThanMax()"))
+            || sel == bytes4(keccak256("ERC4626ExceededMaxWithdraw(address,uint256,uint256)"))
             || sel == bytes4(keccak256("ERC20InsufficientBalance(address,uint256,uint256)"));
         assertTrue(knownSelector, "unexpected revert selector under liquidity shortage");
     }

@@ -4,10 +4,10 @@ pragma solidity 0.8.30;
 import {BaseTestForUSDCVault} from "../BaseTestForUSDCVault.t.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
 import {USDCStrategy} from "@bitmor/vaults/usdc-vault/USDCStrategy.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {ERC4626, ERC20} from "@solady/tokens/ERC4626.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
-import {IAccessManager} from "@openzeppelin/access/manager/IAccessManager.sol";
+import {IAccessManager} from "@openzeppelin/contracts/access/manager/IAccessManager.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title USDCVaultTest
 /// @author Bitmor Protocol
@@ -487,21 +487,29 @@ contract USDCVaultTest is BaseTestForUSDCVault {
     // ============ SECTION: CONSTRUCTOR
     // ============================================
 
-    /// @notice Test that constructor reverts on zero addresses
-    function test_constructor_zeroAddresses_revert() public {
-        // Test asset = address(0)
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        new USDCVault(address(manager), address(0), networkConfig.bitmorPool);
+    /// @notice Test that initializer reverts on zero addresses
+    function test_initialize_zeroAddresses_revert() public {
+        // Pre-deploy impl so vm.expectRevert() only targets the proxy creation
+        USDCVault impl = new USDCVault();
+
+        // Test asset = address(0) — proxy wraps the revert from initialize
+        vm.expectRevert();
+        new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(USDCVault.initialize, (address(manager), address(0), networkConfig.bitmorPool))
+        );
 
         // Test blp = address(0)
-        vm.expectRevert(Errors.ZeroAddress.selector);
-        new USDCVault(address(manager), networkConfig.usdc, address(0));
+        vm.expectRevert();
+        new ERC1967Proxy(
+            address(impl), abi.encodeCall(USDCVault.initialize, (address(manager), networkConfig.usdc, address(0)))
+        );
     }
 
-    /// @notice Test that constructor sets immutables correctly
-    function test_constructor_setsImmutables() public {
-        // Deploy a new vault to test constructor
-        USDCVault testVault = new USDCVault(address(manager), networkConfig.usdc, networkConfig.bitmorPool);
+    /// @notice Test that initializer sets state correctly
+    function test_initialize_setsState() public {
+        // Deploy a new vault via proxy to test initializer
+        USDCVault testVault = _deployUSDCVaultProxy(address(manager), networkConfig.usdc, networkConfig.bitmorPool);
 
         // Verify asset is set correctly
         assertEq(testVault.asset(), networkConfig.usdc, "i_asset should be set to USDC");

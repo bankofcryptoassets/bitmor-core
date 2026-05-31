@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IntegrationTestBase} from "../base/IntegrationTestBase.sol";
-import {IERC20Metadata} from "@openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {TestConstants as TC} from "../helpers/TestConstants.sol";
 import {DataTypes} from "@bitmor/libraries/types/DataTypes.sol";
 import {AaveTokenizedStrategy} from "@btcVault/TokenizedStrategy/AaveTokenizedStrategy.sol";
@@ -137,10 +137,10 @@ contract SetUpStateTest is IntegrationTestBase {
 
     // ============ Oracle: bvBTC Price Path ============
 
-    /// @notice Validates the AaveOracle returns a valid price for bvBTC (BTCVault shares)
-    /// @dev After ExecutePhase3, the oracle uses the real bvBTC pricing path:
+    /// @notice Validates the bvBTC pricing path is active after deployment
+    /// @dev After Phase 3, the oracle MUST use the real bvBTC pricing path:
     ///      price = btcPrice * BTCVault.convertToAssets(1e8) / 1e8
-    ///      This test validates the price is positive and related to BTC price.
+    ///      s_bvBTC must be set to btcVault address.
     function test_SetUpState_AaveOracle_bvBTCPrice() public view {
         address oracle = config.getOracle();
 
@@ -156,18 +156,14 @@ contract SetUpStateTest is IntegrationTestBase {
         // bvBTC price should be related to BTC price (within same order of magnitude)
         assertGt(bvBTCPrice, uint256(btcPrice) / 10, "bvBTC price should be in same range as BTC");
 
-        // Verify bvBTC path is active by checking s_bvBTC is set
+        // STRICT: Verify bvBTC path is active — s_bvBTC MUST be set to btcVault
         (bool okBvBTC, bytes memory bvBTCData) = oracle.staticcall(abi.encodeWithSignature("s_bvBTC()"));
-        if (okBvBTC && bvBTCData.length >= 32) {
-            address configuredBvBTC = abi.decode(bvBTCData, (address));
-            if (configuredBvBTC == address(btcVault)) {
-                // Real bvBTC path is active: price derived via convertToAssets
-                // With no deposits, convertToAssets(1e8) == 1e8, so bvBTC price == BTC price
-                assertEq(bvBTCPrice, uint256(btcPrice), "bvBTC price should equal BTC price when 1:1 ratio");
-            }
-        }
-        // If s_bvBTC is not set (pre-ExecutePhase3 reconfiguration), the direct oracle path is used,
-        // which also returns the BTC price. Either way, the test passes.
+        assertTrue(okBvBTC, "s_bvBTC() call should succeed");
+        address configuredBvBTC = abi.decode(bvBTCData, (address));
+        assertEq(configuredBvBTC, address(btcVault), "s_bvBTC must be set to btcVault after deployment");
+
+        // With no deposits, convertToAssets(1e8) == 1e8, so bvBTC price == BTC price
+        assertEq(bvBTCPrice, uint256(btcPrice), "bvBTC price should equal BTC price when 1:1 ratio");
     }
 
     // ============ Vault Configuration ============

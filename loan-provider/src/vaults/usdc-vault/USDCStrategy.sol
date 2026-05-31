@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {Address} from "@openzeppelin/utils/Address.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
-import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
-import {ERC20} from "@solady/tokens/ERC20.sol";
 
 import {Errors} from "../../libraries/helpers/Errors.sol";
 import {DataTypes} from "../../libraries/types/DataTypes.sol";
@@ -25,7 +25,7 @@ import {IUSDCVault} from "../../interfaces/IUSDCVault.sol";
 contract USDCStrategy is ISimpleStrategy {
     using Address for address;
     using FixedPointMathLib for uint256;
-    using SafeTransferLib for address;
+    using SafeERC20 for IERC20;
 
     /// @notice Thrown when a function restricted to the vault is called by another address
     error USDCStrategy__NotVault();
@@ -85,12 +85,12 @@ contract USDCStrategy is ISimpleStrategy {
         i_blp = IBLP(_blp);
         i_vault = _vault;
 
-        bytes memory data = i_vault.functionStaticCall(abi.encodeWithSignature("asset()"));
+        bytes memory data = _vault.functionStaticCall(abi.encodeWithSignature("asset()"));
         i_asset = abi.decode(data, (address));
 
         // Approving Aave and BLP to transfer funds from this address.
-        i_asset.safeApprove(address(i_aave), type(uint256).max);
-        i_asset.safeApprove(_vault, type(uint256).max);
+        IERC20(i_asset).forceApprove(address(i_aave), type(uint256).max);
+        IERC20(i_asset).forceApprove(_vault, type(uint256).max);
     }
 
     /// @notice Restricts function access to the owning vault contract
@@ -178,7 +178,7 @@ contract USDCStrategy is ISimpleStrategy {
      */
     function supply(uint256 amount) external onlyVault {
         // Transfer assets from vault to strategy
-        i_asset.safeTransferFrom(i_vault, address(this), amount);
+        IERC20(i_asset).safeTransferFrom(i_vault, address(this), amount);
 
         // Split 80% Aave and 20% Bitmor Lending Pool
         uint256 amountToDepositInAave = amount.mulDiv(s_externalAllocation, BASIS_POINT_SCALE);
@@ -201,7 +201,7 @@ contract USDCStrategy is ISimpleStrategy {
     function withdraw(uint256 amount) external onlyVault {
         _withdrawFunds(amount);
         // Transfer withdrawn assets to vault (msg.sender)
-        i_asset.safeTransfer(msg.sender, amount);
+        IERC20(i_asset).safeTransfer(msg.sender, amount);
     }
 
     /**
@@ -266,7 +266,7 @@ contract USDCStrategy is ISimpleStrategy {
      */
     function _getBalanceInAave() internal view returns (uint256 balance) {
         address aToken = IAave(i_aave).getReserveAToken(i_asset);
-        balance = ERC20(aToken).balanceOf(address(this));
+        balance = IERC20(aToken).balanceOf(address(this));
     }
 
     /**
@@ -276,7 +276,7 @@ contract USDCStrategy is ISimpleStrategy {
     function _getBalanceInBLP() internal view returns (uint256 balance) {
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
 
-        balance = ERC20(reserveData.aTokenAddress).balanceOf(address(this));
+        balance = IERC20(reserveData.aTokenAddress).balanceOf(address(this));
     }
 
     /**
@@ -285,7 +285,7 @@ contract USDCStrategy is ISimpleStrategy {
      */
     function _getWithdrawableBalanceInBLP() internal view returns (uint256 withdrawable) {
         DataTypes.ReserveData memory reserveData = i_blp.getReserveData(i_asset);
-        withdrawable = ERC20(i_asset).balanceOf(reserveData.aTokenAddress);
+        withdrawable = IERC20(i_asset).balanceOf(reserveData.aTokenAddress);
     }
 
     /**

@@ -2,8 +2,8 @@
 pragma solidity 0.8.30;
 
 import {ERC20} from "@solady/tokens/ERC20.sol";
-import {IERC20} from "@openzeppelin/interfaces/IERC20.sol";
-import {IAccessManaged} from "@openzeppelin/access/manager/IAccessManaged.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {IAccessManaged} from "@openzeppelin/contracts/access/manager/IAccessManaged.sol";
 
 import {Errors} from "@bitmor/libraries/helpers/Errors.sol";
 import {USDCVault} from "@bitmor/vaults/usdc-vault/USDCVault.sol";
